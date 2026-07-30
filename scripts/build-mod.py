@@ -3,7 +3,7 @@
 
 This repository root IS the mod (same layout as DramaticShapeVoxelMod).
 Packs via the official Gen1Recomp modkit so the ZIP has manifest.json at
-the archive root — never a wrapping folder, never the repo/workspace tree.
+the archive root - never a wrapping folder, never the repo/workspace tree.
 """
 from __future__ import annotations
 
@@ -69,6 +69,7 @@ FORBIDDEN_EXACT = {
     "scripts/bootstrap.sh",
     "scripts/build-mod.py",
     "scripts/build-mod.ps1",
+    "scripts/validate-manager-ascii.py",
     "tests/overworld_wild_spawns_test.lua",
 }
 
@@ -189,10 +190,34 @@ def pack_manual(out_zip: Path) -> None:
             zf.write(MOD_DIR / rel, arcname=rel)
 
 
+def verify_manager_ascii_in_zip(zf: zipfile.ZipFile) -> None:
+    """Re-check packaged manager metadata encoding after pack."""
+    for name in ("manifest.json", "mod.card", "options.lua"):
+        if name not in zf.namelist():
+            if name == "options.lua":
+                continue
+            fail(f"ZIP missing {name} at archive root")
+        raw = zf.read(name)
+        if raw.startswith(b"\xef\xbb\xbf"):
+            fail(f"ZIP {name}: UTF-8 BOM is not allowed")
+        if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
+            fail(f"ZIP {name}: UTF-16 is not allowed")
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError as err:
+            fail(f"ZIP {name}: invalid UTF-8 ({err})")
+        non = [c for c in text if ord(c) > 127]
+        if non:
+            uniq = sorted({f"U+{ord(c):04X}" for c in non})
+            fail(f"ZIP {name}: non-ASCII in manager metadata: {', '.join(uniq)}")
+        print(f"  {name}: UTF-8 no BOM, ASCII-only")
+
+
 def verify_zip(out_zip: Path, manifest: dict) -> None:
     with zipfile.ZipFile(out_zip, "r") as zf:
         names = list(zf.namelist())
         raw_manifest = zf.read("manifest.json") if "manifest.json" in names else None
+        verify_manager_ascii_in_zip(zf)
 
     if "manifest.json" not in names:
         fail("ZIP missing manifest.json at archive root")
@@ -272,10 +297,26 @@ def verify_zip(out_zip: Path, manifest: dict) -> None:
         print(f"  - {n}")
 
 
+def run_ascii_guard() -> None:
+    """Fail before pack if manager metadata has BOM / invalid UTF-8 / non-ASCII."""
+    script = ROOT / "scripts" / "validate-manager-ascii.py"
+    if not script.is_file():
+        fail(f"missing ASCII guard: {script}")
+    cmd = [sys.executable, str(script)]
+    print("==>", " ".join(cmd))
+    try:
+        subprocess.check_call(cmd, cwd=str(ROOT))
+    except subprocess.CalledProcessError as err:
+        fail(f"validate-manager-ascii failed with exit {err.returncode}")
+
+
 def main() -> int:
     if not (MOD_DIR / "manifest.json").is_file():
         fail(f"missing mod manifest at repo root: {MOD_DIR / 'manifest.json'}")
     manifest = read_manifest()
+
+    # Manager-facing metadata must be ASCII-safe UTF-8 (no BOM) before pack.
+    run_ascii_guard()
 
     if DIST.exists():
         shutil.rmtree(DIST)

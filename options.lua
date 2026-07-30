@@ -1,4 +1,4 @@
--- Option schema for Overworld Wild Pokémon.
+-- Option schema for Overworld Wild Pokemon.
 -- Loaded via mod.options:define() from main.lua and referenced by
 -- manifest options_schema for Mod Manager lazy-load.
 --
@@ -7,10 +7,10 @@
 return {
   {
     key = "enabled",
-    label = "Show wild Pokémon in the overworld",
+    label = "Show wild Pokemon in the overworld",
     type = "toggle",
     default = true,
-    description = "Spawn visible wild Pokémon in eligible overworld encounter areas.",
+    description = "Spawn visible wild Pokemon in eligible overworld encounter areas.",
   },
   {
     key = "max_spawns",
@@ -20,7 +20,7 @@ return {
     choices = {
       { "3", 3 }, { "4", 4 }, { "5", 5 }, { "6", 6 }, { "8", 8 },
     },
-    description = "Maximum visible wild Pokémon on the current map at once.",
+    description = "Maximum visible wild Pokemon on the current map at once.",
   },
   {
     key = "spawn_every_steps",
@@ -40,7 +40,7 @@ return {
     choices = {
       { "1", 1 }, { "2", 2 }, { "3", 3 }, { "4", 4 }, { "5", 5 },
     },
-    description = "How many wild Pokémon to try spawning when entering a map.",
+    description = "How many wild Pokemon to try spawning when entering a map.",
   },
   {
     key = "suppress_random_grass",
@@ -57,6 +57,6 @@ return {
     choices = {
       { "SOLID", 1.0 }, { "TUCKED", 0.88 }, { "FAINT", 0.72 },
     },
-    description = "Opacity of overworld wild Pokémon sprites.",
+    description = "Opacity of overworld wild Pokemon sprites.",
   },
 }

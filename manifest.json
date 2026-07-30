@@ -1,6 +1,6 @@
 {
   "id": "overworld_wild_spawns",
-  "name": "Overworld Wild Pokémon",
+  "name": "Overworld Wild Pokemon",
   "version": "0.1.0",
   "api": 2,
   "entry": "main.lua",
@@ -14,5 +14,5 @@
   "permissions": ["engine_internals"],
   "affects_link": false,
   "options_schema": "options.lua",
-  "description": "Spawns visible wild Pokémon in eligible overworld encounter areas."
+  "description": "Spawns visible wild Pokemon in eligible overworld encounter areas."
 }
