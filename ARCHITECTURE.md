@@ -73,8 +73,9 @@ enabled=false / map.exited / save.loaded ──► clearAll
 ```
 
 Logic never calls `love.graphics`. Rendering never queues battles.
-`optional_dependencies: ["DRAMATIC_SHAPE"]` documents Voxel compatibility
-without requiring it.
+Voxel coexistence uses the shared entity `pose()` contract only — no
+`optional_dependencies` or invented permissions beyond `engine_internals`
+(required for `SpriteRenderer`).
 
 ## Vanilla grass rolls
 
