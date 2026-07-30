@@ -11,4 +11,5 @@ scripts/build-mod.py
 scripts/build-mod.ps1
 scripts/validate-manager-ascii.py
 ARCHITECTURE.md
+MANUAL_TEST.md
 .gitignore

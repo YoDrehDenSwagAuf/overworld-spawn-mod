@@ -8,22 +8,23 @@ return {
   differences = {
     changed = {
       "maps with grass encounter tables can also show tangible wild Pokemon",
-      "optional suppression of vanilla random grass rolls while visible spawns are on",
+      "vanilla grass rolls are suppressed only after visible spawns initialize successfully",
     },
     added = {
       "data-driven overworld wild Pokemon entities on grass cells",
+      "fail-safe that keeps classic grass encounters if the spawn system is not ready",
       "collision/step trigger that starts BattleState.newWild for the spawn",
-      "dual-mode rendering: SpriteRenderer 2D cards and VoxelScene billboards",
+      "dual-mode rendering: SpriteRenderer 2D cards and optional VoxelScene billboards",
       "Mod Manager option: Show wild Pokemon in the overworld",
+      "debug_logging and force_test_spawn options for diagnosis",
     },
     known = {
       "species art prefers the player's decoded battle front pics baked to 16x16; "
         .. "otherwise a bundled placeholder silhouette is used",
       "spawns are runtime-only and reset when you leave and re-enter a map",
-      "only grass encounter areas are supported in 0.1.0 (not water/cave tables yet)",
+      "only grass encounter areas are supported in 0.2.0 (not water/cave tables yet)",
       "Dramatic Shape overworld battles cull non-player entities from the arena shot",
-      "vanilla grass rolls are suppressed via the public encounter.roll hook when enabled; "
-        .. "fishing, surf, static, scripted, and trainer encounters are untouched",
+      "fishing, surf, static, scripted, and trainer encounters are untouched",
     },
   },
   credits = {

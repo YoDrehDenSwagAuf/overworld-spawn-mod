@@ -1,8 +1,12 @@
 # Overworld Wild Pokemon
 
-Visible wild Pokemon appear in eligible overworld encounter areas (grass in 0.1.0) using each map's real encounter table. Walk onto one to start that exact wild battle.
+Visible wild Pokemon appear in eligible overworld encounter areas (grass in 0.2.0) using each map's real encounter table. Walk onto one to start that exact wild battle.
 
 **This mod does not change the player spawn point.** It never teleports, warps, or repositions the player on load, map enter, or enable.
+
+**Fail-safe:** classic random grass encounters stay active until the visible spawn system successfully initializes on the current map. Enabling the mod can never leave you with neither visible nor vanilla wild encounters.
+
+The Pokédex is never required. Spawns work from the earliest point the original game allows wild grass encounters (typically **Route 1**).
 
 Compatible with vanilla 2D Gen1Recomp; optionally coexists with Dramatic Shape Voxel mode (`DRAMATIC_SHAPE`).
 
@@ -30,7 +34,7 @@ Do **not** import a raw GitHub source archive as the mod. Use the release ZIP fr
 
 ## Install
 
-1. Build or download `overworld_wild_spawns-0.1.0.zip` (or `overworld_wild_spawns.zip`).
+1. Build or download `overworld_wild_spawns-0.2.0.zip` (or `overworld_wild_spawns.zip`).
 2. In Gen1Recomp, open the **Mod Manager** (F10) and import the ZIP.
 3. Enable **Overworld Wild Pokemon** with the normal Mod Manager switch.
 
@@ -60,7 +64,7 @@ pwsh ./scripts/build-mod.ps1
 
 Output:
 
-- `dist/overworld_wild_spawns-0.1.0.zip`
+- `dist/overworld_wild_spawns-0.2.0.zip`
 - `dist/overworld_wild_spawns.zip` (alias)
 
 ### Symlink / developer install
@@ -82,11 +86,13 @@ Output:
 - **Show wild Pokemon in the overworld** - spawn visible wild Pokemon in eligible areas
 - **MAX SPAWNS** - cap per map (default 5)
 - **SPAWN RATE** - steps between spawn attempts (default NORMAL / 8)
-- **ON ENTER** - initial wave size (default 3)
-- **HIDE RANDOM GRASS** - suppress vanilla random grass rolls (default on)
+- **ON ENTER** - initial wave size (default 1)
+- **HIDE RANDOM GRASS** - suppress vanilla random grass rolls only after visible spawns are ready (default on)
 - **SPRITE FADE** - opacity so mons read as tucked into grass
+- **DEBUG LOG** - verbose map/tile/spawn diagnostics (Pokédex status is diag-only)
+- **FORCE TEST SPAWN** - force one diagnostic spawn from the map encounter table
 
-## Supported encounter areas (0.1.0)
+## Supported encounter areas (0.2.0)
 
 - Grass tiles on maps with a grass encounter table (`rate > 0` and slots)
 
@@ -96,10 +102,14 @@ Spawns never appear on blocked tiles, warps/exits, the player, or occupied cells
 
 ## Classic random encounters
 
-When the mod is enabled and **HIDE RANDOM GRASS** is on:
+When the mod is enabled, **HIDE RANDOM GRASS** is on, **and** the visible spawn
+system has successfully initialized on the current map:
 
 - Vanilla **grass** random rolls are suppressed via the public `encounter.roll` hook
 - Encounters instead start by contacting a visible wild Pokemon
+
+If initialization fails (no encounter data, no eligible tiles, renderer error,
+entity registration failure, etc.), vanilla grass rolls remain active.
 
 Still fully vanilla:
 
@@ -152,9 +162,15 @@ python3 tools/modkit.py validate mods/overworld_wild_spawns
 python3 tools/modkit.py lint mods/overworld_wild_spawns
 ```
 
+## Manual test (new game, before Pokédex)
+
+See [MANUAL_TEST.md](MANUAL_TEST.md). Short version: enable mod → new game →
+walk onto **Route 1** before getting the Pokédex → confirm a visible wild
+Pokemon → contact it → disable the option → confirm classic grass rolls return.
+
 ## Known limitations
 
-- Grass-only spawn zones in 0.1.0
+- Grass-only spawn zones in 0.2.0
 - Species art falls back to a bundled placeholder when battle fronts are unavailable
-- Complex flee/aggro AI is not implemented; mons stand or wander slowly in grass
+- Complex flee/aggro AI is not implemented; mons stand in grass by default
 - Player must supply their own legal Gen 1 ROM for Gen1Recomp asset decode

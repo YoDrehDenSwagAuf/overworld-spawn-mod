@@ -1,4 +1,5 @@
--- Grass-cell discovery and free-tile picking for the active runtime map.
+-- Grass / encounter-tile discovery using the same logical test as Gen1Recomp:
+-- Map:isGrassCell(cx, cy). Rejection reasons are returned for diagnostics.
 local V = ...
 
 local Grass = {}
@@ -18,9 +19,19 @@ function Grass.cells(map)
   return out
 end
 
-local function occupied(entities, x, y, ignore)
+local function occupiedNonPassable(entities, x, y, ignore)
   for _, e in ipairs(entities or {}) do
-    if e ~= ignore then
+    if e ~= ignore and not e.passable then
+      if e.cellX == x and e.cellY == y then return true end
+      if e.targetX == x and e.targetY == y then return true end
+    end
+  end
+  return false
+end
+
+local function occupiedByWildSpawn(entities, x, y, ignore)
+  for _, e in ipairs(entities or {}) do
+    if e ~= ignore and e.overworldWildSpawn then
       if e.cellX == x and e.cellY == y then return true end
       if e.targetX == x and e.targetY == y then return true end
     end
@@ -40,46 +51,119 @@ function Grass.chebyshev(ax, ay, bx, by)
   return chebyshev(ax, ay, bx, by)
 end
 
--- Valid grass tile: in bounds grass, not occupied, not a warp.
--- minDist/maxDist are optional Chebyshev constraints vs the player.
-function Grass.isValidSpawnTile(map, entities, player, x, y, minDist, maxDist, ignore)
-  if not map or not map.isGrassCell then return false end
+-- Returns ok, reason. Reasons match the fail-safe diagnostics contract.
+function Grass.validateSpawnTile(map, entities, player, x, y, minDist, maxDist, ignore)
+  if not map then
+    return false, "rejected: outside map"
+  end
   local w = map.widthCells or 0
   local h = map.heightCells or 0
-  if x < 0 or y < 0 or x >= w or y >= h then return false end
-  if not map:isGrassCell(x, y) then return false end
-  if occupied(entities, x, y, ignore) then return false end
-  if map.warpAtCell and map:warpAtCell(x, y) then return false end
+  if x == nil or y == nil or x < 0 or y < 0 or x >= w or y >= h then
+    return false, "rejected: outside map"
+  end
+  if map.inBounds and not map:inBounds(x, y) then
+    return false, "rejected: outside map"
+  end
+  if not map.isGrassCell or not map:isGrassCell(x, y) then
+    return false, "rejected: not encounter tile"
+  end
+  if map.isWalkableCell and not map:isWalkableCell(x, y) then
+    return false, "rejected: blocked tile"
+  end
+  if map.warpAtCell and map:warpAtCell(x, y) then
+    return false, "rejected: warp tile"
+  end
+  if occupiedNonPassable(entities, x, y, ignore) then
+    return false, "rejected: occupied by NPC"
+  end
+  if occupiedByWildSpawn(entities, x, y, ignore) then
+    return false, "rejected: occupied by NPC"
+  end
   local px = player and player.cellX
   local py = player and player.cellY
   if px ~= nil and py ~= nil then
+    if x == px and y == py then
+      return false, "rejected: occupied by player"
+    end
     local d = chebyshev(x, y, px, py)
-    if minDist and d < minDist then return false end
-    if maxDist and d > maxDist then return false end
-  end
-  return true
-end
-
-function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist)
-  grassList = grassList or Grass.cells(map)
-  if #grassList == 0 then return nil end
-  rng = rng or (love and love.math and love.math.random) or math.random
-  minDist = minDist or 0
-
-  local candidates = {}
-  for _, cell in ipairs(grassList) do
-    if Grass.isValidSpawnTile(map, entities, player, cell.x, cell.y,
-                              minDist, maxDist, nil) then
-      candidates[#candidates + 1] = cell
+    if minDist and d < minDist then
+      return false, "rejected: too close to player"
+    end
+    if maxDist and d > maxDist then
+      return false, "rejected: outside search radius"
     end
   end
-  if #candidates == 0 then return nil end
+  return true, nil
+end
+
+function Grass.isValidSpawnTile(map, entities, player, x, y, minDist, maxDist, ignore)
+  local ok = Grass.validateSpawnTile(map, entities, player, x, y, minDist, maxDist, ignore)
+  return ok
+end
+
+-- Progressive search: prefer configured min/max, then relax minDist down to 1,
+-- then expand maxDist so small maps are not left with zero candidates.
+function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist, onReject)
+  grassList = grassList or Grass.cells(map)
+  if #grassList == 0 then
+    if onReject then onReject("rejected: not encounter tile") end
+    return nil, nil, "rejected: not encounter tile"
+  end
+  rng = rng or (love and love.math and love.math.random) or math.random
+  minDist = minDist or 0
+  maxDist = maxDist or 12
+
+  local function collect(useMin, useMax)
+    local candidates = {}
+    for _, cell in ipairs(grassList) do
+      local ok, reason = Grass.validateSpawnTile(
+        map, entities, player, cell.x, cell.y, useMin, useMax, nil)
+      if ok then
+        candidates[#candidates + 1] = cell
+      elseif onReject and reason then
+        onReject(reason)
+      end
+    end
+    return candidates
+  end
+
+  local candidates = collect(minDist, maxDist)
+
+  if #candidates == 0 then
+    for relax = minDist - 1, 1, -1 do
+      candidates = collect(relax, maxDist)
+      if #candidates > 0 then
+        minDist = relax
+        break
+      end
+    end
+  end
+
+  if #candidates == 0 then
+    local expand = maxDist
+    local mapSpan = 0
+    if map then
+      mapSpan = math.max(map.widthCells or 0, map.heightCells or 0)
+    end
+    local hardMax = math.max(maxDist, mapSpan, 32)
+    while #candidates == 0 and expand < hardMax do
+      expand = expand + 4
+      candidates = collect(1, expand)
+    end
+    if #candidates > 0 then
+      maxDist = expand
+    end
+  end
+
+  if #candidates == 0 then
+    return nil, nil, "rejected: no eligible tiles"
+  end
+
   local pick = candidates[rng(#candidates)]
-  return pick.x, pick.y
+  return pick.x, pick.y, nil
 end
 
 -- Neighboring grass tile for simple wander (stays in encounter zone).
--- Uses maxDist vs player; does not enforce spawn minDist so mons can drift closer.
 function Grass.pickNeighbor(map, entities, entity, player, maxDist, rng)
   local dirs = {
     { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 },

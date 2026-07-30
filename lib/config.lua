@@ -7,17 +7,21 @@ local Config = {}
 Config.ENCOUNTER_BUCKETS = { 51, 102, 141, 166, 191, 216, 229, 242, 253, 256 }
 
 -- Spawn-system defaults (tile distances are walk-grid cells).
+-- min/max distances are soft constraints: pickers expand the search when a
+-- small map would otherwise reject every tile.
 Config.DEFAULTS = {
   enabled = true,
   max_spawns = 5,
   spawn_every_steps = 8,
-  initial_spawns = 3,
+  initial_spawns = 1, -- minimal vertical path: one standing spawn first
   min_player_distance = 4,
   max_player_distance = 12,
-  wander_every_steps = 3,
+  wander_every_steps = 0, -- off until standing spawn path is proven
   suppress_random_grass = true,
   sprite_opacity = 0.88,
   grass_tuck_px = 2,
+  debug_logging = false,
+  force_test_spawn = false,
 }
 
 -- Entity lifecycle states for encounter safety.
@@ -33,7 +37,8 @@ function Config.schema()
   if not source then
     error("overworld_wild_spawns: options.lua is missing", 0)
   end
-  local chunk, err = load(source, "@" .. V.path .. "/options.lua")
+  local loadcode = loadstring or load
+  local chunk, err = loadcode(source, "@" .. V.path .. "/options.lua")
   if not chunk then
     error(("overworld_wild_spawns: options.lua did not compile: %s"):format(tostring(err)), 0)
   end
@@ -52,6 +57,10 @@ end
 
 function Config.isEnabled(mod)
   return Config.get(mod, "enabled") == true
+end
+
+function Config.debug(mod)
+  return Config.get(mod, "debug_logging") == true
 end
 
 return Config

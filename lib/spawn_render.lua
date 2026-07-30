@@ -1,9 +1,8 @@
 -- Presentational half of overworld_wild_spawns.
--- Builds sprite ids and SpawnEntity objects that satisfy pose()/draw() for
--- both vanilla 2D SpriteRenderer and Dramatic Shape VoxelScene billboards.
+-- Base Gen1Recomp path: SpriteRenderer + pose()/draw() on OverworldState.entities.
+-- DramaticShapeVoxelMod is optional: when VOXEL is active it billboards via pose().
 --
--- Requires engine_internals: SpriteRenderer is the same class Player/NPC use.
--- Logic never draws. This module never queues battles.
+-- This module never queues battles and never requires DRAMATIC_SHAPE.
 local V = ...
 local Config = V.require("config")
 
@@ -13,18 +12,24 @@ SpawnRender.__index = SpawnRender
 local CELL = 16
 
 local function tryRequire(name)
-  local ok, mod = pcall(require, name)
-  if ok then return mod end
-  return nil
+  local ok, modOrErr = pcall(require, name)
+  if ok then return modOrErr, nil end
+  return nil, modOrErr
 end
 
-local function bakeSheet(species, sourcePath)
+local function bakeSheet(species, sourcePath, log)
   if not (love and love.graphics and love.image) then return nil end
-  local Assets = tryRequire("src.render.Assets")
-  if not Assets then return nil end
+  local Assets, assetsErr = tryRequire("src.render.Assets")
+  if not Assets then
+    if log then log("Assets unavailable for bake: %s", tostring(assetsErr)) end
+    return nil
+  end
 
   local ok, src = pcall(Assets.image, sourcePath)
-  if not ok or not src then return nil end
+  if not ok or not src then
+    if log then log("bake source missing for %s: %s", tostring(species), tostring(src)) end
+    return nil
+  end
 
   local sw, sh = src:getDimensions()
   if sw < 1 or sh < 1 then return nil end
@@ -45,7 +50,10 @@ local function bakeSheet(species, sourcePath)
     return nil
   end
 
-  pcall(love.filesystem.createDirectory, "overworld_wild_spawns-cache")
+  local dirOk, dirErr = pcall(love.filesystem.createDirectory, "overworld_wild_spawns-cache")
+  if not dirOk and log then
+    log("cache dir create failed: %s", tostring(dirErr))
+  end
   local rel = "overworld_wild_spawns-cache/" .. tostring(species):lower() .. ".png"
   local fileData = idata:encode("png")
   if not fileData then return nil end
@@ -58,8 +66,16 @@ function SpawnRender.new(mod)
   self.mod = mod
   self.spriteIds = {}
   self.placeholderId = nil
+  self.rendererMode = "base" -- "base" | unavailable
+  self.lastError = nil
   self:_ensurePlaceholder()
   return self
+end
+
+function SpawnRender:_log(fmt, ...)
+  if Config.debug(self.mod) then
+    self.mod.log:info("[owwild/render] " .. fmt, ...)
+  end
 end
 
 function SpawnRender:_ensurePlaceholder()
@@ -77,6 +93,52 @@ function SpawnRender:_ensurePlaceholder()
   return id
 end
 
+-- Probe that the base Gen1Recomp SpriteRenderer path is usable. Does not
+-- require DramaticShapeVoxelMod.
+function SpawnRender:checkAvailable(game)
+  self.lastError = nil
+  local SpriteRenderer, err = tryRequire("src.render.SpriteRenderer")
+  if not SpriteRenderer then
+    self.rendererMode = "unavailable"
+    self.lastError = "SpriteRenderer unavailable: " .. tostring(err)
+    return false, self.lastError
+  end
+  if type(SpriteRenderer.new) ~= "function" then
+    self.rendererMode = "unavailable"
+    self.lastError = "SpriteRenderer.new missing"
+    return false, self.lastError
+  end
+  local placeholder = self:_ensurePlaceholder()
+  local spriteDef = game and game.data and game.data.sprites and game.data.sprites[placeholder]
+  if not spriteDef then
+    -- Content may not have been merged into this game table yet (tests inject
+    -- data). Still treat the class as available; makeEntity stamps defs.
+    spriteDef = self.mod.content.sprites:get(placeholder)
+  end
+  if not spriteDef then
+    self.rendererMode = "unavailable"
+    self.lastError = "placeholder sprite missing"
+    return false, self.lastError
+  end
+  self.rendererMode = "base"
+  -- Optional Dramatic Shape coexistence is detected only for diagnostics.
+  local dramatic = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
+  if dramatic then
+    self:_log("DRAMATIC_SHAPE present; using shared pose()/entities billboard path")
+  else
+    self:_log("base Gen1Recomp 2D renderer path active")
+  end
+  return true, self.rendererMode
+end
+
+function SpawnRender:isEntityRegistered(ow, entity)
+  if not ow or not ow.entities or not entity then return false end
+  for _, e in ipairs(ow.entities) do
+    if e == entity then return true end
+  end
+  return false
+end
+
 function SpawnRender:spriteIdFor(species, game)
   if self.spriteIds[species] then return self.spriteIds[species] end
 
@@ -90,15 +152,15 @@ function SpawnRender:spriteIdFor(species, game)
               and game.data.pokemon[species]
   local front = def and def.spriteFront
   if front then
-    local baked = bakeSheet(species, front)
+    local baked = bakeSheet(species, front, function(fmt, ...)
+      self:_log(fmt, ...)
+    end)
     if baked then
       self.mod.content.sprites:register(id, {
         image = baked,
         frames = 1,
         trueColor = true,
       })
-      -- Stamp into the live data table so SpriteRenderer can resolve
-      -- immediately without waiting for a rematch merge.
       if game.data.sprites then
         game.data.sprites[id] = {
           image = baked, frames = 1, trueColor = true, id = id,
@@ -133,6 +195,7 @@ function Entity.new(game, mod, render, record)
   self.mod = mod
   self.render = render
   self.tuck = Config.DEFAULTS.grass_tuck_px
+  self.registeredInWorld = false
 
   local spriteId = render:spriteIdFor(record.species, game)
   local spriteDef = game.data.sprites and game.data.sprites[spriteId]
@@ -140,9 +203,28 @@ function Entity.new(game, mod, render, record)
     spriteId = render:_ensurePlaceholder()
     spriteDef = game.data.sprites and game.data.sprites[spriteId]
   end
-  assert(spriteDef, "overworld_wild_spawns: placeholder sprite missing")
-  local SpriteRenderer = require("src.render.SpriteRenderer")
+  if not spriteDef then
+    local contentDef = mod.content.sprites:get(spriteId)
+    if contentDef then
+      spriteDef = {
+        image = contentDef.image or mod.assets:path("spawn_placeholder.png"),
+        frames = contentDef.frames or 1,
+        trueColor = contentDef.trueColor ~= false,
+        id = spriteId,
+      }
+      game.data.sprites = game.data.sprites or {}
+      game.data.sprites[spriteId] = spriteDef
+    end
+  end
+  if not spriteDef then
+    error("overworld_wild_spawns: placeholder sprite missing", 0)
+  end
+  local SpriteRenderer, err = tryRequire("src.render.SpriteRenderer")
+  if not SpriteRenderer then
+    error("SpriteRenderer unavailable: " .. tostring(err), 0)
+  end
   self.sprite = SpriteRenderer.new(spriteDef, self.spawnId)
+  self.spriteId = spriteId
   return self
 end
 

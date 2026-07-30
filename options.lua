@@ -36,7 +36,7 @@ return {
     key = "initial_spawns",
     label = "ON ENTER",
     type = "choice",
-    default = 3,
+    default = 1,
     choices = {
       { "1", 1 }, { "2", 2 }, { "3", 3 }, { "4", 4 }, { "5", 5 },
     },
@@ -47,7 +47,7 @@ return {
     label = "HIDE RANDOM GRASS",
     type = "toggle",
     default = true,
-    description = "Suppress vanilla random grass encounters while visible spawns are active.",
+    description = "Suppress vanilla random grass encounters only after visible spawns are ready.",
   },
   {
     key = "sprite_opacity",
@@ -58,5 +58,19 @@ return {
       { "SOLID", 1.0 }, { "TUCKED", 0.88 }, { "FAINT", 0.72 },
     },
     description = "Opacity of overworld wild Pokemon sprites.",
+  },
+  {
+    key = "debug_logging",
+    label = "DEBUG LOG",
+    type = "toggle",
+    default = false,
+    description = "Log map/encounter/tile/spawn diagnostics. Pokedex status is diag-only.",
+  },
+  {
+    key = "force_test_spawn",
+    label = "FORCE TEST SPAWN",
+    type = "toggle",
+    default = false,
+    description = "Force one visible spawn from the map encounter table for diagnosis.",
   },
 }
