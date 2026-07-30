@@ -13,7 +13,7 @@
 - Optional suppression of vanilla random grass rolls via public `encounter.roll` hook.
 - Dual-mode rendering: vanilla 2D SpriteRenderer and VoxelScene billboards when Dramatic Shape is active.
 - Map/save lifecycle cleanup; spawns are runtime-only and never written into the playthrough save.
-- Packaging scripts that pack with Gen1Recomp modkit and verify `manifest.json` at the ZIP root.
+- Repository root is the mod (DramaticShapeVoxelMod layout). Release ZIP is built with `modkit pack` so `manifest.json` sits at the archive root — no wrapping folder, no `mods/` / `scripts/` / `.git`.
 
 ### Notes
 

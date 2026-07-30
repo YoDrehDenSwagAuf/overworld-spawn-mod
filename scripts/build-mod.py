@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Build dist/overworld_wild_spawns-<version>.zip for Gen1Recomp import.
 
-Requires gen1recomp/ (see ./scripts/bootstrap.sh). Packs via the official
-modkit, then verifies archive layout and re-runs the modkit validator.
+This repository root IS the mod (same layout as DramaticShapeVoxelMod).
+Packs via the official Gen1Recomp modkit so the ZIP has manifest.json at
+the archive root — never a wrapping folder, never the repo/workspace tree.
 """
 from __future__ import annotations
 
@@ -15,9 +16,10 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MOD_DIR = ROOT / "mods" / "overworld_wild_spawns"
+MOD_DIR = ROOT  # repo root == mod root (DramaticShape layout)
 DIST = ROOT / "dist"
-ENGINE = ROOT / "gen1recomp"
+# Engine clone lives under .deps/ so modkit never packs it (dot-dirs skipped).
+ENGINE = ROOT / ".deps" / "gen1recomp"
 
 REQUIRED_MANIFEST_FIELDS = (
     "id",
@@ -30,7 +32,7 @@ REQUIRED_MANIFEST_FIELDS = (
     "game_version",
 )
 
-# Runtime files to include when falling back to a manual zip.
+# Runtime files allowed in a manual fallback zip.
 INCLUDE_PREFIXES = (
     "manifest.json",
     "main.lua",
@@ -40,22 +42,34 @@ INCLUDE_PREFIXES = (
     "CHANGELOG.md",
     "lib/",
     "assets/",
+    "data/",
 )
-EXCLUDE_EXACT = {
-    "tests/overworld_wild_spawns_test.lua",
-    ".modkitignore",
-}
+
+# Paths that must never appear in a release ZIP (repo / GitHub / tooling).
 FORBIDDEN_PREFIXES = (
     ".git/",
+    ".github/",
     "tests/",
+    "scripts/",
+    "mods/",
     "__pycache__/",
-    ".modkit/",
+    ".deps/",
+    "gen1recomp/",
+    "DramaticShapeVoxelMod/",
+    "dist/",
 )
 FORBIDDEN_NAMES = {
     ".git",
     ".gitignore",
     ".DS_Store",
     ".modkitignore",
+    "ARCHITECTURE.md",
+}
+FORBIDDEN_EXACT = {
+    "scripts/bootstrap.sh",
+    "scripts/build-mod.py",
+    "scripts/build-mod.ps1",
+    "tests/overworld_wild_spawns_test.lua",
 }
 
 
@@ -95,14 +109,14 @@ def ensure_engine() -> Path:
     modkit = ENGINE / "tools" / "modkit.py"
     if not modkit.is_file():
         fail(
-            "gen1recomp/tools/modkit.py not found; run ./scripts/bootstrap.sh "
+            ".deps/gen1recomp/tools/modkit.py not found; run ./scripts/bootstrap.sh "
             "first so the real Gen1Recomp modkit can pack and validate"
         )
     return modkit
 
 
 def ensure_linked() -> Path:
-    """Ensure the mod is visible under gen1recomp/mods for modkit."""
+    """Ensure the mod (repo root) is visible under gen1recomp/mods."""
     target = ENGINE / "mods" / "overworld_wild_spawns"
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.is_symlink() or target.exists():
@@ -130,7 +144,7 @@ def run_modkit(*args: str) -> None:
 
 def should_include(rel: str) -> bool:
     name = Path(rel).name
-    if name in FORBIDDEN_NAMES or rel in EXCLUDE_EXACT:
+    if name in FORBIDDEN_NAMES or rel in FORBIDDEN_EXACT:
         return False
     for prefix in FORBIDDEN_PREFIXES:
         if rel == prefix.rstrip("/") or rel.startswith(prefix):
@@ -144,8 +158,28 @@ def should_include(rel: str) -> bool:
 def pack_manual(out_zip: Path) -> None:
     files = []
     for base, _dirs, names in os.walk(MOD_DIR):
+        base_path = Path(base)
+        # Never walk into nested clones / build output / VCS.
+        try:
+            rel_dir = base_path.relative_to(MOD_DIR).as_posix()
+        except ValueError:
+            continue
+        if rel_dir != ".":
+            top = rel_dir.split("/", 1)[0]
+            if top in {
+                ".git",
+                ".deps",
+                "gen1recomp",
+                "DramaticShapeVoxelMod",
+                "dist",
+                "scripts",
+                "tests",
+                "mods",
+                ".github",
+            }:
+                continue
         for name in names:
-            full = Path(base) / name
+            full = base_path / name
             rel = full.relative_to(MOD_DIR).as_posix()
             if should_include(rel):
                 files.append(rel)
@@ -157,24 +191,49 @@ def pack_manual(out_zip: Path) -> None:
 
 def verify_zip(out_zip: Path, manifest: dict) -> None:
     with zipfile.ZipFile(out_zip, "r") as zf:
-        names = zf.namelist()
+        names = list(zf.namelist())
         raw_manifest = zf.read("manifest.json") if "manifest.json" in names else None
 
     if "manifest.json" not in names:
         fail("ZIP missing manifest.json at archive root")
+    if "main.lua" not in names and (manifest.get("entry") or "main.lua") not in names:
+        fail("ZIP missing main.lua / entry at archive root")
+    if "mod.card" not in names:
+        fail("ZIP missing mod.card at archive root")
     assert raw_manifest is not None
 
     # Reject a single outer folder wrapper (e.g. overworld-spawn-mod-main/).
-    top = {n.split("/", 1)[0] for n in names if n and not n.startswith(".modkit/")}
+    meaningful = [n for n in names if n and not n.startswith(".modkit/")]
+    top = {n.split("/", 1)[0] for n in meaningful}
+    if "manifest.json" not in names:
+        fail("ZIP missing manifest.json at archive root")
+    # If every path is under one directory and that dir's manifest exists
+    # but root manifest does not, it is the forbidden wrapper layout.
     if len(top) == 1:
         only = next(iter(top))
-        if f"{only}/manifest.json" in names and "manifest.json" not in names:
+        if only != "manifest.json" and f"{only}/manifest.json" in names:
             fail("ZIP has an outer root folder; manifest must sit at archive root")
-        if only.endswith("/") or (only in names and all("/" in n or n == only for n in names)):
-            pass
-        if all(n == only or n.startswith(only + "/") for n in names if not n.startswith(".modkit/")):
-            if f"{only}/manifest.json" in names:
-                fail("ZIP has an outer root folder; manifest must sit at archive root")
+
+    # Repo / GitHub / tooling must never ship.
+    for name in names:
+        rel = name.rstrip("/")
+        base = Path(rel).name
+        if base in FORBIDDEN_NAMES:
+            fail(f"ZIP contains forbidden path: {name}")
+        for prefix in FORBIDDEN_PREFIXES:
+            if rel == prefix.rstrip("/") or rel.startswith(prefix):
+                fail(f"ZIP contains forbidden path: {name}")
+        if rel in FORBIDDEN_EXACT:
+            fail(f"ZIP contains forbidden path: {name}")
+        # Nested repo layout leftovers
+        if "/mods/" in f"/{rel}/" or rel.startswith("mods/"):
+            fail(f"ZIP contains mods/ path: {name}")
+        if "/scripts/" in f"/{rel}/" or rel.startswith("scripts/"):
+            fail(f"ZIP contains scripts/ path: {name}")
+        if "/.git/" in f"/{rel}/" or rel.startswith(".git"):
+            fail(f"ZIP contains .git path: {name}")
+        if "/.github/" in f"/{rel}/" or rel.startswith(".github"):
+            fail(f"ZIP contains .github path: {name}")
 
     try:
         parsed = json.loads(raw_manifest.decode("utf-8"))
@@ -193,18 +252,18 @@ def verify_zip(out_zip: Path, manifest: dict) -> None:
     if schema and schema not in names:
         fail(f"ZIP missing options_schema file: {schema}")
 
-    for name in names:
-        rel = name.rstrip("/")
-        base = Path(rel).name
-        if base in FORBIDDEN_NAMES or rel.startswith(".git/") or "/.git/" in f"/{rel}/":
-            fail(f"ZIP contains forbidden path: {name}")
-        if rel.startswith("tests/") or "/tests/" in f"/{rel}/":
-            fail(f"ZIP contains test/dev path: {name}")
-        if rel.startswith("__pycache__/") or "/__pycache__/" in f"/{rel}/":
-            fail(f"ZIP contains cache path: {name}")
+    # Simulate Gen1Recomp LauncherMods.locateRoot: prefer flat root.
+    if "manifest.json" not in names:
+        fail("Gen1Recomp loader would not find manifest.json at ZIP root")
 
     print("verify ok:")
-    print(f"  manifest.json at ZIP root: yes")
+    print("  manifest.json at ZIP root: yes")
+    print("  main.lua at ZIP root: yes")
+    print("  mod.card at ZIP root: yes")
+    print("  no outer root folder: yes")
+    print("  no scripts/: yes")
+    print("  no mods/: yes")
+    print("  no .git / .github: yes")
     print(f"  entry: {entry}")
     if schema:
         print(f"  options_schema: {schema}")
@@ -214,8 +273,8 @@ def verify_zip(out_zip: Path, manifest: dict) -> None:
 
 
 def main() -> int:
-    if not MOD_DIR.is_dir():
-        fail(f"missing mod directory: {MOD_DIR}")
+    if not (MOD_DIR / "manifest.json").is_file():
+        fail(f"missing mod manifest at repo root: {MOD_DIR / 'manifest.json'}")
     manifest = read_manifest()
 
     if DIST.exists():
@@ -224,7 +283,7 @@ def main() -> int:
     out_name = f"{manifest['id']}-{manifest['version']}.zip"
     out_zip = DIST / out_name
 
-    # Validate source tree with the real Gen1Recomp modkit before packing.
+    # Validate + pack with the real Gen1Recomp modkit (flat archive root).
     run_modkit("validate", "mods/overworld_wild_spawns")
     run_modkit("lint", "mods/overworld_wild_spawns")
     run_modkit("pack", "mods/overworld_wild_spawns", "-o", str(out_zip))
@@ -233,11 +292,15 @@ def main() -> int:
         fail(f"expected output missing: {out_zip}")
     verify_zip(out_zip, manifest)
 
-    # Re-validate the packed tree (still linked from source; pack already
-    # ran validate --strict). Echo success for the agent/report.
+    # Re-validate after pack.
     run_modkit("validate", "mods/overworld_wild_spawns")
 
+    # Also write an unversioned alias matching the user-facing name.
+    alias = DIST / f"{manifest['id']}.zip"
+    shutil.copy2(out_zip, alias)
+
     print(f"wrote {out_zip}")
+    print(f"wrote {alias}")
     print("modkit validator: ok")
     print("manifest.json at ZIP root: confirmed")
     return 0
