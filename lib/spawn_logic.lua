@@ -1,8 +1,8 @@
 -- Logic half of overworld_wild_spawns: map enter, periodic spawn, wander,
--- touch → battle. Rendering is delegated to SpawnRender; this file never draws.
+-- touch -> battle. Rendering is delegated to SpawnRender; this file never draws.
 --
 -- This mod NEVER teleports, warps, or repositions the player. "Spawn" means
--- creating visible wild Pokémon entities in the overworld only.
+-- creating visible wild Pokemon entities in the overworld only.
 local V = ...
 local Config = V.require("config")
 local EncounterPick = V.require("encounter_pick")

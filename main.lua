@@ -1,9 +1,9 @@
--- Overworld Wild Pokémon: visible wild Pokémon on grass tiles.
+-- Overworld Wild Pokemon: visible wild Pokemon on grass tiles.
 --
 -- Architecture
---   lib/spawn_logic.lua   — map enter, periodic spawn, wander, touch → wild battle
---   lib/spawn_render.lua  — pose()/draw() entities for 2D + VoxelScene
---   options.lua           — Mod Manager option schema (manifest options_schema)
+--   lib/spawn_logic.lua   - map enter, periodic spawn, wander, touch -> wild battle
+--   lib/spawn_render.lua  - pose()/draw() entities for 2D + VoxelScene
+--   options.lua           - Mod Manager option schema (manifest options_schema)
 --
 -- Logic never draws. Rendering never starts battles. Both share Config.
 -- Entities ride OverworldState.entities so Dramatic Shape's VoxelScene
@@ -13,8 +13,8 @@
 -- This mod does NOT change the player spawn point, warp the player, or
 -- teleport on map enter / save load / mod enable.
 --
--- Mod Manager disable → entry chunk never loaded (vanilla).
--- Option enabled=false → clear entities, unwrap hooks, restore vanilla rolls.
+-- Mod Manager disable -> entry chunk never loaded (vanilla).
+-- Option enabled=false -> clear entities, unwrap hooks, restore vanilla rolls.
 
 return function(mod)
   local V = { mod = mod, path = mod.path }

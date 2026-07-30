@@ -13,6 +13,14 @@ if (-not (Test-Path $ManifestPath)) {
   throw "missing $ManifestPath (repo root must be the mod)"
 }
 
+$AsciiGuard = Join-Path $PSScriptRoot "validate-manager-ascii.py"
+if (-not (Test-Path $AsciiGuard)) {
+  throw "missing ASCII guard: $AsciiGuard"
+}
+Write-Host "==> python3 scripts/validate-manager-ascii.py"
+& python3 $AsciiGuard
+if ($LASTEXITCODE -ne 0) { throw "validate-manager-ascii failed" }
+
 $manifest = Get-Content -Raw -Path $ManifestPath | ConvertFrom-Json
 if ($manifest.id -ne "overworld_wild_spawns") {
   throw "manifest id must be overworld_wild_spawns"

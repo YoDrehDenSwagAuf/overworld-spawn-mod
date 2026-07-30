@@ -14,7 +14,7 @@ local modMeta = run.loader.mods["overworld_wild_spawns"]
 T.check(modMeta ~= nil, "loader discovered mod by manifest id")
 T.eq(modMeta.state, "loaded", "mod reached loaded state")
 T.eq(modMeta.manifest.id, "overworld_wild_spawns", "manifest id")
-T.eq(modMeta.manifest.name, "Overworld Wild Pokémon", "manifest name")
+T.eq(modMeta.manifest.name, "Overworld Wild Pokemon", "manifest name")
 T.eq(modMeta.manifest.version, "0.1.0", "manifest version")
 T.eq(modMeta.manifest.entry, "main.lua", "entry path")
 T.eq(modMeta.manifest.category, "MECHANIC", "category")
@@ -45,7 +45,7 @@ end
 T.check(enabledRow ~= nil, "enabled option present")
 T.eq(enabledRow.type, "toggle", "enabled is toggle")
 T.eq(enabledRow.default, true, "enabled defaults to true")
-T.eq(enabledRow.label, "Show wild Pokémon in the overworld", "enabled label")
+T.eq(enabledRow.label, "Show wild Pokemon in the overworld", "enabled label")
 T.eq(Config.get(modApi, "enabled"), true, "options:get(enabled) is true")
 T.eq(Config.DEFAULTS.max_spawns, 5, "default max_spawns")
 T.eq(Config.DEFAULTS.min_player_distance, 4, "default min distance")
@@ -392,7 +392,7 @@ T.check(modMeta.manifest.entry == "main.lua", "manifest entry is main.lua")
 T.check(modMeta.manifest.options_schema == "options.lua",
         "manifest options_schema is options.lua")
 T.eq(modMeta.manifest.description,
-     "Spawns visible wild Pokémon in eligible overworld encounter areas.",
+     "Spawns visible wild Pokemon in eligible overworld encounter areas.",
      "manifest description matches")
 run.release()
 T.finish("overworld_wild_spawns")
