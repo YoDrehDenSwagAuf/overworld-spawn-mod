@@ -45,32 +45,38 @@ Earliest suitable grass map verified from Gen1Recomp encounter data / tests:
     - Preview must report the overworld path kind (`overworld`,
       `generated_overworld`, or `placeholder`) — not pretend a battle
       front sprite is a successful overworld representation.
-12. Run **TEST SPAWN**.
+12. Run **TEST SPAWN**. It must **not** raise
+    `sprites: content is frozen after load`.
 13. Read the result text: either all 7 steps passed, or the exact failing step:
 
     ```text
     1 Species resolved
-    2 Asset resolved
-    3 Spawn tile resolved
-    4 Entity created
-    5 Entity registered
-    6 Renderer registered
+    2 Sprite registered
+    3 Runtime asset loaded
+    4 Spawn tile resolved
+    5 Entity created
+    6 Entity registered
     7 Entity visible
     ```
 
-14. If step 3 fails with no valid tile, enable
+14. If step 2 fails, the species has no pre-registered overworld sprite
+    (Test spawn should be DISABLED in the detail view).
+15. If step 4 fails with no valid tile, enable
     **Allow test spawn outside encounter areas** and retry Test spawn.
-15. Interpret:
+16. Interpret:
 
     | Observation | Likely fault |
     |---|---|
     | Encounter species/slots = 0 | Encounter data |
     | Eligible tiles = 0, species > 0 | Tile detection |
     | Loaded assets = 0 / N | Asset resolution |
-    | Test spawn fails at step 4 | Entity creation |
-    | Test spawn fails at step 5 | World registration |
-    | Test spawn fails at step 6–7 | Rendering / visibility |
+    | Test spawn fails at step 2 | Sprite not registered at mod load |
+    | Test spawn fails at step 3 | Runtime asset load/bake |
+    | Test spawn fails at step 5 | Entity creation |
+    | Test spawn fails at step 6 | World registration |
+    | Test spawn fails at step 7 | Rendering / visibility |
     | Outside-encounter test works, normal does not | Encounter-tile detection |
+    | `content is frozen after load` | Architecture bug — report |
 
 16. Optional: enable **Show valid spawn tiles** and compare green markers to grass.
     Legend: green=valid, red=blocked, blue=warp, orange=NPC/player, yellow=distance.

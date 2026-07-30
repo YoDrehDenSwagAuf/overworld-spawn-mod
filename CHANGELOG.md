@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.1
+
+### Fixed
+
+- **Content registry freeze crash on Test spawn.** `spriteIdFor()` no longer
+  calls `mod.content.sprites:register` at runtime. Gen1Recomp freezes content
+  registries after mod load; registering from the preview browser / test spawn
+  path caused `sprites: content is frozen after load`.
+- All overworld sprite definitions are registered once during mod
+  initialization (`SpawnRender:registerContent()`), then looked up via an
+  immutable `speciesSpriteIds` table.
+- Missing pre-registered sprites return a controlled error (preview shows
+  UNAVAILABLE / Test spawn DISABLED) instead of crashing.
+- Runtime 16×16 sheet baking is cache-only and never mutates content registries.
+
+### Notes
+
+- Pokédex remains unused as a gate. DramaticShapeVoxelMod remains optional.
+- Does **not** change the player spawn point, warp, or teleport the player.
+
 ## 0.3.0
 
 ### Added

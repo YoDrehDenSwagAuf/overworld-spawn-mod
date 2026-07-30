@@ -20,7 +20,7 @@ The loader exposes a sandboxed `mod` API (`src/mods/Loader.lua`, API version 2):
 | `mod.events:on` | `map.entered`, `map.exited`, `world.stepped`, `battle.ended`, `save.loaded`, `save.created`, `mod.options_changed` |
 | `mod.hooks:wrap` | `encounter.roll` (optional grass suppress), `movement.collision` (bump safety) |
 | `mod.world` | `overworld()`, `queueScript({ {"start_battle","wild",species,level} })` |
-| `mod.content.sprites` | Placeholder + optional baked 16×16 species sheets |
+| `mod.content.sprites` | Placeholder + per-species overworld sheets — **register only during mod load** |
 | `mod.options` | `enabled`, caps, rate, opacity, suppress, `dev_mode`, HUD/overlay toggles (`options.lua`) |
 | `mod.content.screens` | `OverworldSpawnPreview` / detail (dev browser) |
 | `mod.content.render_pipelines` | present-only `owwild_debug_hud` |
@@ -71,6 +71,27 @@ Coordinate cheat-sheet:
 | 2D blit | `(px - camX, py - camY - 4)` |
 | Voxel billboard feet | `(px + 8, groundAt + lift, py + 8)` |
 
+## Content vs runtime (registry freeze)
+
+Gen1Recomp freezes every content registry after all mods finish loading
+(`Loader:load` → merge → `registry:freeze()`). After that point
+`register` / `override` / `patch` / `remove` raise
+`content is frozen after load`.
+
+```
+LOAD PHASE (main.lua, before freeze)
+  options → SpawnRender:registerContent()
+    placeholder + one SPRITE_OW_WILD_<species> per content.pokemon entry
+    speciesSpriteIds[species] = spriteId   (immutable afterward)
+    contentRegistrationOpen = false
+  UI screens / render_pipelines / event hooks
+
+RUNTIME (map / preview / testSpawn)
+  spriteIdFor(species) → lookup only
+  getRuntimeImage(species) → optional bake/cache, never registry writes
+  makeEntity / testSpawn / preview browser use pre-registered IDs only
+```
+
 ## This mod's split
 
 ```
@@ -80,7 +101,8 @@ world.stepped ──► touch? start_battle : despawn-far / wander / trySpawn
 trySpawn ──► EncounterPick + Grass.pickFree ──► SpawnRender.makeEntity
 makeEntity ──► insert into ow.entities  (2D draw + Voxel billboard)
 OPTIONS activate / Start Menu ──► PreviewBrowser (dev_mode)
-testSpawn ──► 7-phase diagnosis (species→asset→tile→create→register→renderer→visible)
+testSpawn ──► 7-phase diagnosis
+  (species→spriteId→runtime asset→tile→create→register→visible)
 enabled=false / map.exited / save.loaded ──► clearAll
 ```
 

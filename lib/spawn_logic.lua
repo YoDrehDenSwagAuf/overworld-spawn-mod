@@ -19,11 +19,11 @@ SpawnLogic.__index = SpawnLogic
 
 local TEST_STEPS = {
   "Species resolved",
-  "Asset resolved",
+  "Sprite registered",
+  "Runtime asset loaded",
   "Spawn tile resolved",
   "Entity created",
   "Entity registered",
-  "Renderer registered",
   "Entity visible",
 }
 
@@ -596,29 +596,34 @@ function SpawnLogic:testSpawn(species, opts)
   local py = ow and ow.player and ow.player.cellY
   local pokedexBefore = game.save and game.save.pokedex
 
-  -- 1) Species resolved
+  -- 1) Species resolved (ROM / content data only — never Pokédex)
   local mon = game.data.pokemon and game.data.pokemon[species]
   if not mon and not (self.mod.content.pokemon and self.mod.content.pokemon:get(species)) then
     return fail(1, "unknown species: " .. tostring(species))
   end
   pass(1, species)
 
-  -- 2) Asset resolved (refresh cache; placeholder still counts as resolved
-  --    fallback, but is reported distinctly from a real overworld asset)
+  -- 2) Pre-registered sprite ID (pure lookup; no content registry writes)
   self.render.assetInfo[species] = nil
-  self.render.spriteIds[species] = nil
-  local info = self.render:assetStatusFor(species, game)
-  local spriteId = self.render:spriteIdFor(species, game)
+  self.render.runtimeImageCache[species] = nil
+  local spriteId, spriteErr = self.render:spriteIdFor(species)
   if not spriteId then
-    return fail(2, info.lastError or "asset missing")
+    return fail(2, spriteErr or ("No pre-registered sprite for species " .. tostring(species)))
   end
-  -- Re-read after spriteIdFor may have baked/generated a sheet.
-  info = self.render:assetStatusFor(species, game)
-  pass(2, info.status)
+  pass(2, spriteId)
 
-  -- 3) Spawn tile resolved
+  -- 3) Runtime asset available (load/cache only — never registry mutation)
+  local runtime = self.render:getRuntimeImage(species, game)
+  if not runtime or runtime.status ~= "LOADED" then
+    return fail(3, (runtime and runtime.status and ("Sprite asset could not be loaded (" .. tostring(runtime.status) .. ")"))
+      or "Sprite asset could not be loaded.")
+  end
+  local info = self.render:assetStatusFor(species, game)
+  pass(3, runtime.kind or info.status)
+
+  -- 4) Spawn tile resolved
   if not ow or not ow.map or not ow.player then
-    return fail(3, "No valid test spawn position on the current map.")
+    return fail(4, "No valid test spawn position on the current map.")
   end
   local allowOutside = Config.allowOutsideEncounter(self.mod)
   local x, y, reason
@@ -633,7 +638,7 @@ function SpawnLogic:testSpawn(species, opts)
       function(r) self.state:noteReject(r) end)
   end
   if not x then
-    return fail(3, reason or "No valid test spawn position on the current map.")
+    return fail(4, reason or "No valid test spawn position on the current map.")
   end
   -- Hard bans still apply even with allowOutside.
   local okTile, tileReason
@@ -645,11 +650,11 @@ function SpawnLogic:testSpawn(species, opts)
       ow.map, ow.entities, ow.player, x, y, 1, nil, nil)
   end
   if not okTile then
-    return fail(3, tileReason or "No valid test spawn position on the current map.")
+    return fail(4, tileReason or "No valid test spawn position on the current map.")
   end
-  pass(3, ("(%d,%d)"):format(x, y))
+  pass(4, ("(%d,%d)"):format(x, y))
 
-  -- 4-7 via trySpawn pieces for accurate phase reporting
+  -- 5) Entity created (uses pre-registered sprite IDs only)
   local level = opts.level or 5
   local id = string.format("owwild_test_%d", self.nextId)
   self.nextId = self.nextId + 1
@@ -666,21 +671,20 @@ function SpawnLogic:testSpawn(species, opts)
   local okCreate, entityOrErr = pcall(self.render.makeEntity, self.render, game, record)
   if not okCreate then
     DebugLog.error(self.mod, "stack/error: %s", tostring(entityOrErr))
-    return fail(4, entityOrErr)
+    return fail(5, entityOrErr)
   end
   if not entityOrErr then
-    return fail(4, "makeEntity returned nil")
+    return fail(5, "makeEntity returned nil")
   end
-  pass(4, id)
+  pass(5, id)
   local entity = entityOrErr
 
+  -- 6) Entity registered in the world entity list
   local attached, attachErr = self:_attach(entity)
   if not attached then
     DebugLog.error(self.mod, "Entity registration failed: %s", tostring(attachErr))
-    return fail(5, attachErr or "Entity registration returned nil.")
+    return fail(6, attachErr or "Entity registration returned nil.")
   end
-  pass(5, "registered")
-
   if not entity.sprite or not entity.pose or not entity.draw then
     self:_removeEntity(entity)
     return fail(6, "renderer contract missing pose/draw/sprite")
@@ -689,9 +693,9 @@ function SpawnLogic:testSpawn(species, opts)
     self:_removeEntity(entity)
     return fail(6, self.render.lastError or "renderer not ready")
   end
-  pass(6, self.render.rendererMode)
+  pass(6, "registered")
 
-  -- Visible = registered + asset + non-zero opacity + sensible scale + on map.
+  -- 7) Visible = registered + asset + non-zero opacity + on map.
   local opacity = Config.get(self.mod, "sprite_opacity") or 1
   if opacity <= 0 then
     self:_removeEntity(entity)

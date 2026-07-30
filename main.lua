@@ -55,6 +55,14 @@ return function(mod)
   Config.defineOptions(mod)
 
   local render = SpawnRender.new(mod)
+  -- LOAD PHASE: all sprite content registration must finish here, before
+  -- Gen1Recomp freezes content registries after mod load.
+  local regOk, regErr = render:registerContent()
+  if not regOk then
+    error("overworld_wild_spawns: sprite content registration failed: "
+          .. tostring(regErr), 0)
+  end
+
   local logic = SpawnLogic.new(mod, render)
   local hud = DebugHud.new(mod, logic)
   local overlay = DebugOverlay.new(mod, logic)
@@ -62,14 +70,16 @@ return function(mod)
   logic:attachDevTools(hud, overlay, browser)
 
   -- Register public UI / present surfaces (safe even when dev_mode is off;
-  -- availability / menu rows gate on the live option).
+  -- availability / menu rows gate on the live option). Still LOAD PHASE.
   hud:register()
   browser:register()
 
-  mod.log:info("overworld_wild_spawns loaded (enabled=%s dev=%s debug=%s)",
+  mod.log:info("overworld_wild_spawns loaded (enabled=%s dev=%s debug=%s sprites=%d missing=%d)",
                tostring(Config.isEnabled(mod)),
                tostring(Config.devMode(mod)),
-               tostring(Config.debug(mod)))
+               tostring(Config.debug(mod)),
+               tonumber(render.registeredCount) or 0,
+               tonumber(render.missingCount) or 0)
 
   -- ------- events (always registered; logic no-ops when feature is off)
 
@@ -214,7 +224,7 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "0.3.0"
+  mod.exports.version = "0.3.1"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.hud = hud

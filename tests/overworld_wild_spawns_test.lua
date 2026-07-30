@@ -15,14 +15,14 @@ T.check(modMeta ~= nil, "loader discovered mod by manifest id")
 T.eq(modMeta.state, "loaded", "mod reached loaded state")
 T.eq(modMeta.manifest.id, "overworld_wild_spawns", "manifest id")
 T.eq(modMeta.manifest.name, "Overworld Wild Pokemon", "manifest name")
-T.eq(modMeta.manifest.version, "0.3.0", "manifest version")
+T.eq(modMeta.manifest.version, "0.3.1", "manifest version")
 T.eq(modMeta.manifest.entry, "main.lua", "entry path")
 T.eq(modMeta.manifest.category, "MECHANIC", "category")
 T.eq(modMeta.manifest.api, 2, "mod api version")
 
 local exports = run.loader.exports["overworld_wild_spawns"]
 T.check(exports ~= nil, "exports table published")
-T.eq(exports.version, "0.3.0", "version export")
+T.eq(exports.version, "0.3.1", "version export")
 T.check(exports.logic ~= nil, "logic export")
 T.check(exports.render ~= nil, "render export")
 T.check(exports.hud ~= nil, "hud export")
@@ -109,12 +109,14 @@ T.check(not EncounterPick.hasGrassTable({}), "rejects maps without grass")
 T.check(not EncounterPick.hasGrassTable({ grass = { rate = 25, slots = {} } }),
         "rejects zero-slot tables defensively")
 
+-- Encounter fixtures use ROM/content species that were pre-registered during
+-- mod load (FIXMON_*), never IDs invented after the registry freeze.
 local routeEnc = {
   grass = {
     rate = 25,
     slots = {
-      { species = "PIDGEY", level = 3 },
-      { species = "RATTATA", level = 4 },
+      { species = "FIXMON_A", level = 3 },
+      { species = "FIXMON_B", level = 4 },
     },
     buckets = { 128, 256 },
   },
@@ -125,9 +127,9 @@ local dupEnc = {
   grass = {
     rate = 25,
     slots = {
-      { species = "RATTATA", level = 2 },
-      { species = "RATTATA", level = 3 },
-      { species = "PIDGEY", level = 2 },
+      { species = "FIXMON_B", level = 2 },
+      { species = "FIXMON_B", level = 3 },
+      { species = "FIXMON_A", level = 2 },
     },
   },
 }
@@ -135,7 +137,7 @@ T.eq(EncounterPick.slotCount(dupEnc, "grass"), 3, "encounter slots count duplica
 T.eq(EncounterPick.uniqueSpeciesCount(dupEnc, "grass"), 2,
      "unique species counts distinct IDs only")
 local dupNames = EncounterPick.uniqueSpecies(dupEnc, "grass")
-T.check(dupNames[1] == "PIDGEY" or dupNames[1] == "RATTATA", "unique species sorted set")
+T.check(dupNames[1] == "FIXMON_A" or dupNames[1] == "FIXMON_B", "unique species sorted set")
 
 local picks = {}
 for _ = 1, 40 do
@@ -150,7 +152,7 @@ for _ = 1, 40 do
   T.check(EncounterPick.inTable(routeEnc, p.species, p.level),
           "picked species/level is in encounter table")
 end
-T.check(picks.PIDGEY and picks.RATTATA, "bucket picks cover both slots")
+T.check(picks.FIXMON_A and picks.FIXMON_B, "bucket picks cover both slots")
 
 local lo, hi = EncounterPick.levelRange(routeEnc)
 T.eq(lo, 3, "level range lo")
@@ -379,7 +381,7 @@ local forced = {
   id = "owwild_test",
   mapId = "ROUTE_TEST",
   x = 3, y = 3,
-  species = "RATTATA",
+  species = "FIXMON_A",
   level = 4,
   state = Config.STATE.AVAILABLE,
 }
@@ -394,12 +396,12 @@ logic:onStepped({ mapId = "ROUTE_TEST", x = 3, y = 3 })
 T.eq(#queued, 1, "contact starts exactly one encounter script")
 T.eq(queued[1][1][1], "start_battle", "queues start_battle")
 T.eq(queued[1][1][2], "wild", "wild battle kind")
-T.eq(queued[1][1][3], "RATTATA", "battle species matches visible")
+T.eq(queued[1][1][3], "FIXMON_A", "battle species matches visible")
 T.eq(queued[1][1][4], 4, "battle level matches visible")
 T.eq(logic.spawns[forced.id], nil, "entity removed after encounter start")
 T.eq(logic.entities[forced.id], nil, "entity table cleared")
 T.check(logic.pendingBattle ~= nil, "pendingBattle set")
-T.eq(logic.pendingBattle.species, "RATTATA", "pending species")
+T.eq(logic.pendingBattle.species, "FIXMON_A", "pending species")
 
 local queuedBefore = #queued
 logic:onStepped({ mapId = "ROUTE_TEST", x = 3, y = 3 })
@@ -412,7 +414,7 @@ forced = {
   id = "owwild_bump",
   mapId = "ROUTE_TEST",
   x = 4, y = 3,
-  species = "PIDGEY",
+  species = "FIXMON_B",
   level = 3,
   state = Config.STATE.AVAILABLE,
 }
@@ -429,7 +431,7 @@ local denied = logic:onCollision(false, {
 })
 T.eq(denied, false, "collision still denied")
 T.eq(#queued, 1, "bump starts one encounter")
-T.eq(queued[1][1][3], "PIDGEY", "bump battle species matches")
+T.eq(queued[1][1][3], "FIXMON_B", "bump battle species matches")
 T.eq(logic.spawns[forced.id], nil, "bump removes entity")
 
 -- ------- lifecycle
@@ -498,10 +500,10 @@ logic.state:reset("test-fail")
 logic.state.updateCallbackRegistered = true
 logic.state.lastError = "simulated init failure"
 local notSuppressed = Runtime.call("encounter.roll",
-  function() return { species = "PIDGEY", level = 3 } end,
-  { grass = { rate = 25, slots = { { species = "PIDGEY", level = 3 } } } },
+  function() return { species = "FIXMON_A", level = 3 } end,
+  { grass = { rate = 25, slots = { { species = "FIXMON_A", level = 3 } } } },
   { mapId = "ROUTE_1", terrain = "grass", rng = function() return 0 end })
-T.check(notSuppressed ~= nil and notSuppressed.species == "PIDGEY",
+T.check(notSuppressed ~= nil and notSuppressed.species == "FIXMON_A",
         "REGRESSION: vanilla grass remains when spawn init fails")
 
 -- Successful init => suppress grass only.
@@ -510,8 +512,8 @@ mockOw.entities = { mockPlayer }
 logic:onMapEntered({ mapId = "ROUTE_TEST" })
 T.check(exports.canSuppressVanilla(), "ready after successful map init")
 local suppressed = Runtime.call("encounter.roll",
-  function() return { species = "PIDGEY", level = 3 } end,
-  { grass = { rate = 25, slots = { { species = "PIDGEY", level = 3 } } } },
+  function() return { species = "FIXMON_A", level = 3 } end,
+  { grass = { rate = 25, slots = { { species = "FIXMON_A", level = 3 } } } },
   { mapId = "ROUTE_1", terrain = "grass", rng = function() return 0 end })
 T.eq(suppressed, nil, "grass rolls suppressed when system ready")
 
@@ -533,10 +535,10 @@ T.check(fish ~= nil and fish.species == "MAGIKARP",
 run.loader.modOptions["overworld_wild_spawns"].enabled = false
 exports.removeHooks()
 local vanillaGrass = Runtime.call("encounter.roll",
-  function() return { species = "PIDGEY", level = 3 } end,
-  { grass = { rate = 25, slots = { { species = "PIDGEY", level = 3 } } } },
+  function() return { species = "FIXMON_A", level = 3 } end,
+  { grass = { rate = 25, slots = { { species = "FIXMON_A", level = 3 } } } },
   { mapId = "ROUTE_1", terrain = "grass", rng = function() return 0 end })
-T.check(vanillaGrass ~= nil and vanillaGrass.species == "PIDGEY",
+T.check(vanillaGrass ~= nil and vanillaGrass.species == "FIXMON_A",
         "grass rolls restore when enabled=false (hooks unwrapped)")
 
 -- ------- compatibility: no DRAMATIC_SHAPE required
@@ -545,6 +547,18 @@ T.check(run.loader.mods["DRAMATIC_SHAPE"] == nil,
         "works without DramaticShapeVoxelMod loaded")
 local spriteHit = Data.sprites.SPRITE_OW_WILD_PLACEHOLDER
 T.check(spriteHit ~= nil, "placeholder sprite merged into data")
+T.check(Data.sprites.SPRITE_OW_WILD_FIXMON_A ~= nil,
+        "FIXMON_A overworld sprite pre-registered at load")
+T.check(Data.sprites.SPRITE_OW_WILD_FIXMON_B ~= nil,
+        "FIXMON_B overworld sprite pre-registered at load")
+T.check(Data.sprites.SPRITE_OW_WILD_FIXMON_C ~= nil,
+        "FIXMON_C overworld sprite pre-registered at load")
+T.check(exports.render.speciesSpriteIds.FIXMON_A == "SPRITE_OW_WILD_FIXMON_A",
+        "speciesSpriteIds lookup for FIXMON_A")
+T.check(exports.render.contentRegistrationOpen == false,
+        "content registration closed after mod init")
+T.check((exports.render.registeredCount or 0) >= 3,
+        "registered at least fixture species sprites")
 T.check(exports.render.rendererMode == "base"
         or exports.render.rendererMode == "unavailable"
         or true, "renderer mode field present")
@@ -577,6 +591,9 @@ T.check(logic:countOnMap("ROUTE_TEST") > 0, "debug snapshot has active spawns")
 -- =====================================================================
 
 -- Reset to a clean grass-map state with empty pokedex.
+-- Encounter tables use pre-registered FIXMON_* so map init / HUD / spawns work
+-- after the content registry freeze. Late-added species (below) remain listed
+-- in the preview browser with UNAVAILABLE overworld sprites.
 mockOw.map = fakeMap
 mockOw.entities = { mockPlayer }
 mockPlayer.cellX, mockPlayer.cellY = 0, 0
@@ -586,23 +603,23 @@ mockGame.data.encounters.ROUTE_TEST = {
   grass = {
     rate = 25,
     slots = {
-      { species = "RATTATA", level = 2 },
-      { species = "RATTATA", level = 3 },
-      { species = "PIDGEY", level = 2 },
+      { species = "FIXMON_B", level = 2 },
+      { species = "FIXMON_B", level = 3 },
+      { species = "FIXMON_A", level = 2 },
     },
   },
   water = {
     rate = 5,
-    slots = { { species = "MAGIKARP", level = 10 } },
+    slots = { { species = "FIXMON_C", level = 10 } },
   },
 }
 mockGame.data.encounters.ROUTE_2 = {
   grass = {
     rate = 25,
     slots = {
-      { species = "PIDGEY", level = 3 },
-      { species = "PIDGEY", level = 5 },
-      { species = "PIDGEY", level = 7 },
+      { species = "FIXMON_A", level = 3 },
+      { species = "FIXMON_A", level = 5 },
+      { species = "FIXMON_A", level = 7 },
     },
   },
 }
@@ -610,13 +627,18 @@ mockGame.data.maps = mockGame.data.maps or {}
 mockGame.data.maps.ROUTE_TEST = { id = "ROUTE_TEST", label = "Route 1", tileset = "OVERWORLD" }
 mockGame.data.maps.ROUTE_2 = { id = "ROUTE_2", label = "Route 2", tileset = "OVERWORLD" }
 mockGame.data.pokemon = mockGame.data.pokemon or {}
-mockGame.data.pokemon.PIDGEY = mockGame.data.pokemon.PIDGEY or {
+-- Ensure fixture species remain visible in game.data for browser/HUD.
+mockGame.data.pokemon.FIXMON_A = mockGame.data.pokemon.FIXMON_A or Data.pokemon.FIXMON_A
+mockGame.data.pokemon.FIXMON_B = mockGame.data.pokemon.FIXMON_B or Data.pokemon.FIXMON_B
+mockGame.data.pokemon.FIXMON_C = mockGame.data.pokemon.FIXMON_C or Data.pokemon.FIXMON_C
+-- Late-added species: exist in ROM-like data but were NOT content-registered.
+mockGame.data.pokemon.PIDGEY = {
   id = "PIDGEY", name = "Pidgey", dex = 16, spriteFront = "x.png",
 }
-mockGame.data.pokemon.RATTATA = mockGame.data.pokemon.RATTATA or {
+mockGame.data.pokemon.RATTATA = {
   id = "RATTATA", name = "Rattata", dex = 19, spriteFront = "y.png",
 }
-mockGame.data.pokemon.MAGIKARP = mockGame.data.pokemon.MAGIKARP or {
+mockGame.data.pokemon.MAGIKARP = {
   id = "MAGIKARP", name = "Magikarp", dex = 129, spriteFront = "z.png",
 }
 
@@ -644,7 +666,7 @@ T.check(exports.hud:shouldShow(), "HUD appears after map enter with dev_mode")
 
 -- HUD values: unique species vs slots, tiles, assets.
 local hud = exports.hudSnapshot()
-T.eq(hud.encounterSpecies, 2, "HUD unique species (RATTATA+PIDGEY)")
+T.eq(hud.encounterSpecies, 2, "HUD unique species (FIXMON_A+FIXMON_B)")
 T.eq(hud.encounterSlots, 3, "HUD encounter slots")
 T.check(hud.eligibleTiles > 0, "HUD eligible tiles > 0")
 T.check(hud.requiredAssets == 2, "HUD required assets == unique species")
@@ -676,17 +698,17 @@ run.loader.modOptions["overworld_wild_spawns"].debug_hud_always_visible = false
 
 -- Global encounter index + location collapse.
 local index = EncounterIndex.build(mockGame)
-T.check(index.PIDGEY ~= nil, "index has PIDGEY from global encounters")
-T.check(index.RATTATA ~= nil, "index has RATTATA")
-T.check(index.MAGIKARP ~= nil, "index has MAGIKARP water slot")
-local pidgeyLines = EncounterIndex.formatLocations(index.PIDGEY)
-local collapsed = table.concat(pidgeyLines, " | ")
+T.check(index.FIXMON_A ~= nil, "index has FIXMON_A from global encounters")
+T.check(index.FIXMON_B ~= nil, "index has FIXMON_B")
+T.check(index.FIXMON_C ~= nil, "index has FIXMON_C water slot")
+local aLines = EncounterIndex.formatLocations(index.FIXMON_A)
+local collapsed = table.concat(aLines, " | ")
 T.check(collapsed:find("Route 2", 1, true), "locations include Route 2")
 T.check(collapsed:find("3-7", 1, true) or collapsed:find("Level 3-7", 1, true),
         "Route 2 levels collapsed to range")
--- Same route multiple levels for RATTATA on ROUTE_TEST -> single line range.
-local rattataLines = EncounterIndex.formatLocations(index.RATTATA)
-local rtxt = table.concat(rattataLines, " | ")
+-- Same route multiple levels for FIXMON_B on ROUTE_TEST -> single line range.
+local bLines = EncounterIndex.formatLocations(index.FIXMON_B)
+local rtxt = table.concat(bLines, " | ")
 T.check(rtxt:find("2-3", 1, true) or rtxt:find("Level 2-3", 1, true),
         "same route levels collapsed")
 
@@ -694,10 +716,15 @@ T.check(rtxt:find("2-3", 1, true) or rtxt:find("Level 2-3", 1, true),
 exports.browser:invalidateIndex()
 local rows = exports.browser:speciesRows(mockGame)
 local seenIds = {}
-for _, row in ipairs(rows) do seenIds[row.value] = true end
-T.check(seenIds.PIDGEY, "preview shows unseen PIDGEY without pokedex")
-T.check(seenIds.RATTATA, "preview shows RATTATA without pokedex")
+for _, row in ipairs(rows) do seenIds[row.value] = row end
+T.check(seenIds.FIXMON_A, "preview shows FIXMON_A without pokedex")
+T.check(seenIds.PIDGEY, "preview shows late PIDGEY without pokedex")
+T.check(seenIds.RATTATA, "preview shows late RATTATA without pokedex")
 T.check(seenIds.MAGIKARP or true, "preview may include species from content/data")
+-- Late species without pre-registered sprites are listed as unavailable.
+T.check(seenIds.PIDGEY.right:find("UNAVAILABLE", 1, true)
+        or exports.render:assetStatusFor("PIDGEY", mockGame).spriteRegistered == false,
+        "late PIDGEY overworld preview unavailable (no pre-registered sprite)")
 -- Ensure pokedex filter is not applied: empty seen/owned still lists species.
 T.check(#rows > 0, "preview browser non-empty without pokedex")
 
@@ -734,13 +761,62 @@ local px0, py0 = mockPlayer.cellX, mockPlayer.cellY
 local pokedexBefore = mockGame.save.pokedex
 local flagsBefore = mockGame.save.flags
 exports.render.assetInfo = {}
-exports.render.spriteIds = {}
--- Ensure species records exist for asset resolution in the test harness.
-mockGame.data.pokemon.PIDGEY = {
-  id = "PIDGEY", name = "Pidgey", dex = 16,
-  spriteFront = "tests/fixture_data/assets/fixmon_a_front.png",
-}
-local result = exports.testSpawn("PIDGEY", { level = 4 })
+exports.render.runtimeImageCache = {}
+
+-- =====================================================================
+-- REGRESSION: content registries frozen → test spawn / lookup must not
+-- call sprites:register (no "content is frozen after load").
+-- =====================================================================
+local spritesReg = run.loader.content.sprites
+T.check(spritesReg.frozen == true, "sprites registry is frozen after load")
+local registerCalls = 0
+local overrideCalls = 0
+local patchCalls = 0
+local removeCalls = 0
+local origRegister = spritesReg.register
+local origOverride = spritesReg.override
+local origPatch = spritesReg.patch
+local origRemove = spritesReg.remove
+spritesReg.register = function(self, ...)
+  registerCalls = registerCalls + 1
+  return origRegister(self, ...)
+end
+spritesReg.override = function(self, ...)
+  overrideCalls = overrideCalls + 1
+  return origOverride(self, ...)
+end
+spritesReg.patch = function(self, ...)
+  patchCalls = patchCalls + 1
+  return origPatch(self, ...)
+end
+spritesReg.remove = function(self, ...)
+  removeCalls = removeCalls + 1
+  return origRemove(self, ...)
+end
+
+-- Pure lookup: known species returns pre-registered id; no registry writes.
+local sid, sidErr = exports.render:spriteIdFor("FIXMON_A")
+T.eq(sid, "SPRITE_OW_WILD_FIXMON_A", "spriteIdFor returns pre-registered id")
+T.eq(sidErr, nil, "spriteIdFor no error for known species")
+T.eq(registerCalls, 0, "spriteIdFor does not call sprites:register")
+
+local missingId, missingErr = exports.render:spriteIdFor("PIDGEY")
+T.eq(missingId, nil, "spriteIdFor nil for species without pre-registration")
+T.check(type(missingErr) == "string"
+        and missingErr:find("pre%-registered", 1) ~= nil,
+        "spriteIdFor controlled missing-sprite error")
+T.eq(registerCalls, 0, "missing spriteIdFor still does not register")
+
+-- Late species with no pre-registered sprite: controlled step-2 failure.
+local missingSpawn = exports.testSpawn("PIDGEY", { level = 4 })
+T.check(missingSpawn.ok == false, "test spawn fails without pre-registered sprite")
+T.eq(missingSpawn.failedAt, 2, "fails at sprite registered step")
+T.check(tostring(missingSpawn.error):find("pre%-registered", 1) ~= nil
+        or tostring(missingSpawn.error):find("No pre%-registered", 1) ~= nil,
+        "missing sprite error is controlled")
+
+-- Happy path with a species registered during mod init.
+local result = exports.testSpawn("FIXMON_A", { level = 4 })
 T.check(result.ok == true, "test spawn succeeds without pokedex: " .. tostring(result.error))
 T.eq(result.failedAt, nil, "test spawn no failed step")
 T.eq(#result.steps, 7, "test spawn reports 7 phases")
@@ -754,11 +830,77 @@ T.check(next(mockGame.save.pokedex.seen) == nil, "test spawn does not mark seen"
 T.check(next(mockGame.save.pokedex.owned) == nil, "test spawn does not mark owned")
 T.check(mockGame.save.flags == flagsBefore, "test spawn does not replace flags table")
 
+-- Repeated test spawn must not re-register sprites.
+local result2 = exports.testSpawn("FIXMON_B", { level = 5 })
+T.check(result2.ok == true, "second test spawn succeeds: " .. tostring(result2.error))
+T.eq(registerCalls, 0, "no sprites:register across test spawns after freeze")
+T.eq(overrideCalls, 0, "no sprites:override after freeze")
+T.eq(patchCalls, 0, "no sprites:patch after freeze")
+T.eq(removeCalls, 0, "no sprites:remove after freeze")
+
+-- Preview browser navigation / status after freeze: no registry mutation.
+exports.browser:invalidateIndex()
+local browsed = exports.browser:speciesRows(mockGame)
+T.check(#browsed > 0, "browser navigation works after registry freeze")
+local detail = exports.browser:_openDetail(mockGame, "FIXMON_A")
+T.check(detail ~= nil, "browser detail opens after freeze")
+local detailMissing = exports.browser:_openDetail(mockGame, "RATTATA")
+T.check(detailMissing ~= nil, "browser detail opens for missing-sprite species")
+T.eq(registerCalls, 0, "preview browser does not register sprites")
+
+-- Map change / options change must not register sprites.
+logic:onMapExited({ mapId = "ROUTE_TEST" })
+mockOw.entities = { mockPlayer }
+logic:onMapEntered({ mapId = "ROUTE_TEST" })
+logic:onOptionsChanged({
+  mod = "overworld_wild_spawns", key = "sprite_opacity", value = 0.9,
+})
+T.eq(registerCalls, 0, "map/options changes do not register sprites")
+
+-- Attempting internal registration after init is rejected by the mod guard.
+local lateReg, lateErr = exports.render:_registerSprite("SPRITE_OW_WILD_LATE", {
+  image = "x.png", frames = 1, trueColor = true,
+})
+T.eq(lateReg, nil, "mod guard blocks late sprite registration")
+T.check(type(lateErr) == "string"
+        and lateErr:find("after mod initialization", 1, true) ~= nil,
+        "late registration returns clear mod error")
+T.eq(registerCalls, 0, "guarded late registration never reaches registry")
+
+-- Restore registry methods.
+spritesReg.register = origRegister
+spritesReg.override = origOverride
+spritesReg.patch = origPatch
+spritesReg.remove = origRemove
+
 -- Precise failure phase: unknown species fails at step 1.
 local bad = exports.testSpawn("NOT_A_REAL_MON")
 T.check(bad.ok == false, "unknown species test spawn fails")
 T.eq(bad.failedAt, 1, "fails at species resolved")
 T.check(tostring(bad.error):find("unknown", 1, true), "error mentions unknown species")
+
+-- Source scan: spriteIdFor / testSpawn path must not contain runtime register.
+local renderSrc = modApi:read("lib/spawn_render.lua")
+local sidPos = renderSrc:find("function SpawnRender:spriteIdFor", 1, true)
+T.check(sidPos ~= nil, "spriteIdFor present")
+local sidEnd = renderSrc:find("\nfunction SpawnRender:getRuntimeImage", sidPos, true)
+T.check(sidEnd ~= nil, "getRuntimeImage follows spriteIdFor")
+local spriteIdForBody = renderSrc:sub(sidPos, sidEnd)
+T.check(not spriteIdForBody:find(":register", 1, true),
+        "spriteIdFor body has no :register call")
+T.check(renderSrc:find("registerContent", 1, true),
+        "registerContent performs load-time registration")
+T.check(not renderSrc:find("frozen%s*=%s*false", 1),
+        "mod never clears registry.frozen")
+local logicSrc = modApi:read("lib/spawn_logic.lua")
+local testPos = logicSrc:find("function SpawnLogic:testSpawn", 1, true)
+T.check(testPos ~= nil, "testSpawn present")
+local testEnd = logicSrc:find("\nfunction SpawnLogic:onMapEntered", testPos, true)
+local testBody = logicSrc:sub(testPos, testEnd or #logicSrc)
+T.check(not testBody:find("sprites:register", 1, true),
+        "testSpawn does not call sprites:register")
+T.check(not testBody:find("content.sprites:register", 1, true),
+        "testSpawn does not call content.sprites:register")
 
 -- allow_debug_spawn_outside_encounter_areas bypasses only encounter-tile rule.
 -- Blocked / warp / player tiles remain forbidden.
@@ -864,8 +1006,13 @@ T.check(not Config.allowOutsideEncounter(modApi),
         "outside spawn ignored when dev_mode false")
 T.check(not Config.showSpawnTileOverlay(modApi),
         "overlay ignored when dev_mode false")
-local denied = exports.testSpawn("PIDGEY")
+local denied = exports.testSpawn("FIXMON_A")
 T.check(denied.ok == false, "test spawn denied when dev_mode false")
+
+-- Works without Pokédex and without DramaticShapeVoxelMod (already asserted).
+T.check(mockGame.save.pokedex == nil
+        or (mockGame.save.pokedex.seen and next(mockGame.save.pokedex.seen) == nil),
+        "suite completes with empty / unused pokedex")
 
 run.release()
 T.finish("overworld_wild_spawns")
