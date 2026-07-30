@@ -77,8 +77,18 @@ if ($names -notcontains "manifest.json") {
 if ($names -notcontains $entry) {
   throw "ZIP missing entry $entry at archive root"
 }
+$schema = $manifest.options_schema
+if ($schema -and ($names -notcontains $schema)) {
+  throw "ZIP missing options_schema file: $schema"
+}
+foreach ($name in $names) {
+  if ($name -like ".git/*" -or $name -like "tests/*" -or $name -eq ".git") {
+    throw "ZIP contains forbidden path: $name"
+  }
+}
 
 Write-Host "verify ok:"
+Write-Host "  manifest.json at ZIP root: yes"
 Write-Host ("  files: {0}" -f $names.Count)
 $names | Sort-Object | ForEach-Object { Write-Host ("  - {0}" -f $_) }
 Write-Host "wrote $OutZip"

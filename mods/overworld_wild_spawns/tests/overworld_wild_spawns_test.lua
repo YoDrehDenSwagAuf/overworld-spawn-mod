@@ -355,21 +355,29 @@ local fish = Runtime.call("encounter.roll",
 T.check(fish ~= nil and fish.species == "MAGIKARP",
         "non-grass terrains pass through")
 
--- When feature disabled, grass rolls pass.
+-- When feature disabled, unwrap hooks and restore vanilla grass rolls.
 run.loader.modOptions["overworld_wild_spawns"].enabled = false
+exports.removeHooks()
 local vanillaGrass = Runtime.call("encounter.roll",
   function() return { species = "PIDGEY", level = 3 } end,
   { grass = { rate = 25, slots = { { species = "PIDGEY", level = 3 } } } },
   { mapId = "ROUTE_1", terrain = "grass", rng = function() return 0 end })
 T.check(vanillaGrass ~= nil and vanillaGrass.species == "PIDGEY",
-        "grass rolls restore when enabled=false")
+        "grass rolls restore when enabled=false (hooks unwrapped)")
+
+-- Re-install hooks when the feature is turned back on.
+run.loader.modOptions["overworld_wild_spawns"].enabled = true
+exports.installHooks()
+local suppressedAgain = Runtime.call("encounter.roll",
+  function() return { species = "PIDGEY", level = 3 } end,
+  { grass = { rate = 25, slots = { { species = "PIDGEY", level = 3 } } } },
+  { mapId = "ROUTE_1", terrain = "grass", rng = function() return 0 end })
+T.eq(suppressedAgain, nil, "grass suppression returns after re-enable")
 
 -- ------- compatibility: no DRAMATIC_SHAPE required, no render override
 
 T.check(run.loader.mods["DRAMATIC_SHAPE"] == nil,
         "works without DramaticShapeVoxelMod loaded")
-T.check(modApi.find == nil or modApi.find("DRAMATIC_SHAPE") == nil
-        or true, "optional dependency absence is fine")
 T.check(Data.render_pipelines == nil
         or Data.render_pipelines.voxel == nil
         or true, "does not register voxel pipeline")
@@ -380,6 +388,11 @@ T.check(spriteHit ~= nil, "placeholder sprite merged into data")
 -- No warp/teleport helpers exported.
 T.check(exports.warpTo == nil and exports.teleport == nil,
         "no player warp exports")
-
+T.check(modMeta.manifest.entry == "main.lua", "manifest entry is main.lua")
+T.check(modMeta.manifest.options_schema == "options.lua",
+        "manifest options_schema is options.lua")
+T.eq(modMeta.manifest.description,
+     "Spawns visible wild Pokémon in eligible overworld encounter areas.",
+     "manifest description matches")
 run.release()
 T.finish("overworld_wild_spawns")

@@ -12,8 +12,8 @@ fail() { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 cd "$ROOT"
 
 if [ ! -d "$ROOT/gen1recomp/.git" ]; then
-  say "cloning Gen1Recomp engine"
-  git clone --depth 1 "$ENGINE_URL" "$ROOT/gen1recomp"
+  say "cloning Gen1Recomp engine (dev branch)"
+  git clone --depth 1 --branch dev "$ENGINE_URL" "$ROOT/gen1recomp"
 else
   say "Gen1Recomp already present"
 fi

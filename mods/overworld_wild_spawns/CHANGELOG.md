@@ -4,14 +4,16 @@
 
 ### Added
 
+- Loader-recognizable `manifest.json` at the mod root (`api` 2, `options_schema`, current `game_version` range from Gen1Recomp `dev`).
 - Visible wild Pokémon on grass tiles using each map's real encounter table.
 - Exact wild battle on contact (species and level match the visible spawn).
 - Mod Manager toggle plus option `Show wild Pokémon in the overworld` (`enabled`, default true).
+- When `enabled` is false: clear mod entities, unwrap encounter/collision hooks, restore vanilla grass rolls.
 - Spawn caps, min/max player distance, spawn interval, and simple grass wander.
 - Optional suppression of vanilla random grass rolls via public `encounter.roll` hook.
 - Dual-mode rendering: vanilla 2D SpriteRenderer and VoxelScene billboards when Dramatic Shape is active.
 - Map/save lifecycle cleanup; spawns are runtime-only and never written into the playthrough save.
-- Packaging scripts and automated modkit tests.
+- Packaging scripts that pack with Gen1Recomp modkit and verify `manifest.json` at the ZIP root.
 
 ### Notes
 

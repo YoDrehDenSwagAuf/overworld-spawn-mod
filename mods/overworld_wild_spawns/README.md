@@ -44,7 +44,7 @@ Output: `dist/overworld_wild_spawns-0.1.0.zip`
 | Control | Effect |
 |---|---|
 | Mod Manager switch (off) | Mod not loaded: vanilla behavior, no overworld wild entities, no hooks |
-| Option **Show wild Pokémon in the overworld** (`enabled`, default **true**) | When false while the mod is loaded: remove all mod entities and fall back to vanilla random grass encounters |
+| Option **Show wild Pokémon in the overworld** (`enabled`, default **true**) | When false while the mod is loaded: remove all mod entities, unwrap encounter/collision hooks, and restore vanilla random grass encounters |
 
 ## Options
 
@@ -102,7 +102,7 @@ If you turn **HIDE RANDOM GRASS** off, classic grass rolls and visible spawns ca
 
 ## Dramatic Shape Voxel Mod
 
-Optional dependency id: `DRAMATIC_SHAPE` (verified from DramaticShapeVoxelMod's manifest).
+Compatible with Dramatic Shape Voxel Mod (`DRAMATIC_SHAPE`) when present — no hard or optional dependency is declared in the manifest.
 
 - This mod does **not** replace render pipelines, cameras, or voxel modules
 - Wild entities use the engine `pose()` / `draw()` contract and sit on `OverworldState.entities`
