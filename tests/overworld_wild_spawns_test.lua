@@ -15,24 +15,31 @@ T.check(modMeta ~= nil, "loader discovered mod by manifest id")
 T.eq(modMeta.state, "loaded", "mod reached loaded state")
 T.eq(modMeta.manifest.id, "overworld_wild_spawns", "manifest id")
 T.eq(modMeta.manifest.name, "Overworld Wild Pokemon", "manifest name")
-T.eq(modMeta.manifest.version, "0.2.0", "manifest version")
+T.eq(modMeta.manifest.version, "0.3.0", "manifest version")
 T.eq(modMeta.manifest.entry, "main.lua", "entry path")
 T.eq(modMeta.manifest.category, "MECHANIC", "category")
 T.eq(modMeta.manifest.api, 2, "mod api version")
 
 local exports = run.loader.exports["overworld_wild_spawns"]
 T.check(exports ~= nil, "exports table published")
-T.eq(exports.version, "0.2.0", "version export")
+T.eq(exports.version, "0.3.0", "version export")
 T.check(exports.logic ~= nil, "logic export")
 T.check(exports.render ~= nil, "render export")
+T.check(exports.hud ~= nil, "hud export")
+T.check(exports.overlay ~= nil, "overlay export")
+T.check(exports.browser ~= nil, "browser export")
 T.check(exports.lib ~= nil and type(exports.lib.require) == "function",
         "lib.require available")
 T.check(type(exports.canSuppressVanilla) == "function", "canSuppressVanilla export")
 T.check(type(exports.spawnSystemState) == "function", "spawnSystemState export")
+T.check(type(exports.hudSnapshot) == "function", "hudSnapshot export")
+T.check(type(exports.testSpawn) == "function", "testSpawn export")
 
 local EncounterPick = exports.lib.require("encounter_pick")
+local EncounterIndex = exports.lib.require("encounter_index")
 local Grass = exports.lib.require("grass")
 local Config = exports.lib.require("config")
+local Diagnostics = exports.lib.require("diagnostics")
 local logic = exports.logic
 local modApi = exports.lib.mod
 
@@ -41,10 +48,17 @@ local modApi = exports.lib.mod
 local schema = run.loader.optionSchemas["overworld_wild_spawns"]
 T.check(schema ~= nil, "option schema registered")
 local enabledRow, debugRow, forceRow
+local devProps = {}
 for _, row in ipairs(schema) do
   if row.key == "enabled" then enabledRow = row end
   if row.key == "debug_logging" then debugRow = row end
   if row.key == "force_test_spawn" then forceRow = row end
+  if row.key == "dev_mode"
+     or row.key == "debug_hud_always_visible"
+     or row.key == "allow_debug_spawn_outside_encounter_areas"
+     or row.key == "show_spawn_tile_overlay" then
+    devProps[row.key] = row
+  end
 end
 T.check(enabledRow ~= nil, "enabled option present")
 T.eq(enabledRow.type, "toggle", "enabled is toggle")
@@ -52,11 +66,26 @@ T.eq(enabledRow.default, true, "enabled defaults to true")
 T.eq(enabledRow.label, "Show wild Pokemon in the overworld", "enabled label")
 T.check(debugRow ~= nil and debugRow.default == false, "debug_logging default false")
 T.check(forceRow ~= nil and forceRow.default == false, "force_test_spawn default false")
+T.check(devProps.dev_mode ~= nil, "dev_mode option present")
+T.eq(devProps.dev_mode.type, "toggle", "dev_mode is toggle")
+T.eq(devProps.dev_mode.default, false, "dev_mode defaults to false")
+T.eq(devProps.dev_mode.label, "Developer mode", "dev_mode label")
+T.check(devProps.debug_hud_always_visible ~= nil
+        and devProps.debug_hud_always_visible.default == false,
+        "debug_hud_always_visible default false")
+T.check(devProps.allow_debug_spawn_outside_encounter_areas ~= nil
+        and devProps.allow_debug_spawn_outside_encounter_areas.default == false,
+        "allow_debug_spawn_outside default false")
+T.check(devProps.show_spawn_tile_overlay ~= nil
+        and devProps.show_spawn_tile_overlay.default == false,
+        "show_spawn_tile_overlay default false")
 T.eq(Config.get(modApi, "enabled"), true, "options:get(enabled) is true")
+T.eq(Config.get(modApi, "dev_mode"), false, "options:get(dev_mode) is false")
 T.eq(Config.DEFAULTS.max_spawns, 5, "default max_spawns")
 T.eq(Config.DEFAULTS.min_player_distance, 4, "default min distance")
 T.eq(Config.DEFAULTS.max_player_distance, 12, "default max distance")
 T.eq(Config.DEFAULTS.initial_spawns, 1, "default initial_spawns is minimal path")
+T.eq(Config.DEFAULTS.dev_mode, false, "DEFAULTS.dev_mode false")
 
 -- ------- pokedex independence (source + runtime)
 
@@ -90,6 +119,23 @@ local routeEnc = {
     buckets = { 128, 256 },
   },
 }
+
+-- Unique species vs slots (duplicates must not inflate species count).
+local dupEnc = {
+  grass = {
+    rate = 25,
+    slots = {
+      { species = "RATTATA", level = 2 },
+      { species = "RATTATA", level = 3 },
+      { species = "PIDGEY", level = 2 },
+    },
+  },
+}
+T.eq(EncounterPick.slotCount(dupEnc, "grass"), 3, "encounter slots count duplicates")
+T.eq(EncounterPick.uniqueSpeciesCount(dupEnc, "grass"), 2,
+     "unique species counts distinct IDs only")
+local dupNames = EncounterPick.uniqueSpecies(dupEnc, "grass")
+T.check(dupNames[1] == "PIDGEY" or dupNames[1] == "RATTATA", "unique species sorted set")
 
 local picks = {}
 for _ = 1, 40 do
@@ -525,6 +571,301 @@ local snap = exports.spawnSystemState()
 T.check(snap.initialized == true, "debug snapshot initialized")
 T.check(snap.pipelineVerified == true, "debug snapshot pipeline verified")
 T.check(logic:countOnMap("ROUTE_TEST") > 0, "debug snapshot has active spawns")
+
+-- =====================================================================
+-- Developer mode / diagnostics / preview browser / test spawn
+-- =====================================================================
+
+-- Reset to a clean grass-map state with empty pokedex.
+mockOw.map = fakeMap
+mockOw.entities = { mockPlayer }
+mockPlayer.cellX, mockPlayer.cellY = 0, 0
+mockGame.save.pokedex = { seen = {}, owned = {} }
+mockGame.save.flags = {}
+mockGame.data.encounters.ROUTE_TEST = {
+  grass = {
+    rate = 25,
+    slots = {
+      { species = "RATTATA", level = 2 },
+      { species = "RATTATA", level = 3 },
+      { species = "PIDGEY", level = 2 },
+    },
+  },
+  water = {
+    rate = 5,
+    slots = { { species = "MAGIKARP", level = 10 } },
+  },
+}
+mockGame.data.encounters.ROUTE_2 = {
+  grass = {
+    rate = 25,
+    slots = {
+      { species = "PIDGEY", level = 3 },
+      { species = "PIDGEY", level = 5 },
+      { species = "PIDGEY", level = 7 },
+    },
+  },
+}
+mockGame.data.maps = mockGame.data.maps or {}
+mockGame.data.maps.ROUTE_TEST = { id = "ROUTE_TEST", label = "Route 1", tileset = "OVERWORLD" }
+mockGame.data.maps.ROUTE_2 = { id = "ROUTE_2", label = "Route 2", tileset = "OVERWORLD" }
+mockGame.data.pokemon = mockGame.data.pokemon or {}
+mockGame.data.pokemon.PIDGEY = mockGame.data.pokemon.PIDGEY or {
+  id = "PIDGEY", name = "Pidgey", dex = 16, spriteFront = "x.png",
+}
+mockGame.data.pokemon.RATTATA = mockGame.data.pokemon.RATTATA or {
+  id = "RATTATA", name = "Rattata", dex = 19, spriteFront = "y.png",
+}
+mockGame.data.pokemon.MAGIKARP = mockGame.data.pokemon.MAGIKARP or {
+  id = "MAGIKARP", name = "Magikarp", dex = 129, spriteFront = "z.png",
+}
+
+-- dev_mode false: HUD hidden, browser gated.
+run.loader.modOptions["overworld_wild_spawns"] = {
+  enabled = true,
+  suppress_random_grass = true,
+  dev_mode = false,
+  debug_hud_always_visible = false,
+  show_spawn_tile_overlay = false,
+  allow_debug_spawn_outside_encounter_areas = false,
+}
+T.eq(Config.devMode(modApi), false, "dev_mode false")
+T.check(not exports.hud:shouldShow(), "HUD hidden when dev_mode false")
+logic:onMapEntered({ mapId = "ROUTE_TEST" })
+T.check(not exports.hud:shouldShow(), "HUD still hidden after map enter without dev_mode")
+
+-- Enable developer mode (runtime option change).
+run.loader.modOptions["overworld_wild_spawns"].dev_mode = true
+logic:onOptionsChanged({
+  mod = "overworld_wild_spawns", key = "dev_mode", value = true,
+})
+T.check(Config.devMode(modApi), "dev_mode true after options_changed")
+T.check(exports.hud:shouldShow(), "HUD appears after map enter with dev_mode")
+
+-- HUD values: unique species vs slots, tiles, assets.
+local hud = exports.hudSnapshot()
+T.eq(hud.encounterSpecies, 2, "HUD unique species (RATTATA+PIDGEY)")
+T.eq(hud.encounterSlots, 3, "HUD encounter slots")
+T.check(hud.eligibleTiles > 0, "HUD eligible tiles > 0")
+T.check(hud.requiredAssets == 2, "HUD required assets == unique species")
+T.check(hud.loadedAssets >= 0 and hud.loadedAssets <= hud.requiredAssets,
+        "HUD loaded assets in range")
+T.check(hud.activePokemon >= 0, "HUD active pokemon present")
+T.check(hud.spawnStatus ~= nil and hud.spawnStatus ~= "", "HUD spawn status set")
+T.check(hud.rendererStatus ~= nil, "HUD renderer status set")
+-- Status must not invent READY when broken; here init succeeded so READY ok.
+T.eq(hud.spawnStatus, Config.STATUS.READY, "HUD spawn system READY after successful init")
+
+local lines = exports.hudLines()
+T.check(lines[1] == "Overworld Spawn Debug", "HUD title line")
+local joined = table.concat(lines, "\n")
+T.check(joined:find("Encounter species: 2", 1, true), "HUD text has species count")
+T.check(joined:find("Encounter slots: 3", 1, true), "HUD text has slot count")
+
+-- HUD works without pokedex.
+T.check(mockGame.save.pokedex.owned
+        and next(mockGame.save.pokedex.owned) == nil,
+        "pokedex owned empty during HUD test")
+T.check(logic.requiresPokedex() == false, "logic still requires no pokedex")
+
+-- Permanent HUD option.
+run.loader.modOptions["overworld_wild_spawns"].debug_hud_always_visible = true
+logic.state.hudShownAt = nil
+T.check(exports.hud:shouldShow(), "always-visible HUD shows without recent map enter")
+run.loader.modOptions["overworld_wild_spawns"].debug_hud_always_visible = false
+
+-- Global encounter index + location collapse.
+local index = EncounterIndex.build(mockGame)
+T.check(index.PIDGEY ~= nil, "index has PIDGEY from global encounters")
+T.check(index.RATTATA ~= nil, "index has RATTATA")
+T.check(index.MAGIKARP ~= nil, "index has MAGIKARP water slot")
+local pidgeyLines = EncounterIndex.formatLocations(index.PIDGEY)
+local collapsed = table.concat(pidgeyLines, " | ")
+T.check(collapsed:find("Route 2", 1, true), "locations include Route 2")
+T.check(collapsed:find("3-7", 1, true) or collapsed:find("Level 3-7", 1, true),
+        "Route 2 levels collapsed to range")
+-- Same route multiple levels for RATTATA on ROUTE_TEST -> single line range.
+local rattataLines = EncounterIndex.formatLocations(index.RATTATA)
+local rtxt = table.concat(rattataLines, " | ")
+T.check(rtxt:find("2-3", 1, true) or rtxt:find("Level 2-3", 1, true),
+        "same route levels collapsed")
+
+-- Preview browser lists species without pokedex / unseen species.
+exports.browser:invalidateIndex()
+local rows = exports.browser:speciesRows(mockGame)
+local seenIds = {}
+for _, row in ipairs(rows) do seenIds[row.value] = true end
+T.check(seenIds.PIDGEY, "preview shows unseen PIDGEY without pokedex")
+T.check(seenIds.RATTATA, "preview shows RATTATA without pokedex")
+T.check(seenIds.MAGIKARP or true, "preview may include species from content/data")
+-- Ensure pokedex filter is not applied: empty seen/owned still lists species.
+T.check(#rows > 0, "preview browser non-empty without pokedex")
+
+-- Screens registered.
+local screens = run.loader.content.screens
+T.check(screens:get("OverworldSpawnPreview") ~= nil,
+        "preview screen registered")
+T.check(screens:get("OverworldSpawnPreviewDetail") ~= nil,
+        "preview detail screen registered")
+
+-- Debug HUD pipeline registered (present-only).
+local pipes = run.loader.content.render_pipelines
+T.check(pipes:get("owwild_debug_hud") ~= nil, "debug HUD render pipeline registered")
+T.check(pipes:get("owwild_debug_hud").present ~= nil, "pipeline has present()")
+T.check(pipes:get("owwild_debug_hud").drawWorld == nil,
+        "HUD pipeline is present-only (does not replace world)")
+
+-- Test spawn without pokedex, no player move, no pokedex mutation.
+mockOw.entities = { mockPlayer }
+logic:clearAll()
+logic.activeMapId = "ROUTE_TEST"
+logic.state.initialized = true
+logic.state.mapSupported = true
+logic.state.encounterDataAvailable = true
+logic.state.eligibleTilesAvailable = true
+logic.state.rendererAvailable = true
+logic.state.updateCallbackRegistered = true
+logic.state.pipelineVerified = true
+logic.grassCache = Grass.cells(fakeMap)
+run.loader.modOptions["overworld_wild_spawns"].dev_mode = true
+run.loader.modOptions["overworld_wild_spawns"].allow_debug_spawn_outside_encounter_areas = false
+
+local px0, py0 = mockPlayer.cellX, mockPlayer.cellY
+local pokedexBefore = mockGame.save.pokedex
+local flagsBefore = mockGame.save.flags
+exports.render.assetInfo = {}
+exports.render.spriteIds = {}
+-- Ensure species records exist for asset resolution in the test harness.
+mockGame.data.pokemon.PIDGEY = {
+  id = "PIDGEY", name = "Pidgey", dex = 16,
+  spriteFront = "tests/fixture_data/assets/fixmon_a_front.png",
+}
+local result = exports.testSpawn("PIDGEY", { level = 4 })
+T.check(result.ok == true, "test spawn succeeds without pokedex: " .. tostring(result.error))
+T.eq(result.failedAt, nil, "test spawn no failed step")
+T.eq(#result.steps, 7, "test spawn reports 7 phases")
+for i = 1, 7 do
+  T.check(result.steps[i] and result.steps[i].ok, "test spawn step " .. i .. " ok")
+end
+T.eq(mockPlayer.cellX, px0, "test spawn does not move player X")
+T.eq(mockPlayer.cellY, py0, "test spawn does not move player Y")
+T.check(mockGame.save.pokedex == pokedexBefore, "test spawn does not replace pokedex table")
+T.check(next(mockGame.save.pokedex.seen) == nil, "test spawn does not mark seen")
+T.check(next(mockGame.save.pokedex.owned) == nil, "test spawn does not mark owned")
+T.check(mockGame.save.flags == flagsBefore, "test spawn does not replace flags table")
+
+-- Precise failure phase: unknown species fails at step 1.
+local bad = exports.testSpawn("NOT_A_REAL_MON")
+T.check(bad.ok == false, "unknown species test spawn fails")
+T.eq(bad.failedAt, 1, "fails at species resolved")
+T.check(tostring(bad.error):find("unknown", 1, true), "error mentions unknown species")
+
+-- allow_debug_spawn_outside_encounter_areas bypasses only encounter-tile rule.
+-- Blocked / warp / player tiles remain forbidden.
+run.loader.modOptions["overworld_wild_spawns"].allow_debug_spawn_outside_encounter_areas = true
+local okW, reasonW = Grass.validateWalkableTile(
+  fakeMap, {}, mockPlayer, 2, 2, 1, 12, nil)
+T.check(not okW and reasonW == "rejected: blocked tile",
+        "outside mode still forbids blocked tiles")
+okW, reasonW = Grass.validateWalkableTile(
+  fakeMap, {}, mockPlayer, 5, 4, 1, 12, nil)
+T.check(not okW and reasonW == "rejected: warp tile",
+        "outside mode still forbids warp tiles")
+okW, reasonW = Grass.validateWalkableTile(
+  fakeMap, {}, mockPlayer, 0, 0, 1, 12, nil)
+T.check(not okW and reasonW == "rejected: occupied by player",
+        "outside mode still forbids player tile")
+-- Non-grass walkable cell becomes allowed for placement validation.
+fakeMap.isGrassCell = function(_, x, y)
+  return (x >= 2 and x <= 5 and y >= 2 and y <= 4)
+end
+local nonGrassOk = Grass.validateWalkableTile(
+  fakeMap, {}, { cellX = 0, cellY = 0 }, 1, 0, 1, 12, nil)
+T.check(nonGrassOk, "outside mode allows free non-encounter walkable tile")
+local grassStillRequired = select(1, Grass.validateSpawnTile(
+  fakeMap, {}, { cellX = 0, cellY = 0 }, 1, 0, 1, 12, nil))
+T.check(not grassStillRequired, "normal spawn still requires encounter tile")
+
+-- Overlay does not alter collision (markers are passable).
+run.loader.modOptions["overworld_wild_spawns"].show_spawn_tile_overlay = true
+mockOw.map = fakeMap
+mockOw.entities = { mockPlayer }
+exports.overlay:rebuild()
+local overlayCount = 0
+local nonPassableOverlay = 0
+for _, e in ipairs(mockOw.entities) do
+  if e.overworldWildOverlay then
+    overlayCount = overlayCount + 1
+    if not e.passable then nonPassableOverlay = nonPassableOverlay + 1 end
+  end
+end
+T.check(overlayCount > 0, "overlay places markers when enabled")
+T.eq(nonPassableOverlay, 0, "overlay markers are passable (no collision change)")
+exports.overlay:clear()
+T.eq(#exports.overlay.markers, 0, "overlay clear removes markers")
+
+-- Overlay legend documented in code.
+local legend = exports.overlay:legend()
+T.check(#legend >= 4, "overlay legend has entries")
+
+-- Visibility counters exist and are separated.
+local vis = Diagnostics.visibilityCounts(logic)
+T.check(vis.created ~= nil and vis.registered ~= nil
+        and vis.rendered ~= nil and vis.visible ~= nil,
+        "visibility counters separated")
+
+-- Status constants are the required set.
+for _, name in ipairs({
+  "DISABLED", "INITIALIZING", "NO_ENCOUNTER_DATA", "NO_ELIGIBLE_TILES",
+  "ASSETS_LOADING", "ASSET_ERROR", "NO_RENDERER", "READY", "SPAWNING",
+  "FALLBACK_TO_VANILLA", "ERROR",
+}) do
+  T.check(Config.STATUS[name] ~= nil, "status constant " .. name)
+end
+
+-- NO_ENCOUNTER_DATA status on town map.
+mockOw.map = townMap
+mockOw.entities = { mockPlayer }
+logic:onMapEntered({ mapId = "TOWN_NO_ENC" })
+T.eq(Diagnostics.spawnSystemStatus(logic), Config.STATUS.NO_ENCOUNTER_DATA,
+     "status NO_ENCOUNTER_DATA without grass table")
+
+-- DramaticShapeVoxelMod is not a hard dependency.
+T.check(modMeta.manifest.dependencies == nil
+        or (type(modMeta.manifest.dependencies) == "table"
+            and #modMeta.manifest.dependencies == 0),
+        "no hard dependencies")
+T.check(modMeta.manifest.optional_dependencies == nil
+        or (type(modMeta.manifest.optional_dependencies) == "table"
+            and #modMeta.manifest.optional_dependencies == 0),
+        "no optional_dependencies; DRAMATIC_SHAPE not required")
+T.check(run.loader.mods["DRAMATIC_SHAPE"] == nil,
+        "works without DramaticShapeVoxelMod loaded (dev suite)")
+
+-- Source scan: no pokedex gates in spawn/preview paths.
+local previewSrc = modApi:read("lib/preview_browser.lua")
+T.check(not previewSrc:find("got_pokedex"), "preview has no got_pokedex gate")
+T.check(not previewSrc:find("hasPokedex"), "preview has no hasPokedex gate")
+T.check(previewSrc:find("diag", 1, true), "preview may mention pokedex as diag only")
+local spawnSrc = modApi:read("lib/spawn_logic.lua")
+T.check(spawnSrc:find("Diagnostic only", 1, true)
+        or spawnSrc:find("diag%-only")
+        or spawnSrc:find("never a spawn"),
+        "spawn_logic documents pokedex as diagnostic only")
+
+-- Disable dev_mode: HUD and outside-spawn flag inactive.
+run.loader.modOptions["overworld_wild_spawns"].dev_mode = false
+run.loader.modOptions["overworld_wild_spawns"].debug_hud_always_visible = true
+run.loader.modOptions["overworld_wild_spawns"].allow_debug_spawn_outside_encounter_areas = true
+run.loader.modOptions["overworld_wild_spawns"].show_spawn_tile_overlay = true
+T.check(not Config.devMode(modApi), "dev_mode off")
+T.check(not exports.hud:shouldShow(), "HUD off when dev_mode false even if always_visible")
+T.check(not Config.allowOutsideEncounter(modApi),
+        "outside spawn ignored when dev_mode false")
+T.check(not Config.showSpawnTileOverlay(modApi),
+        "overlay ignored when dev_mode false")
+local denied = exports.testSpawn("PIDGEY")
+T.check(denied.ok == false, "test spawn denied when dev_mode false")
 
 run.release()
 T.finish("overworld_wild_spawns")

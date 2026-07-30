@@ -34,7 +34,7 @@ Do **not** import a raw GitHub source archive as the mod. Use the release ZIP fr
 
 ## Install
 
-1. Build or download `overworld_wild_spawns-0.2.0.zip` (or `overworld_wild_spawns.zip`).
+1. Build or download `overworld_wild_spawns-0.3.0.zip` (or `overworld_wild_spawns.zip`).
 2. In Gen1Recomp, open the **Mod Manager** (F10) and import the ZIP.
 3. Enable **Overworld Wild Pokemon** with the normal Mod Manager switch.
 
@@ -64,7 +64,7 @@ pwsh ./scripts/build-mod.ps1
 
 Output:
 
-- `dist/overworld_wild_spawns-0.2.0.zip`
+- `dist/overworld_wild_spawns-0.3.0.zip`
 - `dist/overworld_wild_spawns.zip` (alias)
 
 ### Symlink / developer install
@@ -89,10 +89,41 @@ Output:
 - **ON ENTER** - initial wave size (default 1)
 - **HIDE RANDOM GRASS** - suppress vanilla random grass rolls only after visible spawns are ready (default on)
 - **SPRITE FADE** - opacity so mons read as tucked into grass
-- **DEBUG LOG** - verbose map/tile/spawn diagnostics (Pokédex status is diag-only)
+- **Developer mode** (`dev_mode`, default **false**) - spawn diagnostics HUD + Pokemon preview browser
+- **Keep spawn debug HUD visible** - keep the HUD up while Developer mode is on (otherwise 8s after map enter)
+- **Allow test spawn outside encounter areas** - DEBUG only; Test spawn may use any free walkable tile
+- **Show valid spawn tiles** - highlight valid/blocked/warp/NPC/distance tiles (passable markers)
+- **DEBUG LOG** - verbose map/tile/spawn diagnostics (also forced on with Developer mode)
 - **FORCE TEST SPAWN** - force one diagnostic spawn from the map encounter table
+- Preview filter/search options apply when opening the Pokemon preview browser
 
-## Supported encounter areas (0.2.0)
+All options are live-toggleable through the Mod Manager (`mod.options_changed`). No restart is required.
+
+## Developer mode
+
+When **Developer mode** is on:
+
+1. A compact **Overworld Spawn Debug** HUD appears top-right on map enter (8 seconds, or permanently if Keep HUD visible is on).
+2. Open the **Pokemon preview browser** from **OPTIONS → POKEMON PREVIEW → OPEN** (or Start Menu → **OW PREVIEW**).
+   Gen1Recomp Mod Manager option types are only `toggle|choice|number|text`, so the browser uses the public `ui.options.rows` activate-row pattern (same as `example_jukebox`).
+3. Each species shows overworld asset status, renderer status, global encounter locations (not Pokédex), and **Test spawn** with 7 diagnostic phases.
+4. The Pokédex is never required and never filters the browser or test spawns.
+
+HUD draw path: public `mod.content.render_pipelines` present-only pipeline `owwild_debug_hud`.
+
+See [MANUAL_TEST.md](MANUAL_TEST.md) for the full diagnosis procedure.
+
+### Spawn tile overlay legend
+
+| Color | Meaning |
+|---|---|
+| Green | Valid spawn tile |
+| Red | Blocked tile |
+| Blue | Warp tile |
+| Orange | NPC / player occupied |
+| Yellow | Excluded by player distance |
+
+## Supported encounter areas (0.3.0)
 
 - Grass tiles on maps with a grass encounter table (`rate > 0` and slots)
 
@@ -164,9 +195,10 @@ python3 tools/modkit.py lint mods/overworld_wild_spawns
 
 ## Manual test (new game, before Pokédex)
 
-See [MANUAL_TEST.md](MANUAL_TEST.md). Short version: enable mod → new game →
-walk onto **Route 1** before getting the Pokédex → confirm a visible wild
-Pokemon → contact it → disable the option → confirm classic grass rolls return.
+See [MANUAL_TEST.md](MANUAL_TEST.md). Short version: enable mod → enable
+**Developer mode** → new game → walk onto **Route 1** before getting the
+Pokédex → read the debug HUD → open the preview browser → Test spawn →
+confirm classic grass rolls still work if visible spawns are not ready.
 
 ## Known limitations
 

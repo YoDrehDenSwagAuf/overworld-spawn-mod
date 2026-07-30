@@ -2,7 +2,9 @@
 -- Base Gen1Recomp path: SpriteRenderer + pose()/draw() on OverworldState.entities.
 -- DramaticShapeVoxelMod is optional: when VOXEL is active it billboards via pose().
 --
--- This module never queues battles and never requires DRAMATIC_SHAPE.
+-- Asset classes tracked for the developer browser:
+--   battle_front / battle_back / menu_icon / overworld / generated_overworld / voxel
+-- Spawn success depends on a usable overworld representation, not a battle pic alone.
 local V = ...
 local Config = V.require("config")
 
@@ -65,6 +67,7 @@ function SpawnRender.new(mod)
   local self = setmetatable({}, SpawnRender)
   self.mod = mod
   self.spriteIds = {}
+  self.assetInfo = {} -- species -> status table
   self.placeholderId = nil
   self.rendererMode = "base" -- "base" | unavailable
   self.lastError = nil
@@ -111,8 +114,6 @@ function SpawnRender:checkAvailable(game)
   local placeholder = self:_ensurePlaceholder()
   local spriteDef = game and game.data and game.data.sprites and game.data.sprites[placeholder]
   if not spriteDef then
-    -- Content may not have been merged into this game table yet (tests inject
-    -- data). Still treat the class as available; makeEntity stamps defs.
     spriteDef = self.mod.content.sprites:get(placeholder)
   end
   if not spriteDef then
@@ -121,7 +122,6 @@ function SpawnRender:checkAvailable(game)
     return false, self.lastError
   end
   self.rendererMode = "base"
-  -- Optional Dramatic Shape coexistence is detected only for diagnostics.
   local dramatic = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
   if dramatic then
     self:_log("DRAMATIC_SHAPE present; using shared pose()/entities billboard path")
@@ -139,12 +139,80 @@ function SpawnRender:isEntityRegistered(ow, entity)
   return false
 end
 
+function SpawnRender:assetStatusFor(species, game)
+  if self.assetInfo[species] then return self.assetInfo[species] end
+
+  local def = game and game.data and game.data.pokemon
+              and game.data.pokemon[species]
+  local info = {
+    species = species,
+    battleFront = def and def.spriteFront or nil,
+    battleBack = def and def.spriteBack or nil,
+    menuIcon = def and def.icon or nil,
+    overworldSprite = nil,
+    generatedOverworld = nil,
+    voxel = nil,
+    overworldKind = nil, -- overworld | generated_overworld | placeholder
+    status = "MISSING",
+    renderer = "UNKNOWN",
+    entityReady = false,
+    lastError = nil,
+  }
+
+  local owId = "SPRITE_OW_WILD_" .. tostring(species)
+  local existing = self.mod.content.sprites:get(owId)
+                 or (game and game.data and game.data.sprites and game.data.sprites[owId])
+  if existing then
+    info.overworldSprite = existing.image
+    info.overworldKind = "overworld"
+    info.status = "LOADED"
+  elseif def and def.spriteFront then
+    -- Attempt bake (same path as makeEntity). Result may be nil headlessly.
+    local baked = bakeSheet(species, def.spriteFront, function(fmt, ...)
+      self:_log(fmt, ...)
+    end)
+    if baked then
+      info.generatedOverworld = baked
+      info.overworldKind = "generated_overworld"
+      info.status = "LOADED"
+    else
+      -- Placeholder is NOT counted as a real overworld representation for
+      -- diagnostics, but entity creation can still proceed with it.
+      info.overworldKind = "placeholder"
+      info.status = "PLACEHOLDER"
+      info.lastError = "no overworld sprite; using placeholder"
+    end
+  else
+    info.overworldKind = "placeholder"
+    info.status = "MISSING"
+    info.lastError = "no battle front or overworld sprite"
+  end
+
+  local dramatic = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
+  if dramatic then
+    info.voxel = "DRAMATIC_SHAPE present (pose billboard)"
+  end
+
+  if self.rendererMode == "base" then
+    info.renderer = "2D READY"
+  elseif self.rendererMode == "unavailable" then
+    info.renderer = "ERROR"
+  else
+    info.renderer = tostring(self.rendererMode)
+  end
+
+  info.entityReady = info.status == "LOADED" or info.status == "PLACEHOLDER"
+  self.assetInfo[species] = info
+  return info
+end
+
 function SpawnRender:spriteIdFor(species, game)
   if self.spriteIds[species] then return self.spriteIds[species] end
 
   local id = "SPRITE_OW_WILD_" .. tostring(species)
   if self.mod.content.sprites:get(id) then
     self.spriteIds[species] = id
+    self:assetStatusFor(species, game)
     return id
   end
 
@@ -167,12 +235,29 @@ function SpawnRender:spriteIdFor(species, game)
         }
       end
       self.spriteIds[species] = id
+      self.assetInfo[species] = nil
+      self:assetStatusFor(species, game)
       return id
     end
   end
 
   self.spriteIds[species] = self:_ensurePlaceholder()
+  self.assetInfo[species] = nil
+  self:assetStatusFor(species, game)
   return self.spriteIds[species]
+end
+
+function SpawnRender:countAssets(speciesList, game)
+  local required, loaded = 0, 0
+  for _, species in ipairs(speciesList or {}) do
+    required = required + 1
+    local info = self:assetStatusFor(species, game)
+    -- LOADED means a real overworld or generated overworld representation.
+    if info.status == "LOADED" then
+      loaded = loaded + 1
+    end
+  end
+  return required, loaded
 end
 
 local Entity = {}
@@ -196,6 +281,7 @@ function Entity.new(game, mod, render, record)
   self.render = render
   self.tuck = Config.DEFAULTS.grass_tuck_px
   self.registeredInWorld = false
+  self.assetInfo = render:assetStatusFor(record.species, game)
 
   local spriteId = render:spriteIdFor(record.species, game)
   local spriteDef = game.data.sprites and game.data.sprites[spriteId]
@@ -254,6 +340,51 @@ end
 
 function SpawnRender:makeEntity(game, record)
   return Entity.new(game, self.mod, self, record)
+end
+
+-- Probe whether a species can become an overworld entity without mutating world.
+function SpawnRender:probeEntity(game, species)
+  local info = self:assetStatusFor(species, game)
+  local ok, entityOrErr = pcall(function()
+    return self:makeEntity(game, {
+      id = "owwild_probe",
+      mapId = "_probe",
+      x = 0, y = 0,
+      species = species,
+      level = 1,
+      state = Config.STATE.AVAILABLE,
+    })
+  end)
+  if not ok then
+    info.entityReady = false
+    info.lastError = tostring(entityOrErr)
+    info.entityStatus = Config.STATUS.ERROR
+    return info, nil
+  end
+  if not entityOrErr then
+    info.entityReady = false
+    info.lastError = "makeEntity returned nil"
+    info.entityStatus = Config.STATUS.NOT_AVAILABLE
+    return info, nil
+  end
+  info.entityReady = true
+  if info.status == "LOADED" and self.rendererMode == "base" then
+    info.entityStatus = Config.STATUS.READY
+  elseif info.status == "PLACEHOLDER" then
+    info.entityStatus = "PLACEHOLDER"
+  else
+    info.entityStatus = Config.STATUS.NOT_AVAILABLE
+  end
+  return info, entityOrErr
+end
+
+function SpawnRender:previewImagePath(species, game)
+  local info = self:assetStatusFor(species, game)
+  if info.generatedOverworld then return info.generatedOverworld, "generated_overworld" end
+  if info.overworldSprite then return info.overworldSprite, "overworld" end
+  -- Do not fall back to battle front for "success" preview; expose kind.
+  if info.battleFront then return info.battleFront, "battle_front" end
+  return self.mod.assets:path("spawn_placeholder.png"), "placeholder"
 end
 
 return SpawnRender

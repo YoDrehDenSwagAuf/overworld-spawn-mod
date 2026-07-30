@@ -1,34 +1,90 @@
-# Manual test guide — Overworld Wild Pokemon 0.2.0
+# Manual test guide — Overworld Wild Pokemon 0.3.0
 
 Earliest suitable grass map verified from Gen1Recomp encounter data / tests:
 **ROUTE_1** (Pallet Town → Route 1). Grass rate 25; first slot PIDGEY Lv3.
 
-## New game, before Pokédex
+## A. New game, before Pokédex (normal play)
 
-1. Import `dist/overworld_wild_spawns-0.2.0.zip` in Gen1Recomp Mod Manager (F10).
+1. Import `dist/overworld_wild_spawns-0.3.0.zip` in Gen1Recomp Mod Manager (F10).
 2. Enable **Overworld Wild Pokemon**.
-3. Optionally enable **DEBUG LOG** (and **FORCE TEST SPAWN** if you need an immediate probe).
-4. Start a **new game**. Do **not** obtain the Pokédex yet.
-5. Leave Pallet Town north onto **Route 1**.
-6. Check the debug log (if enabled):
-   - `spawn system initialized on ROUTE_1`
-   - `eligible tiles=…`
-   - `suppress_ready=true` only after a successful visible spawn
-   - `pokedex_owned=false diag-only` (diagnostic only — not a gate)
-7. Wait for / look for a visible wild Pokemon in grass (not on the player tile).
-8. Walk onto it. Confirm battle species and level match the overworld sprite.
-9. Turn **Show wild Pokemon in the overworld** off.
-10. Confirm classic random grass encounters work again on Route 1.
+3. Start a **new game**. Do **not** obtain the Pokédex yet.
+4. Leave Pallet Town north onto **Route 1**.
+5. Look for a visible wild Pokemon in grass (not on the player tile).
+6. Walk onto it. Confirm battle species and level match the overworld sprite.
+7. Turn **Show wild Pokemon in the overworld** off.
+8. Confirm classic random grass encounters work again on Route 1.
 
-## Fail-safe check
+## B. Developer mode diagnosis (required when visible spawns are missing)
 
-If visible spawns cannot initialize (no grass tiles, renderer error, etc.):
+1. Install the current release ZIP and enable the mod.
+2. Open Mod Manager options for **Overworld Wild Pokemon**.
+3. Enable **Developer mode** (`dev_mode`). Options are live — no restart required.
+4. Optionally enable **Keep spawn debug HUD visible**.
+5. Start a **new game**. Do **not** obtain the Pokédex.
+6. Enter the first map with wild grass encounters (**Route 1**).
+7. Check the debug HUD top-right for at least:
 
-- Log should show `restore vanilla encounters: …`
+   ```text
+   Overworld Spawn Debug
+   Map: Route 1
+   Encounter species: …
+   Encounter slots: …
+   Eligible spawn tiles: …
+   Loaded assets: … / …
+   Active Pokemon: … / …
+   Spawn system: …
+   Renderer: …
+   ```
+
+8. Note Species / Slots / Tiles / Assets / Active / status values.
+9. Open the Pokemon preview browser:
+   - **OPTIONS** menu → **POKEMON PREVIEW** → **OPEN**
+   - or Start Menu → **OW PREVIEW**
+10. Select a species that appears on the current route (e.g. Pidgey).
+11. Check Asset / Renderer / Overworld entity lines and **SHOW PREVIEW**.
+    - Preview must report the overworld path kind (`overworld`,
+      `generated_overworld`, or `placeholder`) — not pretend a battle
+      front sprite is a successful overworld representation.
+12. Run **TEST SPAWN**.
+13. Read the result text: either all 7 steps passed, or the exact failing step:
+
+    ```text
+    1 Species resolved
+    2 Asset resolved
+    3 Spawn tile resolved
+    4 Entity created
+    5 Entity registered
+    6 Renderer registered
+    7 Entity visible
+    ```
+
+14. If step 3 fails with no valid tile, enable
+    **Allow test spawn outside encounter areas** and retry Test spawn.
+15. Interpret:
+
+    | Observation | Likely fault |
+    |---|---|
+    | Encounter species/slots = 0 | Encounter data |
+    | Eligible tiles = 0, species > 0 | Tile detection |
+    | Loaded assets = 0 / N | Asset resolution |
+    | Test spawn fails at step 4 | Entity creation |
+    | Test spawn fails at step 5 | World registration |
+    | Test spawn fails at step 6–7 | Rendering / visibility |
+    | Outside-encounter test works, normal does not | Encounter-tile detection |
+
+16. Optional: enable **Show valid spawn tiles** and compare green markers to grass.
+    Legend: green=valid, red=blocked, blue=warp, orange=NPC/player, yellow=distance.
+
+## C. Fail-safe check
+
+If visible spawns cannot initialize:
+
+- HUD / log should show a non-READY status (`NO_ENCOUNTER_DATA`, `NO_ELIGIBLE_TILES`, `ERROR`, …)
 - Classic grass rolls must still occur
 - The player must never be teleported
 
-## Without Dramatic Shape
+## D. Without Dramatic Shape
 
-Leave **DRAMATIC_SHAPE** disabled. Visible spawns must still appear via the
-base Gen1Recomp 2D `SpriteRenderer` / `ow.entities` path.
+Leave **DRAMATIC_SHAPE** disabled. Visible spawns and the developer HUD must
+still work via the base Gen1Recomp 2D `SpriteRenderer` / `ow.entities` path and
+the present-only `owwild_debug_hud` pipeline.
