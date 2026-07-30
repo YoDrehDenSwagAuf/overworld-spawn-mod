@@ -20,10 +20,10 @@ return {
       "debug_logging and force_test_spawn options for diagnosis",
     },
     known = {
-      "species art prefers the player's decoded battle front pics baked to 16x16; "
-        .. "otherwise a bundled placeholder silhouette is used",
+      "species overworld sprites are registered at mod load from battle fronts "
+        .. "(optional runtime 16x16 bake/cache; never after registry freeze)",
       "spawns are runtime-only and reset when you leave and re-enter a map",
-      "only grass encounter areas are supported for automatic spawns in 0.3.0 (not water/cave tables yet)",
+      "only grass encounter areas are supported for automatic spawns in 0.3.x (not water/cave tables yet)",
       "Dramatic Shape overworld battles cull non-player entities from the arena shot",
       "fishing, surf, static, scripted, and trainer encounters are untouched",
     },
