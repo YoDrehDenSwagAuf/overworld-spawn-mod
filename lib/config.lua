@@ -22,6 +22,14 @@ Config.DEFAULTS = {
   grass_tuck_px = 2,
   debug_logging = false,
   force_test_spawn = false,
+  dev_mode = false,
+  debug_hud_always_visible = false,
+  allow_debug_spawn_outside_encounter_areas = false,
+  show_spawn_tile_overlay = false,
+  preview_filter = "all",
+  preview_search = "",
+  preview_map_filter = "",
+  preview_encounter_kind = "any",
 }
 
 -- Entity lifecycle states for encounter safety.
@@ -31,6 +39,24 @@ Config.STATE = {
   IN_BATTLE = "in_battle",
   REMOVED = "removed",
 }
+
+-- Spawn-system / renderer status strings for the debug HUD.
+Config.STATUS = {
+  DISABLED = "DISABLED",
+  INITIALIZING = "INITIALIZING",
+  NO_ENCOUNTER_DATA = "NO_ENCOUNTER_DATA",
+  NO_ELIGIBLE_TILES = "NO_ELIGIBLE_TILES",
+  ASSETS_LOADING = "ASSETS_LOADING",
+  ASSET_ERROR = "ASSET_ERROR",
+  NO_RENDERER = "NO_RENDERER",
+  READY = "READY",
+  SPAWNING = "SPAWNING",
+  FALLBACK_TO_VANILLA = "FALLBACK_TO_VANILLA",
+  ERROR = "ERROR",
+  NOT_AVAILABLE = "NOT AVAILABLE",
+}
+
+Config.HUD_SHOW_SECONDS = 8
 
 function Config.schema()
   local source = V.mod:read("options.lua")
@@ -59,8 +85,28 @@ function Config.isEnabled(mod)
   return Config.get(mod, "enabled") == true
 end
 
+function Config.devMode(mod)
+  return Config.get(mod, "dev_mode") == true
+end
+
 function Config.debug(mod)
+  -- Developer mode forces structured diagnostics logging.
+  if Config.devMode(mod) then return true end
   return Config.get(mod, "debug_logging") == true
+end
+
+function Config.hudAlwaysVisible(mod)
+  return Config.devMode(mod) and Config.get(mod, "debug_hud_always_visible") == true
+end
+
+function Config.allowOutsideEncounter(mod)
+  return Config.devMode(mod)
+     and Config.get(mod, "allow_debug_spawn_outside_encounter_areas") == true
+end
+
+function Config.showSpawnTileOverlay(mod)
+  return Config.devMode(mod)
+     and Config.get(mod, "show_spawn_tile_overlay") == true
 end
 
 return Config

@@ -21,8 +21,12 @@ The loader exposes a sandboxed `mod` API (`src/mods/Loader.lua`, API version 2):
 | `mod.hooks:wrap` | `encounter.roll` (optional grass suppress), `movement.collision` (bump safety) |
 | `mod.world` | `overworld()`, `queueScript({ {"start_battle","wild",species,level} })` |
 | `mod.content.sprites` | Placeholder + optional baked 16×16 species sheets |
-| `mod.options` | `enabled`, caps, rate, opacity, suppress toggle (`options.lua` schema) |
-| `mod.exports` | `logic` / `render` / `lib` for companions & tests |
+| `mod.options` | `enabled`, caps, rate, opacity, suppress, `dev_mode`, HUD/overlay toggles (`options.lua`) |
+| `mod.content.screens` | `OverworldSpawnPreview` / detail (dev browser) |
+| `mod.content.render_pipelines` | present-only `owwild_debug_hud` |
+| `mod.hooks` | `ui.options.rows` activate row, `ui.start_menu.items` (dev browser entry) |
+| `mod.ui` | `ListMenu`, `PicBox`, `TextBox`, `Font`, `insertBefore`, `push` |
+| `mod.exports` | `logic` / `render` / `hud` / `browser` / `testSpawn` for companions & tests |
 | `mod.save` | unused — wild entities are runtime-only |
 
 There is no public `StartWildBattle` helper. Wild battles are started via the
@@ -71,11 +75,17 @@ Coordinate cheat-sheet:
 
 ```
 map.entered ──► SpawnLogic clears + initial wave (if enabled)
+                 └── Diagnostics + DebugHud markMapEnter (dev_mode)
 world.stepped ──► touch? start_battle : despawn-far / wander / trySpawn
 trySpawn ──► EncounterPick + Grass.pickFree ──► SpawnRender.makeEntity
 makeEntity ──► insert into ow.entities  (2D draw + Voxel billboard)
+OPTIONS activate / Start Menu ──► PreviewBrowser (dev_mode)
+testSpawn ──► 7-phase diagnosis (species→asset→tile→create→register→renderer→visible)
 enabled=false / map.exited / save.loaded ──► clearAll
 ```
+
+Developer HUD uses a present-only `render_pipelines` record (does not replace
+the world pass). Tile overlay uses passable marker entities on `ow.entities`.
 
 Logic never calls `love.graphics`. Rendering never queues battles.
 Voxel coexistence uses the shared entity `pose()` contract only — no

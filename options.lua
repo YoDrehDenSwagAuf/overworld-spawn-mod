@@ -3,6 +3,10 @@
 -- manifest options_schema for Mod Manager lazy-load.
 --
 -- Types match Gen1Recomp ManagerState.OPTION_TYPES: toggle, choice, number, text.
+-- There is no action/button option type; the Pokemon preview browser is opened
+-- via the public ui.options.rows activate hook (see lib/preview_browser.lua).
+--
+-- All options are live-toggleable through Mod Manager (mod.options_changed).
 
 return {
   {
@@ -60,11 +64,39 @@ return {
     description = "Opacity of overworld wild Pokemon sprites.",
   },
   {
+    key = "dev_mode",
+    label = "Developer mode",
+    type = "toggle",
+    default = false,
+    description = "Show overworld spawn diagnostics and enable the Pokemon preview browser.",
+  },
+  {
+    key = "debug_hud_always_visible",
+    label = "Keep spawn debug HUD visible",
+    type = "toggle",
+    default = false,
+    description = "Keep the current map spawn diagnostics visible while developer mode is enabled.",
+  },
+  {
+    key = "allow_debug_spawn_outside_encounter_areas",
+    label = "Allow test spawn outside encounter areas",
+    type = "toggle",
+    default = false,
+    description = "DEBUG: allow Test spawn on any free walkable tile (not only encounter tiles). Dev mode only.",
+  },
+  {
+    key = "show_spawn_tile_overlay",
+    label = "Show valid spawn tiles",
+    type = "toggle",
+    default = false,
+    description = "Highlight tiles that the mod considers valid for visible wild Pokemon.",
+  },
+  {
     key = "debug_logging",
     label = "DEBUG LOG",
     type = "toggle",
     default = false,
-    description = "Log map/encounter/tile/spawn diagnostics. Pokedex status is diag-only.",
+    description = "Log map/encounter/tile/spawn diagnostics. Also forced on when Developer mode is enabled.",
   },
   {
     key = "force_test_spawn",
@@ -72,5 +104,46 @@ return {
     type = "toggle",
     default = false,
     description = "Force one visible spawn from the map encounter table for diagnosis.",
+  },
+  {
+    key = "preview_filter",
+    label = "PREVIEW FILTER",
+    type = "choice",
+    default = "all",
+    choices = {
+      { "ALL", "all" },
+      { "ASSET OK", "asset_loaded" },
+      { "ASSET MISSING", "asset_missing" },
+      { "ENTITY READY", "entity_ready" },
+      { "ENTITY FAIL", "entity_failed" },
+    },
+    description = "Filter used when opening the Pokemon preview browser (Developer mode).",
+  },
+  {
+    key = "preview_search",
+    label = "PREVIEW SEARCH",
+    type = "text",
+    default = "",
+    description = "Search by species name or ID when opening the Pokemon preview browser.",
+  },
+  {
+    key = "preview_map_filter",
+    label = "PREVIEW MAP FILTER",
+    type = "text",
+    default = "",
+    description = "Optional map/route id substring filter for the preview browser location list.",
+  },
+  {
+    key = "preview_encounter_kind",
+    label = "PREVIEW ENC KIND",
+    type = "choice",
+    default = "any",
+    choices = {
+      { "ANY", "any" },
+      { "GRASS", "grass" },
+      { "WATER", "water" },
+      { "FISHING", "fishing" },
+    },
+    description = "Encounter-kind filter for preview browser locations.",
   },
 }
