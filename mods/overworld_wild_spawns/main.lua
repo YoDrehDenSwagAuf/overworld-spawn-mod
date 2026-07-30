@@ -1,13 +1,17 @@
--- Overworld Spawns: visible wild Pokémon on grass tiles.
+-- Overworld Wild Pokémon: visible wild Pokémon on grass tiles.
 --
 -- Architecture
---   lib/spawn_logic.lua   — map enter, periodic spawn, touch → wild battle
+--   lib/spawn_logic.lua   — map enter, periodic spawn, wander, touch → wild battle
 --   lib/spawn_render.lua  — pose()/draw() entities for 2D + VoxelScene
+--   options.lua           — Mod Manager option schema
 --
 -- Logic never draws. Rendering never starts battles. Both share Config.
 -- Entities ride OverworldState.entities so Dramatic Shape's VoxelScene
 -- billboards them automatically when VOXEL mode is on; otherwise the
 -- engine's SpriteRenderer path draws them in 2D.
+--
+-- This mod does NOT change the player spawn point, warp the player, or
+-- teleport on map enter / save load / mod enable.
 
 local mod = ...
 
@@ -16,11 +20,11 @@ local V = { mod = mod, path = mod.path }
 local function chunkFor(rel)
   local source = mod:read(rel)
   if not source then
-    error(("overworld-spawns: %s is missing"):format(rel), 0)
+    error(("overworld_wild_spawns: %s is missing"):format(rel), 0)
   end
   local chunk, err = load(source, "@" .. mod.path .. "/" .. rel)
   if not chunk then
-    error(("overworld-spawns: %s did not compile: %s"):format(rel, tostring(err)), 0)
+    error(("overworld_wild_spawns: %s did not compile: %s"):format(rel, tostring(err)), 0)
   end
   return chunk
 end
@@ -61,12 +65,27 @@ mod.events:on("battle.ended", function()
   logic:onBattleEnded()
 end)
 
+mod.events:on("save.loaded", function()
+  logic:onSaveLoaded()
+end)
+
+mod.events:on("save.created", function()
+  logic:clearAll()
+  logic.activeMapId = nil
+  logic.stepsOnMap = 0
+end)
+
+mod.events:on("mod.options_changed", function(payload)
+  logic:onOptionsChanged(payload)
+end)
+
 -- ------- hooks
 
 -- Optional: suppress vanilla random grass rolls so visible spawns are the
--- primary wild encounter path. Surf / indoor cave rolls pass through.
+-- primary wild encounter path. Surf / fishing / other terrains pass through.
 mod.hooks:wrap("encounter.roll", function(next, encDef, ctx)
-  if Config.get(mod, "suppress_random_grass")
+  if Config.isEnabled(mod)
+     and Config.get(mod, "suppress_random_grass")
      and ctx and ctx.terrain == "grass" then
     return nil
   end
@@ -79,11 +98,12 @@ mod.hooks:wrap("movement.collision", function(next, allowed, ctx)
   return logic:onCollision(result, ctx)
 end)
 
--- ------- exports (companion / debug surface)
+-- ------- exports (companion / debug / test surface)
 
-mod.exports.version = "1.0.0"
+mod.exports.version = "0.1.0"
 mod.exports.logic = logic
 mod.exports.render = render
 mod.exports.lib = V
+mod.exports.clearAll = function() logic:clearAll() end
 
-mod.log:info("overworld-spawns ready (2D + optional DRAMATIC_SHAPE)")
+mod.log:info("overworld_wild_spawns ready (2D + optional DRAMATIC_SHAPE)")

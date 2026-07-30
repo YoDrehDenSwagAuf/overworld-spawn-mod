@@ -2,6 +2,9 @@
 /gen1recomp/
 /DramaticShapeVoxelMod/
 
+# Build output
+/dist/
+
 # ROMs and generated caches — never commit
 *.gb
 *.gbc
@@ -18,4 +21,6 @@ __pycache__/
 
 # Love save / bake cache
 overworld-spawns-cache/
+overworld_wild_spawns-cache/
 mods/overworld-spawns/.cache/
+mods/overworld_wild_spawns/.cache/

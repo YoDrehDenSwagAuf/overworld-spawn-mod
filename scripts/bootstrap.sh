@@ -25,12 +25,14 @@ else
   say "DramaticShapeVoxelMod already present"
 fi
 
-[ -d "$ROOT/mods/overworld-spawns" ] \
-  || fail "missing mods/overworld-spawns in this repository"
+[ -d "$ROOT/mods/overworld_wild_spawns" ] \
+  || fail "missing mods/overworld_wild_spawns in this repository"
 
-say "linking overworld-spawns into gen1recomp/mods/"
+say "linking overworld_wild_spawns into gen1recomp/mods/"
 mkdir -p "$ROOT/gen1recomp/mods"
-ln -sfn "$ROOT/mods/overworld-spawns" "$ROOT/gen1recomp/mods/overworld-spawns"
+ln -sfn "$ROOT/mods/overworld_wild_spawns" "$ROOT/gen1recomp/mods/overworld_wild_spawns"
+# Remove stale symlink from the previous mod id if present.
+rm -f "$ROOT/gen1recomp/mods/overworld-spawns"
 
 say "linking Dramatic Shape into gen1recomp/mods/DRAMATIC_SHAPE"
 ln -sfn "$ROOT/DramaticShapeVoxelMod" "$ROOT/gen1recomp/mods/DRAMATIC_SHAPE"
@@ -46,7 +48,9 @@ Next steps:
        cd gen1recomp && ./scripts/setup.sh
   3. Play:
        ./scripts/run.sh
-  4. Enable "Overworld Spawns" in the F10 Mod Manager.
+  4. Enable "Overworld Wild Pokémon" in the F10 Mod Manager.
      Optionally enable Dramatic Shape and press 3 for VOXEL mode.
+  5. Package an importable ZIP:
+       ./scripts/build-mod.py
 
 EOF

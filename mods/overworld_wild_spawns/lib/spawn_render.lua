@@ -1,6 +1,9 @@
--- Presentational half of overworld-spawns.
+-- Presentational half of overworld_wild_spawns.
 -- Builds sprite ids and SpawnEntity objects that satisfy pose()/draw() for
 -- both vanilla 2D SpriteRenderer and Dramatic Shape VoxelScene billboards.
+--
+-- Requires engine_internals: SpriteRenderer is the same class Player/NPC use.
+-- Logic never draws. This module never queues battles.
 local V = ...
 local Config = V.require("config")
 
@@ -42,8 +45,8 @@ local function bakeSheet(species, sourcePath)
     return nil
   end
 
-  pcall(love.filesystem.createDirectory, "overworld-spawns-cache")
-  local rel = "overworld-spawns-cache/" .. tostring(species):lower() .. ".png"
+  pcall(love.filesystem.createDirectory, "overworld_wild_spawns-cache")
+  local rel = "overworld_wild_spawns-cache/" .. tostring(species):lower() .. ".png"
   local fileData = idata:encode("png")
   if not fileData then return nil end
   love.filesystem.write(rel, fileData:getString())
@@ -61,7 +64,7 @@ end
 
 function SpawnRender:_ensurePlaceholder()
   if self.placeholderId then return self.placeholderId end
-  local id = "SPRITE_OW_SPAWN_PLACEHOLDER"
+  local id = "SPRITE_OW_WILD_PLACEHOLDER"
   local path = self.mod.assets:path("spawn_placeholder.png")
   if not self.mod.content.sprites:get(id) then
     self.mod.content.sprites:register(id, {
@@ -77,7 +80,7 @@ end
 function SpawnRender:spriteIdFor(species, game)
   if self.spriteIds[species] then return self.spriteIds[species] end
 
-  local id = "SPRITE_OW_SPAWN_" .. tostring(species)
+  local id = "SPRITE_OW_WILD_" .. tostring(species)
   if self.mod.content.sprites:get(id) then
     self.spriteIds[species] = id
     return id
@@ -94,7 +97,7 @@ function SpawnRender:spriteIdFor(species, game)
         frames = 1,
         trueColor = true,
       })
-      -- Also stamp into the live data table so SpriteRenderer can resolve
+      -- Stamp into the live data table so SpriteRenderer can resolve
       -- immediately without waiting for a rematch merge.
       if game.data.sprites then
         game.data.sprites[id] = {
@@ -115,12 +118,13 @@ Entity.__index = Entity
 
 function Entity.new(game, mod, render, record)
   local self = setmetatable({}, Entity)
-  self.overworldSpawn = true
+  self.overworldWildSpawn = true
   self.passable = true
   self.spawnId = record.id
   self.species = record.species
   self.level = record.level
   self.mapId = record.mapId
+  self.state = record.state or Config.STATE.AVAILABLE
   self.cellX = record.x
   self.cellY = record.y
   self.px = record.x * CELL
@@ -136,10 +140,17 @@ function Entity.new(game, mod, render, record)
     spriteId = render:_ensurePlaceholder()
     spriteDef = game.data.sprites and game.data.sprites[spriteId]
   end
-  assert(spriteDef, "overworld-spawns: placeholder sprite missing")
+  assert(spriteDef, "overworld_wild_spawns: placeholder sprite missing")
   local SpriteRenderer = require("src.render.SpriteRenderer")
   self.sprite = SpriteRenderer.new(spriteDef, self.spawnId)
   return self
+end
+
+function Entity:setCell(x, y)
+  self.cellX = x
+  self.cellY = y
+  self.px = x * CELL
+  self.py = y * CELL
 end
 
 function Entity:pose()

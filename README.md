@@ -1,87 +1,66 @@
 # Overworld Spawn Mod
 
-Custom Gen1Recomp mod that spawns visible wild Pokémon on grass tiles and starts the matching wild battle on contact. Compatible with vanilla 2D and Dramatic Shape Voxel mode.
+Gen1Recomp mod that spawns **visible wild Pokémon** in eligible overworld encounter areas and starts the matching wild battle on contact.
+
+**It does not change the player spawn point** and never teleports or repositions the player.
+
+Compatible with vanilla 2D Gen1Recomp; optionally coexists with Dramatic Shape Voxel mode (`DRAMATIC_SHAPE`).
 
 ## Workspace layout
 
 ```
 overworld-spawn-mod/
-├── mods/overworld-spawns/     ← the mod (drop into gen1recomp/mods/)
-├── scripts/bootstrap.sh       ← clone engine + Voxel Mod, link this mod
-├── gen1recomp/                ← engine execution root (created by bootstrap)
-└── DramaticShapeVoxelMod/     ← reference Voxel Mod (created by bootstrap)
+├── mods/overworld_wild_spawns/   ← the mod (import ZIP or symlink into gen1recomp/mods/)
+├── scripts/
+│   ├── bootstrap.sh              ← clone engine + Voxel Mod, link this mod
+│   ├── build-mod.py              ← pack dist/overworld_wild_spawns-0.1.0.zip
+│   └── build-mod.ps1
+├── gen1recomp/                   ← engine execution root (created by bootstrap)
+└── DramaticShapeVoxelMod/        ← reference Voxel Mod (created by bootstrap)
 ```
 
-Gen1Recomp is the main execution root after bootstrap. This repository ships the mod and setup scripts; the engine and Voxel Mod are cloned on demand.
+## Quick start
 
-## Quick start (ROM + LÖVE2D)
-
-### 1. Bootstrap dependencies
+### 1. Bootstrap
 
 ```sh
 ./scripts/bootstrap.sh
 ```
 
-This clones `bryanthaboi/gen1recomp` and `DramaticShape/DramaticShapeVoxelMod`, then symlinks:
-
-- `mods/overworld-spawns` → `gen1recomp/mods/overworld-spawns`
-- Voxel Mod → `gen1recomp/mods/DRAMATIC_SHAPE`
-
 ### 2. Place a legal ROM
-
-Put **your own** dump of Pokémon Red or Blue (or Yellow) here:
 
 ```
 gen1recomp/Pokemon Red.gb
-# or
-gen1recomp/Pokemon Blue.gb
-# or
-gen1recomp/Pokemon Yellow.gbc
 ```
 
-Any filename ending in `.gb` / `.gbc` in the `gen1recomp/` root works. You can also pass an explicit path:
+### 3. Decode + launch
 
 ```sh
 cd gen1recomp
-./scripts/setup.sh --rom "/path/to/Pokemon Red.gb"
-```
-
-`setup.sh` will:
-
-1. Create a Python venv and install Pillow
-2. Decode ROM data into `data/generated/` and assets into `assets/generated/`
-3. Verify LÖVE 11.x is installed
-
-The ROM is **not** copied into the generated cache; keep it where you placed it (or pass `--rom` each time you rebuild).
-
-### 3. Install LÖVE 11.x
-
-- https://love2d.org — or `brew install --cask love` on macOS
-- Linux: install the `love` package for your distro (11.x)
-
-### 4. Launch
-
-```sh
-cd gen1recomp
+./scripts/setup.sh
 ./scripts/run.sh
-# developer console / hot-reload:
-./scripts/run.sh --developer
 ```
 
-### 5. Enable the mod
+### 4. Enable the mod
 
-In-game: open the **Mod Manager** (F10) and enable **Overworld Spawns**.
+F10 → Mod Manager → enable **Overworld Wild Pokémon**.
 
-Optional: also enable **Dramatic Shape Voxel Mod**, then press `3` to raise the VOXEL ladder — spawn billboards appear in 3D automatically.
+Optional: enable **Dramatic Shape Voxel Mod**, press `3` for VOXEL — spawn billboards appear via the shared entity `pose()` contract.
 
-### 6. Test on Route 1
+### 5. Package for import
 
-Start a new game, reach Route 1, and walk the grass. Visible spawns appear periodically; step onto one to fight that species at the table level.
+```sh
+./scripts/build-mod.py
+# → dist/overworld_wild_spawns-0.1.0.zip
+```
 
-## Architecture notes
+The ZIP has `manifest.json` and `main.lua` at the archive root (no outer folder).
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the Gen1Recomp hook/API survey and how Dual-mode rendering follows Dramatic Shape's entity contract.
+## Docs
+
+- [mods/overworld_wild_spawns/README.md](mods/overworld_wild_spawns/README.md) — install, options, behavior
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Gen1Recomp / Dramatic Shape API survey
 
 ## Legal
 
-You must supply your own legally obtained Pokémon Red/Blue/Yellow ROM. This project does not distribute Nintendo ROM data. The mod package ships only original placeholder art and Lua logic.
+You must supply your own legally obtained Pokémon Red/Blue/Yellow ROM. This project does not distribute Nintendo ROM data.

@@ -1,0 +1,18 @@
+{
+  "id": "overworld_wild_spawns",
+  "name": "Overworld Wild Pokémon",
+  "version": "0.1.0",
+  "api": 2,
+  "entry": "main.lua",
+  "profile": "content",
+  "category": "MECHANIC",
+  "game_version": "0.0.0-dev || >=0.1.0 <2.0.0",
+  "priority": 80,
+  "dependencies": [],
+  "optional_dependencies": ["DRAMATIC_SHAPE"],
+  "conflicts": [],
+  "permissions": ["engine_internals"],
+  "affects_link": false,
+  "options_schema": "options.lua",
+  "description": "Spawn visible wild Pokémon in eligible overworld encounter areas. Touch one to start that exact wild battle. Does not change the player spawn point. Works in vanilla 2D and optionally with Dramatic Shape Voxel mode."
+}

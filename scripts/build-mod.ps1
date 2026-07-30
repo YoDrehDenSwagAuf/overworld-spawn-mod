@@ -1,0 +1,84 @@
+#!/usr/bin/env pwsh
+# Build dist/overworld_wild_spawns-<version>.zip for Gen1Recomp import.
+# Prefers Gen1Recomp modkit when available; falls back to Compress-Archive.
+$ErrorActionPreference = "Stop"
+
+$Root = Split-Path -Parent $PSScriptRoot
+$ModDir = Join-Path $Root "mods/overworld_wild_spawns"
+$Dist = Join-Path $Root "dist"
+$Engine = Join-Path $Root "gen1recomp"
+$ManifestPath = Join-Path $ModDir "manifest.json"
+
+if (-not (Test-Path $ManifestPath)) {
+  throw "missing $ManifestPath"
+}
+
+$manifest = Get-Content -Raw -Path $ManifestPath | ConvertFrom-Json
+if ($manifest.id -ne "overworld_wild_spawns") {
+  throw "manifest id must be overworld_wild_spawns"
+}
+$entry = if ($manifest.entry) { $manifest.entry } else { "main.lua" }
+if (-not (Test-Path (Join-Path $ModDir $entry))) {
+  throw "entry file missing: $entry"
+}
+
+if (Test-Path $Dist) { Remove-Item -Recurse -Force $Dist }
+New-Item -ItemType Directory -Path $Dist | Out-Null
+
+$OutZip = Join-Path $Dist ("{0}-{1}.zip" -f $manifest.id, $manifest.version)
+$Modkit = Join-Path $Engine "tools/modkit.py"
+
+if (Test-Path $Modkit) {
+  $Link = Join-Path $Engine "mods/overworld_wild_spawns"
+  New-Item -ItemType Directory -Force -Path (Split-Path $Link) | Out-Null
+  if (Test-Path $Link) { Remove-Item -Force $Link }
+  New-Item -ItemType SymbolicLink -Path $Link -Target $ModDir | Out-Null
+  Write-Host "==> python3 tools/modkit.py pack mods/overworld_wild_spawns"
+  Push-Location $Engine
+  try {
+    & python3 $Modkit --repo $Engine pack mods/overworld_wild_spawns -o $OutZip
+    if ($LASTEXITCODE -ne 0) { throw "modkit pack failed" }
+  } finally {
+    Pop-Location
+  }
+} else {
+  Write-Host "==> modkit unavailable; packing manually"
+  $stage = Join-Path $Dist "_stage"
+  New-Item -ItemType Directory -Path $stage | Out-Null
+  $include = @(
+    "manifest.json", "main.lua", "options.lua", "mod.card",
+    "README.md", "CHANGELOG.md"
+  )
+  foreach ($name in $include) {
+    $src = Join-Path $ModDir $name
+    if (Test-Path $src) {
+      Copy-Item $src (Join-Path $stage $name)
+    }
+  }
+  Copy-Item -Recurse (Join-Path $ModDir "lib") (Join-Path $stage "lib")
+  Copy-Item -Recurse (Join-Path $ModDir "assets") (Join-Path $stage "assets")
+  Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $OutZip -Force
+  Remove-Item -Recurse -Force $stage
+}
+
+if (-not (Test-Path $OutZip)) { throw "expected output missing: $OutZip" }
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = [System.IO.Compression.ZipFile]::OpenRead($OutZip)
+try {
+  $names = @($zip.Entries | ForEach-Object { $_.FullName.Replace("\", "/") })
+} finally {
+  $zip.Dispose()
+}
+
+if ($names -notcontains "manifest.json") {
+  throw "ZIP missing manifest.json at archive root"
+}
+if ($names -notcontains $entry) {
+  throw "ZIP missing entry $entry at archive root"
+}
+
+Write-Host "verify ok:"
+Write-Host ("  files: {0}" -f $names.Count)
+$names | Sort-Object | ForEach-Object { Write-Host ("  - {0}" -f $_) }
+Write-Host "wrote $OutZip"
