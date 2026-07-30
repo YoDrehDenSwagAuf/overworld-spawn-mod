@@ -1,16 +1,16 @@
 #!/usr/bin/env pwsh
 # Build dist/overworld_wild_spawns-<version>.zip for Gen1Recomp import.
-# Prefers Gen1Recomp modkit when available; falls back to Compress-Archive.
+# Repo root IS the mod (DramaticShapeVoxelMod layout). Prefers modkit pack.
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot
-$ModDir = Join-Path $Root "mods/overworld_wild_spawns"
+$ModDir = $Root
 $Dist = Join-Path $Root "dist"
-$Engine = Join-Path $Root "gen1recomp"
+$Engine = Join-Path $Root ".deps/gen1recomp"
 $ManifestPath = Join-Path $ModDir "manifest.json"
 
 if (-not (Test-Path $ManifestPath)) {
-  throw "missing $ManifestPath"
+  throw "missing $ManifestPath (repo root must be the mod)"
 }
 
 $manifest = Get-Content -Raw -Path $ManifestPath | ConvertFrom-Json
@@ -42,7 +42,7 @@ if (Test-Path $Modkit) {
     Pop-Location
   }
 } else {
-  Write-Host "==> modkit unavailable; packing manually"
+  Write-Host "==> modkit unavailable; packing manually from repo root"
   $stage = Join-Path $Dist "_stage"
   New-Item -ItemType Directory -Path $stage | Out-Null
   $include = @(
@@ -55,8 +55,12 @@ if (Test-Path $Modkit) {
       Copy-Item $src (Join-Path $stage $name)
     }
   }
-  Copy-Item -Recurse (Join-Path $ModDir "lib") (Join-Path $stage "lib")
-  Copy-Item -Recurse (Join-Path $ModDir "assets") (Join-Path $stage "assets")
+  foreach ($dir in @("lib", "assets", "data")) {
+    $src = Join-Path $ModDir $dir
+    if (Test-Path $src) {
+      Copy-Item -Recurse $src (Join-Path $stage $dir)
+    }
+  }
   Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $OutZip -Force
   Remove-Item -Recurse -Force $stage
 }
@@ -77,18 +81,28 @@ if ($names -notcontains "manifest.json") {
 if ($names -notcontains $entry) {
   throw "ZIP missing entry $entry at archive root"
 }
+if ($names -notcontains "mod.card") {
+  throw "ZIP missing mod.card at archive root"
+}
 $schema = $manifest.options_schema
 if ($schema -and ($names -notcontains $schema)) {
   throw "ZIP missing options_schema file: $schema"
 }
 foreach ($name in $names) {
-  if ($name -like ".git/*" -or $name -like "tests/*" -or $name -eq ".git") {
+  if ($name -like ".git/*" -or $name -like ".github/*" -or
+      $name -like "tests/*" -or $name -like "scripts/*" -or
+      $name -like "mods/*" -or $name -eq ".git" -or
+      $name -eq "ARCHITECTURE.md") {
     throw "ZIP contains forbidden path: $name"
   }
 }
+
+$Alias = Join-Path $Dist ("{0}.zip" -f $manifest.id)
+Copy-Item $OutZip $Alias -Force
 
 Write-Host "verify ok:"
 Write-Host "  manifest.json at ZIP root: yes"
 Write-Host ("  files: {0}" -f $names.Count)
 $names | Sort-Object | ForEach-Object { Write-Host ("  - {0}" -f $_) }
 Write-Host "wrote $OutZip"
+Write-Host "wrote $Alias"

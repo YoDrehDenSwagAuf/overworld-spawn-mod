@@ -7,7 +7,12 @@ The mod does **not** change the player spawn point, warp, or teleport the player
 
 ## Gen1Recomp mod surface (survey of current public API)
 
-Mods live under `mods/<dir>/` with `manifest.json` + `main.lua`.
+This repository follows the DramaticShapeVoxelMod layout: `manifest.json` +
+`main.lua` live at the **repository root**. For local play, `scripts/bootstrap.sh`
+clones the engine under `.deps/gen1recomp/` and symlinks the repo into
+`.deps/gen1recomp/mods/overworld_wild_spawns/`. Release packages are produced
+with `modkit pack` so the ZIP root is the mod root.
+
 The loader exposes a sandboxed `mod` API (`src/mods/Loader.lua`, API version 2):
 
 | Surface | Use in this mod |

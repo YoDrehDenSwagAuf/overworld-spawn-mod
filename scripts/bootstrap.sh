@@ -1,56 +1,72 @@
 #!/usr/bin/env bash
-# Clone Gen1Recomp + DramaticShapeVoxelMod and link this repo's mod in.
+# Clone Gen1Recomp + DramaticShapeVoxelMod under .deps/ and link this repo (the mod).
+# Layout matches DramaticShapeVoxelMod: the repository root IS the mod.
+# Engine clones live in .deps/ so modkit pack never walks them (dot-dirs are skipped).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DEPS="$ROOT/.deps"
 ENGINE_URL="${GEN1RECOMP_URL:-https://github.com/bryanthaboi/gen1recomp.git}"
 VOXEL_URL="${VOXEL_URL:-https://github.com/DramaticShape/DramaticShapeVoxelMod.git}"
+ENGINE="$DEPS/gen1recomp"
+VOXEL="$DEPS/DramaticShapeVoxelMod"
 
 say() { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
 fail() { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
 cd "$ROOT"
 
-if [ ! -d "$ROOT/gen1recomp/.git" ]; then
+[ -f "$ROOT/manifest.json" ] || fail "missing manifest.json at repo root"
+[ -f "$ROOT/main.lua" ] || fail "missing main.lua at repo root"
+
+mkdir -p "$DEPS"
+
+# Migrate legacy in-tree clones from earlier bootstrap versions.
+if [ -d "$ROOT/gen1recomp/.git" ] && [ ! -d "$ENGINE/.git" ]; then
+  say "migrating gen1recomp/ → .deps/gen1recomp/"
+  mv "$ROOT/gen1recomp" "$ENGINE"
+fi
+if [ -d "$ROOT/DramaticShapeVoxelMod/.git" ] && [ ! -d "$VOXEL/.git" ]; then
+  say "migrating DramaticShapeVoxelMod/ → .deps/DramaticShapeVoxelMod/"
+  mv "$ROOT/DramaticShapeVoxelMod" "$VOXEL"
+fi
+
+if [ ! -d "$ENGINE/.git" ]; then
   say "cloning Gen1Recomp engine (dev branch)"
-  git clone --depth 1 --branch dev "$ENGINE_URL" "$ROOT/gen1recomp"
+  git clone --depth 1 --branch dev "$ENGINE_URL" "$ENGINE"
 else
-  say "Gen1Recomp already present"
+  say "Gen1Recomp already present at .deps/gen1recomp"
 fi
 
-if [ ! -d "$ROOT/DramaticShapeVoxelMod/.git" ]; then
+if [ ! -d "$VOXEL/.git" ]; then
   say "cloning Dramatic Shape Voxel Mod"
-  git clone --depth 1 "$VOXEL_URL" "$ROOT/DramaticShapeVoxelMod"
+  git clone --depth 1 "$VOXEL_URL" "$VOXEL"
 else
-  say "DramaticShapeVoxelMod already present"
+  say "DramaticShapeVoxelMod already present at .deps/DramaticShapeVoxelMod"
 fi
 
-[ -d "$ROOT/mods/overworld_wild_spawns" ] \
-  || fail "missing mods/overworld_wild_spawns in this repository"
+say "linking this repo into .deps/gen1recomp/mods/overworld_wild_spawns"
+mkdir -p "$ENGINE/mods"
+rm -f "$ENGINE/mods/overworld-spawns"
+ln -sfn "$ROOT" "$ENGINE/mods/overworld_wild_spawns"
 
-say "linking overworld_wild_spawns into gen1recomp/mods/"
-mkdir -p "$ROOT/gen1recomp/mods"
-ln -sfn "$ROOT/mods/overworld_wild_spawns" "$ROOT/gen1recomp/mods/overworld_wild_spawns"
-# Remove stale symlink from the previous mod id if present.
-rm -f "$ROOT/gen1recomp/mods/overworld-spawns"
-
-say "linking Dramatic Shape into gen1recomp/mods/DRAMATIC_SHAPE"
-ln -sfn "$ROOT/DramaticShapeVoxelMod" "$ROOT/gen1recomp/mods/DRAMATIC_SHAPE"
+say "linking Dramatic Shape into .deps/gen1recomp/mods/DRAMATIC_SHAPE"
+ln -sfn "$VOXEL" "$ENGINE/mods/DRAMATIC_SHAPE"
 
 cat <<EOF
 
 Bootstrap complete.
 
 Next steps:
-  1. Copy a legal Pokemon Red/Blue/Yellow ROM into gen1recomp/
-       e.g.  gen1recomp/Pokemon Red.gb
+  1. Copy a legal Pokemon Red/Blue/Yellow ROM into .deps/gen1recomp/
+       e.g.  .deps/gen1recomp/Pokemon Red.gb
   2. Decode assets:
-       cd gen1recomp && ./scripts/setup.sh
+       cd .deps/gen1recomp && ./scripts/setup.sh
   3. Play:
        ./scripts/run.sh
   4. Enable "Overworld Wild Pokémon" in the F10 Mod Manager.
      Optionally enable Dramatic Shape and press 3 for VOXEL mode.
-  5. Package an importable ZIP:
+  5. Package an importable ZIP (manifest.json at archive root):
        ./scripts/build-mod.py
 
 EOF
