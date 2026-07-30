@@ -1,18 +1,24 @@
-# Architecture: Overworld Spawns on Gen1Recomp
+# Architecture: Overworld Wild Pokémon on Gen1Recomp
 
-## Gen1Recomp mod surface (survey)
+## Goal
 
-Mods live one level under `mods/<id>/` with `manifest.json` + `main.lua`.
-The loader exposes a sandboxed `mod` API:
+Spawn **visible wild Pokémon** in eligible overworld encounter areas.
+The mod does **not** change the player spawn point, warp, or teleport the player.
+
+## Gen1Recomp mod surface (survey of current public API)
+
+Mods live under `mods/<dir>/` with `manifest.json` + `main.lua`.
+The loader exposes a sandboxed `mod` API (`src/mods/Loader.lua`, API version 2):
 
 | Surface | Use in this mod |
 |---|---|
-| `mod.events:on` | `map.entered`, `map.exited`, `world.stepped`, `battle.ended` |
+| `mod.events:on` | `map.entered`, `map.exited`, `world.stepped`, `battle.ended`, `save.loaded`, `save.created`, `mod.options_changed` |
 | `mod.hooks:wrap` | `encounter.roll` (optional grass suppress), `movement.collision` (bump safety) |
 | `mod.world` | `overworld()`, `queueScript({ {"start_battle","wild",species,level} })` |
-| `mod.content.sprites` | Placeholder + baked 16×16 species sheets |
-| `mod.options` | Cap, rate, opacity, suppress toggle |
+| `mod.content.sprites` | Placeholder + optional baked 16×16 species sheets |
+| `mod.options` | `enabled`, caps, rate, opacity, suppress toggle (`options.lua` schema) |
 | `mod.exports` | `logic` / `render` / `lib` for companions & tests |
+| `mod.save` | unused — wild entities are runtime-only |
 
 There is no public `StartWildBattle` helper. Wild battles are started via the
 script verb `start_battle` (which calls `BattleState.newWild`) or by letting
@@ -23,7 +29,15 @@ Encounter tables live at `game.data.encounters[mapId].grass` with
 `rate`, `slots[{species,level}]`, and optional `buckets`. Grass cells are
 `Map:isGrassCell(cx, cy)` on the live runtime map (`widthCells` × `heightCells`).
 
+Player-position APIs that this mod deliberately never calls:
+
+- `WorldAPI:warpTo`
+- script `warp`
+- `SaveData.newGame` boot `startMap` / `startX` / `startY` / `startFacing`
+
 ## Dramatic Shape Voxel Mod (survey)
+
+Manifest id: **`DRAMATIC_SHAPE`** (from DramaticShapeVoxelMod `manifest.json`).
 
 `DRAMATIC_SHAPE` is presentational only. It registers `render_pipelines`
 `voxel` / `tiltshift` and draws whatever is already on `OverworldState.entities`
@@ -37,6 +51,9 @@ e.px, e.py, e.cellX, e.cellY
 There is **no** inject-billboard API. The supported dual-mode path is to put
 entities on `state.entities`. Companion access: `mod.find("DRAMATIC_SHAPE").exports.lib`.
 
+This mod does not wrap Map/camera/BattleState methods and does not register
+render pipelines. Optional dependency only documents coexistence.
+
 Coordinate cheat-sheet:
 
 | Space | Mapping |
@@ -48,15 +65,22 @@ Coordinate cheat-sheet:
 ## This mod's split
 
 ```
-map.entered ──► SpawnLogic clears + initial wave
-world.stepped ──► touch? start_battle : maybe trySpawn
+map.entered ──► SpawnLogic clears + initial wave (if enabled)
+world.stepped ──► touch? start_battle : despawn-far / wander / trySpawn
 trySpawn ──► EncounterPick + Grass.pickFree ──► SpawnRender.makeEntity
 makeEntity ──► insert into ow.entities  (2D draw + Voxel billboard)
+enabled=false / map.exited / save.loaded ──► clearAll
 ```
 
 Logic never calls `love.graphics`. Rendering never queues battles.
 `optional_dependencies: ["DRAMATIC_SHAPE"]` documents Voxel compatibility
 without requiring it.
+
+## Vanilla grass rolls
+
+When `enabled` and `suppress_random_grass` are true, `encounter.roll` returns
+`nil` for `ctx.terrain == "grass"` only. Water, fishing, and other terrains
+pass through. Static/scripted/trainer battles are unrelated hooks.
 
 ## ROM / generated data
 

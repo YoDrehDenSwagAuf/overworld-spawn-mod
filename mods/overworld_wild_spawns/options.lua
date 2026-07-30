@@ -1,0 +1,62 @@
+-- Option schema for Overworld Wild Pokémon.
+-- Loaded via mod.options:define() from main.lua and referenced by
+-- manifest options_schema for Mod Manager lazy-load.
+--
+-- Types match Gen1Recomp ManagerState.OPTION_TYPES: toggle, choice, number, text.
+
+return {
+  {
+    key = "enabled",
+    label = "Show wild Pokémon in the overworld",
+    type = "toggle",
+    default = true,
+    description = "Spawn visible wild Pokémon in eligible overworld encounter areas.",
+  },
+  {
+    key = "max_spawns",
+    label = "MAX SPAWNS",
+    type = "choice",
+    default = 5,
+    choices = {
+      { "3", 3 }, { "4", 4 }, { "5", 5 }, { "6", 6 }, { "8", 8 },
+    },
+    description = "Maximum visible wild Pokémon on the current map at once.",
+  },
+  {
+    key = "spawn_every_steps",
+    label = "SPAWN RATE",
+    type = "choice",
+    default = 8,
+    choices = {
+      { "FAST", 4 }, { "NORMAL", 8 }, { "SLOW", 14 },
+    },
+    description = "Player steps between spawn attempts.",
+  },
+  {
+    key = "initial_spawns",
+    label = "ON ENTER",
+    type = "choice",
+    default = 3,
+    choices = {
+      { "1", 1 }, { "2", 2 }, { "3", 3 }, { "4", 4 }, { "5", 5 },
+    },
+    description = "How many wild Pokémon to try spawning when entering a map.",
+  },
+  {
+    key = "suppress_random_grass",
+    label = "HIDE RANDOM GRASS",
+    type = "toggle",
+    default = true,
+    description = "Suppress vanilla random grass encounters while visible spawns are active.",
+  },
+  {
+    key = "sprite_opacity",
+    label = "SPRITE FADE",
+    type = "choice",
+    default = 0.88,
+    choices = {
+      { "SOLID", 1.0 }, { "TUCKED", 0.88 }, { "FAINT", 0.72 },
+    },
+    description = "Opacity of overworld wild Pokémon sprites.",
+  },
+}

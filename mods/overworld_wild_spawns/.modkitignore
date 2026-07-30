@@ -1,0 +1,4 @@
+# Exact relative paths excluded from the distributed package.
+# modkit matches literally (no globs). See Gen1Recomp CONTRIBUTING-mods.md.
+
+tests/overworld_wild_spawns_test.lua

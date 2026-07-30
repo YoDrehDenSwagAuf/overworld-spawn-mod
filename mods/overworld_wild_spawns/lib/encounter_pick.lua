@@ -47,4 +47,28 @@ function EncounterPick.hasGrassTable(encDef)
       and (grass.rate or 0) > 0
 end
 
+-- True when species/level could come from this map's grass table.
+function EncounterPick.inTable(encDef, species, level)
+  local grass = encDef and encDef.grass
+  if not grass or not grass.slots then return false end
+  for _, slot in ipairs(grass.slots) do
+    if slot.species == species and (level == nil or slot.level == level) then
+      return true
+    end
+  end
+  return false
+end
+
+function EncounterPick.levelRange(encDef)
+  local grass = encDef and encDef.grass
+  if not grass or not grass.slots or #grass.slots == 0 then return nil end
+  local lo, hi = math.huge, 0
+  for _, slot in ipairs(grass.slots) do
+    local lv = slot.level or 1
+    if lv < lo then lo = lv end
+    if lv > hi then hi = lv end
+  end
+  return lo, hi
+end
+
 return EncounterPick
