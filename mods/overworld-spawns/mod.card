@@ -1,0 +1,31 @@
+-- Sharing metadata. Read by tooling and the manager detail pane;
+-- never by the loader's merge.
+return {
+  summary = "Visible wild Pokémon on grass; touch one to battle that species.",
+  author = "overworld-spawn-mod",
+  contact = "https://github.com/YoDrehDenSwagAuf/overworld-spawn-mod",
+  tags = { "overworld", "encounters", "gameplay", "voxel-compatible" },
+  differences = {
+    changed = {
+      "maps with grass encounter tables can also show tangible wild Pokémon",
+      "optional suppression of vanilla random grass rolls while this mod is on",
+    },
+    added = {
+      "data-driven overworld spawn entities on grass cells",
+      "collision/step trigger that starts BattleState.newWild for the spawn",
+      "dual-mode rendering: SpriteRenderer 2D cards and VoxelScene billboards",
+    },
+    known = {
+      "species art prefers the player's decoded battle front pics baked to 16x16; "
+        .. "otherwise a bundled placeholder silhouette is used",
+      "spawns are runtime-only and reset when you leave and re-enter a map",
+      "Dramatic Shape overworld battles cull non-player entities from the arena shot",
+    },
+  },
+  credits = {
+    { who = "bryanthaboi/gen1recomp", for_ = "mod API, encounter tables, WorldAPI" },
+    { who = "DramaticShape/DramaticShapeVoxelMod",
+      for_ = "entity pose()/draw() dual-mode rendering contract" },
+  },
+  compat = { engine = ">=1.0.0 <2.0.0", modApi = 2 },
+}
