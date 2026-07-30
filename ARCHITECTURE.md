@@ -82,11 +82,29 @@ Voxel coexistence uses the shared entity `pose()` contract only — no
 `optional_dependencies` or invented permissions beyond `engine_internals`
 (required for `SpriteRenderer`).
 
-## Vanilla grass rolls
+## Vanilla grass rolls (fail-safe)
 
-When `enabled` and `suppress_random_grass` are true, `encounter.roll` returns
-`nil` for `ctx.terrain == "grass"` only. Water, fishing, and other terrains
-pass through. Static/scripted/trainer battles are unrelated hooks.
+`encounter.roll` returns `nil` for `ctx.terrain == "grass"` only when
+`SpawnLogic:canSuppressVanilla()` is true:
+
+```text
+initialized
+AND mapSupported
+AND encounterDataAvailable
+AND eligibleTilesAvailable
+AND rendererAvailable
+AND updateCallbackRegistered
+AND pipelineVerified
+AND lastError == nil
+AND enabled
+AND suppress_random_grass
+```
+
+Init order on `map.entered`: map → encounter data → grass tiles
+(`Map:isGrassCell`) → renderer probe → controlled spawn → then allow suppress.
+On any failure, vanilla grass rolls stay active. The Pokédex is never consulted.
+
+Water, fishing, and other terrains always pass through.
 
 ## ROM / generated data
 
