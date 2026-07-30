@@ -1,0 +1,21 @@
+# Nested engine / reference clones (use scripts/bootstrap.sh)
+/gen1recomp/
+/DramaticShapeVoxelMod/
+
+# ROMs and generated caches — never commit
+*.gb
+*.gbc
+*.gba
+*.ips
+*.bps
+
+# Local tooling
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.modkit/
+
+# Love save / bake cache
+overworld-spawns-cache/
+mods/overworld-spawns/.cache/
