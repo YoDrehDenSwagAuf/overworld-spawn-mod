@@ -1,10 +1,10 @@
-# Manual test guide — Overworld Wild Pokemon 0.4.0
+# Manual test guide — Wilds of Kanto 0.4.1
 
 Earliest grass map: **ROUTE_1**. Use Developer mode HUD while verifying.
 
 ## A. Small grass route (Route 1)
 
-1. Import `dist/overworld_wild_spawns-0.4.0.zip`, enable mod + Developer mode.
+1. Import `dist/wilds-of-kanto-v0.4.1.zip`, enable mod + Developer mode.
 2. New game → Route 1 (no Pokédex needed).
 3. HUD: Target Pokemon is low (often 1–3); Active ≤ Target/Max.
 4. Confirm behaviours appear over time (Idle / Wander / Aggressive / Hidden).

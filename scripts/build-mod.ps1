@@ -1,6 +1,7 @@
 #!/usr/bin/env pwsh
-# Build dist/overworld_wild_spawns-<version>.zip for Gen1Recomp import.
+# Build dist/wilds-of-kanto-v<version>.zip for Gen1Recomp import.
 # Repo root IS the mod (DramaticShapeVoxelMod layout). Prefers modkit pack.
+# Also writes technical-id aliases: overworld_wild_spawns-<version>.zip / .zip
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot
@@ -33,7 +34,7 @@ if (-not (Test-Path (Join-Path $ModDir $entry))) {
 if (Test-Path $Dist) { Remove-Item -Recurse -Force $Dist }
 New-Item -ItemType Directory -Path $Dist | Out-Null
 
-$OutZip = Join-Path $Dist ("{0}-{1}.zip" -f $manifest.id, $manifest.version)
+$OutZip = Join-Path $Dist ("wilds-of-kanto-v{0}.zip" -f $manifest.version)
 $Modkit = Join-Path $Engine "tools/modkit.py"
 
 if (Test-Path $Modkit) {
@@ -105,12 +106,15 @@ foreach ($name in $names) {
   }
 }
 
-$Alias = Join-Path $Dist ("{0}.zip" -f $manifest.id)
-Copy-Item $OutZip $Alias -Force
+$IdVersioned = Join-Path $Dist ("{0}-{1}.zip" -f $manifest.id, $manifest.version)
+$IdAlias = Join-Path $Dist ("{0}.zip" -f $manifest.id)
+Copy-Item $OutZip $IdVersioned -Force
+Copy-Item $OutZip $IdAlias -Force
 
 Write-Host "verify ok:"
 Write-Host "  manifest.json at ZIP root: yes"
 Write-Host ("  files: {0}" -f $names.Count)
 $names | Sort-Object | ForEach-Object { Write-Host ("  - {0}" -f $_) }
 Write-Host "wrote $OutZip"
-Write-Host "wrote $Alias"
+Write-Host "wrote $IdVersioned"
+Write-Host "wrote $IdAlias"

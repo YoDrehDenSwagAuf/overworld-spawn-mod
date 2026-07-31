@@ -1,8 +1,9 @@
-# Overworld Wild Pokemon — User Guide (0.4.0)
+# Wilds of Kanto — User Guide (0.4.1)
 
 Visible wild Pokemon appear in the overworld. Walk into one (or into a shaking grass patch) to start that exact wild battle. Classic random grass encounters stay available until the visible spawn system is ready on the current map.
 
 This mod never changes your player spawn point and never requires the Pokédex.
+Technical mod id: `overworld_wild_spawns` (stable for options/saves).
 
 ## 1. What the mod does
 
@@ -14,9 +15,9 @@ This mod never changes your player spawn point and never requires the Pokédex.
 
 ## 2. Installation
 
-1. Build or download `overworld_wild_spawns-0.4.0.zip`
+1. Build or download `wilds-of-kanto-v0.4.1.zip`
 2. In Gen1Recomp open **Mod Manager (F10)** → Import the ZIP
-3. Enable **Overworld Wild Pokemon**
+3. Enable **Wilds of Kanto**
 
 The ZIP root must contain `manifest.json` directly (no wrapping folder).
 
@@ -167,7 +168,7 @@ Legacy aliases `max_spawns` and `spawn_every_steps` still exist for older option
 Enable **Developer mode**, then:
 
 1. Read the top-right spawn HUD (Target / Active / Regions / Surface / …)
-2. Open **OPTIONS → POKEMON PREVIEW → OPEN** (or Start Menu → **OW PREVIEW**)
+2. Open **OPTIONS → POKEMON PREVIEW → OPEN** (or Start Menu → **WILDS PREVIEW**)
 3. Inspect assets and run **Test spawn** (7 phases)
 
 ## 15. Preview browser

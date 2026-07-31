@@ -14,15 +14,15 @@ local modMeta = run.loader.mods["overworld_wild_spawns"]
 T.check(modMeta ~= nil, "loader discovered mod by manifest id")
 T.eq(modMeta.state, "loaded", "mod reached loaded state")
 T.eq(modMeta.manifest.id, "overworld_wild_spawns", "manifest id")
-T.eq(modMeta.manifest.name, "Overworld Wild Pokemon", "manifest name")
-T.eq(modMeta.manifest.version, "0.4.0", "manifest version")
+T.eq(modMeta.manifest.name, "Wilds of Kanto", "manifest name")
+T.eq(modMeta.manifest.version, "0.4.1", "manifest version")
 T.eq(modMeta.manifest.entry, "main.lua", "entry path")
 T.eq(modMeta.manifest.category, "MECHANIC", "category")
 T.eq(modMeta.manifest.api, 2, "mod api version")
 
 local exports = run.loader.exports["overworld_wild_spawns"]
 T.check(exports ~= nil, "exports table published")
-T.eq(exports.version, "0.4.0", "version export")
+T.eq(exports.version, "0.4.1", "version export")
 T.check(exports.logic ~= nil, "logic export")
 T.check(exports.render ~= nil, "render export")
 T.check(exports.hud ~= nil, "hud export")
@@ -582,7 +582,7 @@ T.check(modMeta.manifest.entry == "main.lua", "manifest entry is main.lua")
 T.check(modMeta.manifest.options_schema == "options.lua",
         "manifest options_schema is options.lua")
 T.eq(modMeta.manifest.description,
-     "Spawns visible wild Pokemon in eligible overworld encounter areas.",
+     "Visible and reactive wild Pokemon for the Gen 1 overworld.",
      "manifest description matches")
 
 -- Simulated successful spawn debug snapshot (for the report).
@@ -691,7 +691,7 @@ T.check(hud.rendererStatus ~= nil, "HUD renderer status set")
 T.eq(hud.spawnStatus, Config.STATUS.READY, "HUD spawn system READY after successful init")
 
 local lines = exports.hudLines()
-T.check(lines[1] == "Overworld Spawn Debug", "HUD title line")
+T.check(lines[1] == "Wilds of Kanto Debug", "HUD title line")
 local joined = table.concat(lines, "\n")
 T.check(joined:find("Encounter species: 2", 1, true), "HUD text has species count")
 T.check(joined:find("Encounter slots: 3", 1, true), "HUD text has slot count")
@@ -1141,7 +1141,7 @@ T.check(mockGame.save.pokedex == nil
         "suite completes with empty / unused pokedex")
 
 -- ============================================================
--- 0.4.0: density, regions, behaviours, surfaces, scaling
+-- 0.4.1: Wilds of Kanto public rename; density/behaviours from 0.4.0
 -- ============================================================
 
 local schemaKeys = {}

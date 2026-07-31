@@ -64,7 +64,7 @@ Next steps:
        cd .deps/gen1recomp && ./scripts/setup.sh
   3. Play:
        ./scripts/run.sh
-  4. Enable "Overworld Wild Pokemon" in the F10 Mod Manager.
+  4. Enable "Wilds of Kanto" in the F10 Mod Manager.
      Optionally enable Dramatic Shape and press 3 for VOXEL mode.
   5. Package an importable ZIP (manifest.json at archive root):
        ./scripts/build-mod.py

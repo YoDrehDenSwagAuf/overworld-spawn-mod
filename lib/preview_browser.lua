@@ -330,7 +330,7 @@ function PreviewBrowser:register()
       DebugLog.info(mod, "preview browser open rows=%d pokedex_seen=%s owned=%s (diag-only)",
                     #items, tostring(seen), tostring(owned))
       return mod.ui.ListMenu.new(game,
-        ("OW PREVIEW %d"):format(#items), items, {
+        ("WILDS PREVIEW %d"):format(#items), items, {
           pageJump = true,
           footer = "A: detail  B: close",
           onChoose = function(item)
@@ -371,7 +371,7 @@ function PreviewBrowser:register()
     if type(out) ~= "table" then return out end
     if not Config.devMode(mod) then return out end
     return mod.ui.insertBefore(out, "SAVE", {
-      label = "OW PREVIEW",
+      label = "WILDS PREVIEW",
       onSelect = function()
         mod.ui.push(game, PreviewBrowser.SCREEN)
       end,

@@ -34,7 +34,7 @@ function BehaviorTick:register()
   local tick = self
 
   mod.content.render_pipelines:register(BehaviorTick.PIPELINE_ID, {
-    label = "OW SPAWN AI",
+    label = "WILDS AI",
     levels = { "OFF", "ON" },
     priority = 1,
     available = function()

@@ -1,4 +1,6 @@
-# Overworld Wild Pokemon — Developer Guide (0.4.0)
+# Wilds of Kanto — Developer Guide (0.4.1)
+
+Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
 This document describes the **implemented** architecture. It does not invent Gen1Recomp APIs.
 
@@ -173,7 +175,7 @@ Global encounter index; Test spawn 7 phases; never mutates registries.
 
 ## 23. Logging
 
-`[OverworldSpawn][LEVEL]` via `debug_log.lua`. Forced on when `dev_mode`.
+`[WildsOfKanto][LEVEL]` via `debug_log.lua`. Forced on when `dev_mode`.
 
 ## 24. Tests
 
@@ -189,7 +191,8 @@ luajit mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
 ./scripts/build-mod.py
 ```
 
-Produces `dist/overworld_wild_spawns-0.4.0.zip` with `manifest.json` at ZIP root.
+Produces `dist/wilds-of-kanto-v0.4.1.zip` (plus technical-id aliases) with
+`manifest.json` at ZIP root.
 Includes `docs/`. Excludes `tests/`, `scripts/`, `.deps/`, root `ARCHITECTURE.md`.
 
 ## 26. Known technical constraints
