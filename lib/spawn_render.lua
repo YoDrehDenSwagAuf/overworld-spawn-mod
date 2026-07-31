@@ -2,16 +2,21 @@
 -- Base Gen1Recomp path: SpriteRenderer + pose()/draw() on OverworldState.entities.
 -- DramaticShapeVoxelMod is optional: when VOXEL is active it billboards via pose().
 --
--- Asset classes tracked for the developer browser:
---   battle_front / battle_back / menu_icon / overworld / generated_overworld / voxel
--- Spawn success depends on a usable overworld representation, not a battle pic alone.
+-- Lifecycle (non-negotiable):
+--   LOAD:  registerContent() writes mod.content.sprites once, builds lookup
+--   RUNTIME: spriteIdFor / makeEntity / preview only look up + cache images
+--
+-- Gen1Recomp freezes content registries after all mods load. Never call
+-- register/override/patch/remove from testSpawn, preview, map callbacks, etc.
 local V = ...
 local Config = V.require("config")
+local DebugLog = V.require("debug_log")
 
 local SpawnRender = {}
 SpawnRender.__index = SpawnRender
 
 local CELL = 16
+local PLACEHOLDER_ID = "SPRITE_OW_WILD_PLACEHOLDER"
 
 local function tryRequire(name)
   local ok, modOrErr = pcall(require, name)
@@ -19,6 +24,12 @@ local function tryRequire(name)
   return nil, modOrErr
 end
 
+local function spriteIdForSpecies(species)
+  return "SPRITE_OW_WILD_" .. tostring(species)
+end
+
+-- Runtime-only bake: writes a 16x16 sheet into the save cache. Never touches
+-- content registries. Returns a filesystem path or nil.
 local function bakeSheet(species, sourcePath, log)
   if not (love and love.graphics and love.image) then return nil end
   local Assets, assetsErr = tryRequire("src.render.Assets")
@@ -60,18 +71,28 @@ local function bakeSheet(species, sourcePath, log)
   local fileData = idata:encode("png")
   if not fileData then return nil end
   love.filesystem.write(rel, fileData:getString())
-  return love.filesystem.getSaveDirectory() .. "/" .. rel
+  if love.filesystem.getSaveDirectory then
+    return love.filesystem.getSaveDirectory() .. "/" .. rel
+  end
+  return rel
 end
 
 function SpawnRender.new(mod)
   local self = setmetatable({}, SpawnRender)
   self.mod = mod
-  self.spriteIds = {}
-  self.assetInfo = {} -- species -> status table
+  -- Immutable after registerContent(): species id -> registered sprite id.
+  self.speciesSpriteIds = {}
+  -- Per-species status recorded at registration time (kind / source path).
+  self.registrationInfo = {}
+  -- Runtime image cache only (paths / bake results). Never a content registry.
+  self.runtimeImageCache = {}
+  self.assetInfo = {}
   self.placeholderId = nil
-  self.rendererMode = "base" -- "base" | unavailable
+  self.rendererMode = "base"
   self.lastError = nil
-  self:_ensurePlaceholder()
+  self.contentRegistrationOpen = true
+  self.registeredCount = 0
+  self.missingCount = 0
   return self
 end
 
@@ -81,23 +102,119 @@ function SpawnRender:_log(fmt, ...)
   end
 end
 
-function SpawnRender:_ensurePlaceholder()
-  if self.placeholderId then return self.placeholderId end
-  local id = "SPRITE_OW_WILD_PLACEHOLDER"
-  local path = self.mod.assets:path("spawn_placeholder.png")
-  if not self.mod.content.sprites:get(id) then
-    self.mod.content.sprites:register(id, {
-      image = path,
-      frames = 1,
-      trueColor = true,
-    })
+function SpawnRender:_notice(fmt, ...)
+  local msg = fmt
+  if select("#", ...) > 0 then
+    msg = string.format(fmt, ...)
   end
-  self.placeholderId = id
+  self.mod.log:info("[OverworldSpawn][INFO] %s", msg)
+end
+
+function SpawnRender:_registerSprite(id, def)
+  if not self.contentRegistrationOpen then
+    return nil, "Attempted content registration after mod initialization"
+  end
+  if not self.mod.content or not self.mod.content.sprites then
+    return nil, "sprites content registry unavailable"
+  end
+  if self.mod.content.sprites:get(id) then
+    return id
+  end
+  self.mod.content.sprites:register(id, def)
   return id
 end
 
+-- LOAD PHASE only. Must finish before Gen1Recomp freezes content registries.
+function SpawnRender:registerContent()
+  if not self.contentRegistrationOpen then
+    return nil, "Attempted content registration after mod initialization"
+  end
+
+  self:_notice("Registering overworld sprite definitions")
+
+  local placeholderPath = self.mod.assets:path("spawn_placeholder.png")
+  local okPlace, placeErr = self:_registerSprite(PLACEHOLDER_ID, {
+    image = placeholderPath,
+    frames = 1,
+    trueColor = true,
+  })
+  if not okPlace then
+    self.contentRegistrationOpen = false
+    return nil, placeErr
+  end
+  self.placeholderId = PLACEHOLDER_ID
+
+  local registered, missing = 0, 0
+  local pokemon = self.mod.content and self.mod.content.pokemon
+  if pokemon and pokemon.each then
+    for speciesId, def in pokemon:each() do
+      local spriteId = spriteIdForSpecies(speciesId)
+      local front = def and def.spriteFront
+      if type(front) == "string" and front ~= "" then
+        -- Prefer a baked 16x16 sheet when the graphics stack is already up
+        -- (real love.load). Headless tests keep the battle-front path.
+        local imagePath = front
+        local kind = "battle_front"
+        local baked = bakeSheet(speciesId, front, function(fmt, ...)
+          self:_log(fmt, ...)
+        end)
+        if baked then
+          imagePath = baked
+          kind = "generated_overworld"
+        end
+        local ok, err = self:_registerSprite(spriteId, {
+          image = imagePath,
+          frames = 1,
+          trueColor = true,
+        })
+        if ok then
+          self.speciesSpriteIds[speciesId] = spriteId
+          self.registrationInfo[speciesId] = {
+            spriteId = spriteId,
+            image = imagePath,
+            source = front,
+            kind = kind,
+            status = "REGISTERED",
+          }
+          registered = registered + 1
+        else
+          missing = missing + 1
+          self.registrationInfo[speciesId] = {
+            spriteId = nil,
+            status = "REGISTER_ERROR",
+            lastError = tostring(err),
+          }
+          DebugLog.warn(self.mod,
+            "failed to register overworld sprite for %s: %s",
+            tostring(speciesId), tostring(err))
+        end
+      else
+        missing = missing + 1
+        self.registrationInfo[speciesId] = {
+          spriteId = nil,
+          status = "ASSET_MISSING",
+          lastError = "no battle front or overworld sprite",
+        }
+      end
+    end
+  end
+
+  self.registeredCount = registered
+  self.missingCount = missing
+  self.contentRegistrationOpen = false
+
+  self:_notice("Registered sprites: %d", registered)
+  self:_notice("Missing sprite assets: %d", missing)
+  self:_notice("Content registration complete")
+  return true
+end
+
+function SpawnRender:isContentRegistrationOpen()
+  return self.contentRegistrationOpen == true
+end
+
 -- Probe that the base Gen1Recomp SpriteRenderer path is usable. Does not
--- require DramaticShapeVoxelMod.
+-- require DramaticShapeVoxelMod. Never registers content.
 function SpawnRender:checkAvailable(game)
   self.lastError = nil
   local SpriteRenderer, err = tryRequire("src.render.SpriteRenderer")
@@ -111,7 +228,7 @@ function SpawnRender:checkAvailable(game)
     self.lastError = "SpriteRenderer.new missing"
     return false, self.lastError
   end
-  local placeholder = self:_ensurePlaceholder()
+  local placeholder = self.placeholderId or PLACEHOLDER_ID
   local spriteDef = game and game.data and game.data.sprites and game.data.sprites[placeholder]
   if not spriteDef then
     spriteDef = self.mod.content.sprites:get(placeholder)
@@ -139,53 +256,124 @@ function SpawnRender:isEntityRegistered(ow, entity)
   return false
 end
 
+-- Pure lookup. No registry mutation, no bake, no world changes.
+function SpawnRender:spriteIdFor(species)
+  if species == nil then
+    return nil, "species id is required"
+  end
+  local spriteId = self.speciesSpriteIds[species]
+  if not spriteId then
+    DebugLog.warn(self.mod,
+      "species=%s has no pre-registered overworld sprite", tostring(species))
+    return nil, "No pre-registered overworld sprite for species " .. tostring(species)
+  end
+  DebugLog.debug(self.mod, "species=%s spriteId=%s", tostring(species), tostring(spriteId))
+  return spriteId
+end
+
+-- Runtime asset resolution / bake cache. Never touches content registries.
+function SpawnRender:getRuntimeImage(species, game)
+  if self.runtimeImageCache[species] then
+    return self.runtimeImageCache[species]
+  end
+  local spriteId = self.speciesSpriteIds[species]
+  local reg = self.registrationInfo[species]
+  local contentDef = nil
+  if spriteId then
+    contentDef = (game and game.data and game.data.sprites and game.data.sprites[spriteId])
+              or (self.mod.content.sprites and self.mod.content.sprites:get(spriteId))
+  end
+  local sourcePath = (reg and reg.source)
+                  or (contentDef and contentDef.image)
+                  or (reg and reg.image)
+  local entry = {
+    spriteId = spriteId,
+    registeredImage = contentDef and contentDef.image or (reg and reg.image),
+    sourcePath = sourcePath,
+    bakedPath = nil,
+    status = "NOT_AVAILABLE",
+    kind = reg and reg.kind or nil,
+  }
+  if not spriteId then
+    entry.status = "ASSET_MISSING"
+    self.runtimeImageCache[species] = entry
+    return entry
+  end
+  if reg and reg.kind == "generated_overworld" and reg.image then
+    entry.bakedPath = reg.image
+    entry.status = "LOADED"
+    entry.kind = "generated_overworld"
+    self.runtimeImageCache[species] = entry
+    return entry
+  end
+  if sourcePath then
+    local baked = bakeSheet(species, sourcePath, function(fmt, ...)
+      self:_log(fmt, ...)
+    end)
+    if baked then
+      entry.bakedPath = baked
+      entry.status = "LOADED"
+      entry.kind = "generated_overworld"
+    else
+      -- Registered battle-front (or other) path is still a usable draw source.
+      entry.status = "LOADED"
+      entry.kind = entry.kind or "battle_front"
+    end
+  else
+    entry.status = "ASSET_MISSING"
+  end
+  self.runtimeImageCache[species] = entry
+  return entry
+end
+
 function SpawnRender:assetStatusFor(species, game)
   if self.assetInfo[species] then return self.assetInfo[species] end
 
   local def = game and game.data and game.data.pokemon
               and game.data.pokemon[species]
+  local reg = self.registrationInfo[species]
+  local runtime = self:getRuntimeImage(species, game)
   local info = {
     species = species,
-    battleFront = def and def.spriteFront or nil,
+    battleFront = def and def.spriteFront or (reg and reg.source) or nil,
     battleBack = def and def.spriteBack or nil,
     menuIcon = def and def.icon or nil,
     overworldSprite = nil,
-    generatedOverworld = nil,
+    generatedOverworld = runtime.bakedPath,
     voxel = nil,
-    overworldKind = nil, -- overworld | generated_overworld | placeholder
+    overworldKind = runtime.kind,
+    spriteRegistered = self.speciesSpriteIds[species] ~= nil,
+    spriteId = self.speciesSpriteIds[species],
+    registration = reg and reg.status or "ASSET_MISSING",
+    runtimeStatus = runtime.status,
     status = "MISSING",
     renderer = "UNKNOWN",
     entityReady = false,
-    lastError = nil,
+    lastError = reg and reg.lastError or nil,
   }
 
-  local owId = "SPRITE_OW_WILD_" .. tostring(species)
-  local existing = self.mod.content.sprites:get(owId)
-                 or (game and game.data and game.data.sprites and game.data.sprites[owId])
-  if existing then
-    info.overworldSprite = existing.image
-    info.overworldKind = "overworld"
-    info.status = "LOADED"
-  elseif def and def.spriteFront then
-    -- Attempt bake (same path as makeEntity). Result may be nil headlessly.
-    local baked = bakeSheet(species, def.spriteFront, function(fmt, ...)
-      self:_log(fmt, ...)
-    end)
-    if baked then
-      info.generatedOverworld = baked
+  if info.spriteRegistered and runtime.status == "LOADED" then
+    if runtime.kind == "generated_overworld" then
+      info.overworldSprite = runtime.bakedPath or runtime.registeredImage
       info.overworldKind = "generated_overworld"
       info.status = "LOADED"
+    elseif runtime.kind == "battle_front" then
+      info.overworldSprite = runtime.registeredImage or runtime.sourcePath
+      info.overworldKind = "battle_front"
+      -- Battle fronts are a valid registered overworld representation for
+      -- this mod (scaled at draw via SpriteRenderer / optional bake).
+      info.status = "LOADED"
     else
-      -- Placeholder is NOT counted as a real overworld representation for
-      -- diagnostics, but entity creation can still proceed with it.
-      info.overworldKind = "placeholder"
-      info.status = "PLACEHOLDER"
-      info.lastError = "no overworld sprite; using placeholder"
+      info.overworldSprite = runtime.registeredImage
+      info.status = "LOADED"
     end
+  elseif info.spriteRegistered then
+    info.status = "REGISTERED"
+    info.lastError = info.lastError or "registered but runtime asset not loaded"
   else
-    info.overworldKind = "placeholder"
     info.status = "MISSING"
-    info.lastError = "no battle front or overworld sprite"
+    info.lastError = info.lastError
+      or ("No pre-registered overworld sprite for species " .. tostring(species))
   end
 
   local dramatic = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
@@ -201,50 +389,9 @@ function SpawnRender:assetStatusFor(species, game)
     info.renderer = tostring(self.rendererMode)
   end
 
-  info.entityReady = info.status == "LOADED" or info.status == "PLACEHOLDER"
+  info.entityReady = info.spriteRegistered == true and info.status == "LOADED"
   self.assetInfo[species] = info
   return info
-end
-
-function SpawnRender:spriteIdFor(species, game)
-  if self.spriteIds[species] then return self.spriteIds[species] end
-
-  local id = "SPRITE_OW_WILD_" .. tostring(species)
-  if self.mod.content.sprites:get(id) then
-    self.spriteIds[species] = id
-    self:assetStatusFor(species, game)
-    return id
-  end
-
-  local def = game and game.data and game.data.pokemon
-              and game.data.pokemon[species]
-  local front = def and def.spriteFront
-  if front then
-    local baked = bakeSheet(species, front, function(fmt, ...)
-      self:_log(fmt, ...)
-    end)
-    if baked then
-      self.mod.content.sprites:register(id, {
-        image = baked,
-        frames = 1,
-        trueColor = true,
-      })
-      if game.data.sprites then
-        game.data.sprites[id] = {
-          image = baked, frames = 1, trueColor = true, id = id,
-        }
-      end
-      self.spriteIds[species] = id
-      self.assetInfo[species] = nil
-      self:assetStatusFor(species, game)
-      return id
-    end
-  end
-
-  self.spriteIds[species] = self:_ensurePlaceholder()
-  self.assetInfo[species] = nil
-  self:assetStatusFor(species, game)
-  return self.spriteIds[species]
 end
 
 function SpawnRender:countAssets(speciesList, game)
@@ -252,7 +399,6 @@ function SpawnRender:countAssets(speciesList, game)
   for _, species in ipairs(speciesList or {}) do
     required = required + 1
     local info = self:assetStatusFor(species, game)
-    -- LOADED means a real overworld or generated overworld representation.
     if info.status == "LOADED" then
       loaded = loaded + 1
     end
@@ -283,33 +429,49 @@ function Entity.new(game, mod, render, record)
   self.registeredInWorld = false
   self.assetInfo = render:assetStatusFor(record.species, game)
 
-  local spriteId = render:spriteIdFor(record.species, game)
-  local spriteDef = game.data.sprites and game.data.sprites[spriteId]
-  if not spriteDef then
-    spriteId = render:_ensurePlaceholder()
-    spriteDef = game.data.sprites and game.data.sprites[spriteId]
+  local spriteId, spriteErr = render:spriteIdFor(record.species)
+  if not spriteId then
+    error(spriteErr or "No pre-registered overworld sprite", 0)
   end
+
+  local runtime = render:getRuntimeImage(record.species, game)
+  local spriteDef = game.data.sprites and game.data.sprites[spriteId]
   if not spriteDef then
     local contentDef = mod.content.sprites:get(spriteId)
     if contentDef then
       spriteDef = {
-        image = contentDef.image or mod.assets:path("spawn_placeholder.png"),
+        image = contentDef.image,
         frames = contentDef.frames or 1,
         trueColor = contentDef.trueColor ~= false,
         id = spriteId,
       }
+      -- Runtime view only: keep the merged Data table in sync for consumers
+      -- that read game.data.sprites. This is not a content-registry write.
       game.data.sprites = game.data.sprites or {}
       game.data.sprites[spriteId] = spriteDef
     end
   end
   if not spriteDef then
-    error("overworld_wild_spawns: placeholder sprite missing", 0)
+    error("overworld_wild_spawns: pre-registered sprite missing from data: "
+          .. tostring(spriteId), 0)
   end
+
+  -- Prefer a runtime-baked 16x16 sheet when available; never re-register.
+  local drawDef = spriteDef
+  if runtime and runtime.bakedPath and runtime.bakedPath ~= spriteDef.image then
+    drawDef = {
+      image = runtime.bakedPath,
+      frames = 1,
+      trueColor = true,
+      id = spriteId,
+    }
+  end
+
   local SpriteRenderer, err = tryRequire("src.render.SpriteRenderer")
   if not SpriteRenderer then
     error("SpriteRenderer unavailable: " .. tostring(err), 0)
   end
-  self.sprite = SpriteRenderer.new(spriteDef, self.spawnId)
+  self.sprite = SpriteRenderer.new(drawDef, self.spawnId)
   self.spriteId = spriteId
   return self
 end
@@ -342,9 +504,17 @@ function SpawnRender:makeEntity(game, record)
   return Entity.new(game, self.mod, self, record)
 end
 
--- Probe whether a species can become an overworld entity without mutating world.
+-- Probe whether a species can become an overworld entity without mutating world
+-- or content registries.
 function SpawnRender:probeEntity(game, species)
   local info = self:assetStatusFor(species, game)
+  if not info.spriteRegistered then
+    info.entityReady = false
+    info.entityStatus = Config.STATUS.NOT_AVAILABLE
+    info.lastError = info.lastError
+      or ("No pre-registered overworld sprite for species " .. tostring(species))
+    return info, nil
+  end
   local ok, entityOrErr = pcall(function()
     return self:makeEntity(game, {
       id = "owwild_probe",
@@ -370,8 +540,6 @@ function SpawnRender:probeEntity(game, species)
   info.entityReady = true
   if info.status == "LOADED" and self.rendererMode == "base" then
     info.entityStatus = Config.STATUS.READY
-  elseif info.status == "PLACEHOLDER" then
-    info.entityStatus = "PLACEHOLDER"
   else
     info.entityStatus = Config.STATUS.NOT_AVAILABLE
   end
@@ -381,8 +549,7 @@ end
 function SpawnRender:previewImagePath(species, game)
   local info = self:assetStatusFor(species, game)
   if info.generatedOverworld then return info.generatedOverworld, "generated_overworld" end
-  if info.overworldSprite then return info.overworldSprite, "overworld" end
-  -- Do not fall back to battle front for "success" preview; expose kind.
+  if info.overworldSprite then return info.overworldSprite, info.overworldKind or "overworld" end
   if info.battleFront then return info.battleFront, "battle_front" end
   return self.mod.assets:path("spawn_placeholder.png"), "placeholder"
 end

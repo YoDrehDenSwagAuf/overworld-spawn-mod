@@ -110,6 +110,7 @@ function PreviewBrowser:speciesRows(game)
 
   for _, row in ipairs(allSpecies(self.mod, game)) do
     if matchesSearch(row, search) then
+      -- Lookup / status only — never registers content.
       local info = render:assetStatusFor(row.id, game)
       local locs = index[row.id] or {}
       local locLines = EncounterIndex.formatLocations(locs, mapFilter, kindFilter)
@@ -130,6 +131,9 @@ function PreviewBrowser:speciesRows(game)
       end
       if include then
         local right = info.status
+        if not info.spriteRegistered then
+          right = "UNAVAILABLE"
+        end
         if #locLines > 0 then
           right = right .. " " .. tostring(#locLines)
         end
@@ -164,17 +168,28 @@ function PreviewBrowser:_openDetail(game, speciesId)
   local imgPath, imgKind = render:previewImagePath(speciesId, game)
   local seen, owned = pokedexDiag(game)
 
+  local spawnSupported = info.spriteRegistered == true and info.status == "LOADED"
   local items = {
     { label = "SPECIES ID", right = tostring(speciesId) },
     { label = "DEX NO", right = tostring(mon.dex or "?") },
-    { label = "ASSET", right = tostring(info.status) },
+    { label = "SPECIES EXISTS", right = "YES" },
+    { label = "SPRITE REG", right = info.spriteRegistered and "REGISTERED" or "MISSING" },
+    { label = "RUNTIME IMG", right = tostring(info.runtimeStatus or info.status) },
+    { label = "OW PREVIEW", right = spawnSupported and "AVAILABLE" or "UNAVAILABLE" },
     { label = "ASSET KIND", right = tostring(imgKind) },
     { label = "RENDERER", right = tostring(info.renderer) },
     { label = "OW ENTITY", right = tostring(info.entityStatus or "?") },
+    { label = "TEST SPAWN", right = spawnSupported and "READY" or "DISABLED" },
+    { label = "ENCOUNTERS", right = tostring(#locs) },
     { label = "POKEDEX SEEN", right = tostring(seen) .. " (diag)" },
     { label = "POKEDEX OWN", right = tostring(owned) .. " (diag)" },
   }
-  if info.lastError then
+  if not info.spriteRegistered then
+    items[#items + 1] = {
+      label = "REASON",
+      right = "No overworld sprite registered",
+    }
+  elseif info.lastError then
     items[#items + 1] = { label = "LAST ERR", right = tostring(info.lastError):sub(1, 18) }
   end
   for i, line in ipairs(locs) do
@@ -190,32 +205,51 @@ function PreviewBrowser:_openDetail(game, speciesId)
     onSelect = function()
       if mod.ui and mod.ui.PicBox then
         game.stack:push(mod.ui.PicBox.new(game, imgPath,
-          ("Overworld path: %s\nKind: %s"):format(tostring(imgKind), tostring(info.status))))
+          ("Overworld path: %s\nKind: %s\nRegistered: %s")
+            :format(tostring(imgKind), tostring(info.status),
+                    tostring(info.spriteRegistered))))
       end
     end,
   }
-  items[#items + 1] = {
-    label = "TEST SPAWN",
-    onSelect = function()
-      local result = logic:testSpawn(speciesId, { fromBrowser = true })
-      local msg
-      if result.ok then
-        msg = ("Test spawn OK\n%s Lv%d at (%d,%d)\nAll 7 steps passed.")
-          :format(tostring(speciesId), result.level or 1,
-                  result.x or 0, result.y or 0)
-      else
-        msg = ("Test spawn failed at step %d:\n%s\n%s")
-          :format(result.failedAt or 0,
-                  tostring(result.stepName or "?"),
-                  tostring(result.error or "unknown"))
-      end
-      if mod.ui and mod.ui.TextBox then
-        game.stack:push(mod.ui.TextBox.new(game, msg))
-      else
-        DebugLog.info(mod, "%s", msg)
-      end
-    end,
-  }
+  if spawnSupported then
+    items[#items + 1] = {
+      label = "TEST SPAWN",
+      onSelect = function()
+        -- testSpawn must never register content; it only looks up IDs.
+        local result = logic:testSpawn(speciesId, { fromBrowser = true })
+        local msg
+        if result.ok then
+          msg = ("Test spawn OK\n%s Lv%d at (%d,%d)\nAll 7 steps passed.")
+            :format(tostring(speciesId), result.level or 1,
+                    result.x or 0, result.y or 0)
+        else
+          msg = ("Test spawn failed at step %d:\n%s\n%s")
+            :format(result.failedAt or 0,
+                    tostring(result.stepName or "?"),
+                    tostring(result.error or "unknown"))
+        end
+        if mod.ui and mod.ui.TextBox then
+          game.stack:push(mod.ui.TextBox.new(game, msg))
+        else
+          DebugLog.info(mod, "%s", msg)
+        end
+      end,
+    }
+  else
+    items[#items + 1] = {
+      label = "TEST SPAWN (DISABLED)",
+      onSelect = function()
+        local msg = ("Test spawn DISABLED\n%s\nReason: %s")
+          :format(tostring(speciesId),
+                  tostring(info.lastError or "No overworld sprite registered"))
+        if mod.ui and mod.ui.TextBox then
+          game.stack:push(mod.ui.TextBox.new(game, msg))
+        else
+          DebugLog.warn(mod, "%s", msg)
+        end
+      end,
+    }
+  end
 
   return mod.ui.ListMenu.new(game, mon.name or speciesId, items, {
     pageJump = true,
