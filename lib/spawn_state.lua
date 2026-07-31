@@ -45,6 +45,11 @@ function SpawnState:reset(reason)
   self.lastDiagAt = 0
   self.resetReason = reason or "reset"
   self.encounterSource = nil
+  self.surface = nil
+  self.encounterKind = nil
+  self.spawnRegionCount = 0
+  self.targetSpawnCount = 0
+  self.allocatedSpawns = 0
   self.tileRejectBreakdown = {
     collision = 0,
     warp = 0,
@@ -151,6 +156,11 @@ function SpawnState:snapshot()
     rejectCounts = self.rejectCounts,
     tileRejectBreakdown = self.tileRejectBreakdown,
     encounterSource = self.encounterSource,
+    surface = self.surface,
+    encounterKind = self.encounterKind,
+    spawnRegionCount = self.spawnRegionCount,
+    targetSpawnCount = self.targetSpawnCount,
+    allocatedSpawns = self.allocatedSpawns,
   }
 end
 

@@ -13,6 +13,9 @@ local Grass = V.require("grass")
 local SpawnState = V.require("spawn_state")
 local DebugLog = V.require("debug_log")
 local Diagnostics = V.require("diagnostics")
+local Surface = V.require("surface")
+local SpawnRegions = V.require("spawn_regions")
+local Behavior = V.require("behavior")
 
 local SpawnLogic = {}
 SpawnLogic.__index = SpawnLogic
@@ -58,12 +61,19 @@ function SpawnLogic.new(mod, render)
   self.pendingBattle = nil
   self.nextId = 1
   self.grassCache = nil
+  self.eligibleCache = nil
+  self.regions = {}
+  self.regionQuotas = {}
+  self.regionCounts = {}
+  self.targetSpawnCount = 0
+  self.surfaceInfo = nil
   self.state = SpawnState.new()
   self.state.updateCallbackRegistered = true
   self._restoreVanilla = nil
   self.hud = nil
   self.overlay = nil
   self.browser = nil
+  self.behaviorTick = nil
   self.lastTestSpawn = nil
   return self
 end
@@ -72,10 +82,11 @@ function SpawnLogic:setRestoreVanilla(fn)
   self._restoreVanilla = fn
 end
 
-function SpawnLogic:attachDevTools(hud, overlay, browser)
+function SpawnLogic:attachDevTools(hud, overlay, browser, behaviorTick)
   self.hud = hud
   self.overlay = overlay
   self.browser = browser
+  self.behaviorTick = behaviorTick
 end
 
 function SpawnLogic:canSuppressVanilla()
@@ -141,10 +152,87 @@ function SpawnLogic:clearAll()
   end
   self.pendingBattle = nil
   self.grassCache = nil
+  self.eligibleCache = nil
+  self.regions = {}
+  self.regionQuotas = {}
+  self.regionCounts = {}
+  self.targetSpawnCount = 0
+  self.surfaceInfo = nil
   if self.overlay then self.overlay:clear() end
   self:_restoreVanillaEncounters("clearAll")
   self.state:reset("clearAll")
   self.state.updateCallbackRegistered = true
+end
+
+function SpawnLogic:_occupiedSpawnCoords(mapId)
+  local out = {}
+  for _, id in ipairs(self.byMap[mapId] or {}) do
+    local r = self.spawns[id]
+    if r and r.state == Config.STATE.AVAILABLE then
+      out[#out + 1] = { x = r.x, y = r.y }
+    end
+  end
+  return out
+end
+
+function SpawnLogic:_recountRegions()
+  self.regionCounts = {}
+  for _, region in ipairs(self.regions or {}) do
+    self.regionCounts[region.id] = 0
+  end
+  for _, record in pairs(self.spawns) do
+    if record.state == Config.STATE.AVAILABLE and record.homeRegionId then
+      local id = record.homeRegionId
+      self.regionCounts[id] = (self.regionCounts[id] or 0) + 1
+    end
+  end
+end
+
+function SpawnLogic:_pickUnderfilledRegion(rng)
+  rng = rng or math.random
+  local candidates = {}
+  for _, region in ipairs(self.regions or {}) do
+    local q = self.regionQuotas[region.id] or 0
+    local c = self.regionCounts[region.id] or 0
+    if c < q then
+      candidates[#candidates + 1] = region
+    end
+  end
+  if #candidates == 0 then
+    -- Fall back to any region with free tile capacity.
+    for _, region in ipairs(self.regions or {}) do
+      local cap = math.max(1, math.floor((region.tileCount or 0) / 6))
+      local c = self.regionCounts[region.id] or 0
+      if c < cap then candidates[#candidates + 1] = region end
+    end
+  end
+  if #candidates == 0 then return nil end
+  return candidates[rng(#candidates)]
+end
+
+function SpawnLogic:_onAggressiveAlert(entity, record)
+  if not entity or not record then return end
+  if record.state ~= Config.STATE.AVAILABLE then return end
+  local world = self.mod.world
+  local ow = world and world.overworld and world:overworld()
+  if not ow then return end
+  -- Reuse the engine emotion-bubble path (same as trainers).
+  if ow.emote or ow.engaging then return end
+  local bx = entity.behaviorState
+  if not bx then return end
+  ow.emote = {
+    npc = entity,
+    frames = 60,
+    onDone = function()
+      if bx then
+        bx.state = Behavior.STATE.CHASING
+        bx.chasing = true
+        bx.leftHome = true
+      end
+    end,
+  }
+  self:_log("aggressive alert species=%s at (%d,%d)",
+            tostring(record.species), record.x, record.y)
 end
 
 function SpawnLogic:_removeEntity(entity)
@@ -296,44 +384,98 @@ function SpawnLogic:initializeForMap(mapId, game)
   st.mapType = EncounterIndex.mapTypeOf(game, mapId)
   st.mapSupported = true
 
-  -- 3) Encounter table
+  -- 3) Encounter surface + table
   local encDef = self:_encDef(mapId, game)
-  if not EncounterPick.hasGrassTable(encDef) then
+  local surfaceInfo = Surface.resolve(game, ow.map, encDef)
+  self.surfaceInfo = surfaceInfo
+  st.surface = surfaceInfo.surface
+  st.encounterKind = surfaceInfo.encounterKind
+
+  if not surfaceInfo.supported or not surfaceInfo.encounterKind then
     st.encounterDataAvailable = false
-    st.encounterSource = encDef and "game.data.encounters (no grass)" or "none"
-    st:markUnsupported("No encounter data available")
-    self:_log("map %s has no grass encounter table; vanilla left intact", mapId)
+    st.encounterSource = encDef and ("unsupported:" .. tostring(surfaceInfo.reason)) or "none"
+    st:markUnsupported(surfaceInfo.reason or "No encounter data available")
+    self:_log("map %s unsupported surface (%s); vanilla left intact",
+              mapId, tostring(surfaceInfo.reason))
     self:_logMapDiagnostics(mapId, game, encDef)
     if self.hud then self.hud:markMapEnter() end
     self:_restoreVanillaEncounters("no encounter data")
     return false
   end
+
+  -- Water / cave feature toggles (safe defaults on).
+  if surfaceInfo.surface == Surface.WATER
+     and Config.get(self.mod, "enable_water_spawns") == false then
+    st:markUnsupported("water spawns disabled")
+    self:_restoreVanillaEncounters("water spawns disabled")
+    return false
+  end
+  if surfaceInfo.surface == Surface.CAVE
+     and Config.get(self.mod, "enable_cave_spawns") == false then
+    st:markUnsupported("cave spawns disabled")
+    self:_restoreVanillaEncounters("cave spawns disabled")
+    return false
+  end
+
+  local kind = surfaceInfo.encounterKind
   st.encounterDataAvailable = true
-  st.encounterSource = "game.data.encounters." .. tostring(mapId) .. ".grass"
-  st.encounterEntryCount = EncounterPick.slotCount(encDef, "grass")
-  local speciesNames = EncounterPick.uniqueSpecies(encDef, "grass")
+  st.encounterSource = "game.data.encounters." .. tostring(mapId) .. "." .. kind
+  st.encounterEntryCount = EncounterPick.slotCount(encDef, kind)
+  local speciesNames = EncounterPick.uniqueSpecies(encDef, kind)
   st.uniqueSpecies = speciesNames
   st.uniqueSpeciesCount = #speciesNames
 
-  -- 4) Unique species already computed above
-
-  -- 5) Encounter tiles
+  -- 4) Eligible tiles by surface (not grass graphics alone)
   self.grassCache = Grass.cells(ow.map)
-  st.eligibleTileCount = #self.grassCache
-  if #self.grassCache == 0 then
+  if surfaceInfo.tileMode == "grass" then
+    self.eligibleCache = self.grassCache
+  elseif surfaceInfo.tileMode == "water" then
+    self.eligibleCache = Grass.waterCells(ow.map)
+  elseif surfaceInfo.tileMode == "walkable" then
+    self.eligibleCache = Grass.caveCells(ow.map)
+  else
+    self.eligibleCache = {}
+  end
+  st.eligibleTileCount = #self.eligibleCache
+  if #self.eligibleCache == 0 then
     st.eligibleTilesAvailable = false
-    st:markUnsupported("no grass encounter tiles")
+    st:markUnsupported("no eligible encounter tiles")
     self:_logMapDiagnostics(mapId, game, encDef)
     if self.hud then self.hud:markMapEnter() end
-    self:_restoreVanillaEncounters("no grass tiles")
+    self:_restoreVanillaEncounters("no eligible tiles")
     return false
   end
+
+  -- 5) Connected spawn regions + density target
+  self.regions = SpawnRegions.build(self.eligibleCache)
+  st.spawnRegionCount = #self.regions
+  local mapSpan = math.max(ow.map.widthCells or 0, ow.map.heightCells or 0)
+  self.targetSpawnCount = SpawnRegions.targetCount({
+    eligibleTiles = #self.eligibleCache,
+    minVisible = Config.minVisible(self.mod),
+    maxVisible = Config.maxVisible(self.mod),
+    tilesPerAdditional = Config.tilesPerAdditional(self.mod),
+    density = Config.spawnDensity(self.mod),
+    mapSpan = mapSpan,
+  })
+  st.targetSpawnCount = self.targetSpawnCount
+  self.regionQuotas, st.allocatedSpawns = SpawnRegions.allocate(
+    self.regions, self.targetSpawnCount)
+  self.regionCounts = {}
+  for _, region in ipairs(self.regions) do
+    self.regionCounts[region.id] = 0
+  end
+  self:_log("surface=%s tiles=%d regions=%d target=%d density=%s",
+            tostring(surfaceInfo.surface), #self.eligibleCache,
+            #self.regions, self.targetSpawnCount,
+            tostring(Config.spawnDensity(self.mod)))
 
   local minDist = Config.DEFAULTS.min_player_distance
   local maxDist = Config.DEFAULTS.max_player_distance
   local probeX, probeY, probeReason = Grass.pickFree(
-    ow.map, ow.entities, ow.player, minDist, nil, self.grassCache, maxDist,
-    function(reason) st:noteReject(reason) end)
+    ow.map, ow.entities, ow.player, minDist, nil, self.eligibleCache, maxDist,
+    function(reason) st:noteReject(reason) end,
+    { mode = surfaceInfo.tileMode })
   if not probeX then
     st.eligibleTilesAvailable = false
     st:markUnsupported(probeReason or "no eligible tiles")
@@ -357,7 +499,6 @@ function SpawnLogic:initializeForMap(mapId, game)
   st.loadedAssets = loaded
   st.assetsLoading = false
   if required > 0 and loaded == 0 then
-    -- Fallback path still allows entity creation; mark soft asset warning.
     st.assetError = nil
     self:_log("no real overworld assets loaded; fallback path active")
   end
@@ -373,19 +514,20 @@ function SpawnLogic:initializeForMap(mapId, game)
     return false
   end
 
-  -- 9) Spawn system status (READY after verified spawn)
   st.updateCallbackRegistered = true
-
-  -- 10) Debug HUD update
   if self.hud then self.hud:markMapEnter() end
   if self.overlay then self.overlay:rebuild() end
+  if self.behaviorTick then self.behaviorTick:syncPipelineLevel() end
 
-  -- 11) Spawn attempts
+  -- 11) Spawn toward density target (initial wave is a lower bound)
   st.phase = "spawning"
-  local want = Config.get(self.mod, "initial_spawns") or 1
+  local want = math.max(
+    Config.get(self.mod, "initial_spawns") or 1,
+    math.min(self.targetSpawnCount, 3))
   if Config.get(self.mod, "force_test_spawn") then
     want = math.max(want, 1)
   end
+  want = math.min(want, self.targetSpawnCount)
   local spawned = 0
   for _ = 1, want do
     local record, err = self:trySpawn(game, { force = Config.get(self.mod, "force_test_spawn") })
@@ -416,7 +558,8 @@ function SpawnLogic:initializeForMap(mapId, game)
   st.phase = "idle"
   st:clearError()
   self:_logMapDiagnostics(mapId, game, encDef)
-  self:_log("Spawn system: READY")
+  self:_log("Spawn system: READY target=%d active=%d",
+            self.targetSpawnCount, self:countOnMap(mapId))
   return true
 end
 
@@ -442,14 +585,48 @@ function SpawnLogic:trySpawn(game, opts)
 
   local mapId = ow.map.id
   local encDef = self:_encDef(mapId, game)
-  if not opts.testSpawn and not EncounterPick.hasGrassTable(encDef) then
-    st:noteReject("rejected: no encounter data")
-    return nil, "rejected: no encounter data"
+  local surfaceInfo = self.surfaceInfo or Surface.resolve(game, ow.map, encDef)
+  local encounterKind = surfaceInfo.encounterKind or "grass"
+  local tileMode = surfaceInfo.tileMode or "grass"
+
+  if not opts.testSpawn then
+    if encounterKind == "grass" and not EncounterPick.hasGrassTable(encDef) then
+      st:noteReject("rejected: no encounter data")
+      return nil, "rejected: no encounter data"
+    end
+    if encounterKind == "water" and not EncounterPick.kindTable(encDef, "water") then
+      st:noteReject("rejected: no encounter data")
+      return nil, "rejected: no encounter data"
+    end
   end
 
-  local maxSpawns = Config.get(self.mod, "max_spawns")
+  local maxSpawns = Config.maxVisible(self.mod)
+  local target = self.targetSpawnCount or maxSpawns
+  if not opts.force and not opts.testSpawn and self:countOnMap(mapId) >= target then
+    return nil, "target spawn count reached"
+  end
   if self:countOnMap(mapId) >= maxSpawns then
     return nil, "max spawns reached"
+  end
+
+  local region = opts.region
+  if not region and not opts.allowOutside and not (opts.x and opts.y) then
+    region = self:_pickUnderfilledRegion()
+  end
+
+  local tileList = self.eligibleCache
+  if region and region.tiles then
+    tileList = region.tiles
+  elseif not tileList or #tileList == 0 then
+    if tileMode == "water" then
+      tileList = Grass.waterCells(ow.map)
+    elseif tileMode == "walkable" then
+      tileList = Grass.caveCells(ow.map)
+    else
+      tileList = Grass.cells(ow.map)
+      self.grassCache = tileList
+    end
+    self.eligibleCache = tileList
   end
 
   local x, y, reason
@@ -462,19 +639,30 @@ function SpawnLogic:trySpawn(game, opts)
       nil, Config.DEFAULTS.max_player_distance,
       function(r) st:noteReject(r) end)
   else
-    self.grassCache = self.grassCache or Grass.cells(ow.map)
-    if #self.grassCache == 0 then
+    if #tileList == 0 then
       st:noteReject("rejected: not encounter tile")
       return nil, "rejected: not encounter tile"
     end
     local minDist = opts.force and 1 or Config.DEFAULTS.min_player_distance
     local maxDist = Config.DEFAULTS.max_player_distance
+    local membership = region and region.membership or nil
     x, y, reason = Grass.pickFree(
-      ow.map, ow.entities, ow.player, minDist, nil, self.grassCache, maxDist,
-      function(r) st:noteReject(r) end)
+      ow.map, ow.entities, ow.player, minDist, nil, tileList, maxDist,
+      function(r) st:noteReject(r) end,
+      {
+        mode = tileMode,
+        membership = membership,
+        occupiedSpawns = self:_occupiedSpawnCoords(mapId),
+        minSeparation = SpawnRegions.minSeparation(),
+        preferFar = not opts.force,
+      })
   end
   if not x then
     return nil, reason or "rejected: no eligible tiles"
+  end
+
+  if not region then
+    region = SpawnRegions.regionForCell(self.regions, x, y)
   end
 
   local species, level
@@ -482,7 +670,7 @@ function SpawnLogic:trySpawn(game, opts)
     species = opts.species
     level = opts.level or 5
   else
-    local pick = EncounterPick.pick(encDef)
+    local pick = EncounterPick.pick(encDef, nil, encounterKind)
     if not pick then
       st:noteReject("rejected: no encounter data")
       return nil, "rejected: no encounter data"
@@ -490,12 +678,31 @@ function SpawnLogic:trySpawn(game, opts)
     species, level = pick.species, pick.level
   end
 
-  self:_debug("Selected species=%s level=%d", tostring(species), level or 1)
-  self:_debug("Selected tile x=%d y=%d", x, y)
+  local behavior = opts.behavior
+  if not behavior then
+    if opts.readinessProbe or opts.force then
+      behavior = Behavior.IDLE_LOOK
+    else
+      behavior = Behavior.pick(species, surfaceInfo.surface, {
+        enable_idle = Config.get(self.mod, "enable_idle") ~= false,
+        enable_wander = Config.get(self.mod, "enable_wander") ~= false,
+        enable_aggressive = Config.get(self.mod, "enable_aggressive") ~= false,
+        enable_hidden = Config.get(self.mod, "enable_hidden") ~= false,
+        aggressive_frequency = Config.get(self.mod, "aggressive_frequency") or 1,
+        hiddenCaveAvailable = true,
+      })
+    end
+  end
+
+  self:_debug("Selected species=%s level=%d behavior=%s",
+              tostring(species), level or 1, tostring(behavior))
+  self:_debug("Selected tile x=%d y=%d region=%s", x, y,
+              tostring(region and region.id))
 
   local id = string.format("owwild_%d", self.nextId)
   self.nextId = self.nextId + 1
 
+  local hidden = Behavior.isHidden(behavior)
   local record = {
     id = id,
     mapId = mapId,
@@ -505,6 +712,12 @@ function SpawnLogic:trySpawn(game, opts)
     level = level,
     state = Config.STATE.AVAILABLE,
     testSpawn = opts.testSpawn == true,
+    behavior = behavior,
+    surface = surfaceInfo.surface,
+    encounterKind = encounterKind,
+    homeRegionId = region and region.id or nil,
+    visibleSprite = not hidden,
+    hiddenEncounter = hidden,
   }
 
   local ok, entityOrErr = pcall(self.render.makeEntity, self.render, game, record)
@@ -552,14 +765,20 @@ function SpawnLogic:trySpawn(game, opts)
   self:_debug("Entity registered")
   self:_debug("Renderer registered")
 
+  Behavior.attach(entity, behavior, region)
+  entity.surface = surfaceInfo.surface
+  entity.encounterKind = encounterKind
+  record.facing = entity.facing
+
   self.spawns[id] = record
   self.entities[id] = entity
   self.byMap[mapId] = self.byMap[mapId] or {}
   self.byMap[mapId][#self.byMap[mapId] + 1] = id
+  self:_recountRegions()
 
   if not opts.readinessProbe then
-    self.mod.log:info("spawned wild %s Lv%d at %s (%d,%d)",
-                      species, level, mapId, x, y)
+    self.mod.log:info("spawned wild %s Lv%d %s at %s (%d,%d)",
+                      species, level, tostring(behavior), mapId, x, y)
   end
   return record, nil, entity
 end
@@ -690,6 +909,11 @@ function SpawnLogic:testSpawn(species, opts)
     level = level,
     state = Config.STATE.AVAILABLE,
     testSpawn = true,
+    behavior = Behavior.IDLE_LOOK,
+    surface = (self.surfaceInfo and self.surfaceInfo.surface) or Surface.GRASS,
+    encounterKind = (self.surfaceInfo and self.surfaceInfo.encounterKind) or "grass",
+    visibleSprite = true,
+    hiddenEncounter = false,
   }
 
   local okCreate, entityOrErr = pcall(self.render.makeEntity, self.render, game, record)
@@ -746,10 +970,19 @@ function SpawnLogic:testSpawn(species, opts)
   pass(7, result.fallbackUsed and "FALLBACK LOADED" or "RENDERED")
   entity.entityPhase = result.fallbackUsed and "FALLBACK LOADED" or "RENDERED"
 
+  local region = SpawnRegions.regionForCell(self.regions, x, y)
+  Behavior.attach(entity, Behavior.IDLE_LOOK, region)
+  record.behavior = Behavior.IDLE_LOOK
+  record.homeRegionId = region and region.id or nil
+  result.behavior = Behavior.IDLE_LOOK
+  result.spriteScale = entity.visualScale
+  result.scaleInfo = entity.scaleInfo
+
   self.spawns[id] = record
   self.entities[id] = entity
   self.byMap[ow.map.id] = self.byMap[ow.map.id] or {}
   self.byMap[ow.map.id][#self.byMap[ow.map.id] + 1] = id
+  self:_recountRegions()
 
   -- Prove no side effects on player / pokedex / save.
   if ow.player then
@@ -782,6 +1015,12 @@ function SpawnLogic:onMapEntered(ev)
   self.activeMapId = mapId
   self.stepsOnMap = 0
   self.grassCache = nil
+  self.eligibleCache = nil
+  self.regions = {}
+  self.regionQuotas = {}
+  self.regionCounts = {}
+  self.targetSpawnCount = 0
+  self.surfaceInfo = nil
   self.pendingBattle = nil
 
   self:_clearMap(mapId)
@@ -850,22 +1089,51 @@ function SpawnLogic:onOptionsChanged(payload)
     if ow and ow.map and ow.map.id then
       self:onMapEntered({ mapId = ow.map.id, map = ow.map })
     end
+  elseif key == "spawn_density"
+      or key == "max_visible_pokemon"
+      or key == "min_visible_pokemon"
+      or key == "tiles_per_additional_pokemon"
+      or key == "max_spawns" then
+    -- Recalculate target on the live map without requiring a restart.
+    if self.activeMapId and self.state.initialized then
+      local world = self.mod.world
+      local ow = world and world.overworld and world:overworld()
+      if ow and ow.map then
+        local mapSpan = math.max(ow.map.widthCells or 0, ow.map.heightCells or 0)
+        self.targetSpawnCount = SpawnRegions.targetCount({
+          eligibleTiles = #(self.eligibleCache or {}),
+          minVisible = Config.minVisible(self.mod),
+          maxVisible = Config.maxVisible(self.mod),
+          tilesPerAdditional = Config.tilesPerAdditional(self.mod),
+          density = Config.spawnDensity(self.mod),
+          mapSpan = mapSpan,
+        })
+        self.regionQuotas = select(1, SpawnRegions.allocate(
+          self.regions, self.targetSpawnCount))
+        self.state.targetSpawnCount = self.targetSpawnCount
+        self:_log("density retarget -> %d", self.targetSpawnCount)
+      end
+    end
   elseif key == "dev_mode"
       or key == "debug_hud_always_visible"
       or key == "show_spawn_tile_overlay"
+      or key == "show_behavior_overlays"
       or key == "allow_debug_spawn_outside_encounter_areas"
       or key == "debug_logging"
       or key == "force_test_spawn"
-      or key == "suppress_random_grass" then
+      or key == "suppress_random_grass"
+      or key == "enabled" then
     self:_log("option %s -> %s (suppress_ready=%s dev=%s)",
               tostring(key), tostring(payload.value),
               tostring(self:canSuppressVanilla()),
               tostring(Config.devMode(self.mod)))
     if self.hud then self.hud:syncPipelineLevel() end
+    if self.behaviorTick then self.behaviorTick:syncPipelineLevel() end
     if key == "dev_mode" and payload.value == true and self.hud then
       self.hud:markMapEnter()
     end
-    if key == "show_spawn_tile_overlay" or key == "dev_mode" then
+    if key == "show_spawn_tile_overlay" or key == "dev_mode"
+       or key == "show_behavior_overlays" then
       if self.overlay then self.overlay:rebuild() end
     end
     if key == "dev_mode" and payload.value == false then
@@ -900,15 +1168,28 @@ function SpawnLogic:_startBattle(record)
 
   record.state = Config.STATE.ENCOUNTER_STARTING
   local entity = self.entities[record.id]
-  if entity then entity.state = Config.STATE.ENCOUNTER_STARTING end
+  if entity then
+    entity.state = Config.STATE.ENCOUNTER_STARTING
+    if entity.behaviorState then
+      entity.behaviorState.battleStarted = true
+      entity.behaviorState.state = Behavior.STATE.LOCKED
+    end
+  end
 
   self.pendingBattle = {
     id = record.id,
     species = record.species,
     level = record.level,
+    behavior = record.behavior,
   }
 
+  -- Clear our emotion bubble if we own it.
+  if ow.emote and entity and ow.emote.npc == entity then
+    ow.emote = nil
+  end
+
   self:_despawn(record.id, true)
+  self:_recountRegions()
 
   local ok, err = world:queueScript({
     { "start_battle", "wild", record.species, record.level },
@@ -924,51 +1205,44 @@ function SpawnLogic:_startBattle(record)
   if self.pendingBattle then
     self.pendingBattle.state = Config.STATE.IN_BATTLE
   end
-  self.mod.log:info("triggered wild battle: %s Lv%d",
-                    record.species, record.level)
+  self.mod.log:info("triggered wild battle: %s Lv%d (%s)",
+                    record.species, record.level, tostring(record.behavior))
   return true
 end
 
 function SpawnLogic:_despawnFar(ow)
-  local maxDist = Config.DEFAULTS.max_player_distance
+  -- Despawn only entities far behind the player so long routes can refill
+  -- ahead without popping in nearby. Never larger than map span.
+  local maxDist = Config.DEFAULTS.despawn_distance
+                  or Config.DEFAULTS.max_player_distance
   local mapSpan = math.max(ow.map.widthCells or 0, ow.map.heightCells or 0)
-  maxDist = math.max(maxDist, mapSpan)
+  maxDist = math.min(math.max(maxDist, 16), math.max(mapSpan, 16))
   local player = ow.player
   if not player then return end
   local doomed = {}
   for id, record in pairs(self.spawns) do
     if record.state == Config.STATE.AVAILABLE then
-      local d = Grass.chebyshev(record.x, record.y, player.cellX, player.cellY)
-      if d > maxDist then
-        doomed[#doomed + 1] = id
+      local entity = self.entities[id]
+      -- Never despawn an aggressive chase mid-fight approach.
+      if entity and entity.behaviorState and entity.behaviorState.chasing then
+        -- keep
+      else
+        local d = Grass.chebyshev(record.x, record.y, player.cellX, player.cellY)
+        if d > maxDist then
+          doomed[#doomed + 1] = id
+        end
       end
     end
   end
   for _, id in ipairs(doomed) do
     self:_despawn(id, true)
   end
+  if #doomed > 0 then self:_recountRegions() end
 end
 
 function SpawnLogic:_wander(ow)
-  local every = Config.get(self.mod, "wander_every_steps")
-  if every == nil then every = Config.DEFAULTS.wander_every_steps end
-  if every <= 0 then return end
-  if self.stepsOnMap % every ~= 0 then return end
-  local maxDist = Config.DEFAULTS.max_player_distance
-  local rng = rngOf()
-  for id, record in pairs(self.spawns) do
-    if record.state == Config.STATE.AVAILABLE then
-      local entity = self.entities[id]
-      if entity and rng() < 0.55 then
-        local nx, ny = Grass.pickNeighbor(ow.map, ow.entities, entity,
-                                          ow.player, maxDist, rng)
-        if nx then
-          entity:setCell(nx, ny)
-          record.x, record.y = nx, ny
-        end
-      end
-    end
-  end
+  -- Legacy step-wander disabled; Behaviour.GRASS_WANDER owns movement.
+  return
 end
 
 function SpawnLogic:onStepped(ev)
@@ -1020,16 +1294,27 @@ function SpawnLogic:onStepped(ev)
 
   if not self.state.initialized then return end
 
-  local every = Config.get(self.mod, "spawn_every_steps") or 8
+  local every = Config.refillSteps(self.mod)
   if self.stepsOnMap % every == 0 then
     local game = gameOf(self.mod)
     if game then
-      local ok, resultOrErr = pcall(self.trySpawn, self, game, {})
-      if not ok then
-        self:_warn("trySpawn error: %s", tostring(resultOrErr))
-        DebugLog.error(self.mod, "trySpawn error: %s", tostring(resultOrErr))
-        self.state:markError(resultOrErr)
-        self:_restoreVanillaEncounters("trySpawn error")
+      local active = self:countOnMap(ev.mapId)
+      local target = self.targetSpawnCount or Config.maxVisible(self.mod)
+      local guard = 0
+      while active < target and guard < 3 do
+        guard = guard + 1
+        local ok, resultOrErr = pcall(self.trySpawn, self, game, {})
+        if not ok then
+          self:_warn("trySpawn error: %s", tostring(resultOrErr))
+          DebugLog.error(self.mod, "trySpawn error: %s", tostring(resultOrErr))
+          self.state:markError(resultOrErr)
+          self:_restoreVanillaEncounters("trySpawn error")
+          break
+        elseif not resultOrErr then
+          break
+        else
+          active = active + 1
+        end
       end
     end
   end

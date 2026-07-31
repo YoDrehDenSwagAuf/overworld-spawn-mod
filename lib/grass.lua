@@ -1,5 +1,6 @@
--- Grass / encounter-tile discovery using the same logical test as Gen1Recomp:
--- Map:isGrassCell(cx, cy). Rejection reasons are returned for diagnostics.
+-- Encounter-tile discovery using the same logical tests as Gen1Recomp:
+-- Map:isGrassCell / isWaterCell / isWalkableCell. Rejection reasons are
+-- returned for diagnostics. Region-aware helpers keep wanderers homebound.
 local V = ...
 
 local Grass = {}
@@ -12,6 +13,41 @@ function Grass.cells(map)
   for cy = 0, h - 1 do
     for cx = 0, w - 1 do
       if map:isGrassCell(cx, cy) then
+        out[#out + 1] = { x = cx, y = cy }
+      end
+    end
+  end
+  return out
+end
+
+function Grass.waterCells(map)
+  local out = {}
+  if not map or not map.isWaterCell then return out end
+  local w = map.widthCells or 0
+  local h = map.heightCells or 0
+  for cy = 0, h - 1 do
+    for cx = 0, w - 1 do
+      if map:isWaterCell(cx, cy) then
+        out[#out + 1] = { x = cx, y = cy }
+      end
+    end
+  end
+  return out
+end
+
+-- Cave / indoor encounter floors: walkable, non-warp, non-water.
+function Grass.caveCells(map)
+  local out = {}
+  if not map then return out end
+  local w = map.widthCells or 0
+  local h = map.heightCells or 0
+  for cy = 0, h - 1 do
+    for cx = 0, w - 1 do
+      local walkable = true
+      if map.isWalkableCell then walkable = map:isWalkableCell(cx, cy) end
+      if walkable
+         and not (map.warpAtCell and map:warpAtCell(cx, cy))
+         and not (map.isWaterCell and map:isWaterCell(cx, cy)) then
         out[#out + 1] = { x = cx, y = cy }
       end
     end
@@ -101,9 +137,60 @@ function Grass.isValidSpawnTile(map, entities, player, x, y, minDist, maxDist, i
   return ok
 end
 
+-- Validate against an optional membership predicate (home region / surface).
+function Grass.validateEligibleTile(map, entities, player, x, y, minDist, maxDist,
+                                    ignore, membership, mode)
+  mode = mode or "grass"
+  if membership and not membership[x .. "," .. y] then
+    return false, "rejected: outside region"
+  end
+  if mode == "grass" then
+    return Grass.validateSpawnTile(map, entities, player, x, y, minDist, maxDist, ignore)
+  end
+  if mode == "water" then
+    if not map or not map.isWaterCell or not map:isWaterCell(x, y) then
+      return false, "rejected: not encounter tile"
+    end
+    if map.warpAtCell and map:warpAtCell(x, y) then
+      return false, "rejected: warp tile"
+    end
+    if occupiedNonPassable(entities, x, y, ignore)
+       or occupiedByWildSpawn(entities, x, y, ignore) then
+      return false, "rejected: occupied by NPC"
+    end
+    local px = player and player.cellX
+    local py = player and player.cellY
+    if px ~= nil and py ~= nil then
+      if x == px and y == py then
+        return false, "rejected: occupied by player"
+      end
+      local d = chebyshev(x, y, px, py)
+      if minDist and d < minDist then
+        return false, "rejected: too close to player"
+      end
+      if maxDist and d > maxDist then
+        return false, "rejected: outside search radius"
+      end
+    end
+    return true, nil
+  end
+  -- walkable / cave
+  return Grass.validateWalkableTile(map, entities, player, x, y, minDist, maxDist, ignore)
+end
+
+local function tooCloseToSpawns(x, y, occupiedSpawns, minSep)
+  if not occupiedSpawns or not minSep or minSep <= 0 then return false end
+  for _, s in ipairs(occupiedSpawns) do
+    if chebyshev(x, y, s.x, s.y) < minSep then return true end
+  end
+  return false
+end
+
 -- Progressive search: prefer configured min/max, then relax minDist down to 1,
 -- then expand maxDist so small maps are not left with zero candidates.
-function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist, onReject)
+-- opts: { membership, mode, occupiedSpawns, minSeparation, preferFar }
+function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist, onReject, opts)
+  opts = opts or {}
   grassList = grassList or Grass.cells(map)
   if #grassList == 0 then
     if onReject then onReject("rejected: not encounter tile") end
@@ -112,12 +199,21 @@ function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist,
   rng = rng or (love and love.math and love.math.random) or math.random
   minDist = minDist or 0
   maxDist = maxDist or 12
+  local mode = opts.mode or "grass"
+  local membership = opts.membership
+  local occupiedSpawns = opts.occupiedSpawns
+  local minSep = opts.minSeparation or 0
 
-  local function collect(useMin, useMax)
+  local function collect(useMin, useMax, enforceSep)
     local candidates = {}
     for _, cell in ipairs(grassList) do
-      local ok, reason = Grass.validateSpawnTile(
-        map, entities, player, cell.x, cell.y, useMin, useMax, nil)
+      local ok, reason = Grass.validateEligibleTile(
+        map, entities, player, cell.x, cell.y, useMin, useMax, nil,
+        membership, mode)
+      if ok and enforceSep and tooCloseToSpawns(cell.x, cell.y, occupiedSpawns, minSep) then
+        ok = false
+        reason = "rejected: too close to spawn"
+      end
       if ok then
         candidates[#candidates + 1] = cell
       elseif onReject and reason then
@@ -127,11 +223,16 @@ function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist,
     return candidates
   end
 
-  local candidates = collect(minDist, maxDist)
+  local candidates = collect(minDist, maxDist, true)
+
+  if #candidates == 0 then
+    candidates = collect(minDist, maxDist, false)
+  end
 
   if #candidates == 0 then
     for relax = minDist - 1, 1, -1 do
-      candidates = collect(relax, maxDist)
+      candidates = collect(relax, maxDist, true)
+      if #candidates == 0 then candidates = collect(relax, maxDist, false) end
       if #candidates > 0 then
         minDist = relax
         break
@@ -148,7 +249,7 @@ function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist,
     local hardMax = math.max(maxDist, mapSpan, 32)
     while #candidates == 0 and expand < hardMax do
       expand = expand + 4
-      candidates = collect(1, expand)
+      candidates = collect(1, expand, false)
     end
     if #candidates > 0 then
       maxDist = expand
@@ -157,6 +258,18 @@ function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist,
 
   if #candidates == 0 then
     return nil, nil, "rejected: no eligible tiles"
+  end
+
+  -- Prefer candidates farther from the player when distributing on long routes.
+  if opts.preferFar and player and #candidates > 1 then
+    table.sort(candidates, function(a, b)
+      local da = chebyshev(a.x, a.y, player.cellX, player.cellY)
+      local db = chebyshev(b.x, b.y, player.cellX, player.cellY)
+      return da > db
+    end)
+    local top = math.max(1, math.floor(#candidates * 0.4))
+    local pick = candidates[rng(top)]
+    return pick.x, pick.y, nil
   end
 
   local pick = candidates[rng(#candidates)]

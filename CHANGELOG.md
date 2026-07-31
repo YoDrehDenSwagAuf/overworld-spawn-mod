@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.4.0
+
+### Added
+
+- **Map-aware spawn density** from eligible encounter tiles + connected regions
+  (`spawn_density`, min/max visible, tiles-per-additional, refill interval).
+- **Four behaviours**: Idle Look, Grass Wander, Aggressive, Hidden Grass/Cave.
+- **Aggressive** spotting with engine `ow.emote` exclamation, chase (may leave
+  grass), single unavoidable battle; sight blocked by non-walkable tiles.
+- **Hidden** markers: grass shake or cave dust — no Pokemon sprite / no fallback.
+- **Surface abstraction**: GRASS, CAVE, WATER (Surf), with fishing kept rod-only.
+- **Cave spawns** on walkable indoor tiles without requiring grass graphics.
+- **Water spawns** from Surf encounter tables on water cells (optional).
+- **Sprite scaling** (nearest-neighbor, bounds/species aware) so small mons stay
+  readable in tall grass; engine `drawCellBottom` feet overdraw unchanged.
+- Behaviour tick present-pipeline (`owwild_behavior_tick`).
+- Developer HUD fields: Target / Active / Regions / Surface + entity detail.
+- Behaviour overlay option; expanded options categories.
+- Docs: `docs/USER_GUIDE.md`, `docs/DEVELOPER_GUIDE.md`, `docs/ARCHITECTURE.md`.
+
+### Changed
+
+- Default max visible raised to 12 (density-capped); min player distance 3;
+  spawn band expanded for long routes.
+- Sprite opacity default Solid (1.0); grass tuck default 0 (engine overlay).
+- Version **0.4.0**.
+
+### Notes
+
+- Pokédex remains unused as a gate. Player is never teleported.
+- Vanilla grass rolls suppressed only when the spawn system is READY.
+- Vanilla water/fishing rolls are not suppressed.
+- DramaticShapeVoxelMod remains optional.
+
 ## 0.3.2
 
 ### Fixed
@@ -78,46 +112,3 @@
 - DramaticShapeVoxelMod remains optional.
 - Does **not** change the player spawn point, warp, or teleport the player.
 - Options are live-toggleable (`mod.options_changed`); no restart required.
-
-## 0.2.0
-
-### Fixed
-
-- **Fail-safe for vanilla grass encounters.** Classic random grass rolls are
-  suppressed only after the visible spawn system is ready for the current map
-  (`initialized`, encounter data, eligible tiles, renderer, verified entity
-  pipeline). If any prerequisite fails, vanilla encounters stay active.
-- Soft-lock where enabling the mod disabled grass rolls without showing
-  overworld Pokemon.
-- Progressive spawn-tile search so small maps are not left with zero candidates.
-- `pcall` paths now log errors and restore vanilla encounters instead of
-  swallowing failures.
-
-### Changed
-
-- Initialization order: map → encounter data → tiles → renderer → controlled
-  spawn → only then allow grass suppression.
-- Default `initial_spawns` is 1 (minimal standing-spawn vertical path).
-- Wander is off by default until the standing-spawn path is proven in play.
-- Debug options: `debug_logging`, `force_test_spawn`.
-
-### Notes
-
-- The Pokédex was never a spawn gate in this mod and remains unused as one.
-- DramaticShapeVoxelMod stays optional; base 2D Gen1Recomp rendering is enough.
-- Does **not** change the player spawn point, warp, or teleport the player.
-
-## 0.1.0
-
-### Added
-
-- Loader-recognizable `manifest.json` at the mod root (`api` 2, `options_schema`, current `game_version` range from Gen1Recomp `dev`).
-- Visible wild Pokemon on grass tiles using each map's real encounter table.
-- Exact wild battle on contact (species and level match the visible spawn).
-- Mod Manager toggle plus option `Show wild Pokemon in the overworld` (`enabled`, default true).
-- When `enabled` is false: clear mod entities, unwrap encounter/collision hooks, and restore vanilla grass rolls.
-- Spawn caps, min/max player distance, spawn interval, and simple grass wander.
-- Optional suppression of vanilla random grass rolls via public `encounter.roll` hook.
-- Dual-mode rendering: vanilla 2D SpriteRenderer and VoxelScene billboards when Dramatic Shape is active.
-- Map/save lifecycle cleanup; spawns are runtime-only and never written into the playthrough save.
-- Repository root is the mod (DramaticShapeVoxelMod layout). Release ZIP is built with `modkit pack` so `manifest.json` sits at the archive root - no wrapping folder, no `mods/` / `scripts/` / `.git`.

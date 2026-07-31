@@ -78,13 +78,15 @@ function DebugOverlay:clear()
   self.markers = {}
 end
 
-local function classifyTile(map, entities, player, x, y, minDist, maxDist)
+local function classifyTile(map, entities, player, x, y, minDist, maxDist, mode)
   if not map then return nil end
   local w = map.widthCells or 0
   local h = map.heightCells or 0
   if x < 0 or y < 0 or x >= w or y >= h then return nil end
   if map.warpAtCell and map:warpAtCell(x, y) then return "warp" end
-  if map.isWalkableCell and not map:isWalkableCell(x, y) then return "blocked" end
+  if mode ~= "water" and map.isWalkableCell and not map:isWalkableCell(x, y) then
+    return "blocked"
+  end
   for _, e in ipairs(entities or {}) do
     if e and not e.passable and not e.overworldWildOverlay
        and e.cellX == x and e.cellY == y then
@@ -94,8 +96,8 @@ local function classifyTile(map, entities, player, x, y, minDist, maxDist)
   if player and player.cellX == x and player.cellY == y then
     return "npc"
   end
-  local ok, reason = Grass.validateSpawnTile(
-    map, entities, player, x, y, minDist, maxDist, nil)
+  local ok, reason = Grass.validateEligibleTile(
+    map, entities, player, x, y, minDist, maxDist, nil, nil, mode or "grass")
   if ok then return "valid" end
   if reason and (reason:find("too close") or reason:find("search radius")) then
     return "player_distance"
@@ -117,13 +119,14 @@ function DebugOverlay:rebuild()
   local map = ow.map
   local minDist = Config.DEFAULTS.min_player_distance
   local maxDist = Config.DEFAULTS.max_player_distance
-  local grass = Grass.cells(map)
+  local cells = self.logic.eligibleCache or Grass.cells(map)
+  local mode = (self.logic.surfaceInfo and self.logic.surfaceInfo.tileMode) or "grass"
   local placed = 0
   local coords = {}
 
-  for _, cell in ipairs(grass) do
+  for _, cell in ipairs(cells) do
     local kind = classifyTile(map, ow.entities, ow.player, cell.x, cell.y,
-                              minDist, maxDist)
+                              minDist, maxDist, mode)
     if kind then
       local marker = Marker.new(cell.x, cell.y, kind)
       self.markers[#self.markers + 1] = marker

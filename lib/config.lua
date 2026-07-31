@@ -11,21 +11,48 @@ Config.ENCOUNTER_BUCKETS = { 51, 102, 141, 166, 191, 216, 229, 242, 253, 256 }
 -- small map would otherwise reject every tile.
 Config.DEFAULTS = {
   enabled = true,
-  max_spawns = 5,
+  spawn_density = "normal",
+  max_spawns = 12, -- legacy key retained; prefer max_visible_pokemon
+  max_visible_pokemon = 12,
+  min_visible_pokemon = 1,
+  tiles_per_additional_pokemon = 24,
   spawn_every_steps = 8,
-  initial_spawns = 1, -- minimal vertical path: one standing spawn first
-  min_player_distance = 4,
-  max_player_distance = 12,
-  wander_every_steps = 0, -- off until standing spawn path is proven
+  spawn_refill_interval = 8, -- alias of spawn_every_steps for docs
+  initial_spawns = 1,
+  min_player_distance = 3,
+  max_player_distance = 16,
+  despawn_distance = 22,
+  min_spawn_separation = 3,
+  wander_every_steps = 0, -- legacy; behaviours own movement now
   suppress_random_grass = true,
-  sprite_opacity = 0.88,
-  grass_tuck_px = 2,
+  sprite_opacity = 1.0,
+  grass_tuck_px = 0, -- engine drawCellBottom provides grass feet overdraw
+  show_pokemon_in_grass = true,
+  enable_grass_movement_effects = true,
+  min_sprite_size = 16,
+  min_sprite_visible_height = 16,
+  target_sprite_visible_height = 22,
+  max_sprite_visible_height = 28,
+  enable_idle = true,
+  enable_wander = true,
+  enable_aggressive = true,
+  enable_hidden = true,
+  aggressive_frequency = 1.0,
+  aggressive_sight_range = 4,
+  aggressive_reaction_delay = 0.55,
+  aggressive_step_seconds = 0.18,
+  wild_step_seconds = 0.28,
+  idle_look_min_s = 5,
+  idle_look_max_s = 10,
+  enable_water_spawns = true,
+  enable_cave_spawns = true,
   debug_logging = false,
   force_test_spawn = false,
   dev_mode = false,
   debug_hud_always_visible = false,
   allow_debug_spawn_outside_encounter_areas = false,
   show_spawn_tile_overlay = false,
+  show_behavior_overlays = false,
   preview_filter = "all",
   preview_search = "",
   preview_map_filter = "",
@@ -107,6 +134,37 @@ end
 function Config.showSpawnTileOverlay(mod)
   return Config.devMode(mod)
      and Config.get(mod, "show_spawn_tile_overlay") == true
+end
+
+function Config.showBehaviorOverlays(mod)
+  return Config.devMode(mod)
+     and Config.get(mod, "show_behavior_overlays") == true
+end
+
+function Config.maxVisible(mod)
+  local v = Config.get(mod, "max_visible_pokemon")
+  if v == nil then v = Config.get(mod, "max_spawns") end
+  return tonumber(v) or Config.DEFAULTS.max_visible_pokemon
+end
+
+function Config.minVisible(mod)
+  return tonumber(Config.get(mod, "min_visible_pokemon"))
+      or Config.DEFAULTS.min_visible_pokemon
+end
+
+function Config.tilesPerAdditional(mod)
+  return tonumber(Config.get(mod, "tiles_per_additional_pokemon"))
+      or Config.DEFAULTS.tiles_per_additional_pokemon
+end
+
+function Config.spawnDensity(mod)
+  return Config.get(mod, "spawn_density") or "normal"
+end
+
+function Config.refillSteps(mod)
+  local v = Config.get(mod, "spawn_refill_interval")
+  if v == nil then v = Config.get(mod, "spawn_every_steps") end
+  return tonumber(v) or Config.DEFAULTS.spawn_every_steps
 end
 
 return Config

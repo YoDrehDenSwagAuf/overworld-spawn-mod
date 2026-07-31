@@ -10,5 +10,6 @@ scripts/bootstrap.sh
 scripts/build-mod.py
 scripts/build-mod.ps1
 scripts/validate-manager-ascii.py
+# Root pointer only; full overview ships as docs/ARCHITECTURE.md.
 ARCHITECTURE.md
 .gitignore

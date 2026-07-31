@@ -9,6 +9,7 @@
 -- All options are live-toggleable through Mod Manager (mod.options_changed).
 
 return {
+  -- ------- General
   {
     key = "enabled",
     label = "Show wild Pokemon in the overworld",
@@ -17,52 +18,155 @@ return {
     description = "Spawn visible wild Pokemon in eligible overworld encounter areas.",
   },
   {
-    key = "max_spawns",
-    label = "MAX SPAWNS",
+    key = "suppress_random_grass",
+    label = "Hide random grass encounters",
+    type = "toggle",
+    default = true,
+    description = "Suppress vanilla random grass encounters only after visible spawns are ready.",
+  },
+
+  -- ------- Spawn density
+  {
+    key = "spawn_density",
+    label = "Spawn density",
     type = "choice",
-    default = 5,
+    default = "normal",
     choices = {
-      { "3", 3 }, { "4", 4 }, { "5", 5 }, { "6", 6 }, { "8", 8 },
+      { "Low", "low" },
+      { "Normal", "normal" },
+      { "High", "high" },
+      { "Very High", "very_high" },
     },
-    description = "Maximum visible wild Pokemon on the current map at once.",
+    description = "Target visible Pokemon count relative to encounter area size. Applies on the next map enter or refill.",
   },
   {
-    key = "spawn_every_steps",
-    label = "SPAWN RATE",
+    key = "max_visible_pokemon",
+    label = "Maximum visible Pokemon",
+    type = "choice",
+    default = 12,
+    choices = {
+      { "4", 4 }, { "6", 6 }, { "8", 8 }, { "10", 10 }, { "12", 12 }, { "16", 16 },
+    },
+    description = "Hard cap on visible wild Pokemon on the current map.",
+  },
+  {
+    key = "min_visible_pokemon",
+    label = "Minimum visible Pokemon",
+    type = "choice",
+    default = 1,
+    choices = {
+      { "1", 1 }, { "2", 2 }, { "3", 3 },
+    },
+    description = "Lower bound for the density-based target count when encounter tiles exist.",
+  },
+  {
+    key = "tiles_per_additional_pokemon",
+    label = "Tiles per additional Pokemon",
+    type = "choice",
+    default = 24,
+    choices = {
+      { "16", 16 }, { "20", 20 }, { "24", 24 }, { "32", 32 }, { "40", 40 },
+    },
+    description = "Eligible encounter tiles required for each Pokemon above the minimum.",
+  },
+  {
+    key = "spawn_refill_interval",
+    label = "Spawn refill interval",
     type = "choice",
     default = 8,
     choices = {
-      { "FAST", 4 }, { "NORMAL", 8 }, { "SLOW", 14 },
+      { "Fast (4)", 4 }, { "Normal (8)", 8 }, { "Slow (14)", 14 },
     },
-    description = "Player steps between spawn attempts.",
+    description = "Player steps between attempts to refill toward the target count.",
   },
   {
     key = "initial_spawns",
-    label = "ON ENTER",
+    label = "On enter",
     type = "choice",
     default = 1,
     choices = {
       { "1", 1 }, { "2", 2 }, { "3", 3 }, { "4", 4 }, { "5", 5 },
     },
-    description = "How many wild Pokemon to try spawning when entering a map.",
+    description = "How many wild Pokemon to try spawning immediately when entering a map (still capped by density target).",
   },
+
+  -- ------- Behavior
   {
-    key = "suppress_random_grass",
-    label = "HIDE RANDOM GRASS",
+    key = "enable_idle",
+    label = "Enable idle Pokemon",
     type = "toggle",
     default = true,
-    description = "Suppress vanilla random grass encounters only after visible spawns are ready.",
+    description = "Allow Idle Look behaviour (stand still, glance around).",
   },
   {
-    key = "sprite_opacity",
-    label = "SPRITE FADE",
+    key = "enable_wander",
+    label = "Enable wandering Pokemon",
+    type = "toggle",
+    default = true,
+    description = "Allow wander behaviour within a connected encounter region.",
+  },
+  {
+    key = "enable_aggressive",
+    label = "Enable aggressive Pokemon",
+    type = "toggle",
+    default = true,
+    description = "Allow aggressive Pokemon that spot, chase, and force a battle.",
+  },
+  {
+    key = "enable_hidden",
+    label = "Enable hidden encounters",
+    type = "toggle",
+    default = true,
+    description = "Allow hidden grass (or cave dust) encounter markers with no Pokemon sprite.",
+  },
+  {
+    key = "aggressive_frequency",
+    label = "Aggressive encounter frequency",
     type = "choice",
-    default = 0.88,
+    default = 1.0,
     choices = {
-      { "SOLID", 1.0 }, { "TUCKED", 0.88 }, { "FAINT", 0.72 },
+      { "Rare", 0.5 }, { "Normal", 1.0 }, { "Common", 1.5 },
+    },
+    description = "Relative weight of aggressive behaviour when selecting a spawn.",
+  },
+
+  -- ------- Visuals
+  {
+    key = "sprite_opacity",
+    label = "Sprite fade",
+    type = "choice",
+    default = 1.0,
+    choices = {
+      { "Solid", 1.0 }, { "Tucked", 0.88 }, { "Faint", 0.72 },
     },
     description = "Opacity of overworld wild Pokemon sprites.",
   },
+  {
+    key = "min_sprite_size",
+    label = "Minimum Pokemon sprite size",
+    type = "choice",
+    default = 16,
+    choices = {
+      { "14", 14 }, { "16", 16 }, { "18", 18 }, { "20", 20 },
+    },
+    description = "Minimum visible sprite height in pixels after scaling (nearest-neighbor).",
+  },
+  {
+    key = "show_pokemon_in_grass",
+    label = "Show Pokemon in grass",
+    type = "toggle",
+    default = true,
+    description = "Use the engine grass feet-overdraw so Pokemon stand in tall grass like the player.",
+  },
+  {
+    key = "enable_grass_movement_effects",
+    label = "Enable grass movement effects",
+    type = "toggle",
+    default = true,
+    description = "Animate grass shake for hidden encounters and wandering steps when supported.",
+  },
+
+  -- ------- Developer
   {
     key = "dev_mode",
     label = "Developer mode",
@@ -78,13 +182,6 @@ return {
     description = "Keep the current map spawn diagnostics visible while developer mode is enabled.",
   },
   {
-    key = "allow_debug_spawn_outside_encounter_areas",
-    label = "Allow test spawn outside encounter areas",
-    type = "toggle",
-    default = false,
-    description = "DEBUG: allow Test spawn on any free walkable tile (not only encounter tiles). Dev mode only.",
-  },
-  {
     key = "show_spawn_tile_overlay",
     label = "Show valid spawn tiles",
     type = "toggle",
@@ -92,22 +189,36 @@ return {
     description = "Highlight tiles that the mod considers valid for visible wild Pokemon.",
   },
   {
+    key = "show_behavior_overlays",
+    label = "Show behavior overlays",
+    type = "toggle",
+    default = false,
+    description = "DEBUG: draw home region, sight line, and behaviour labels in developer mode.",
+  },
+  {
+    key = "allow_debug_spawn_outside_encounter_areas",
+    label = "Allow test spawn outside encounter areas",
+    type = "toggle",
+    default = false,
+    description = "DEBUG: allow Test spawn on any free walkable tile (not only encounter tiles). Dev mode only.",
+  },
+  {
     key = "debug_logging",
-    label = "DEBUG LOG",
+    label = "Debug log",
     type = "toggle",
     default = false,
     description = "Log map/encounter/tile/spawn diagnostics. Also forced on when Developer mode is enabled.",
   },
   {
     key = "force_test_spawn",
-    label = "FORCE TEST SPAWN",
+    label = "Force test spawn",
     type = "toggle",
     default = false,
     description = "Force one visible spawn from the map encounter table for diagnosis.",
   },
   {
     key = "preview_filter",
-    label = "PREVIEW FILTER",
+    label = "Preview filter",
     type = "choice",
     default = "all",
     choices = {
@@ -121,21 +232,21 @@ return {
   },
   {
     key = "preview_search",
-    label = "PREVIEW SEARCH",
+    label = "Preview search",
     type = "text",
     default = "",
     description = "Search by species name or ID when opening the Pokemon preview browser.",
   },
   {
     key = "preview_map_filter",
-    label = "PREVIEW MAP FILTER",
+    label = "Preview map filter",
     type = "text",
     default = "",
     description = "Optional map/route id substring filter for the preview browser location list.",
   },
   {
     key = "preview_encounter_kind",
-    label = "PREVIEW ENC KIND",
+    label = "Preview encounter kind",
     type = "choice",
     default = "any",
     choices = {
@@ -145,5 +256,27 @@ return {
       { "FISHING", "fishing" },
     },
     description = "Encounter-kind filter for preview browser locations.",
+  },
+
+  -- Legacy aliases kept so older saved option files still resolve.
+  {
+    key = "max_spawns",
+    label = "Max spawns (legacy)",
+    type = "choice",
+    default = 12,
+    choices = {
+      { "4", 4 }, { "6", 6 }, { "8", 8 }, { "10", 10 }, { "12", 12 }, { "16", 16 },
+    },
+    description = "Legacy alias of Maximum visible Pokemon.",
+  },
+  {
+    key = "spawn_every_steps",
+    label = "Spawn rate (legacy)",
+    type = "choice",
+    default = 8,
+    choices = {
+      { "FAST", 4 }, { "NORMAL", 8 }, { "SLOW", 14 },
+    },
+    description = "Legacy alias of Spawn refill interval.",
   },
 }
