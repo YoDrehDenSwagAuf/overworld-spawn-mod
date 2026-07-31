@@ -11,7 +11,6 @@ local Behavior = V.require("behavior")
 local Movement = V.require("movement")
 local VoxelAdapter = V.require("voxel_adapter")
 local Tile = V.require("tile")
-local DebugLog = V.require("debug_log")
 
 local BehaviorTick = {}
 BehaviorTick.__index = BehaviorTick
