@@ -65,7 +65,6 @@ FORBIDDEN_NAMES = {
     ".gitignore",
     ".DS_Store",
     ".modkitignore",
-    "ARCHITECTURE.md",
 }
 FORBIDDEN_EXACT = {
     "scripts/bootstrap.sh",
@@ -73,6 +72,8 @@ FORBIDDEN_EXACT = {
     "scripts/build-mod.ps1",
     "scripts/validate-manager-ascii.py",
     "tests/overworld_wild_spawns_test.lua",
+    # Root pointer only; docs/ARCHITECTURE.md is shipped.
+    "ARCHITECTURE.md",
 }
 
 
@@ -252,6 +253,7 @@ def verify_zip(out_zip: Path, manifest: dict) -> None:
                 fail(f"ZIP contains forbidden path: {name}")
         if rel in FORBIDDEN_EXACT:
             fail(f"ZIP contains forbidden path: {name}")
+        # Allow docs/ARCHITECTURE.md; forbid only the root pointer file.
         # Nested repo layout leftovers
         if "/mods/" in f"/{rel}/" or rel.startswith("mods/"):
             fail(f"ZIP contains mods/ path: {name}")
