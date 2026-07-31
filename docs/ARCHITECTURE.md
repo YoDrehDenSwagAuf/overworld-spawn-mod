@@ -1,4 +1,4 @@
-# Architecture — Wilds of Kanto 0.4.1
+# Architecture — Wilds of Kanto 0.4.2
 
 Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
@@ -9,16 +9,19 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `main.lua` | Load-phase wiring, hooks, exports |
 | `options.lua` | Mod Manager schema |
 | `lib/config.lua` | Defaults + option helpers |
+| `lib/tile.lua` | Gen1Recomp tile size (16×16) |
+| `lib/movement.lua` | Central tile-step movement |
+| `lib/voxel_adapter.lua` | Optional Voxel pose safety / fallback |
 | `lib/surface.lua` | GRASS / CAVE / WATER surface resolve |
 | `lib/spawn_regions.lua` | Connected regions + density target |
 | `lib/behavior.lua` | Behaviour pick + state machines |
-| `lib/behavior_tick.lua` | Present-pipeline AI tick |
-| `lib/sprite_scale.lua` | Visible-bounds scale |
+| `lib/behavior_tick.lua` | Present-pipeline AI tick + hidden FX |
+| `lib/sprite_scale.lua` | Visible-bounds → one-tile 2D scale |
 | `lib/grass.lua` | Tile eligibility / pickers |
 | `lib/encounter_pick.lua` | Weighted table picks |
 | `lib/encounter_index.lua` | Preview location index |
 | `lib/spawn_logic.lua` | Lifecycle, spawn, battle |
-| `lib/spawn_render.lua` | Sprite register + entities |
+| `lib/spawn_render.lua` | Sprite register + 2D entities |
 | `lib/spawn_state.lua` | Fail-safe readiness flags |
 | `lib/diagnostics.lua` | HUD snapshot / lines |
 | `lib/debug_hud.lua` | Present-only debug HUD |
@@ -50,65 +53,64 @@ world.stepped
 
 behaviour tick (render_pipeline present)
   Idle look / wander / aggressive / hidden shake
-  aggressive alert → ow.emote "!"
+  aggressive alert → ow.emote "!" (engine bubble, not a wild entity)
   chase contact → battle
 
 battle.ended / map.exited / enabled=false
   cleanup
 ```
 
-## Spawn data flow
+## Render separation
 
 ```text
-Map entered
-→ resolve environment (surface)
-→ load encounter table
-→ collect eligible tiles
-→ build connected spawn regions
-→ calculate target count (density)
-→ choose species + behaviour
-→ resolve sprite (or skip for hidden)
-→ create entity
-→ register ow.entities
-→ render (+ engine grass overdraw)
-→ contact or detection
-→ start_battle wild
-→ cleanup
+World simulation (behavior + movement)
+        │ read-only
+        ├─► 2D renderer (Entity:draw / final2DScale)
+        └─► Voxel adapter (pose() fields only; voxelScale = 1)
 ```
 
-## Render process
+- Simulation owns position, facing, behaviour, species, collision, battle.
+- Renderers never mutate simulation state.
+- Dramatic Shape Voxel Mod billboards `ow.entities` via `pose()` — see
+  `DramaticShapeVoxelMod/lib/VoxelScene.lua` (`posesOf`, `drawEntity`).
+- Hidden markers are **logical-only** (not in `ow.entities`) so a nil sprite
+  cannot retire the Voxel pipeline.
 
-1. Entity on `OverworldState.entities` with `pose()` / `draw()`
-2. Base path: custom nearest-neighbor scaled blit (or SpriteRenderer)
-3. Engine `drawCellBottom` after each entity on grass cells (feet overdraw)
-4. Hidden: draw shake/dust only — no Pokemon sprite / no fallback
-5. Optional Voxel: same `pose()` billboard contract
-
-## Battle process
+## Aggressive state machine
 
 ```text
-AVAILABLE → ENCOUNTER_STARTING → queueScript start_battle → despawn → IN_BATTLE
-pendingBattle prevents double start
-species/level taken from the entity record (never re-rolled)
+IDLE → PLAYER_DETECTED → ALERT → CHASE_START → CHASING
+    → BATTLE_PENDING → IN_BATTLE → CLEANUP
 ```
 
-## Behaviour state machines
+- Detection once; sight disabled afterward.
+- ALERT: one `ow.emote` bubble; no movement; chase only via emote `onDone`.
+- CHASING: central `Movement.beginStep` / `update` (cell finalizes after lerp).
+- Battle queued exactly once (`pendingBattle`).
 
-- **IDLE_LOOK**: timer 5–10s → change facing
-- **GRASS_WANDER**: pause / step inside `homeRegion` only
-- **AGGRESSIVE**: idle → sight → ALERT (`ow.emote`) → CHASE (may leave home) → contact
-- **HIDDEN_***: periodic shake/dust; step/collision starts battle
+## Movement
 
-## Surface system
+NPC-compatible: `cellX/cellY` stay at the origin during a step; `px/py`
+interpolate from previous → target; tile committed on completion.
 
-| Surface | Tiles | Table | Hidden effect |
-|---|---|---|---|
-| GRASS | `isGrassCell` | grass | grass shake |
-| CAVE | walkable indoor | grass | dust/shadow |
-| WATER | `isWaterCell` | water (Surf) | none |
-| Fishing | — | never free-spawn | — |
+Stable id: `wilds_of_kanto_entity_<n>` for the full lifetime.
+
+## Sprite scale (2D)
+
+```text
+visibleBounds (ignore transparent margins)
+desiredScale  = readability / species preference
+maximumScale  = min(usableW/visW, usableH/visH)   -- usable ≈ 0.9×0.95 tile
+final2DScale  = min(desiredScale, maximumScale)
+```
+
+Tile size is Gen1Recomp **16×16**. Logical footprint stays one tile.
+Voxel cards stay 16×16 (`voxelScale = 1`); never reuse `final2DScale`.
+
+Grass occlusion: `min(defaultGrassOcclusion, renderedVisibleHeight * 0.35)`.
 
 ## Fail-safe / fallback
 
-Vanilla grass `encounter.roll` suppressed only when `SpawnState:canSuppressVanilla()`.
-Water/fishing rolls always pass through. Missing art → black fallback sprite (visible behaviours only).
+- Vanilla grass `encounter.roll` suppressed only when `SpawnState:canSuppressVanilla()`.
+- Per-entity Voxel failure → 2D fallback for that entity; world AI continues.
+- Missing art → black fallback sprite (visible behaviours only).

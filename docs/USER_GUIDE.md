@@ -1,4 +1,4 @@
-# Wilds of Kanto — User Guide (0.4.1)
+# Wilds of Kanto — User Guide (0.4.2)
 
 Visible wild Pokemon appear in the overworld. Walk into one (or into a shaking grass patch) to start that exact wild battle. Classic random grass encounters stay available until the visible spawn system is ready on the current map.
 
@@ -11,11 +11,12 @@ Technical mod id: `overworld_wild_spawns` (stable for options/saves).
 - Four behaviours: Idle Look, Grass Wander, Aggressive, Hidden
 - Density scales with encounter-area size so long routes feel fuller than tiny patches
 - Pokemon in tall grass use the same engine feet-overdraw as the player and NPCs
-- Small sprites are scaled up slightly (nearest-neighbor) so they stay readable in grass
+- Sprites scale for readability but never exceed one map tile (16×16); transparent
+  image margins are ignored so large PNGs do not look oversized
 
 ## 2. Installation
 
-1. Build or download `wilds-of-kanto-v0.4.1.zip`
+1. Build or download `wilds-of-kanto-v0.4.2.zip`
 2. In Gen1Recomp open **Mod Manager (F10)** → Import the ZIP
 3. Enable **Wilds of Kanto**
 
@@ -144,7 +145,7 @@ All options are live (`mod.options_changed`). Map-density retargets on change; a
 | Label | Key | Default | Effect |
 |---|---|---|---|
 | Sprite fade | `sprite_opacity` | 1.0 | Solid / Tucked / Faint |
-| Minimum Pokemon sprite size | `min_sprite_size` | 16 | Min visible height (px) |
+| Minimum Pokemon sprite size | `min_sprite_size` | 16 | Preferred readable size; always capped to one map tile |
 | Show Pokemon in grass | `show_pokemon_in_grass` | true | Prefer engine grass overdraw path |
 | Enable grass movement effects | `enable_grass_movement_effects` | true | Hidden shake / dust pulses |
 
@@ -185,7 +186,8 @@ If no real image resolves, `assets/fallback/pokemon_missing.png` is used. Spawns
 - Aggressive AI uses tile steps (not full NPC pixel tweening)
 - Water Pokemon are a best-effort swim presentation; vanilla Surf rolls stay on
 - Fishing Pokemon never free-roam
-- Voxel billboards may not reflect custom 2D scale (2D path is authoritative)
+- Voxel billboards are always 16×16 cards (2D one-tile scale is separate)
+- Aggressive chase keeps a stable entity id and uses the engine `!` emote
 
 ## 18. Troubleshooting
 
@@ -195,7 +197,7 @@ If no real image resolves, `assets/fallback/pokemon_missing.png` is used. Spawns
 | Only random grass | Spawn system not READY → vanilla fail-safe is working |
 | Too empty on long routes | Raise **Spawn density** or lower **Tiles per additional** |
 | Too crowded | Lower density or max visible |
-| Tiny sprites in grass | Raise **Minimum Pokemon sprite size** |
+| Tiny sprites in grass | Raise **Minimum Pokemon sprite size** (still capped to one tile) |
 | Want classic feel | Disable aggressive / hidden, or turn the feature off |
 
 ## 19. Uninstall

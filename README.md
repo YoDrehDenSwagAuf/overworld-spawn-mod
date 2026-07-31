@@ -50,7 +50,9 @@ water). Contact can start a battle.
 Has a facing sight line. When it spots the player it shows an exclamation mark
 (`!`), then chases — and may leave tall grass after alerting. Contact after the
 alert starts an unavoidable battle. Sight is blocked by non-walkable tiles.
-Aggressive chase is tile-step based and can be limited on complex maps.
+Aggressive chase uses the same tile-step movement style as NPCs and is safe for
+optional Dramatic Shape Voxel presentation (the `!` is the engine emote, not a
+second Pokemon entity).
 
 ### Hidden
 
@@ -68,12 +70,13 @@ Idle and Wander only (no aggressive chase or hidden water markers).
 - Map-aware spawn density and connected spawn regions
 - Grass, cave (no grass graphics required), and Surf-water surfaces
 - Fishing stays rod-only — fishing tables never free-spawn
-- Sprite scaling and engine tall-grass overlay
+- Sprite scaling capped to one map tile (16×16); transparent margins ignored
+- Engine tall-grass overlay with relative occlusion for small sprites
 - Fallback sprite when art is missing
 - Developer mode with debug HUD, tile/behaviour overlays, and Pokemon preview
   browser (asset status, encounter locations, Test spawn)
 - Optional coexistence with [Dramatic Shape Voxel Mod](https://github.com/DramaticShape/DramaticShapeVoxelMod)
-  (not required)
+  (not required); per-entity 2D fallback if a wild pose would break Voxel
 - Vanilla grass encounter fallback when the spawn system is not ready
 
 ## Compatibility and testing status
@@ -241,8 +244,8 @@ Python 3.
 Output:
 
 ```text
-dist/wilds-of-kanto-v0.4.1.zip          # public release name
-dist/overworld_wild_spawns-0.4.1.zip    # technical-id alias
+dist/wilds-of-kanto-v0.4.2.zip          # public release name
+dist/overworld_wild_spawns-0.4.2.zip    # technical-id alias
 dist/overworld_wild_spawns.zip          # unversioned alias
 ```
 

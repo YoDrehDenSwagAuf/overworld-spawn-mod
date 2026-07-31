@@ -75,6 +75,7 @@ FORBIDDEN_EXACT = {
     "scripts/build-mod.ps1",
     "scripts/validate-manager-ascii.py",
     "tests/overworld_wild_spawns_test.lua",
+    "tests/voxel_aggressive_compat_test.lua",
     # Root pointer only; docs/ARCHITECTURE.md is shipped.
     "ARCHITECTURE.md",
 }

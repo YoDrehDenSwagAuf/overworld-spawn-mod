@@ -147,9 +147,9 @@ return {
     type = "choice",
     default = 16,
     choices = {
-      { "14", 14 }, { "16", 16 }, { "18", 18 }, { "20", 20 },
+      { "12", 12 }, { "14", 14 }, { "16", 16 },
     },
-    description = "Minimum visible sprite height in pixels after scaling (nearest-neighbor).",
+    description = "Controls the preferred minimum readable size. Sprites are always capped to a maximum footprint of one map tile.",
   },
   {
     key = "show_pokemon_in_grass",

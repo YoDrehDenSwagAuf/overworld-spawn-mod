@@ -16,6 +16,8 @@ local Diagnostics = V.require("diagnostics")
 local Surface = V.require("surface")
 local SpawnRegions = V.require("spawn_regions")
 local Behavior = V.require("behavior")
+local Movement = V.require("movement")
+local VoxelAdapter = V.require("voxel_adapter")
 
 local SpawnLogic = {}
 SpawnLogic.__index = SpawnLogic
@@ -75,6 +77,7 @@ function SpawnLogic.new(mod, render)
   self.browser = nil
   self.behaviorTick = nil
   self.lastTestSpawn = nil
+  self.voxel = VoxelAdapter.new(mod)
   return self
 end
 
@@ -216,26 +219,36 @@ function SpawnLogic:_onAggressiveAlert(entity, record)
   local world = self.mod.world
   local ow = world and world.overworld and world:overworld()
   if not ow then return end
-  -- Reuse the engine emotion-bubble path (same as trainers).
-  if ow.emote or ow.engaging then return end
   local bx = entity.behaviorState
   if not bx then return end
+  -- Exactly one alert / emote per detection.
+  if bx.alertEmoteSpawned then return end
+  if ow.emote or ow.engaging then return end
+
+  -- Stop movement and disable sight for the reaction pause.
+  Movement.stop(entity, "ALERT")
+  bx.sightDisabled = true
+  bx.alertEmoteSpawned = true
+  bx.state = Behavior.STATE.ALERT
+
+  -- Engine emotion bubble (same path as trainers). NOT a wild/Voxel entity.
+  -- No species, no collision, no spawn slot — only npc.px/py for anchoring.
   ow.emote = {
     npc = entity,
     frames = 60,
     onDone = function()
-      if bx then
-        bx.state = Behavior.STATE.CHASING
-        bx.chasing = true
-        bx.leftHome = true
-      end
+      -- Clear emote ownership first; then arm chase exactly once.
+      Behavior.markChaseReady(entity)
     end,
   }
-  self:_log("aggressive alert species=%s at (%d,%d)",
+  entity.alertIcon = true
+  self:_log("aggressive alert id=%s species=%s at (%d,%d)",
+            tostring(entity.id or record.id),
             tostring(record.species), record.x, record.y)
 end
 
-function SpawnLogic:_removeEntity(entity)
+function SpawnLogic:_detachFromWorld(entity)
+  if not entity then return end
   local world = self.mod.world
   if not world or not world.overworld then return end
   local ow = world:overworld()
@@ -248,6 +261,13 @@ function SpawnLogic:_removeEntity(entity)
       end
     end
   end
+  entity.registeredInWorld = false
+  entity.registered2D = false
+  if self.voxel then self.voxel:unregister(entity) end
+end
+
+function SpawnLogic:_removeEntity(entity)
+  self:_detachFromWorld(entity)
 end
 
 function SpawnLogic:_despawn(id, removeEntity)
@@ -257,8 +277,21 @@ function SpawnLogic:_despawn(id, removeEntity)
     record.state = Config.STATE.REMOVED
   end
   if entity then
+    local bx = entity.behaviorState
+    if bx then
+      bx.state = Behavior.STATE.CLEANUP
+      bx.battleStarted = true
+    end
     entity.state = Config.STATE.REMOVED
+    entity.alertIcon = false
     entity.registeredInWorld = false
+    if self.voxel then self.voxel:unregister(entity) end
+    -- Clear emote if we own it (exactly once).
+    local world = self.mod.world
+    local ow = world and world.overworld and world:overworld()
+    if ow and ow.emote and ow.emote.npc == entity then
+      ow.emote = nil
+    end
     if removeEntity ~= false then
       self:_removeEntity(entity)
     end
@@ -285,12 +318,40 @@ function SpawnLogic:_attach(entity)
   if not world or not world.overworld then return false, "no world" end
   local ow = world:overworld()
   if not ow then return false, "no overworld" end
+
+  -- Hidden markers must NEVER join ow.entities: DramaticShapeVoxelMod poses
+  -- every entry and crashes on nil sprite.def, retiring the whole pipeline.
+  if entity.hiddenEncounter or entity.visibleSprite == false then
+    entity.registeredInWorld = false
+    entity.registered2D = false
+    entity.voxelRegistered = false
+    entity.worldRegistration = "logical_only"
+    return true
+  end
+
+  -- Refuse to register Voxel-unsafe entities into the shared list.
+  local okPose, why = VoxelAdapter.isPoseSafe(entity)
+  if not okPose then
+    return false, "voxel-unsafe entity: " .. tostring(why)
+  end
+
   ow.entities = ow.entities or {}
+  -- Stable id: never re-insert under a new identity.
+  for _, e in ipairs(ow.entities) do
+    if e == entity or (e.id and entity.id and e.id == entity.id) then
+      entity.registeredInWorld = true
+      entity.registered2D = true
+      if self.voxel then self.voxel:updateEntity(entity) end
+      return true
+    end
+  end
   table.insert(ow.entities, entity)
   entity.registeredInWorld = self.render:isEntityRegistered(ow, entity)
+  entity.registered2D = entity.registeredInWorld
   if not entity.registeredInWorld then
     return false, "entity not in ow.entities after insert"
   end
+  if self.voxel then self.voxel:updateEntity(entity) end
   return true
 end
 
@@ -699,8 +760,10 @@ function SpawnLogic:trySpawn(game, opts)
   self:_debug("Selected tile x=%d y=%d region=%s", x, y,
               tostring(region and region.id))
 
-  local id = string.format("owwild_%d", self.nextId)
+  local seq = self.nextId
   self.nextId = self.nextId + 1
+  -- Stable for the entity's full lifetime (idle→alert→chase→battle→cleanup).
+  local id = string.format("wilds_of_kanto_entity_%d", seq)
 
   local hidden = Behavior.isHidden(behavior)
   local record = {
@@ -899,7 +962,7 @@ function SpawnLogic:testSpawn(species, opts)
 
   -- 5) Entity created (uses pre-registered sprite IDs only)
   local level = opts.level or 5
-  local id = string.format("owwild_test_%d", self.nextId)
+  local id = string.format("wilds_of_kanto_entity_%d", self.nextId)
   self.nextId = self.nextId + 1
   local record = {
     id = id,
@@ -1170,9 +1233,19 @@ function SpawnLogic:_startBattle(record)
   local entity = self.entities[record.id]
   if entity then
     entity.state = Config.STATE.ENCOUNTER_STARTING
+    entity.alertIcon = false
     if entity.behaviorState then
       entity.behaviorState.battleStarted = true
-      entity.behaviorState.state = Behavior.STATE.LOCKED
+      entity.behaviorState.battlePending = true
+      entity.behaviorState.sightDisabled = true
+      entity.behaviorState.state = Behavior.STATE.BATTLE_PENDING
+    end
+    Movement.stop(entity, "BATTLE_PENDING")
+    -- Hide from both render paths before battle (exactly once).
+    if self.voxel then self.voxel:unregister(entity) end
+    self:_detachFromWorld(entity)
+    if entity.behaviorState then
+      entity.behaviorState.state = Behavior.STATE.IN_BATTLE
     end
   end
 
@@ -1205,8 +1278,9 @@ function SpawnLogic:_startBattle(record)
   if self.pendingBattle then
     self.pendingBattle.state = Config.STATE.IN_BATTLE
   end
-  self.mod.log:info("triggered wild battle: %s Lv%d (%s)",
-                    record.species, record.level, tostring(record.behavior))
+  self.mod.log:info("triggered wild battle: %s Lv%d (%s) id=%s",
+                    record.species, record.level, tostring(record.behavior),
+                    tostring(record.id))
   return true
 end
 
