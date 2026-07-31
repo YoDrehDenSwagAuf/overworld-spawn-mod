@@ -1,4 +1,6 @@
-# Architecture — Overworld Wild Pokemon 0.4.0
+# Architecture — Wilds of Kanto 0.4.1
+
+Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
 ## Components
 

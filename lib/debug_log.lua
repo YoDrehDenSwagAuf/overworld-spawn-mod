@@ -1,5 +1,5 @@
--- Structured, rate-limited debug logging for overworld_wild_spawns.
--- Format: [OverworldSpawn][LEVEL] message
+-- Structured, rate-limited debug logging for Wilds of Kanto.
+-- Format: [WildsOfKanto][LEVEL] message
 --
 -- Never logs every frame: callers should log on state transitions or use
 -- onceKey / throttle helpers.
@@ -15,7 +15,7 @@ local function emit(mod, level, fmt, ...)
   if select("#", ...) > 0 then
     msg = string.format(fmt, ...)
   end
-  local line = ("[OverworldSpawn][%s] %s"):format(level, msg)
+  local line = ("[WildsOfKanto][%s] %s"):format(level, msg)
   if level == "ERROR" then
     mod.log:error("%s", line)
   elseif level == "WARN" then

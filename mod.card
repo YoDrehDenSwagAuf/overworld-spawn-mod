@@ -1,7 +1,7 @@
 -- Sharing metadata. Read by tooling and the manager detail pane;
 -- never by the loader's merge.
 return {
-  summary = "Visible wild Pokemon in the overworld with density, behaviours, and grass overlay. Does not change the player spawn.",
+  summary = "Visible and reactive wild Pokemon for the Gen 1 overworld. Roaming, hidden and aggressive encounters across grass, caves and water. Does not change the player spawn.",
   author = "overworld-spawn-mod",
   contact = "https://github.com/YoDrehDenSwagAuf/overworld-spawn-mod",
   tags = { "overworld", "encounters", "gameplay", "voxel-compatible", "diagnostics" },

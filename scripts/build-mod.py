@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Build dist/overworld_wild_spawns-<version>.zip for Gen1Recomp import.
+"""Build dist/wilds-of-kanto-v<version>.zip for Gen1Recomp import.
 
 This repository root IS the mod (same layout as DramaticShapeVoxelMod).
 Packs via the official Gen1Recomp modkit so the ZIP has manifest.json at
 the archive root - never a wrapping folder, never the repo/workspace tree.
+
+Public release name: wilds-of-kanto-v<version>.zip
+Technical id aliases: overworld_wild_spawns-<version>.zip / overworld_wild_spawns.zip
 """
 from __future__ import annotations
 
@@ -325,7 +328,8 @@ def main() -> int:
     if DIST.exists():
         shutil.rmtree(DIST)
     DIST.mkdir(parents=True)
-    out_name = f"{manifest['id']}-{manifest['version']}.zip"
+    # Public release filename (product name). Keep technical-id aliases too.
+    out_name = f"wilds-of-kanto-v{manifest['version']}.zip"
     out_zip = DIST / out_name
 
     # Validate + pack with the real Gen1Recomp modkit (flat archive root).
@@ -340,12 +344,15 @@ def main() -> int:
     # Re-validate after pack.
     run_modkit("validate", "mods/overworld_wild_spawns")
 
-    # Also write an unversioned alias matching the user-facing name.
-    alias = DIST / f"{manifest['id']}.zip"
-    shutil.copy2(out_zip, alias)
+    # Compatibility aliases using the stable technical mod id.
+    id_versioned = DIST / f"{manifest['id']}-{manifest['version']}.zip"
+    id_alias = DIST / f"{manifest['id']}.zip"
+    shutil.copy2(out_zip, id_versioned)
+    shutil.copy2(out_zip, id_alias)
 
     print(f"wrote {out_zip}")
-    print(f"wrote {alias}")
+    print(f"wrote {id_versioned}")
+    print(f"wrote {id_alias}")
     print("modkit validator: ok")
     print("manifest.json at ZIP root: confirmed")
     return 0

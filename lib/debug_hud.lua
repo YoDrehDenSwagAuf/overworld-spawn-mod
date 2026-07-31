@@ -53,7 +53,7 @@ function DebugHud:register()
   local hud = self
 
   mod.content.render_pipelines:register(DebugHud.PIPELINE_ID, {
-    label = "OW SPAWN HUD",
+    label = "WILDS HUD",
     levels = { "OFF", "ON" },
     priority = 5,
     available = function()

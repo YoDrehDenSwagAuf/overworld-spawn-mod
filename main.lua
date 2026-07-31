@@ -1,4 +1,4 @@
--- Overworld Wild Pokemon: visible wild Pokemon on grass tiles.
+-- Wilds of Kanto (id: overworld_wild_spawns): visible wild Pokemon in the overworld.
 --
 -- Architecture
 --   lib/spawn_state.lua     - fail-safe readiness flags (vanilla suppress gate)
@@ -238,7 +238,7 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "0.4.0"
+  mod.exports.version = "0.4.1"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.hud = hud

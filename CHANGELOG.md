@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.1
+
+### Changed
+
+- Renamed the public mod title to **Wilds of Kanto** (technical id
+  `overworld_wild_spawns` unchanged for save/options compatibility).
+- Reworked the README with installation, features, compatibility notes and
+  project background.
+- Added clearer links to Gen1Recomp and Dramatic Shape Voxel Mod.
+- Updated visible HUD / preview titles and debug log prefix to match the
+  public name.
+- Release ZIP primary filename is now `wilds-of-kanto-v<version>.zip`
+  (technical-id aliases still written).
+
 ## 0.4.0
 
 ### Added
