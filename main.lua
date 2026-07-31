@@ -140,10 +140,21 @@ return function(mod)
 
   mod.events:on("game.ready", function()
     hud:syncPipelineLevel()
+    if Config.devMode(mod) then
+      render.debugMarkers = true
+      local game = mod.world and mod.world.game
+      if game then
+        local okAudit, auditErr = pcall(render.auditAssets, render, game)
+        if not okAudit then
+          DebugLog.warn(mod, "asset audit failed: %s", tostring(auditErr))
+        end
+      end
+    end
     if Config.debug(mod) then
-      DebugLog.info(mod, "game.ready; feature=%s dev=%s",
+      DebugLog.info(mod, "game.ready; feature=%s dev=%s fallback=%s",
                     tostring(Config.isEnabled(mod)),
-                    tostring(Config.devMode(mod)))
+                    tostring(Config.devMode(mod)),
+                    tostring(render.fallbackAvailable))
     end
   end)
 
@@ -224,7 +235,7 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "0.3.1"
+  mod.exports.version = "0.3.2"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.hud = hud

@@ -119,9 +119,9 @@ function PreviewBrowser:speciesRows(game)
         include = false
       end
       if include and filter == "asset_loaded" then
-        include = info.status == "LOADED"
+        include = info.status == "LOADED" or info.status == "FALLBACK_LOADED"
       elseif include and filter == "asset_missing" then
-        include = info.status ~= "LOADED"
+        include = info.status ~= "LOADED" and info.status ~= "FALLBACK_LOADED"
       elseif include and filter == "entity_ready" then
         local probe = render:probeEntity(game, row.id)
         include = probe.entityReady == true
@@ -131,8 +131,12 @@ function PreviewBrowser:speciesRows(game)
       end
       if include then
         local right = info.status
-        if not info.spriteRegistered then
+        if info.fallbackUsed then
+          right = "FALLBACK"
+        elseif not info.spriteRegistered and not info.fallbackAvailable then
           right = "UNAVAILABLE"
+        elseif info.status == "FALLBACK_LOADED" then
+          right = "FALLBACK"
         end
         if #locLines > 0 then
           right = right .. " " .. tostring(#locLines)
@@ -160,6 +164,7 @@ function PreviewBrowser:_openDetail(game, speciesId)
   local render = logic.render
   local index = self:indexFor(game)
   local mon = (game.data.pokemon and game.data.pokemon[speciesId]) or {}
+  render:invalidateAssetCache(speciesId)
   local info, _ = render:probeEntity(game, speciesId)
   local locs = EncounterIndex.formatLocations(
     index[speciesId] or {},
@@ -168,30 +173,66 @@ function PreviewBrowser:_openDetail(game, speciesId)
   local imgPath, imgKind = render:previewImagePath(speciesId, game)
   local seen, owned = pokedexDiag(game)
 
-  local spawnSupported = info.spriteRegistered == true and info.status == "LOADED"
+  local runtimeLabel
+  if info.fallbackUsed then
+    runtimeLabel = "FALLBACK LOADED"
+  elseif info.realAssetLoaded then
+    runtimeLabel = "REAL ASSET LOADED"
+  else
+    runtimeLabel = tostring(info.runtimeStatus or info.status)
+  end
+
+  local spawnSupported = info.entityReady == true
+                      or info.status == "LOADED"
+                      or info.status == "FALLBACK_LOADED"
   local items = {
     { label = "SPECIES ID", right = tostring(speciesId) },
     { label = "DEX NO", right = tostring(mon.dex or "?") },
     { label = "SPECIES EXISTS", right = "YES" },
-    { label = "SPRITE REG", right = info.spriteRegistered and "REGISTERED" or "MISSING" },
-    { label = "RUNTIME IMG", right = tostring(info.runtimeStatus or info.status) },
-    { label = "OW PREVIEW", right = spawnSupported and "AVAILABLE" or "UNAVAILABLE" },
+    { label = "SPRITE REG", right = info.spriteRegistered and "YES" or "NO" },
+    { label = "REAL PATH", right = tostring(info.realAssetPath or "(none)"):sub(1, 22) },
+    { label = "REAL EXISTS", right = info.realAssetExists and "YES" or "NO" },
+    { label = "FALLBACK", right = info.fallbackAvailable and "YES" or "NO" },
+    { label = "RUNTIME IMG", right = runtimeLabel },
     { label = "ASSET KIND", right = tostring(imgKind) },
     { label = "RENDERER", right = tostring(info.renderer) },
-    { label = "OW ENTITY", right = tostring(info.entityStatus or "?") },
+    { label = "OW ENTITY", right = tostring(info.entityStatus or info.phase or "?") },
     { label = "TEST SPAWN", right = spawnSupported and "READY" or "DISABLED" },
     { label = "ENCOUNTERS", right = tostring(#locs) },
     { label = "POKEDEX SEEN", right = tostring(seen) .. " (diag)" },
     { label = "POKEDEX OWN", right = tostring(owned) .. " (diag)" },
   }
-  if not info.spriteRegistered then
-    items[#items + 1] = {
-      label = "REASON",
-      right = "No overworld sprite registered",
-    }
+
+  -- Short tried list on screen; full details go to the log.
+  local tried = info.tried or {}
+  if #tried > 0 then
+    items[#items + 1] = { label = "TRIED:" }
+    for i, t in ipairs(tried) do
+      if i > 4 then break end
+      local mark = t.loaded and "OK" or (t.exists and "FAIL" or "MISS")
+      items[#items + 1] = {
+        label = ("  %s %s"):format(mark, tostring(t.source)),
+      }
+    end
+    DebugLog.info(mod, "asset resolve %s tried=%d result=%s path=%s",
+                  tostring(speciesId), #tried, tostring(info.status),
+                  tostring(info.resolvedPath or info.overworldSprite))
+    for _, t in ipairs(tried) do
+      DebugLog.info(mod, "  tried %s path=%s exists=%s loaded=%s err=%s",
+                    tostring(t.source), tostring(t.path),
+                    tostring(t.exists), tostring(t.loaded),
+                    tostring(t.error))
+    end
+  end
+
+  if info.fallbackUsed then
+    items[#items + 1] = { label = "RESULT", right = "Fallback loaded" }
+  elseif info.realAssetLoaded then
+    items[#items + 1] = { label = "RESULT", right = "Real asset loaded" }
   elseif info.lastError then
     items[#items + 1] = { label = "LAST ERR", right = tostring(info.lastError):sub(1, 18) }
   end
+
   for i, line in ipairs(locs) do
     if i <= 8 then
       items[#items + 1] = { label = line }
@@ -205,9 +246,10 @@ function PreviewBrowser:_openDetail(game, speciesId)
     onSelect = function()
       if mod.ui and mod.ui.PicBox then
         game.stack:push(mod.ui.PicBox.new(game, imgPath,
-          ("Overworld path: %s\nKind: %s\nRegistered: %s")
-            :format(tostring(imgKind), tostring(info.status),
-                    tostring(info.spriteRegistered))))
+          ("Overworld path: %s\nKind: %s\nRuntime: %s\nFallback: %s")
+            :format(tostring(imgPath), tostring(imgKind),
+                    tostring(runtimeLabel),
+                    tostring(info.fallbackUsed))))
       end
     end,
   }
@@ -219,9 +261,14 @@ function PreviewBrowser:_openDetail(game, speciesId)
         local result = logic:testSpawn(speciesId, { fromBrowser = true })
         local msg
         if result.ok then
-          msg = ("Test spawn OK\n%s Lv%d at (%d,%d)\nAll 7 steps passed.")
-            :format(tostring(speciesId), result.level or 1,
-                    result.x or 0, result.y or 0)
+          msg = (result.summary or "TEST SPAWN SUCCESS")
+            .. ("\n%s Lv%d at (%d,%d)\nRuntime: %s")
+              :format(tostring(speciesId), result.level or 1,
+                      result.x or 0, result.y or 0,
+                      tostring(result.runtimeImage or runtimeLabel))
+          if result.fallbackUsed then
+            msg = msg .. "\nRendering with fallback sprite"
+          end
         else
           msg = ("Test spawn failed at step %d:\n%s\n%s")
             :format(result.failedAt or 0,
@@ -241,7 +288,7 @@ function PreviewBrowser:_openDetail(game, speciesId)
       onSelect = function()
         local msg = ("Test spawn DISABLED\n%s\nReason: %s")
           :format(tostring(speciesId),
-                  tostring(info.lastError or "No overworld sprite registered"))
+                  tostring(info.lastError or "No drawable sprite"))
         if mod.ui and mod.ui.TextBox then
           game.stack:push(mod.ui.TextBox.new(game, msg))
         else

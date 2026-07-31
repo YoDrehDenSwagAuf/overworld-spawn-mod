@@ -21,7 +21,9 @@ return {
     },
     known = {
       "species overworld sprites are registered at mod load from battle fronts "
-        .. "(optional runtime 16x16 bake/cache; never after registry freeze)",
+        .. "(optional runtime 16x16 bake into overworld_wild_spawns-cache/; "
+        .. "LOVE virtual paths only; never after registry freeze)",
+      "when no real image is available, assets/fallback/pokemon_missing.png is used",
       "spawns are runtime-only and reset when you leave and re-enter a map",
       "only grass encounter areas are supported for automatic spawns in 0.3.x (not water/cave tables yet)",
       "Dramatic Shape overworld battles cull non-player entities from the arena shot",

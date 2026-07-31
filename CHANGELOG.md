@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.3.2
+
+### Fixed
+
+- **`cache/<species>.png: Does not exist` entity errors.** Runtime 16×16 bake
+  no longer returns `love.filesystem.getSaveDirectory() .. "/" .. rel` (an OS
+  absolute path). `love.graphics.newImage` / `Assets.image` only accept LÖVE
+  virtual paths, so the absolute path made every baked sprite fail to load and
+  surfaced as `…cache/pidgey.png: Does not exist.`
+- Bake now returns the relative save-dir path `overworld_wild_spawns-cache/<id>.png`.
+- Placeholder / fallback paths use `assets/…` under the mod root via
+  `mod.assets:path`.
+- Missing optional cache files no longer abort spawn or test spawn.
+
+### Added
+
+- Species-id-first asset resolution with ordered candidates (explicit map →
+  dex-padded → species id → display-name token → battle front/back → optional
+  cache → black fallback).
+- Static fallback sprite `assets/fallback/pokemon_missing.png` registered at
+  load (`SPRITE_OW_WILD_FALLBACK`). Used when no real image is available.
+- Preview browser shows real-asset path / exists / fallback / runtime image
+  status and a short tried list (full details in the log).
+- Dev-mode asset audit on map enter / `game.ready`.
+- Concrete entity phase errors (`ASSET LOAD ERROR`, `WORLD REGISTER ERROR`, …).
+
+### Notes
+
+- Temporary overworld presentation uses Gen1 battle-front sprites scaled to
+  16×16 when no dedicated overworld PNG is shipped.
+- Pokédex remains unused as a gate. DramaticShapeVoxelMod remains optional.
+- Does **not** change the player spawn point, warp, or teleport the player.
+
 ## 0.3.1
 
 ### Fixed
