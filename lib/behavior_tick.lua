@@ -2,10 +2,15 @@
 -- Gen1Recomp has no world.tick mod event; NPC:update only runs for ow.npcs.
 -- A present pipeline runs every drawn frame and is an established public path
 -- (same mechanism as the debug HUD).
+--
+-- Also draws hidden-encounter shake/dust overlays (those entities stay out of
+-- ow.entities so the Dramatic Shape Voxel Mod never poses a nil sprite).
 local V = ...
 local Config = V.require("config")
 local Behavior = V.require("behavior")
-local DebugLog = V.require("debug_log")
+local Movement = V.require("movement")
+local VoxelAdapter = V.require("voxel_adapter")
+local Tile = V.require("tile")
 
 local BehaviorTick = {}
 BehaviorTick.__index = BehaviorTick
@@ -23,6 +28,7 @@ function BehaviorTick.new(mod, logic)
   local self = setmetatable({}, BehaviorTick)
   self.mod = mod
   self.logic = logic
+  self.voxel = VoxelAdapter.new(mod)
   self._registered = false
   self._lastT = now()
   return self
@@ -42,6 +48,7 @@ function BehaviorTick:register()
     end,
     present = function(canvas, ctx)
       tick:step(ctx)
+      tick:drawHiddenEffects(ctx)
       return canvas
     end,
   })
@@ -60,6 +67,16 @@ function BehaviorTick:syncPipelineLevel()
   end
 end
 
+local function emoteBelongsToWild(ow, logic)
+  if not ow or not ow.emote or not ow.emote.npc then return false end
+  local npc = ow.emote.npc
+  if npc.overworldWildSpawn then return true end
+  for _, entity in pairs(logic.entities or {}) do
+    if entity == npc then return true end
+  end
+  return false
+end
+
 function BehaviorTick:step(ctx)
   if not Config.isEnabled(self.mod) then return end
   local logic = self.logic
@@ -74,9 +91,16 @@ function BehaviorTick:step(ctx)
   local world = self.mod.world
   local ow = world and world.overworld and world:overworld()
   if not ow or not ow.map or not ow.player then return end
-  if ow.emote or ow.engaging then
-    -- Hold AI while an emotion bubble / trainer approach owns the world.
-    -- Our own aggressive alert sets ow.emote; chase resumes after.
+
+  self.voxel:refreshPresence()
+
+  local holdAi = false
+  if ow.engaging then
+    holdAi = true
+  elseif ow.emote then
+    -- Hold decision AI while any emotion bubble owns the world. Our own
+    -- aggressive alert uses ow.emote; chase starts only via emote onDone.
+    holdAi = true
   end
 
   local sight = Config.get(self.mod, "aggressive_sight_range")
@@ -89,31 +113,111 @@ function BehaviorTick:step(ctx)
   for id, entity in pairs(logic.entities or {}) do
     local record = logic.spawns[id]
     if record and record.state == Config.STATE.AVAILABLE and entity then
-      -- Pace chase steps with nextActionAt.
+      -- Keep Voxel-readable fields synced; never mutate DRAMATIC_SHAPE.
+      local okVoxel, voxelErr = pcall(function()
+        self.voxel:updateEntity(entity)
+      end)
+      if not okVoxel then
+        self.voxel:markFallback(entity, voxelErr)
+      end
+
       local bx = entity.behaviorState
-      if bx and bx.chasing and t < (bx.nextActionAt or 0) then
-        -- waiting
-      else
-        local event = Behavior.tick(entity, {
-          map = ow.map,
-          entities = ow.entities,
-          player = ow.player,
-          dt = dt,
-          sightRange = sight,
-          reactionDelay = react,
-          chaseStepSeconds = chaseStep,
-        })
-        if event == "alert" then
-          logic:_onAggressiveAlert(entity, record)
-        elseif event == "contact" then
-          logic:_startBattle(record)
+      local chasing = bx and (bx.chasing or bx.state == Behavior.STATE.CHASING
+                              or bx.state == Behavior.STATE.CHASE_START)
+
+      -- Mid-step interpolation always advances (NPC-compatible), even during
+      -- a foreign emote, so renderers never see a torn movement state.
+      -- During OUR alert emote, movement is stopped by the ALERT state.
+      if Movement.isBusy(entity) and not (holdAi and bx
+         and (bx.state == Behavior.STATE.ALERT
+              or bx.state == Behavior.STATE.PLAYER_DETECTED)) then
+        local done = Movement.update(entity, dt)
+        if done then
+          Movement.refreshGrassFlag(entity, self.mod)
         end
       end
 
-      -- Keep record coords in sync after movement.
+      if holdAi and not chasing then
+        -- Freeze new decisions / sight while a bubble or trainer approach owns
+        -- the world. Chase already in progress continues after our emote ends.
+      else
+        if bx and bx.chasing and Movement.isBusy(entity) then
+          -- Wait for the current chase step to finish.
+        else
+          local event = Behavior.tick(entity, {
+            map = ow.map,
+            entities = ow.entities,
+            player = ow.player,
+            dt = dt,
+            sightRange = sight,
+            reactionDelay = react,
+            chaseStepSeconds = chaseStep,
+          })
+          if event == "alert" then
+            logic:_onAggressiveAlert(entity, record)
+          elseif event == "contact" or event == "battle_pending" then
+            logic:_startBattle(record)
+          end
+        end
+      end
+
+      -- Keep record coords in sync after movement (committed tile only).
       if entity.cellX and entity.cellY then
         record.x, record.y = entity.cellX, entity.cellY
       end
+
+      -- Re-validate Voxel safety after movement.
+      if entity.registeredInWorld and not entity.voxelDisabled then
+        local ok, why = VoxelAdapter.isPoseSafe(entity)
+        if not ok then
+          self.voxel:markFallback(entity, why)
+          -- Keep entity in ow.entities only if pose is still safe; otherwise
+          -- detach so VoxelScene cannot retire the whole pipeline.
+          if entity.sprite == nil then
+            logic:_detachFromWorld(entity)
+            entity.render2DFallback = true
+          end
+        end
+      end
+    end
+  end
+end
+
+function BehaviorTick:drawHiddenEffects(ctx)
+  if not (love and love.graphics) then return end
+  if Config.get(self.mod, "enable_grass_movement_effects") == false then return end
+  local logic = self.logic
+  local world = self.mod.world
+  local ow = world and world.overworld and world:overworld()
+  if not ow or not ow.map then return end
+  -- When Voxel owns the world, field FX stay on the overlay; hidden markers
+  -- are logical-only and draw a light 2D pulse here for both paths.
+  local cam = ow.camera
+  local camX = cam and cam.x or 0
+  local camY = cam and cam.y or 0
+  for id, entity in pairs(logic.entities or {}) do
+    local record = logic.spawns[id]
+    if record and record.state == Config.STATE.AVAILABLE
+       and entity and (entity.hiddenEncounter or not entity.visibleSprite) then
+      local cell = Tile.CELL
+      local x = math.floor((entity.px or (entity.cellX * cell)) - camX)
+      local y = math.floor((entity.py or (entity.cellY * cell)) - camY)
+      local active = entity.grassEffectActive == true
+      if entity.behavior == Behavior.HIDDEN_GRASS
+         or entity.surface == "GRASS" then
+        local amp = active and 2 or 0
+        local phase = (entity.behaviorState and entity.behaviorState.shakePhase) or 0
+        local ox = (phase % 2 == 0) and amp or -amp
+        love.graphics.setColor(0.25, 0.65, 0.28, active and 0.55 or 0.22)
+        love.graphics.rectangle("fill", x + 3 + ox, y + 10, 10, 5)
+        love.graphics.setColor(0.18, 0.5, 0.2, active and 0.7 or 0.3)
+        love.graphics.rectangle("fill", x + 5 + ox, y + 8, 6, 3)
+      else
+        local a = active and 0.45 or 0.18
+        love.graphics.setColor(0.15, 0.12, 0.1, a)
+        love.graphics.ellipse("fill", x + 8, y + 12, active and 6 or 4, active and 3 or 2)
+      end
+      love.graphics.setColor(1, 1, 1, 1)
     end
   end
 end

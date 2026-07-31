@@ -4,6 +4,7 @@
 
 # Unit tests - require the engine test harness, not the shipped archive.
 tests/overworld_wild_spawns_test.lua
+tests/voxel_aggressive_compat_test.lua
 
 # Repo / authoring tooling (not runtime).
 scripts/bootstrap.sh

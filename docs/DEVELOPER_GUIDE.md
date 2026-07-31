@@ -1,4 +1,7 @@
-# Wilds of Kanto — Developer Guide (0.4.1)
+# Wilds of Kanto — Developer Guide (0.4.2)
+
+> Tile size, one-tile 2D scale, Voxel adapter, and aggressive SM notes below
+> match the 0.4.2 implementation.
 
 Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
@@ -127,20 +130,43 @@ the player/NPC grass overdraw — no custom black mask.
 Implemented by Gen1Recomp for all `ow.entities` on grass cells.
 Mod sets `grass_tuck_px = 0` by default so sprites are not pushed into the turf.
 `inGrassOverlay` tracks live cell grass for HUD.
+Relative occlusion: `min(grass_occlusion_px, renderedVisibleHeight * 0.35)` with
+a small upward lift so small sprites are not fully covered.
+Aggressive entities clear the grass flag when their committed tile leaves grass.
 
-## 16. Sprite scaling
+## 16. Sprite scaling (one tile)
 
-`SpriteScale.compute`: visible bounds (when ImageData available) → target height
-~16–28px → species overrides → clamp [1, 2]. Collision remains one cell.
+Gen1Recomp tile size is **16×16** (`lib/tile.lua`, matching `NPC.lua`).
+
+```text
+visibleBounds = non-transparent pixel box (cached)
+desiredScale  = readability / species preference / min_sprite_size option
+maximumScale  = min(usableW / visW, usableH / visH)   -- usable ≈ 0.90×0.95 tile
+final2DScale  = min(desiredScale, maximumScale)
+```
+
+- Source PNGs may be larger; transparent margins are ignored.
+- Aspect ratio preserved; nearest-neighbor filter.
+- Logical footprint stays one tile (collision / sight / contact unchanged).
+- Camera zoom is engine-only and is not folded into `final2DScale`.
+- Voxel billboards stay a 16×16 card (`voxelScale = 1`); never reuse the 2D scale.
 
 ## 17. Behaviour state machines
 
 See `lib/behavior.lua`. Tick via `lib/behavior_tick.lua` present pipeline
 (`owwild_behavior_tick`) because Gen1Recomp has no `world.tick` and only
-updates `ow.npcs`.
+updates `ow.npcs`. Movement goes through `lib/movement.lua` (NPC-compatible
+previous/current pixel lerp; cell finalizes after the step).
 
-Aggressive alert reuses `ow.emote = { npc = entity, frames = 60, ... }`
-(same emotion-bubble path as trainers).
+Aggressive SM: `IDLE → PLAYER_DETECTED → ALERT → CHASE_START → CHASING →
+BATTLE_PENDING → IN_BATTLE → CLEANUP`.
+
+Alert reuses `ow.emote = { npc = entity, frames = 60, onDone = ... }`
+(same emotion-bubble path as trainers). The bubble is **not** a wild/Voxel
+entity. Chase starts only from `onDone` (`Behavior.markChaseReady`).
+AI decisions hold while `ow.emote` / `ow.engaging` owns the world.
+
+Stable ids: `wilds_of_kanto_entity_<n>` for the full lifetime.
 
 ## 18. Battle trigger
 
@@ -165,7 +191,8 @@ Contact: `world.stepped` tile match + `movement.collision` bump.
 ## 21. Developer mode
 
 HUD pipeline `owwild_debug_hud`: Target / Active / Regions / Surface + nearest
-entity detail (behaviour, scale, sight, hidden flags).
+entity detail (stable id, behaviour state, source/visible/rendered size,
+desired vs one-tile max scale, Voxel registration / fallback, alert/battle).
 Overlays: spawn tiles + optional behaviour/sight fills.
 
 ## 22. Preview browser
@@ -181,7 +208,8 @@ Global encounter index; Test spawn 7 phases; never mutates registries.
 
 ```sh
 cd .deps/gen1recomp
-luajit mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
+lua mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
+lua mods/overworld_wild_spawns/tests/voxel_aggressive_compat_test.lua
 ```
 
 ## 25. Release build
@@ -191,17 +219,24 @@ luajit mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
 ./scripts/build-mod.py
 ```
 
-Produces `dist/wilds-of-kanto-v0.4.1.zip` (plus technical-id aliases) with
+Produces `dist/wilds-of-kanto-v0.4.2.zip` (plus technical-id aliases) with
 `manifest.json` at ZIP root.
 Includes `docs/`. Excludes `tests/`, `scripts/`, `.deps/`, root `ARCHITECTURE.md`.
 
-## 26. Known technical constraints
+## 26. Known technical constraints / Voxel compatibility
 
 - No public wild-battle helper beyond script verb `start_battle`
 - No continuous mod tick except present pipelines / events listed above
 - Trainer sight has no wall LOS in vanilla; this mod **does** block aggressive sight on non-walkable tiles
 - Single-frame sheets ignore SpriteRenderer facing; Idle Look flips in custom draw
-- Voxel path may not mirror 2D scale
+- Voxel path uses the public `pose()` billboard contract only; it does **not**
+  apply 2D `final2DScale` (cards are always 16×16 from the sheet)
+- Hidden markers are logical-only (not in `ow.entities`) because VoxelScene
+  retires the whole DRAMATIC_SHAPE pipeline on a nil `sprite.def`
+- Per-entity Voxel failures fall back to 2D for that entity; we cannot un-break
+  a pipeline Gen1Recomp already marked `broken` after a throw
+- Emote (`!`) is drawn by the engine FX overlay, not as a Voxel Pokemon entity
+- Full in-game Voxel chase→battle→overworld restore still needs a ROM + both mods
 
 ## 27. Adding behaviours
 

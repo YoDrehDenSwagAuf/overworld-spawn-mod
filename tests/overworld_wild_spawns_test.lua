@@ -15,14 +15,14 @@ T.check(modMeta ~= nil, "loader discovered mod by manifest id")
 T.eq(modMeta.state, "loaded", "mod reached loaded state")
 T.eq(modMeta.manifest.id, "overworld_wild_spawns", "manifest id")
 T.eq(modMeta.manifest.name, "Wilds of Kanto", "manifest name")
-T.eq(modMeta.manifest.version, "0.4.1", "manifest version")
+T.eq(modMeta.manifest.version, "0.4.2", "manifest version")
 T.eq(modMeta.manifest.entry, "main.lua", "entry path")
 T.eq(modMeta.manifest.category, "MECHANIC", "category")
 T.eq(modMeta.manifest.api, 2, "mod api version")
 
 local exports = run.loader.exports["overworld_wild_spawns"]
 T.check(exports ~= nil, "exports table published")
-T.eq(exports.version, "0.4.1", "version export")
+T.eq(exports.version, "0.4.2", "version export")
 T.check(exports.logic ~= nil, "logic export")
 T.check(exports.render ~= nil, "render export")
 T.check(exports.hud ~= nil, "hud export")
@@ -1141,7 +1141,7 @@ T.check(mockGame.save.pokedex == nil
         "suite completes with empty / unused pokedex")
 
 -- ============================================================
--- 0.4.1: Wilds of Kanto public rename; density/behaviours from 0.4.0
+-- 0.4.2: Wilds of Kanto public rename; density/behaviours from 0.4.0
 -- ============================================================
 
 local schemaKeys = {}
@@ -1352,16 +1352,185 @@ T.check(hidEntity.hiddenEncounter == true, "hidden flag set")
 T.check(Behavior.isHidden(Behavior.HIDDEN_GRASS), "HIDDEN_GRASS is hidden")
 T.check(Behavior.isHidden(Behavior.HIDDEN_CAVE), "HIDDEN_CAVE is hidden")
 
--- Sprite scale: small content gets minimum height boost.
-local scale = SpriteScale.compute("PIDGEY", nil, {
-  minVisibleHeight = 16, targetVisibleHeight = 22, maxVisibleHeight = 28,
-})
-T.check(scale.scale >= 1.0, "scale at least 1")
-T.check(scale.scale <= 2.0, "scale hard-capped")
-local tiny = SpriteScale.compute("KAKUNA", {
-  getDimensions = function() return 16, 16 end,
-}, { minVisibleHeight = 18, targetVisibleHeight = 22, maxVisibleHeight = 28 })
-T.check(tiny.scale >= 1.0, "kakuna scale applied")
+-- Extra suites in nested scopes (Lua 5.1 200-local limit on the main chunk).
+do
+  local Tile = exports.lib.require("tile")
+  local Movement = exports.lib.require("movement")
+  local VoxelAdapter = exports.lib.require("voxel_adapter")
+  T.eq(Tile.CELL, 16, "tile size is Gen1Recomp 16px")
+
+  local scale = SpriteScale.compute("PIDGEY", nil, {
+    minVisibleHeight = 14, targetVisibleHeight = 16,
+  })
+  T.check(SpriteScale.fitsOneTile(scale), "default scale fits one tile")
+  T.check(scale.renderedW <= Tile.WIDTH + 1e-6, "rendered W <= tile")
+  T.check(scale.renderedH <= Tile.HEIGHT + 1e-6, "rendered H <= tile")
+  T.check(scale.final2DScale <= scale.maximumOneTileScale + 1e-6,
+          "final scale capped by one-tile max")
+
+  local tiny = SpriteScale.compute("KAKUNA", {
+    getDimensions = function() return 8, 8 end,
+  }, { minVisibleHeight = 14, targetVisibleHeight = 16, minSpriteSizeOption = 16 })
+  T.check(tiny.desiredScale >= 1.0, "tiny desired scale enlarges")
+  T.check(tiny.renderedW <= Tile.WIDTH + 1e-6, "tiny rendered W <= tile")
+  T.check(tiny.renderedH <= Tile.HEIGHT + 1e-6, "tiny rendered H <= tile")
+  T.check(math.abs(tiny.renderedW / tiny.renderedH - 1) < 1e-6,
+          "tiny aspect ratio preserved")
+
+  local huge = SpriteScale.compute("SNORLAX", {
+    getDimensions = function() return 96, 96 end,
+  }, { minVisibleHeight = 14, targetVisibleHeight = 16 })
+  T.check(huge.scale < 1.0, "huge source shrinks")
+  T.check(huge.renderedW <= Tile.WIDTH + 1e-6, "huge rendered W <= tile")
+  T.check(huge.renderedH <= Tile.HEIGHT + 1e-6, "huge rendered H <= tile")
+
+  local padded = {
+    getDimensions = function() return 64, 64 end,
+    getData = function()
+      return {
+        getPixel = function(_, x, y)
+          if x >= 20 and x <= 35 and y >= 30 and y <= 49 then
+            return 0.2, 0.2, 0.2, 1
+          end
+          return 0, 0, 0, 0
+        end,
+      }
+    end,
+  }
+  local paddedScale = SpriteScale.compute("PIDGEY", padded, {})
+  T.eq(paddedScale.contentW, 16, "visible bounds ignore transparent X pad")
+  T.eq(paddedScale.contentH, 20, "visible bounds ignore transparent Y pad")
+  T.check(paddedScale.renderedW <= Tile.WIDTH + 1e-6, "padded rendered W <= tile")
+  T.check(paddedScale.renderedH <= Tile.HEIGHT + 1e-6, "padded rendered H <= tile")
+  T.check(paddedScale.grassOcclusionHeight <= paddedScale.renderedH * 0.35 + 1e-6,
+          "grass occlusion <= 35% of rendered height")
+
+  local forced = SpriteScale.compute("PIDGEY", {
+    getDimensions = function() return 16, 16 end,
+  }, { minSpriteSizeOption = 64, minVisibleHeight = 64, targetVisibleHeight = 64 })
+  T.check(forced.renderedH <= Tile.HEIGHT + 1e-6, "min option cannot exceed one tile")
+
+  local speciesOk, speciesFail = 0, 0
+  if mockGame.data and mockGame.data.pokemon then
+    for speciesId, _ in pairs(mockGame.data.pokemon) do
+      local info = SpriteScale.compute(speciesId, {
+        getDimensions = function() return 56, 56 end,
+      }, {})
+      if SpriteScale.fitsOneTile(info) then speciesOk = speciesOk + 1
+      else speciesFail = speciesFail + 1 end
+    end
+  end
+  T.check(speciesFail == 0, "all probed species fit one tile (fail=" .. speciesFail .. ")")
+  T.check(speciesOk > 0, "probed at least one species for one-tile scale")
+
+  local moveEnt = {
+    cellX = 3, cellY = 4, facing = "down",
+    behaviorState = { facing = "down" },
+  }
+  Movement.init(moveEnt, 3, 4, "down")
+  T.eq(moveEnt.position.tileX, 3, "movement tileX")
+  T.eq(moveEnt.px, 3 * Tile.CELL, "pixelX from tile")
+  T.check(Movement.beginStep(moveEnt, 4, 4, { facing = "right" }), "begin step")
+  T.eq(moveEnt.cellX, 3, "cell stays at origin during step")
+  T.eq(moveEnt.targetX, 4, "target tile set")
+  T.eq(moveEnt.position.previousTileX, 3, "previous tile captured")
+  Movement.update(moveEnt, moveEnt.movement.duration)
+  T.eq(moveEnt.cellX, 4, "cell finalized after step")
+  T.eq(moveEnt.px, 4 * Tile.CELL, "pixel finalized after step")
+end
+
+do
+  local Movement = exports.lib.require("movement")
+  local VoxelAdapter = exports.lib.require("voxel_adapter")
+  local agg2 = {
+    cellX = 2, cellY = 2, facing = "right", surface = Surface.GRASS,
+    behavior = Behavior.AGGRESSIVE, mod = modApi,
+    behaviorState = Behavior.initState(Behavior.AGGRESSIVE, function() return 0 end),
+    state = Config.STATE.AVAILABLE,
+  }
+  Movement.init(agg2, 2, 2, "right")
+  agg2.behaviorState.facing = "right"
+  agg2.facing = "right"
+  local clearMap = {
+    widthCells = 10, heightCells = 10,
+    inBounds = function(_, x, y) return x >= 0 and y >= 0 and x < 10 and y < 10 end,
+    isWalkableCell = function() return true end,
+    isGrassCell = function() return true end,
+  }
+  local ev = Behavior.tick(agg2, {
+    map = clearMap, entities = { agg2 },
+    player = { cellX = 5, cellY = 2 }, dt = 0.016,
+  })
+  T.eq(ev, "alert", "aggressive emits alert once")
+  T.eq(agg2.behaviorState.state, Behavior.STATE.ALERT, "enters ALERT")
+  T.eq(agg2.cellX, 2, "ALERT does not move")
+  local ev2 = Behavior.tick(agg2, {
+    map = clearMap, entities = { agg2 },
+    player = { cellX = 5, cellY = 2 }, dt = 0.016,
+  })
+  T.check(ev2 == nil, "no second alert while already detected")
+  Behavior.markChaseReady(agg2)
+  T.check(agg2.behaviorState.chaseReady or agg2.behaviorState.chasing,
+          "chase armed by emote onDone path")
+  Behavior.tick(agg2, {
+    map = clearMap, entities = { agg2 },
+    player = { cellX = 5, cellY = 2 }, dt = 0.016,
+  })
+  T.check(agg2.behaviorState.state == Behavior.STATE.CHASING
+          or agg2.behaviorState.chasing,
+          "chase state active after ready")
+  local idBefore = "wilds_of_kanto_entity_99"
+  agg2.id = idBefore
+  Behavior.tick(agg2, {
+    map = clearMap, entities = { agg2 },
+    player = { cellX = 5, cellY = 2 }, dt = 0.2,
+  })
+  T.eq(agg2.id, idBefore, "stable id unchanged during chase")
+
+  local okUnsafe = VoxelAdapter.isPoseSafe({
+    hiddenEncounter = true, visibleSprite = false, sprite = nil,
+  })
+  T.check(not okUnsafe, "hidden/nil sprite rejected for Voxel")
+  local safeEnt = exports.render:makeEntity(mockGame, {
+    id = "wilds_of_kanto_entity_safe",
+    mapId = "ROUTE_TEST", x = 1, y = 1,
+    species = "PIDGEY", level = 5, state = Config.STATE.AVAILABLE,
+    visibleSprite = true,
+  })
+  T.check(VoxelAdapter.isPoseSafe(safeEnt), "visible entity with sprite is Voxel-safe")
+  T.check(select(1, VoxelAdapter.probePose(safeEnt)), "pose probe succeeds for visible entity")
+  T.eq(safeEnt.voxelScale, 1, "voxel scale stays 1 (not 2D finalScale)")
+  local adapter = VoxelAdapter.new(modApi)
+  adapter:updateEntity(safeEnt)
+  T.eq(safeEnt.voxelScale, 1, "adapter keeps voxel scale at 1")
+  T.check(safeEnt.final2DScale ~= nil, "2D final scale present")
+  T.check(safeEnt.voxelUpdateOk == true, "voxel update OK for safe entity")
+
+  local hid2 = exports.render:makeEntity(mockGame, {
+    id = "wilds_of_kanto_entity_hid",
+    mapId = "ROUTE_TEST", x = 4, y = 3,
+    species = "PIDGEY", level = 3, state = Config.STATE.AVAILABLE,
+    behavior = Behavior.HIDDEN_GRASS, surface = Surface.GRASS,
+    visibleSprite = false, hiddenEncounter = true,
+  })
+  mockOw.entities = { mockPlayer }
+  local attachedHid = logic:_attach(hid2)
+  T.check(attachedHid, "hidden logical attach ok")
+  T.check(hid2.worldRegistration == "logical_only", "hidden stays logical-only")
+  local hidInList = false
+  for _, e in ipairs(mockOw.entities) do
+    if e == hid2 then hidInList = true end
+  end
+  T.check(not hidInList, "hidden entity not in ow.entities")
+
+  local boom = {
+    overworldWildSpawn = true,
+    sprite = nil, px = 0, py = 0, cellX = 0, cellY = 0,
+    pose = function(self) return self.sprite, self.px, self.py, "down", 0, false, false end,
+  }
+  local okBoom, boomWhy = VoxelAdapter.probePose(boom)
+  T.check(not okBoom, "nil-sprite pose probe fails safely: " .. tostring(boomWhy))
+end
 
 -- Land species must not be picked from water tables.
 local landOnWater = EncounterPick.pick({

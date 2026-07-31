@@ -20,11 +20,14 @@ local DebugLog = V.require("debug_log")
 local SpriteScale = V.require("sprite_scale")
 local Behavior = V.require("behavior")
 local Surface = V.require("surface")
+local Tile = V.require("tile")
+local Movement = V.require("movement")
 
 local SpawnRender = {}
 SpawnRender.__index = SpawnRender
 
-local CELL = 16
+-- Gen1Recomp walk-grid cell size (see lib/tile.lua / NPC.lua).
+local CELL = Tile.CELL
 local PLACEHOLDER_ID = "SPRITE_OW_WILD_PLACEHOLDER"
 local FALLBACK_ID = "SPRITE_OW_WILD_FALLBACK"
 local CACHE_DIR = "overworld_wild_spawns-cache"
@@ -826,6 +829,8 @@ function Entity.new(game, mod, render, record)
   local self = setmetatable({}, Entity)
   self.overworldWildSpawn = true
   self.passable = true
+  -- Stable public id for the entity's full lifetime (never regenerates).
+  self.id = record.id
   self.spawnId = record.id
   self.species = record.species
   self.level = record.level
@@ -840,6 +845,13 @@ function Entity.new(game, mod, render, record)
   self.render = render
   self.tuck = Config.get(mod, "grass_tuck_px") or Config.DEFAULTS.grass_tuck_px or 0
   self.registeredInWorld = false
+  self.registered2D = false
+  self.voxelRegistered = false
+  self.voxelDisabled = false
+  self.voxelUpdateOk = false
+  self.voxelScale = 1
+  self.render2DFallback = false
+  self.alertIcon = false
   self.usingFallback = false
   self.entityPhase = "CREATING"
   self.surface = record.surface or Surface.GRASS
@@ -849,19 +861,25 @@ function Entity.new(game, mod, render, record)
   self.inGrassOverlay = Surface.usesGrassOverlay(self.surface)
   self.scaleInfo = nil
   self.visualScale = 1
+  self.final2DScale = 1
+  self.grassOcclusionHeight = 0
   self.waterSink = (self.surface == Surface.WATER) and 2 or 0
   self.assetInfo = nil
+  Movement.init(self, record.x, record.y, self.facing)
 
-  -- Hidden encounters never load a Pokemon sprite / fallback.
+  -- Hidden encounters never load a Pokemon sprite / fallback and must not
+  -- join ow.entities (VoxelScene would retire the pipeline on nil sprite).
   if self.hiddenEncounter or not self.visibleSprite then
     self.sprite = nil
     self.spriteId = nil
     self.entityPhase = "HIDDEN"
     self.usingFallback = false
     self.visualScale = 1
+    self.final2DScale = 1
     self.scaleInfo = {
-      scale = 1, contentW = 0, contentH = 0,
+      scale = 1, final2DScale = 1, contentW = 0, contentH = 0,
       renderedW = 0, renderedH = 0, originalW = 0, originalH = 0,
+      logicalFootprintTiles = 1,
     }
     return self
   end
@@ -977,33 +995,63 @@ function Entity.new(game, mod, render, record)
     self.sprite.image:setFilter("nearest", "nearest")
   end
 
-  -- Bounds-aware visual scale (collision stays one cell).
+  -- Single final 2D scale: readability floor capped by one-tile maximum.
+  -- Camera zoom is applied by the engine separately and must not be folded in.
   local minSize = Config.get(mod, "min_sprite_size") or Config.DEFAULTS.min_sprite_size
   self.scaleInfo = SpriteScale.compute(record.species,
     self.sprite and self.sprite.image, { minSpriteSizeOption = minSize })
-  self.visualScale = self.scaleInfo.scale or 1
+  self.visualScale = self.scaleInfo.final2DScale or self.scaleInfo.scale or 1
+  self.final2DScale = self.visualScale
+  self.grassOcclusionHeight = self.scaleInfo.grassOcclusionHeight or 0
+  -- Voxel billboards are always a 16×16 card from the sheet — never reuse
+  -- the 2D finalScale as a world/voxel scale.
+  self.voxelScale = 1
   return self
 end
 
+-- Legacy helper kept for tests / callers. Prefer Movement.beginStep.
 function Entity:setCell(x, y)
-  self.cellX = x
-  self.cellY = y
-  self.px = x * CELL
-  self.py = y * CELL
-  -- Refresh grass-overlay flag from live map when available.
-  local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
-  if ow and ow.map and ow.map.isGrassCell then
-    self.inGrassOverlay = ow.map:isGrassCell(x, y)
-      and Config.get(self.mod, "show_pokemon_in_grass") ~= false
+  if Movement.isBusy(self) then
+    Movement.stop(self, self.movement and self.movement.state or "IDLE")
+  end
+  Movement.init(self, x, y, self.facing or "down")
+  Movement.refreshGrassFlag(self, self.mod)
+end
+
+function Entity:update(dt)
+  if Movement.isBusy(self) then
+    local done = Movement.update(self, dt or 0)
+    if done then
+      Movement.refreshGrassFlag(self, self.mod)
+    end
+  else
+    Movement.syncLegacyFields(self)
   end
 end
 
 function Entity:pose()
-  -- Feet stay on the cell; water mons sink slightly. No artificial tuck —
-  -- Gen1Recomp drawCellBottom overdraws feet for every entity on grass.
-  local visualY = self.py + (self.tuck or 0) + (self.waterSink or 0)
-  return self.sprite, self.px, visualY, self.facing, 0, false, false
+  -- Contract expected by Gen1Recomp + DramaticShapeVoxelMod VoxelScene.posesOf:
+  --   sprite, visualX, visualY, facing, phase, flip [, hop]
+  -- Voxel uses entity.py for the ground plane and (entity.py - visualY) as lift.
+  -- Never return a nil sprite for entities that join ow.entities.
+  Movement.syncLegacyFields(self)
+  local sprite = self.sprite
+  if sprite == nil then
+    -- Hidden / broken entities must not be in ow.entities; guard anyway.
+    return nil, self.px or 0, self.py or 0, self.facing or "down", 0, false, false
+  end
+  -- Feet-biased visual Y. Grass tuck lifts small sprites so the engine
+  -- drawCellBottom overdraw does not swallow them entirely.
+  local tuck = self.tuck or 0
+  if self.inGrassOverlay and (self.grassOcclusionHeight or 0) > 0 then
+    -- Raise by (default engine cover − our relative occlusion) so only the
+    -- lower quarter–third of the rendered sprite sits under grass.
+    local defaultCover = Config.DEFAULTS.grass_occlusion_px or 6
+    local lift = math.max(0, defaultCover - (self.grassOcclusionHeight or 0))
+    tuck = tuck - lift
+  end
+  local visualY = (self.py or 0) + tuck + (self.waterSink or 0)
+  return sprite, self.px or 0, visualY, self.facing or "down", 0, false, false
 end
 
 function Entity:_drawHiddenEffect(camX, camY)
@@ -1033,43 +1081,77 @@ end
 function Entity:_drawScaledSprite(camX, camY, opacity)
   local sprite = self.sprite
   if not sprite or not sprite.image then return end
-  local scale = self.visualScale or 1
+  -- One final 2D scale only — no species*grass*camera multiplication here.
+  local scale = self.final2DScale or self.visualScale or 1
   local img = sprite.image
   if img.setFilter then img:setFilter("nearest", "nearest") end
 
-  -- SpriteRenderer draws at (px - camX, py - camY - 4). Match that anchor,
-  -- feet-biased: larger scales grow upward so grass overdraw still covers feet.
+  local info = self.scaleInfo or {}
+  local contentW = info.contentW or CELL
+  local contentH = info.contentH or CELL
+  local ox = info.offsetX or 0
+  local oy = info.offsetY or 0
+  local iw = info.imageW or contentW
+  local ih = info.imageH or contentH
+
+  -- Anchor: horizontally centered on the tile, feet (visible bottom) on tile floor.
   local baseX = math.floor(self.px - (camX or 0))
-  local baseY = math.floor(self.py + (self.tuck or 0) + (self.waterSink or 0)
+  local tuck = self.tuck or 0
+  if self.inGrassOverlay and (self.grassOcclusionHeight or 0) > 0 then
+    local defaultCover = Config.DEFAULTS.grass_occlusion_px or 6
+    tuck = tuck - math.max(0, defaultCover - (self.grassOcclusionHeight or 0))
+  end
+  local baseY = math.floor(self.py + tuck + (self.waterSink or 0)
                            - (camY or 0) - 4)
-  local drawW = CELL * scale
-  local drawH = CELL * scale
-  local dx = baseX - (drawW - CELL) * 0.5
-  local dy = baseY - (drawH - CELL) -- grow up from feet
+
+  local renderedW = contentW * scale
+  local renderedH = contentH * scale
+  local dx = baseX + (CELL - renderedW) * 0.5
+  local dy = baseY + (CELL - renderedH) -- grow up from feet / tile floor
 
   local flip = (self.facing == "left")
   if opacity < 1 then love.graphics.setColor(1, 1, 1, opacity) end
-  if flip then
-    love.graphics.draw(img, dx + drawW, dy, 0, -scale, scale)
+
+  -- Prefer a quad over the visible bounds when the sheet is larger than content.
+  local quad = nil
+  if love and love.graphics and love.graphics.newQuad
+     and (ox ~= 0 or oy ~= 0 or contentW ~= iw or contentH ~= ih) then
+    local okQ, q = pcall(love.graphics.newQuad, ox, oy, contentW, contentH, iw, ih)
+    if okQ then quad = q end
+  end
+
+  if quad then
+    if flip then
+      love.graphics.draw(img, quad, dx + renderedW, dy, 0, -scale, scale)
+    else
+      love.graphics.draw(img, quad, dx, dy, 0, scale, scale)
+    end
   else
-    love.graphics.draw(img, dx, dy, 0, scale, scale)
+    -- Fallback: scale the full image (bake path is already ~one tile).
+    if flip then
+      love.graphics.draw(img, dx + renderedW, dy, 0, -scale, scale)
+    else
+      love.graphics.draw(img, dx, dy, 0, scale, scale)
+    end
   end
   if opacity < 1 then love.graphics.setColor(1, 1, 1, 1) end
 
-  -- Mark true-color rect roughly covering the sprite when PaletteFX exists.
   local ok, PaletteFX = pcall(require, "src.render.PaletteFX")
   if ok and PaletteFX and PaletteFX.markTrueColor then
-    PaletteFX.markTrueColor(dx, dy, drawW, drawH)
+    PaletteFX.markTrueColor(dx, dy, renderedW, renderedH)
   end
 end
 
 function Entity:draw(camX, camY)
+  -- 2D renderer: read-only with respect to world simulation state.
   if self.hiddenEncounter or not self.visibleSprite then
     self:_drawHiddenEffect(camX, camY)
   else
     local opacity = Config.get(self.mod, "sprite_opacity") or 1
-    local scale = self.visualScale or 1
-    if love and love.graphics and (scale ~= 1 or self.facing == "left" or self.facing == "right") then
+    local scale = self.final2DScale or self.visualScale or 1
+    if love and love.graphics and (scale ~= 1 or self.facing == "left"
+        or self.facing == "right"
+        or (self.scaleInfo and (self.scaleInfo.offsetX or 0) ~= 0)) then
       self:_drawScaledSprite(camX, camY, opacity)
     else
       local sprite, px, py, facing, phase, flip = self:pose()

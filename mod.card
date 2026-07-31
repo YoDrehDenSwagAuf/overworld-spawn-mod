@@ -15,19 +15,21 @@ return {
       "data-driven overworld wild Pokemon entities on grass, cave, and surf-water tiles",
       "aggressive spotting with engine exclamation emote and chase",
       "hidden grass shake / cave dust encounter markers",
-      "nearest-neighbor sprite scaling for small species in tall grass",
+      "nearest-neighbor sprite scaling capped to one 16x16 map tile",
       "fail-safe that keeps classic grass encounters if the spawn system is not ready",
       "Developer mode with spawn debug HUD, Pokemon preview browser, and phased test spawn",
+      "Voxel-safe aggressive chase (stable ids, engine emote, per-entity 2D fallback)",
     },
     known = {
       "species overworld sprites are registered at mod load from battle fronts "
         .. "(optional runtime bake into overworld_wild_spawns-cache/; "
         .. "LOVE virtual paths only; never after registry freeze)",
       "when no real image is available, assets/fallback/pokemon_missing.png is used "
-        .. "(hidden behaviours draw no Pokemon sprite)",
+        .. "(hidden behaviours draw no Pokemon sprite and stay out of ow.entities)",
       "spawns are runtime-only and reset when you leave and re-enter a map",
       "fishing encounter tables are never used for free overworld spawns",
       "Dramatic Shape overworld battles cull non-player entities from the arena shot",
+      "Voxel billboards stay 16x16 cards; 2D finalScale is not applied as world scale",
       "fishing, surf vanilla rolls, static, scripted, and trainer encounters stay available",
     },
   },

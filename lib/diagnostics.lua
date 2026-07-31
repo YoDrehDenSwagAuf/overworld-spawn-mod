@@ -127,9 +127,12 @@ function Diagnostics.entityDetail(logic, entity, record)
   if not entity then return {} end
   local bx = entity.behaviorState or {}
   local scale = entity.scaleInfo or {}
+  local Tile = V.require("tile")
+  local VoxelAdapter = V.require("voxel_adapter")
   local lines = {
+    ("Stable entity ID: %s"):format(tostring(entity.id or entity.spawnId or "?")),
     ("Behavior: %s"):format(tostring(entity.behavior or record and record.behavior)),
-    ("State: %s"):format(tostring(bx.state or "?")),
+    ("Behavior state: %s"):format(tostring(bx.state or "?")),
     ("Surface: %s"):format(tostring(entity.surface or "?")),
     ("Home region: %s"):format(tostring(entity.homeRegionId or "?")),
     ("Facing: %s"):format(tostring(entity.facing or bx.facing or "?")),
@@ -140,17 +143,34 @@ function Diagnostics.entityDetail(logic, entity, record)
     lines[#lines + 1] = ("Next action: %.1fs"):format(
       math.max(0, bx.nextActionAt - now))
   end
-  lines[#lines + 1] = ("Sprite scale: %s"):format(
-    tostring(entity.visualScale and string.format("%.2f", entity.visualScale) or "?"))
-  lines[#lines + 1] = ("In grass overlay: %s"):format(
+  lines[#lines + 1] = ("2D registered: %s"):format(
+    (entity.registeredInWorld or entity.registered2D) and "YES" or "NO")
+  lines[#lines + 1] = ("Grass overlay: %s"):format(
     entity.inGrassOverlay and "YES" or "NO")
-  if scale.originalW then
-    lines[#lines + 1] = ("Original sprite size: %dx%d"):format(
-      scale.originalW or 0, scale.originalH or 0)
-    lines[#lines + 1] = ("Visible bounds: %dx%d"):format(
+  lines[#lines + 1] = ("Alert icon: %s"):format(
+    entity.alertIcon and "ON" or "OFF")
+  lines[#lines + 1] = ("Battle pending: %s"):format(
+    (bx.battlePending or bx.state == "BATTLE_PENDING") and "YES" or "NO")
+  if scale.originalW or scale.imageW then
+    lines[#lines + 1] = ("Source image size: %d x %d"):format(
+      scale.originalW or scale.imageW or 0, scale.originalH or scale.imageH or 0)
+    lines[#lines + 1] = ("Visible bounds: %d x %d"):format(
       scale.contentW or 0, scale.contentH or 0)
-    lines[#lines + 1] = ("Rendered size: %.0fx%.0f"):format(
+    lines[#lines + 1] = ("Tile size: %d x %d"):format(
+      scale.tileWidth or Tile.WIDTH, scale.tileHeight or Tile.HEIGHT)
+    lines[#lines + 1] = ("Desired scale: %s"):format(
+      scale.desiredScale and string.format("%.2f", scale.desiredScale) or "?")
+    lines[#lines + 1] = ("Maximum one-tile scale: %s"):format(
+      scale.maximumOneTileScale and string.format("%.2f", scale.maximumOneTileScale) or "?")
+    lines[#lines + 1] = ("Final 2D scale: %s"):format(
+      string.format("%.2f", entity.final2DScale or entity.visualScale or scale.final2DScale or 1))
+    lines[#lines + 1] = ("Rendered visible size: %.0f x %.0f"):format(
       scale.renderedW or 0, scale.renderedH or 0)
+    lines[#lines + 1] = ("Logical footprint: %d tile"):format(
+      scale.logicalFootprintTiles or 1)
+  end
+  for _, line in ipairs(VoxelAdapter.statusLines(entity)) do
+    lines[#lines + 1] = line
   end
   if entity.behavior == "AGGRESSIVE" then
     lines[#lines + 1] = ("Sight range: %s"):format(
