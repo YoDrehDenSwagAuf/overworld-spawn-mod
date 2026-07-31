@@ -49,6 +49,7 @@ return function(mod)
   local DebugHud = V.require("debug_hud")
   local DebugOverlay = V.require("debug_overlay")
   local PreviewBrowser = V.require("preview_browser")
+  local BehaviorTick = V.require("behavior_tick")
   local DebugLog = V.require("debug_log")
   local Diagnostics = V.require("diagnostics")
 
@@ -67,12 +68,14 @@ return function(mod)
   local hud = DebugHud.new(mod, logic)
   local overlay = DebugOverlay.new(mod, logic)
   local browser = PreviewBrowser.new(mod, logic)
-  logic:attachDevTools(hud, overlay, browser)
+  local behaviorTick = BehaviorTick.new(mod, logic)
+  logic:attachDevTools(hud, overlay, browser, behaviorTick)
 
   -- Register public UI / present surfaces (safe even when dev_mode is off;
   -- availability / menu rows gate on the live option). Still LOAD PHASE.
   hud:register()
   browser:register()
+  behaviorTick:register()
 
   mod.log:info("overworld_wild_spawns loaded (enabled=%s dev=%s debug=%s sprites=%d missing=%d)",
                tostring(Config.isEnabled(mod)),
@@ -235,12 +238,13 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "0.3.2"
+  mod.exports.version = "0.4.0"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.hud = hud
   mod.exports.overlay = overlay
   mod.exports.browser = browser
+  mod.exports.behaviorTick = behaviorTick
   mod.exports.lib = V
   mod.exports.clearAll = function() logic:clearAll() end
   mod.exports.removeHooks = removeHooks

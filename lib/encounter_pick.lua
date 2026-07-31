@@ -1,8 +1,9 @@
 -- Weighted species/level picks from a map's encounter tables.
 -- Defensive: nil / empty tables are never treated as a valid spawn source.
 --
--- Grass is the spawn-system source in 0.3.x. Water / fishing are indexed for
--- the developer preview browser and diagnostics only.
+-- Grass and cave (indoor) spawns use the grass table. Water spawns use the
+-- water (Surf) table only. Fishing tables are never used for free overworld
+-- spawns — they remain rod-bound and are indexed for the preview browser.
 local V = ...
 local Config = V.require("config")
 
@@ -41,27 +42,47 @@ function EncounterPick.kindTable(encDef, kind)
   return tableOf(encDef, kind)
 end
 
--- Returns { species, level } or nil when the map has no grass slots.
-function EncounterPick.pick(encDef, rng)
-  rng = rng01(rng)
-  local grass = EncounterPick.grassTable(encDef)
-  if not grass then return nil end
-  local buckets = grass.buckets or Config.ENCOUNTER_BUCKETS
+local function pickFromTable(t, rng)
+  if not t then return nil end
+  local buckets = t.buckets or Config.ENCOUNTER_BUCKETS
   local pick = rng(0, 255)
   for i, threshold in ipairs(buckets) do
     if pick < threshold then
-      local slot = grass.slots[i] or grass.slots[#grass.slots]
+      local slot = t.slots[i] or t.slots[#t.slots]
       if slot and slot.species then
-        return { species = slot.species, level = slot.level or 1 }
+        return { species = slot.species, level = slot.level or 1, kind = t._kind }
       end
       return nil
     end
   end
-  local last = grass.slots[#grass.slots]
+  local last = t.slots[#t.slots]
   if last and last.species then
-    return { species = last.species, level = last.level or 1 }
+    return { species = last.species, level = last.level or 1, kind = t._kind }
   end
   return nil
+end
+
+-- Returns { species, level [, kind] } or nil.
+-- kind defaults to "grass". Pass "water" for Surf tables. Never pass "fishing"
+-- for free overworld spawns.
+function EncounterPick.pick(encDef, rng, kind)
+  rng = rng01(rng)
+  kind = kind or "grass"
+  if kind == "fishing" then
+    return nil
+  end
+  local t = EncounterPick.kindTable(encDef, kind)
+  if t then t._kind = kind end
+  return pickFromTable(t, rng)
+end
+
+-- Convenience: grass-only (legacy callers).
+function EncounterPick.pickGrass(encDef, rng)
+  return EncounterPick.pick(encDef, rng, "grass")
+end
+
+function EncounterPick.pickWater(encDef, rng)
+  return EncounterPick.pick(encDef, rng, "water")
 end
 
 function EncounterPick.hasGrassTable(encDef)

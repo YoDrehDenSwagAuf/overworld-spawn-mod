@@ -1,100 +1,63 @@
-# Manual test guide — Overworld Wild Pokemon 0.3.2
+# Manual test guide — Overworld Wild Pokemon 0.4.0
 
-Earliest suitable grass map verified from Gen1Recomp encounter data / tests:
-**ROUTE_1** (Pallet Town → Route 1). Grass rate 25; first slot PIDGEY Lv3.
+Earliest grass map: **ROUTE_1**. Use Developer mode HUD while verifying.
 
-## A. New game, before Pokédex (normal play)
+## A. Small grass route (Route 1)
 
-1. Import `dist/overworld_wild_spawns-0.3.2.zip` in Gen1Recomp Mod Manager (F10).
-2. Enable **Overworld Wild Pokemon**.
-3. Start a **new game**. Do **not** obtain the Pokédex yet.
-4. Leave Pallet Town north onto **Route 1**.
-5. Look for a visible wild Pokemon in grass (not on the player tile).
-6. Walk onto it. Confirm battle species and level match the overworld sprite.
-7. Turn **Show wild Pokemon in the overworld** off.
-8. Confirm classic random grass encounters work again on Route 1.
+1. Import `dist/overworld_wild_spawns-0.4.0.zip`, enable mod + Developer mode.
+2. New game → Route 1 (no Pokédex needed).
+3. HUD: Target Pokemon is low (often 1–3); Active ≤ Target/Max.
+4. Confirm behaviours appear over time (Idle / Wander / Aggressive / Hidden).
+5. Confirm Pokemon stand in grass with feet covered (engine overdraw), heads visible.
+6. Walk onto a visible mon → battle matches species/level.
+7. Disable feature → entities gone, classic grass rolls return.
 
-## B. Developer mode diagnosis (required when visible spawns are missing)
+## B. Long route
 
-1. Install the current release ZIP and enable the mod.
-2. Open Mod Manager options for **Overworld Wild Pokemon**.
-3. Enable **Developer mode** (`dev_mode`). Options are live — no restart required.
-4. Optionally enable **Keep spawn debug HUD visible**.
-5. Start a **new game**. Do **not** obtain the Pokédex.
-6. Enter the first map with wild grass encounters (**Route 1**).
-7. Check the debug HUD top-right for at least:
+1. Enter a long grass route (e.g. Route 4 / 9 / 10 depending on progress).
+2. HUD Target should exceed a small route’s target.
+3. Pokemon should appear across multiple grass patches, not one cluster.
+4. Walk the full length: far ahead refills; far behind despawns without pop-in on top of you.
 
-   ```text
-   Overworld Spawn Debug
-   Map: Route 1
-   Encounter species: …
-   Encounter slots: …
-   Eligible spawn tiles: …
-   Loaded assets: … / …
-   Active Pokemon: … / …
-   Spawn system: …
-   Renderer: …
-   ```
+## C. Aggressive Pokemon
 
-8. Note Species / Slots / Tiles / Assets / Active / status values.
-9. Open the Pokemon preview browser:
-   - **OPTIONS** menu → **POKEMON PREVIEW** → **OPEN**
-   - or Start Menu → **OW PREVIEW**
-10. Select a species that appears on the current route (e.g. Pidgey).
-11. Check detail rows:
-    - **SPRITE REG** / **REAL PATH** / **REAL EXISTS** / **FALLBACK**
-    - **RUNTIME IMG** = `REAL ASSET LOADED` or `FALLBACK LOADED`
-    - Short **TRIED** list (full candidate list is in the log)
-    - Temporary overworld art may be a scaled battle-front (`battle_front` /
-      `generated_overworld`); that is expected until dedicated OW sprites ship.
-12. Run **TEST SPAWN**. It must **not** raise
-    `sprites: content is frozen after load`, and must **not** fail solely
-    because `cache/pidgey.png` (or any optional cache file) is missing.
-13. Read the result text: either all 7 steps passed (possibly
-    "Rendering with fallback sprite"), or the exact failing step:
+1. Face into an Aggressive mon’s line of sight (straight row/column).
+2. Expect `!` bubble (engine emote), short pause, then chase.
+3. It may leave grass while chasing.
+4. Contact starts exactly one battle; no softlock if path blocked (gives up).
+5. Walls block sight; diagonal does not activate.
 
-    ```text
-    1 Species resolved
-    2 Sprite registered
-    3 Runtime asset loaded
-    4 Spawn tile resolved
-    5 Entity created
-    6 Entity registered
-    7 Entity visible
-    ```
+## D. Hidden Grass
 
-14. If step 2 fails, the species has no pre-registered overworld sprite
-    (Test spawn should be DISABLED in the detail view).
-15. If step 4 fails with no valid tile, enable
-    **Allow test spawn outside encounter areas** and retry Test spawn.
-16. Interpret:
+1. Find a tile with grass motion and **no** Pokemon sprite.
+2. Step on it → battle with the entity’s preset species/level.
+3. No fallback silhouette should appear.
 
-    | Observation | Likely fault |
-    |---|---|
-    | Encounter species/slots = 0 | Encounter data |
-    | Eligible tiles = 0, species > 0 | Tile detection |
-    | Loaded assets = 0 / N | Asset resolution |
-    | Test spawn fails at step 2 | Sprite not registered at mod load |
-    | Test spawn fails at step 3 | Runtime asset load/bake |
-    | Test spawn fails at step 5 | Entity creation |
-    | Test spawn fails at step 6 | World registration |
-    | Test spawn fails at step 7 | Rendering / visibility |
-    | Outside-encounter test works, normal does not | Encounter-tile detection |
-    | `content is frozen after load` | Architecture bug — report |
+## E. Water
 
-16. Optional: enable **Show valid spawn tiles** and compare green markers to grass.
-    Legend: green=valid, red=blocked, blue=warp, orange=NPC/player, yellow=distance.
+1. Map with a water encounter table (Surf).
+2. Visible water Pokemon only on water tiles; species from water table.
+3. No land species on water.
+4. Fishing with Old/Good/Super Rod still uses vanilla rod tables (no free-spawn Magikarp from fishing-only data).
+5. Vanilla Surf random encounters still function.
 
-## C. Fail-safe check
+## F. Cave
 
-If visible spawns cannot initialize:
+1. Enter Mt. Moon / Diglett’s Cave / similar with wild data.
+2. Spawns appear on walkable floors **without** grass graphics.
+3. No grass-shake hidden effect; dust/shadow allowed for Hidden Cave.
+4. Idle / Wander / Aggressive still work.
 
-- HUD / log should show a non-READY status (`NO_ENCOUNTER_DATA`, `NO_ELIGIBLE_TILES`, `ERROR`, …)
-- Classic grass rolls must still occur
-- The player must never be teleported
+## G. Small sprites
 
-## D. Without Dramatic Shape
+1. Encounter Pidgey, Kakuna, Caterpie, Diglett, etc.
+2. Confirm minimum scale keeps them readable in grass.
+3. Developer HUD nearest-entity block shows Original / Visible / Applied scale / Rendered size.
 
-Leave **DRAMATIC_SHAPE** disabled. Visible spawns and the developer HUD must
-still work via the base Gen1Recomp 2D `SpriteRenderer` / `ow.entities` path and
-the present-only `owwild_debug_hud` pipeline.
+## H. Safety checks
+
+- Player never teleports on load / enable / test spawn
+- Pokédex empty still spawns
+- Map exit clears entities
+- Double contact does not queue two battles
+- Content registry never registers sprites at runtime (Test spawn must not error `content is frozen`)

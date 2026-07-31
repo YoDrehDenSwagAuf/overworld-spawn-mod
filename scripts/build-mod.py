@@ -40,9 +40,11 @@ INCLUDE_PREFIXES = (
     "mod.card",
     "README.md",
     "CHANGELOG.md",
+    "MANUAL_TEST.md",
     "lib/",
     "assets/",
     "data/",
+    "docs/",
 )
 
 # Paths that must never appear in a release ZIP (repo / GitHub / tooling).

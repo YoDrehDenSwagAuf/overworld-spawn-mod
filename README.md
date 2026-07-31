@@ -1,208 +1,69 @@
 # Overworld Wild Pokemon
 
-Visible wild Pokemon appear in eligible overworld encounter areas (grass in 0.2.0) using each map's real encounter table. Walk onto one to start that exact wild battle.
+Visible wild Pokemon in Gen1Recomp overworld encounter areas. Touch one to battle that exact species and level. Density scales with encounter area size; four behaviours (Idle, Wander, Aggressive, Hidden); grass feet-overdraw matches the player/NPCs.
 
-**This mod does not change the player spawn point.** It never teleports, warps, or repositions the player on load, map enter, or enable.
+**Does not change the player spawn point.** Pokédex is never required. Vanilla grass encounters stay active until the visible system is ready.
 
-**Fail-safe:** classic random grass encounters stay active until the visible spawn system successfully initializes on the current map. Enabling the mod can never leave you with neither visible nor vanilla wild encounters.
+## Features (0.4.0)
 
-The Pokédex is never required. Spawns work from the earliest point the original game allows wild grass encounters (typically **Route 1**).
-
-Compatible with vanilla 2D Gen1Recomp; optionally coexists with Dramatic Shape Voxel mode (`DRAMATIC_SHAPE`).
-
-## Repository layout
-
-Same model as [DramaticShapeVoxelMod](https://github.com/DramaticShape/DramaticShapeVoxelMod): **the repository root is the mod**.
-
-```text
-overworld_wild_spawns/          <- importable mod root
-+-- manifest.json
-+-- main.lua
-+-- options.lua
-+-- mod.card
-+-- README.md
-+-- CHANGELOG.md
-+-- assets/
-+-- lib/
-+-- tests/                      <- excluded from release ZIP
-+-- scripts/                    <- bootstrap / pack tooling (excluded)
-+-- ARCHITECTURE.md             <- excluded from release ZIP
-+-- .deps/                      <- local engine clones (gitignored, not packed)
-```
-
-Do **not** import a raw GitHub source archive as the mod. Use the release ZIP from `./scripts/build-mod.py`.
+- Map-aware spawn density and connected spawn regions
+- Idle Look · Grass Wander · Aggressive (`!` chase) · Hidden grass/cave
+- Engine tall-grass overlay + nearest-neighbor sprite scaling
+- Grass, cave (no grass graphics), and Surf-water surfaces
+- Fishing stays rod-only
+- Developer HUD, tile overlay, Pokemon preview browser
+- Fail-safe vanilla grass fallback
 
 ## Install
 
-1. Build or download `overworld_wild_spawns-0.3.0.zip` (or `overworld_wild_spawns.zip`).
-2. In Gen1Recomp, open the **Mod Manager** (F10) and import the ZIP.
-3. Enable **Overworld Wild Pokemon** with the normal Mod Manager switch.
+1. Build or download `overworld_wild_spawns-0.4.0.zip`
+2. Gen1Recomp Mod Manager (F10) → Import → Enable
 
-### ZIP layout (required)
-
-Opening the ZIP must show `manifest.json` immediately - no wrapping folder, no `mods/`, no `scripts/`:
-
-```text
-overworld_wild_spawns.zip
-+-- manifest.json
-+-- main.lua
-+-- options.lua
-+-- mod.card
-+-- README.md
-+-- CHANGELOG.md
-+-- assets/
-+-- lib/
-```
-
-Build (requires `./scripts/bootstrap.sh` once):
+ZIP root must contain `manifest.json` (no wrapping folder).
 
 ```sh
+./scripts/bootstrap.sh   # once
 ./scripts/build-mod.py
-# or
-pwsh ./scripts/build-mod.ps1
+# → dist/overworld_wild_spawns-0.4.0.zip
 ```
 
-Output:
+## Quick start
 
-- `dist/overworld_wild_spawns-0.3.0.zip`
-- `dist/overworld_wild_spawns.zip` (alias)
+1. Enable the mod
+2. New game → Route 1 (before Pokédex is fine)
+3. Look for wild Pokemon or shaking grass
+4. Optional: raise **Spawn density** for busier long routes
+5. Optional: **Developer mode** for the debug HUD and preview browser
 
-### Symlink / developer install
+## Documentation
 
-```sh
-./scripts/bootstrap.sh
-# links this repo into .deps/gen1recomp/mods/overworld_wild_spawns
-# then enable in F10 Mod Manager
-```
-## Enable / disable
-
-| Control | Effect |
+| Doc | Audience |
 |---|---|
-| Mod Manager switch (off) | Mod not loaded: vanilla behavior, no overworld wild entities, no hooks |
-| Option **Show wild Pokemon in the overworld** (`enabled`, default **true**) | When false while the mod is loaded: remove all mod entities, unwrap encounter/collision hooks, and restore vanilla random grass encounters |
+| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Players — options, behaviours, water/caves, troubleshooting |
+| [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md) | Modders — lifecycle, surfaces, AI, tests, release |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Compact component / data-flow overview |
+| [MANUAL_TEST.md](MANUAL_TEST.md) | Manual test checklist |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
 
-## Options
+## Current limitations
 
-- **Show wild Pokemon in the overworld** - spawn visible wild Pokemon in eligible areas
-- **MAX SPAWNS** - cap per map (default 5)
-- **SPAWN RATE** - steps between spawn attempts (default NORMAL / 8)
-- **ON ENTER** - initial wave size (default 1)
-- **HIDE RANDOM GRASS** - suppress vanilla random grass rolls only after visible spawns are ready (default on)
-- **SPRITE FADE** - opacity so mons read as tucked into grass
-- **Developer mode** (`dev_mode`, default **false**) - spawn diagnostics HUD + Pokemon preview browser
-- **Keep spawn debug HUD visible** - keep the HUD up while Developer mode is on (otherwise 8s after map enter)
-- **Allow test spawn outside encounter areas** - DEBUG only; Test spawn may use any free walkable tile
-- **Show valid spawn tiles** - highlight valid/blocked/warp/NPC/distance tiles (passable markers)
-- **DEBUG LOG** - verbose map/tile/spawn diagnostics (also forced on with Developer mode)
-- **FORCE TEST SPAWN** - force one diagnostic spawn from the map encounter table
-- Preview filter/search options apply when opening the Pokemon preview browser
-
-All options are live-toggleable through the Mod Manager (`mod.options_changed`). No restart is required.
-
-## Developer mode
-
-When **Developer mode** is on:
-
-1. A compact **Overworld Spawn Debug** HUD appears top-right on map enter (8 seconds, or permanently if Keep HUD visible is on).
-2. Open the **Pokemon preview browser** from **OPTIONS → POKEMON PREVIEW → OPEN** (or Start Menu → **OW PREVIEW**).
-   Gen1Recomp Mod Manager option types are only `toggle|choice|number|text`, so the browser uses the public `ui.options.rows` activate-row pattern (same as `example_jukebox`).
-3. Each species shows overworld asset status, renderer status, global encounter locations (not Pokédex), and **Test spawn** with 7 diagnostic phases.
-4. The Pokédex is never required and never filters the browser or test spawns.
-
-HUD draw path: public `mod.content.render_pipelines` present-only pipeline `owwild_debug_hud`.
-
-See [MANUAL_TEST.md](MANUAL_TEST.md) for the full diagnosis procedure.
-
-### Spawn tile overlay legend
-
-| Color | Meaning |
-|---|---|
-| Green | Valid spawn tile |
-| Red | Blocked tile |
-| Blue | Warp tile |
-| Orange | NPC / player occupied |
-| Yellow | Excluded by player distance |
-
-## Supported encounter areas (0.3.0)
-
-- Grass tiles on maps with a grass encounter table (`rate > 0` and slots)
-
-Not yet spawning in: water, caves-as-distinct-tables, fishing-only zones, indoor maps, towns without encounter data.
-
-Spawns never appear on blocked tiles, warps/exits, the player, or occupied cells.
-
-## Classic random encounters
-
-When the mod is enabled, **HIDE RANDOM GRASS** is on, **and** the visible spawn
-system has successfully initialized on the current map:
-
-- Vanilla **grass** random rolls are suppressed via the public `encounter.roll` hook
-- Encounters instead start by contacting a visible wild Pokemon
-
-If initialization fails (no encounter data, no eligible tiles, renderer error,
-entity registration failure, etc.), vanilla grass rolls remain active.
-
-Still fully vanilla:
-
-- Fishing
-- Surf / water rolls
-- Static overworld Pokemon
-- Scripted encounters
-- Legendaries as map objects
-- Trainer battles
-- Safari Zone engine behavior (aside from grass rolls if that map uses grass tables)
-
-If you turn **HIDE RANDOM GRASS** off, classic grass rolls and visible spawns can both occur.
-
-## Spawn limits (defaults)
-
-| Setting | Default |
-|---|---|
-| Max visible wild Pokemon per map | 5 |
-| Min distance from player | 4 tiles |
-| Max distance / despawn | 12 tiles |
-| Spawn check interval | every 8 player steps |
-| Wander | occasional step within grass |
-
-## Map changes and saves
-
-- Leaving a map removes all mod-created Pokemon for that map
-- Entering a map re-reads encounter data and may spawn an initial wave
-- Save/load does not persist wild entities; the system reinitializes for the current map
-- No durable writes to player position, story flags, NPCs, Pokedex, party, boxes, or items
-- Mod options live in Gen1Recomp's global options file, not inside the playthrough save blob as map state
-
-## Dramatic Shape Voxel Mod
-
-Compatible with Dramatic Shape Voxel Mod (`DRAMATIC_SHAPE`) when present - no hard or optional dependency is declared in the manifest.
-
-- This mod does **not** replace render pipelines, cameras, or voxel modules
-- Wild entities use the engine `pose()` / `draw()` contract and sit on `OverworldState.entities`
-- With Dramatic Shape enabled and VOXEL mode active, billboards are drawn by VoxelScene automatically
-- Without Dramatic Shape, vanilla 2D rendering works unchanged
-- Staged overworld battles in Dramatic Shape cull non-player entities from the arena shot (known Dramatic Shape behavior)
-- Compatibility was checked against the public entity contract in source; full in-engine VOXEL playtesting still depends on a local ROM + LOVE setup
+- Temporary overworld art from battle fronts when dedicated sheets are missing
+- Aggressive chase uses tile steps
+- Water spawns are Surf-table only; vanilla Surf rolls remain active
+- Fishing never free-spawns
+- Voxel billboards may not match custom 2D scale
 
 ## Headless tests
 
-From a Gen1Recomp checkout with this mod linked:
-
 ```sh
+cd .deps/gen1recomp
 luajit mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
 python3 tools/modkit.py validate mods/overworld_wild_spawns
-python3 tools/modkit.py lint mods/overworld_wild_spawns
 ```
 
-## Manual test (new game, before Pokédex)
+## Build
 
-See [MANUAL_TEST.md](MANUAL_TEST.md). Short version: enable mod → enable
-**Developer mode** → new game → walk onto **Route 1** before getting the
-Pokédex → read the debug HUD → open the preview browser → Test spawn →
-confirm classic grass rolls still work if visible spawns are not ready.
-
-## Known limitations
-
-- Grass-only spawn zones in 0.2.0
-- Species art falls back to a bundled placeholder when battle fronts are unavailable
-- Complex flee/aggro AI is not implemented; mons stand in grass by default
-- Player must supply their own legal Gen 1 ROM for Gen1Recomp asset decode
+```sh
+./scripts/build-mod.py
+# or: pwsh ./scripts/build-mod.ps1
+```

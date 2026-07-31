@@ -17,6 +17,9 @@
 local V = ...
 local Config = V.require("config")
 local DebugLog = V.require("debug_log")
+local SpriteScale = V.require("sprite_scale")
+local Behavior = V.require("behavior")
+local Surface = V.require("surface")
 
 local SpawnRender = {}
 SpawnRender.__index = SpawnRender
@@ -832,13 +835,37 @@ function Entity.new(game, mod, render, record)
   self.cellY = record.y
   self.px = record.x * CELL
   self.py = record.y * CELL
-  self.facing = "down"
+  self.facing = record.facing or "down"
   self.mod = mod
   self.render = render
-  self.tuck = Config.DEFAULTS.grass_tuck_px
+  self.tuck = Config.get(mod, "grass_tuck_px") or Config.DEFAULTS.grass_tuck_px or 0
   self.registeredInWorld = false
   self.usingFallback = false
   self.entityPhase = "CREATING"
+  self.surface = record.surface or Surface.GRASS
+  self.encounterKind = record.encounterKind or "grass"
+  self.visibleSprite = record.visibleSprite ~= false
+  self.hiddenEncounter = record.hiddenEncounter == true
+  self.inGrassOverlay = Surface.usesGrassOverlay(self.surface)
+  self.scaleInfo = nil
+  self.visualScale = 1
+  self.waterSink = (self.surface == Surface.WATER) and 2 or 0
+  self.assetInfo = nil
+
+  -- Hidden encounters never load a Pokemon sprite / fallback.
+  if self.hiddenEncounter or not self.visibleSprite then
+    self.sprite = nil
+    self.spriteId = nil
+    self.entityPhase = "HIDDEN"
+    self.usingFallback = false
+    self.visualScale = 1
+    self.scaleInfo = {
+      scale = 1, contentW = 0, contentH = 0,
+      renderedW = 0, renderedH = 0, originalW = 0, originalH = 0,
+    }
+    return self
+  end
+
   self.assetInfo = render:assetStatusFor(record.species, game)
 
   local spriteId, spriteErr, usedSharedFallback = render:spriteIdFor(record.species)
@@ -949,6 +976,12 @@ function Entity.new(game, mod, render, record)
   if self.sprite and self.sprite.image and self.sprite.image.setFilter then
     self.sprite.image:setFilter("nearest", "nearest")
   end
+
+  -- Bounds-aware visual scale (collision stays one cell).
+  local minSize = Config.get(mod, "min_sprite_size") or Config.DEFAULTS.min_sprite_size
+  self.scaleInfo = SpriteScale.compute(record.species,
+    self.sprite and self.sprite.image, { minSpriteSizeOption = minSize })
+  self.visualScale = self.scaleInfo.scale or 1
   return self
 end
 
@@ -957,36 +990,145 @@ function Entity:setCell(x, y)
   self.cellY = y
   self.px = x * CELL
   self.py = y * CELL
+  -- Refresh grass-overlay flag from live map when available.
+  local world = self.mod.world
+  local ow = world and world.overworld and world:overworld()
+  if ow and ow.map and ow.map.isGrassCell then
+    self.inGrassOverlay = ow.map:isGrassCell(x, y)
+      and Config.get(self.mod, "show_pokemon_in_grass") ~= false
+  end
 end
 
 function Entity:pose()
-  local visualY = self.py + self.tuck
+  -- Feet stay on the cell; water mons sink slightly. No artificial tuck —
+  -- Gen1Recomp drawCellBottom overdraws feet for every entity on grass.
+  local visualY = self.py + (self.tuck or 0) + (self.waterSink or 0)
   return self.sprite, self.px, visualY, self.facing, 0, false, false
 end
 
-function Entity:draw(camX, camY)
-  local opacity = Config.get(self.mod, "sprite_opacity") or 1
-  local sprite, px, py, facing, phase, flip = self:pose()
-  if opacity < 1 and love and love.graphics and love.graphics.setColor then
-    love.graphics.setColor(1, 1, 1, opacity)
-    sprite:draw(px, py, camX, camY, facing, phase, flip)
-    love.graphics.setColor(1, 1, 1, 1)
+function Entity:_drawHiddenEffect(camX, camY)
+  if not (love and love.graphics) then return end
+  if Config.get(self.mod, "enable_grass_movement_effects") == false then return end
+  local x = math.floor(self.px - (camX or 0))
+  local y = math.floor(self.py - (camY or 0))
+  local active = self.grassEffectActive == true
+  if self.behavior == Behavior.HIDDEN_GRASS or self.surface == Surface.GRASS then
+    -- Subtle grass tuft wiggle (no Pokemon sprite).
+    local amp = active and 2 or 0
+    local phase = (self.behaviorState and self.behaviorState.shakePhase) or 0
+    local ox = (phase % 2 == 0) and amp or -amp
+    love.graphics.setColor(0.25, 0.65, 0.28, active and 0.55 or 0.22)
+    love.graphics.rectangle("fill", x + 3 + ox, y + 10, 10, 5)
+    love.graphics.setColor(0.18, 0.5, 0.2, active and 0.7 or 0.3)
+    love.graphics.rectangle("fill", x + 5 + ox, y + 8, 6, 3)
   else
-    sprite:draw(px, py, camX, camY, facing, phase, flip)
+    -- Cave dust / shadow pulse (no grass animation underground).
+    local a = active and 0.45 or 0.18
+    love.graphics.setColor(0.15, 0.12, 0.1, a)
+    love.graphics.ellipse("fill", x + 8, y + 12, active and 6 or 4, active and 3 or 2)
+  end
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
+function Entity:_drawScaledSprite(camX, camY, opacity)
+  local sprite = self.sprite
+  if not sprite or not sprite.image then return end
+  local scale = self.visualScale or 1
+  local img = sprite.image
+  if img.setFilter then img:setFilter("nearest", "nearest") end
+
+  -- SpriteRenderer draws at (px - camX, py - camY - 4). Match that anchor,
+  -- feet-biased: larger scales grow upward so grass overdraw still covers feet.
+  local baseX = math.floor(self.px - (camX or 0))
+  local baseY = math.floor(self.py + (self.tuck or 0) + (self.waterSink or 0)
+                           - (camY or 0) - 4)
+  local drawW = CELL * scale
+  local drawH = CELL * scale
+  local dx = baseX - (drawW - CELL) * 0.5
+  local dy = baseY - (drawH - CELL) -- grow up from feet
+
+  local flip = (self.facing == "left")
+  if opacity < 1 then love.graphics.setColor(1, 1, 1, opacity) end
+  if flip then
+    love.graphics.draw(img, dx + drawW, dy, 0, -scale, scale)
+  else
+    love.graphics.draw(img, dx, dy, 0, scale, scale)
+  end
+  if opacity < 1 then love.graphics.setColor(1, 1, 1, 1) end
+
+  -- Mark true-color rect roughly covering the sprite when PaletteFX exists.
+  local ok, PaletteFX = pcall(require, "src.render.PaletteFX")
+  if ok and PaletteFX and PaletteFX.markTrueColor then
+    PaletteFX.markTrueColor(dx, dy, drawW, drawH)
+  end
+end
+
+function Entity:draw(camX, camY)
+  if self.hiddenEncounter or not self.visibleSprite then
+    self:_drawHiddenEffect(camX, camY)
+  else
+    local opacity = Config.get(self.mod, "sprite_opacity") or 1
+    local scale = self.visualScale or 1
+    if love and love.graphics and (scale ~= 1 or self.facing == "left" or self.facing == "right") then
+      self:_drawScaledSprite(camX, camY, opacity)
+    else
+      local sprite, px, py, facing, phase, flip = self:pose()
+      if sprite then
+        if opacity < 1 and love and love.graphics and love.graphics.setColor then
+          love.graphics.setColor(1, 1, 1, opacity)
+          sprite:draw(px, py, camX, camY, facing, phase, flip)
+          love.graphics.setColor(1, 1, 1, 1)
+        else
+          sprite:draw(px, py, camX, camY, facing, phase, flip)
+        end
+      end
+    end
   end
 
-  -- Optional debug marker (dev mode): outline + species id above the entity.
+  -- Optional debug marker (dev mode): outline + species / behaviour.
   if self.render.debugMarkers and Config.devMode(self.mod)
      and love and love.graphics then
-    local x = math.floor(px - (camX or 0))
-    local y = math.floor(py - (camY or 0)) - 4
+    local x = math.floor(self.px - (camX or 0))
+    local y = math.floor(self.py - (camY or 0)) - 4
     love.graphics.setColor(1, 0.2, 0.2, 1)
     love.graphics.rectangle("line", x, y, CELL, CELL)
     love.graphics.setColor(1, 1, 1, 1)
     if love.graphics.print then
-      love.graphics.print(tostring(self.species), x, y - 8)
+      local label = tostring(self.species or "HIDDEN")
+      if self.behavior then label = label .. " " .. tostring(self.behavior) end
+      love.graphics.print(label, x, y - 8)
     end
   end
+
+  if Config.showBehaviorOverlays(self.mod) and love and love.graphics then
+    self:_drawBehaviorOverlay(camX, camY)
+  end
+end
+
+function Entity:_drawBehaviorOverlay(camX, camY)
+  local x = math.floor(self.px - (camX or 0))
+  local y = math.floor(self.py - (camY or 0))
+  local bx = self.behaviorState
+  if self.homeRegion then
+    love.graphics.setColor(0.2, 0.7, 1.0, 0.12)
+    for _, t in ipairs(self.homeRegion.tiles or {}) do
+      love.graphics.rectangle("fill",
+        t.x * CELL - (camX or 0), t.y * CELL - (camY or 0), CELL, CELL)
+    end
+  end
+  if self.behavior == Behavior.AGGRESSIVE and bx then
+    local range = Config.DEFAULTS.aggressive_sight_range or 4
+    local dx, dy = 0, 0
+    local f = bx.facing or self.facing or "down"
+    if f == "up" then dy = -1 elseif f == "down" then dy = 1
+    elseif f == "left" then dx = -1 elseif f == "right" then dx = 1 end
+    love.graphics.setColor(1, 0.85, 0.1, 0.22)
+    for i = 1, range do
+      love.graphics.rectangle("fill",
+        x + dx * i * CELL, y + dy * i * CELL, CELL, CELL)
+    end
+  end
+  love.graphics.setColor(1, 1, 1, 1)
 end
 
 function SpawnRender:makeEntity(game, record)

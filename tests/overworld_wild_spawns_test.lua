@@ -15,19 +15,20 @@ T.check(modMeta ~= nil, "loader discovered mod by manifest id")
 T.eq(modMeta.state, "loaded", "mod reached loaded state")
 T.eq(modMeta.manifest.id, "overworld_wild_spawns", "manifest id")
 T.eq(modMeta.manifest.name, "Overworld Wild Pokemon", "manifest name")
-T.eq(modMeta.manifest.version, "0.3.2", "manifest version")
+T.eq(modMeta.manifest.version, "0.4.0", "manifest version")
 T.eq(modMeta.manifest.entry, "main.lua", "entry path")
 T.eq(modMeta.manifest.category, "MECHANIC", "category")
 T.eq(modMeta.manifest.api, 2, "mod api version")
 
 local exports = run.loader.exports["overworld_wild_spawns"]
 T.check(exports ~= nil, "exports table published")
-T.eq(exports.version, "0.3.2", "version export")
+T.eq(exports.version, "0.4.0", "version export")
 T.check(exports.logic ~= nil, "logic export")
 T.check(exports.render ~= nil, "render export")
 T.check(exports.hud ~= nil, "hud export")
 T.check(exports.overlay ~= nil, "overlay export")
 T.check(exports.browser ~= nil, "browser export")
+T.check(exports.behaviorTick ~= nil, "behaviorTick export")
 T.check(exports.lib ~= nil and type(exports.lib.require) == "function",
         "lib.require available")
 T.check(type(exports.canSuppressVanilla) == "function", "canSuppressVanilla export")
@@ -40,6 +41,10 @@ local EncounterIndex = exports.lib.require("encounter_index")
 local Grass = exports.lib.require("grass")
 local Config = exports.lib.require("config")
 local Diagnostics = exports.lib.require("diagnostics")
+local Surface = exports.lib.require("surface")
+local SpawnRegions = exports.lib.require("spawn_regions")
+local Behavior = exports.lib.require("behavior")
+local SpriteScale = exports.lib.require("sprite_scale")
 local logic = exports.logic
 local modApi = exports.lib.mod
 
@@ -81,11 +86,18 @@ T.check(devProps.show_spawn_tile_overlay ~= nil
         "show_spawn_tile_overlay default false")
 T.eq(Config.get(modApi, "enabled"), true, "options:get(enabled) is true")
 T.eq(Config.get(modApi, "dev_mode"), false, "options:get(dev_mode) is false")
-T.eq(Config.DEFAULTS.max_spawns, 5, "default max_spawns")
-T.eq(Config.DEFAULTS.min_player_distance, 4, "default min distance")
-T.eq(Config.DEFAULTS.max_player_distance, 12, "default max distance")
+T.eq(Config.DEFAULTS.max_visible_pokemon, 12, "default max_visible_pokemon")
+T.eq(Config.DEFAULTS.max_spawns, 12, "default max_spawns legacy alias")
+T.eq(Config.DEFAULTS.min_player_distance, 3, "default min distance")
+T.eq(Config.DEFAULTS.max_player_distance, 16, "default max distance")
+T.eq(Config.DEFAULTS.spawn_density, "normal", "default spawn_density")
+T.eq(Config.DEFAULTS.tiles_per_additional_pokemon, 24, "default tiles_per_additional")
 T.eq(Config.DEFAULTS.initial_spawns, 1, "default initial_spawns is minimal path")
 T.eq(Config.DEFAULTS.dev_mode, false, "DEFAULTS.dev_mode false")
+T.eq(Config.DEFAULTS.enable_idle, true, "idle behaviour enabled by default")
+T.eq(Config.DEFAULTS.enable_wander, true, "wander behaviour enabled by default")
+T.eq(Config.DEFAULTS.enable_aggressive, true, "aggressive behaviour enabled by default")
+T.eq(Config.DEFAULTS.enable_hidden, true, "hidden behaviour enabled by default")
 
 -- ------- pokedex independence (source + runtime)
 
@@ -1127,6 +1139,272 @@ T.check(denied.ok == false, "test spawn denied when dev_mode false")
 T.check(mockGame.save.pokedex == nil
         or (mockGame.save.pokedex.seen and next(mockGame.save.pokedex.seen) == nil),
         "suite completes with empty / unused pokedex")
+
+-- ============================================================
+-- 0.4.0: density, regions, behaviours, surfaces, scaling
+-- ============================================================
+
+local schemaKeys = {}
+for _, row in ipairs(schema) do schemaKeys[row.key] = row end
+T.check(schemaKeys.spawn_density ~= nil, "spawn_density option present")
+T.eq(schemaKeys.spawn_density.default, "normal", "spawn_density default Normal")
+T.check(schemaKeys.max_visible_pokemon ~= nil, "max_visible_pokemon option")
+T.check(schemaKeys.enable_idle ~= nil, "enable_idle option")
+T.check(schemaKeys.enable_wander ~= nil, "enable_wander option")
+T.check(schemaKeys.enable_aggressive ~= nil, "enable_aggressive option")
+T.check(schemaKeys.enable_hidden ~= nil, "enable_hidden option")
+T.check(schemaKeys.min_sprite_size ~= nil, "min_sprite_size option")
+T.check(schemaKeys.show_behavior_overlays ~= nil, "show_behavior_overlays option")
+
+-- Density: small patch vs long route.
+local smallTarget = SpawnRegions.targetCount({
+  eligibleTiles = 18, minVisible = 1, maxVisible = 12,
+  tilesPerAdditional = 24, density = "normal", mapSpan = 20,
+})
+local longTarget = SpawnRegions.targetCount({
+  eligibleTiles = 180, minVisible = 1, maxVisible = 12,
+  tilesPerAdditional = 24, density = "normal", mapSpan = 60,
+})
+T.check(smallTarget <= 3, "small route target stays low (" .. tostring(smallTarget) .. ")")
+T.check(longTarget > smallTarget, "long route target exceeds small route")
+T.check(longTarget <= 12, "long route respects maximum")
+
+local highTarget = SpawnRegions.targetCount({
+  eligibleTiles = 180, minVisible = 1, maxVisible = 16,
+  tilesPerAdditional = 24, density = "very_high", mapSpan = 60,
+})
+T.check(highTarget >= longTarget, "very_high density raises target")
+
+-- Regions: two disconnected grass patches get separate quotas.
+local regionCells = {}
+for x = 0, 5 do regionCells[#regionCells + 1] = { x = x, y = 0 } end
+for x = 20, 29 do regionCells[#regionCells + 1] = { x = x, y = 0 } end
+local regions = SpawnRegions.build(regionCells)
+T.eq(#regions, 2, "two disconnected patches become two regions")
+local quotas, assigned = SpawnRegions.allocate(regions, 6)
+T.check(assigned <= 6, "allocation never exceeds target")
+local qSum = 0
+for _, q in pairs(quotas) do qSum = qSum + q end
+T.eq(qSum, assigned, "quota sum matches assigned")
+T.check((quotas[1] or 0) >= 1 and (quotas[2] or 0) >= 1,
+        "both regions receive capacity when target allows")
+
+-- Surface abstraction.
+local grassSurface = Surface.resolve(mockGame, {
+  id = "ROUTE_X",
+  def = { tileset = "OVERWORLD", index = 1 },
+  isGrassCell = function() return true end,
+  widthCells = 4, heightCells = 4,
+}, { grass = { rate = 25, slots = { { species = "PIDGEY", level = 3 } } } })
+T.eq(grassSurface.surface, Surface.GRASS, "grass surface when grass tiles exist")
+
+local caveMap = {
+  id = "MT_MOON_1F",
+  def = { tileset = "CAVERN", index = 40 },
+  widthCells = 4, heightCells = 4,
+  isGrassCell = function() return false end,
+  isWalkableCell = function() return true end,
+  isWaterCell = function() return false end,
+  warpAtCell = function() return nil end,
+}
+local caveSurface = Surface.resolve(mockGame, caveMap, {
+  grass = { rate = 10, slots = { { species = "ZUBAT", level = 8 } } },
+})
+T.eq(caveSurface.surface, Surface.CAVE, "cave surface without grass graphics")
+T.eq(caveSurface.tileMode, "walkable", "cave uses walkable tiles")
+T.check(Surface.allowsBehavior(Surface.CAVE, Behavior.IDLE_LOOK), "cave allows idle")
+T.check(not Surface.allowsBehavior(Surface.CAVE, Behavior.HIDDEN_GRASS),
+        "cave does not use grass-shake hidden")
+T.check(Surface.allowsBehavior(Surface.CAVE, Behavior.HIDDEN_CAVE),
+        "cave allows hidden cave effect")
+
+local waterSurface = Surface.resolve(mockGame, {
+  id = "ROUTE_19",
+  def = { tileset = "OVERWORLD", index = 1 },
+  isGrassCell = function() return false end,
+  isWaterCell = function() return true end,
+  widthCells = 2, heightCells = 2,
+}, { water = { rate = 5, slots = { { species = "TENTACOOL", level = 5 } } } })
+T.eq(waterSurface.surface, Surface.WATER, "water surface from surf table")
+T.check(waterSurface.fishingSeparate == true, "fishing kept separate from surf")
+
+-- Fishing never free-spawns.
+T.check(EncounterPick.pick({
+  fishing = { slots = { { species = "MAGIKARP", level = 5 } } },
+}, function() return 0 end, "fishing") == nil,
+  "fishing kind rejected for free overworld pick")
+local waterPick = EncounterPick.pick({
+  water = { rate = 5, slots = { { species = "TENTACOOL", level = 5 } } },
+  grass = { rate = 25, slots = { { species = "PIDGEY", level = 3 } } },
+}, function(a, b)
+  if b then return a end
+  return 0
+end, "water")
+T.check(waterPick and waterPick.species == "TENTACOOL",
+        "water pick uses surf table species")
+
+-- Behaviour weights and idle look.
+local w = Behavior.weightsFor("PIDGEY", Surface.GRASS, {})
+T.check(w[Behavior.IDLE_LOOK] > 0, "idle weight positive")
+T.check(w[Behavior.AGGRESSIVE] > 0, "aggressive weight positive")
+local idleOnly = Behavior.pick("METAPOD", Surface.GRASS, {
+  enable_wander = false, enable_aggressive = false, enable_hidden = false,
+}, function() return 0.1 end)
+T.eq(idleOnly, Behavior.IDLE_LOOK, "forced idle when others disabled")
+
+local bstate = Behavior.initState(Behavior.IDLE_LOOK, function(a, b)
+  if b then return a end
+  if a then return 1 end
+  return 0.5
+end)
+T.check(bstate.lookInterval >= 5 and bstate.lookInterval <= 10,
+        "idle look interval in 5-10s")
+local bstate2 = Behavior.initState(Behavior.IDLE_LOOK, function(a, b)
+  if b then return b end
+  if a then return a end
+  return 0.9
+end)
+T.check(bstate.lookInterval ~= bstate2.lookInterval
+        or bstate.nextActionAt ~= bstate2.nextActionAt,
+        "idle intervals differ across entities when rng differs")
+
+-- Idle stays on tile.
+local idleEnt = {
+  cellX = 4, cellY = 4, facing = "down",
+  behaviorState = Behavior.initState(Behavior.IDLE_LOOK, function() return 0 end),
+  setCell = function(self, x, y) self.cellX, self.cellY = x, y end,
+  surface = Surface.GRASS,
+  state = Config.STATE.AVAILABLE,
+}
+idleEnt.behavior = Behavior.IDLE_LOOK
+idleEnt.behaviorState.nextActionAt = 0
+Behavior.tick(idleEnt, {
+  map = fakeMap, entities = {}, player = mockPlayer, dt = 0.016,
+})
+T.eq(idleEnt.cellX, 4, "idle look does not move X")
+T.eq(idleEnt.cellY, 4, "idle look does not move Y")
+
+-- Wander stays in home region.
+local home = regions[1]
+local wanderEnt = {
+  cellX = home.tiles[1].x, cellY = home.tiles[1].y,
+  facing = "down", surface = Surface.GRASS,
+  homeRegion = home, homeRegionId = home.id,
+  behavior = Behavior.GRASS_WANDER,
+  behaviorState = Behavior.initState(Behavior.GRASS_WANDER, function() return 0.2 end),
+  state = Config.STATE.AVAILABLE,
+  setCell = function(self, x, y) self.cellX, self.cellY = x, y end,
+}
+wanderEnt.behaviorState.nextActionAt = 0
+local longMap = {
+  widthCells = 40, heightCells = 4,
+  inBounds = function(_, x, y) return x >= 0 and y >= 0 and x < 40 and y < 4 end,
+  isGrassCell = function(_, x, y)
+    return (y == 0 and x >= 0 and x <= 5) or (y == 0 and x >= 20 and x <= 29)
+  end,
+  isWalkableCell = function() return true end,
+  warpAtCell = function() return nil end,
+}
+for _ = 1, 20 do
+  wanderEnt.behaviorState.nextActionAt = 0
+  Behavior.tick(wanderEnt, {
+    map = longMap, entities = { wanderEnt },
+    player = { cellX = 100, cellY = 100 }, dt = 0.05,
+  })
+end
+T.check(SpawnRegions.contains(home, wanderEnt.cellX, wanderEnt.cellY),
+        "wanderer stays inside home region")
+
+-- Aggressive sight: facing line only, walls block.
+local aggEnt = {
+  cellX = 2, cellY = 2, facing = "right", surface = Surface.GRASS,
+  behavior = Behavior.AGGRESSIVE,
+  behaviorState = Behavior.initState(Behavior.AGGRESSIVE, function() return 0 end),
+  state = Config.STATE.AVAILABLE,
+  setCell = function(self, x, y) self.cellX, self.cellY = x, y end,
+}
+aggEnt.behaviorState.facing = "right"
+aggEnt.facing = "right"
+local sightMap = {
+  widthCells = 10, heightCells = 10,
+  inBounds = function(_, x, y) return x >= 0 and y >= 0 and x < 10 and y < 10 end,
+  isWalkableCell = function(_, x, y) return not (x == 4 and y == 2) end,
+  isGrassCell = function() return true end,
+}
+T.check(Behavior.playerInSight(aggEnt, { cellX = 5, cellY = 2 }, sightMap, {}, 4) == false,
+        "wall blocks aggressive sight")
+sightMap.isWalkableCell = function() return true end
+T.check(Behavior.playerInSight(aggEnt, { cellX = 5, cellY = 2 }, sightMap, {}, 4) == true,
+        "clear facing line detects player")
+T.check(Behavior.playerInSight(aggEnt, { cellX = 5, cellY = 3 }, sightMap, {}, 4) == false,
+        "no diagonal aggressive activation")
+
+-- Hidden grass: no sprite, contact uses preset species.
+local hiddenRec = {
+  id = "hid1", mapId = "ROUTE_TEST", x = 4, y = 3,
+  species = "PIDGEY", level = 3, state = Config.STATE.AVAILABLE,
+  behavior = Behavior.HIDDEN_GRASS, surface = Surface.GRASS,
+  visibleSprite = false, hiddenEncounter = true,
+}
+local hidEntity = exports.render:makeEntity(mockGame, hiddenRec)
+T.check(hidEntity.sprite == nil, "hidden grass has no pokemon sprite")
+T.check(hidEntity.hiddenEncounter == true, "hidden flag set")
+T.check(Behavior.isHidden(Behavior.HIDDEN_GRASS), "HIDDEN_GRASS is hidden")
+T.check(Behavior.isHidden(Behavior.HIDDEN_CAVE), "HIDDEN_CAVE is hidden")
+
+-- Sprite scale: small content gets minimum height boost.
+local scale = SpriteScale.compute("PIDGEY", nil, {
+  minVisibleHeight = 16, targetVisibleHeight = 22, maxVisibleHeight = 28,
+})
+T.check(scale.scale >= 1.0, "scale at least 1")
+T.check(scale.scale <= 2.0, "scale hard-capped")
+local tiny = SpriteScale.compute("KAKUNA", {
+  getDimensions = function() return 16, 16 end,
+}, { minVisibleHeight = 18, targetVisibleHeight = 22, maxVisibleHeight = 28 })
+T.check(tiny.scale >= 1.0, "kakuna scale applied")
+
+-- Land species must not be picked from water tables.
+local landOnWater = EncounterPick.pick({
+  water = { rate = 5, slots = { { species = "TENTACOOL", level = 5 } } },
+}, nil, "water")
+T.check(landOnWater.species ~= "PIDGEY", "water pick is not a land species")
+
+-- Registry freeze still holds (no runtime register).
+T.check(not exports.render:isContentRegistrationOpen(),
+        "content registration closed after load")
+
+-- Player teleport safety unchanged.
+local SpawnLogicMod = exports.lib.require("spawn_logic")
+T.check(SpawnLogicMod.touchesPlayerPosition() == false, "never touches player position")
+
+-- HUD exposes new density fields.
+run.loader.modOptions["overworld_wild_spawns"].dev_mode = true
+run.loader.modOptions["overworld_wild_spawns"].enabled = true
+mockOw.map = fakeMap
+mockOw.entities = { mockPlayer }
+mockOw.player = mockPlayer
+logic:onMapEntered({ mapId = "ROUTE_TEST" })
+local snap = Diagnostics.hudSnapshot(logic)
+T.check(snap.targetPokemon ~= nil, "HUD reports target Pokemon")
+T.check(snap.spawnRegions ~= nil, "HUD reports spawn regions")
+T.check(snap.surface ~= nil, "HUD reports surface")
+local hudLines = Diagnostics.hudLines(logic)
+local joined = table.concat(hudLines, "\n")
+T.check(joined:find("Target Pokemon", 1, true), "HUD lines include Target Pokemon")
+T.check(joined:find("Spawn regions", 1, true), "HUD lines include Spawn regions")
+T.check(joined:find("Surface:", 1, true), "HUD lines include Surface")
+
+-- Active entities carry a behaviour.
+local anyBehavior = false
+for _, rec in pairs(logic.spawns) do
+  if rec.behavior then anyBehavior = true end
+end
+T.check(anyBehavior, "spawned entities receive a behaviour type")
+
+-- Mod disable clears entities.
+run.loader.modOptions["overworld_wild_spawns"].enabled = false
+logic:onOptionsChanged({ mod = modApi.id, key = "enabled", value = false })
+T.eq(logic:countOnMap("ROUTE_TEST"), 0, "disable clears entities")
 
 run.release()
 T.finish("overworld_wild_spawns")

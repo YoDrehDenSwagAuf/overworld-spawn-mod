@@ -94,7 +94,8 @@ function Diagnostics.visibilityCounts(logic)
     created = created + 1
     local inWorld = logic:entityRegisteredInWorld(id)
     if inWorld then registered = registered + 1 end
-    local hasAsset = entity.sprite ~= nil and entity.spriteId ~= nil
+    local hidden = entity.hiddenEncounter == true or entity.visibleSprite == false
+    local hasAsset = hidden or (entity.sprite ~= nil and entity.spriteId ~= nil)
     local opacity = Config.get(logic.mod, "sprite_opacity") or 1
     local scaleOk = true
     if entity.sprite and entity.sprite.scale ~= nil then
@@ -122,10 +123,55 @@ function Diagnostics.visibilityCounts(logic)
   }
 end
 
+function Diagnostics.entityDetail(logic, entity, record)
+  if not entity then return {} end
+  local bx = entity.behaviorState or {}
+  local scale = entity.scaleInfo or {}
+  local lines = {
+    ("Behavior: %s"):format(tostring(entity.behavior or record and record.behavior)),
+    ("State: %s"):format(tostring(bx.state or "?")),
+    ("Surface: %s"):format(tostring(entity.surface or "?")),
+    ("Home region: %s"):format(tostring(entity.homeRegionId or "?")),
+    ("Facing: %s"):format(tostring(entity.facing or bx.facing or "?")),
+  }
+  local now = (love and love.timer and love.timer.getTime and love.timer.getTime())
+              or os.clock()
+  if bx.nextActionAt then
+    lines[#lines + 1] = ("Next action: %.1fs"):format(
+      math.max(0, bx.nextActionAt - now))
+  end
+  lines[#lines + 1] = ("Sprite scale: %s"):format(
+    tostring(entity.visualScale and string.format("%.2f", entity.visualScale) or "?"))
+  lines[#lines + 1] = ("In grass overlay: %s"):format(
+    entity.inGrassOverlay and "YES" or "NO")
+  if scale.originalW then
+    lines[#lines + 1] = ("Original sprite size: %dx%d"):format(
+      scale.originalW or 0, scale.originalH or 0)
+    lines[#lines + 1] = ("Visible bounds: %dx%d"):format(
+      scale.contentW or 0, scale.contentH or 0)
+    lines[#lines + 1] = ("Rendered size: %.0fx%.0f"):format(
+      scale.renderedW or 0, scale.renderedH or 0)
+  end
+  if entity.behavior == "AGGRESSIVE" then
+    lines[#lines + 1] = ("Sight range: %s"):format(
+      tostring(Config.DEFAULTS.aggressive_sight_range))
+    lines[#lines + 1] = ("Player detected: %s"):format(
+      bx.playerDetected and "YES" or "NO")
+    lines[#lines + 1] = ("Chasing: %s"):format(bx.chasing and "YES" or "NO")
+  end
+  if entity.hiddenEncounter then
+    lines[#lines + 1] = "Visible sprite: NO"
+    lines[#lines + 1] = ("Grass effect: %s"):format(
+      entity.grassEffectActive and "ACTIVE" or "IDLE")
+  end
+  return lines
+end
+
 function Diagnostics.hudSnapshot(logic)
   local st = logic.state
   local vis = Diagnostics.visibilityCounts(logic)
-  local maxSpawns = Config.get(logic.mod, "max_spawns") or Config.DEFAULTS.max_spawns
+  local maxSpawns = Config.maxVisible(logic.mod)
+  local target = st.targetSpawnCount or logic.targetSpawnCount or maxSpawns
   local spawnStatus = Diagnostics.spawnSystemStatus(logic)
   local rendererStatus = Diagnostics.rendererStatus(logic)
   local lastErr = Diagnostics.shortError(st.lastError or st.lastSpawnError)
@@ -133,12 +179,15 @@ function Diagnostics.hudSnapshot(logic)
     mapId = st.mapId,
     mapName = st.mapName or st.mapId or "?",
     mapType = st.mapType or "unknown",
+    surface = st.surface or (logic.surfaceInfo and logic.surfaceInfo.surface) or "?",
     encounterSpecies = st.uniqueSpeciesCount or 0,
     encounterSlots = st.encounterEntryCount or 0,
     eligibleTiles = st.eligibleTileCount or 0,
+    spawnRegions = st.spawnRegionCount or #(logic.regions or {}),
     requiredAssets = st.requiredAssets or 0,
     loadedAssets = st.loadedAssets or 0,
     activePokemon = vis.active,
+    targetPokemon = target,
     maxPokemon = maxSpawns,
     spawnStatus = spawnStatus,
     rendererStatus = rendererStatus,
@@ -156,18 +205,42 @@ function Diagnostics.hudLines(logic)
   local lines = {
     "Overworld Spawn Debug",
     ("Map: %s"):format(tostring(s.mapName)),
+    ("Surface: %s"):format(tostring(s.surface)),
     ("Encounter species: %d"):format(s.encounterSpecies),
     ("Encounter slots: %d"):format(s.encounterSlots),
     ("Eligible spawn tiles: %d"):format(s.eligibleTiles),
+    ("Spawn regions: %d"):format(s.spawnRegions),
     ("Loaded assets: %d / %d"):format(s.loadedAssets, s.requiredAssets),
+    ("Target Pokemon: %d"):format(s.targetPokemon),
     ("Active Pokemon: %d / %d"):format(s.activePokemon, s.maxPokemon),
     ("Spawn system: %s"):format(s.spawnStatus),
     ("Renderer: %s"):format(s.rendererStatus),
-    ("Pokemon: %d active"):format(s.activePokemon),
     ("Created: %d"):format(s.created),
     ("Registered: %d"):format(s.registered),
     ("Rendered: %d"):format(s.rendered),
   }
+  -- Detail the nearest entity when developer overlays are on.
+  if Config.devMode(logic.mod) then
+    local world = logic.mod.world
+    local ow = world and world.overworld and world:overworld()
+    local player = ow and ow.player
+    local best, bestD, bestId
+    if player then
+      for id, entity in pairs(logic.entities or {}) do
+        local d = math.abs((entity.cellX or 0) - player.cellX)
+                + math.abs((entity.cellY or 0) - player.cellY)
+        if not bestD or d < bestD then
+          bestD, best, bestId = d, entity, id
+        end
+      end
+    end
+    if best then
+      lines[#lines + 1] = "-- Nearest entity --"
+      for _, line in ipairs(Diagnostics.entityDetail(logic, best, logic.spawns[bestId])) do
+        lines[#lines + 1] = line
+      end
+    end
+  end
   if s.lastError then
     lines[#lines + 1] = ("Last error: %s"):format(s.lastError)
   end
