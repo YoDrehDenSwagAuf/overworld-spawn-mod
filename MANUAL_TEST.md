@@ -1,11 +1,11 @@
-# Manual test guide — Overworld Wild Pokemon 0.3.0
+# Manual test guide — Overworld Wild Pokemon 0.3.2
 
 Earliest suitable grass map verified from Gen1Recomp encounter data / tests:
 **ROUTE_1** (Pallet Town → Route 1). Grass rate 25; first slot PIDGEY Lv3.
 
 ## A. New game, before Pokédex (normal play)
 
-1. Import `dist/overworld_wild_spawns-0.3.0.zip` in Gen1Recomp Mod Manager (F10).
+1. Import `dist/overworld_wild_spawns-0.3.2.zip` in Gen1Recomp Mod Manager (F10).
 2. Enable **Overworld Wild Pokemon**.
 3. Start a **new game**. Do **not** obtain the Pokédex yet.
 4. Leave Pallet Town north onto **Route 1**.
@@ -41,13 +41,17 @@ Earliest suitable grass map verified from Gen1Recomp encounter data / tests:
    - **OPTIONS** menu → **POKEMON PREVIEW** → **OPEN**
    - or Start Menu → **OW PREVIEW**
 10. Select a species that appears on the current route (e.g. Pidgey).
-11. Check Asset / Renderer / Overworld entity lines and **SHOW PREVIEW**.
-    - Preview must report the overworld path kind (`overworld`,
-      `generated_overworld`, or `placeholder`) — not pretend a battle
-      front sprite is a successful overworld representation.
+11. Check detail rows:
+    - **SPRITE REG** / **REAL PATH** / **REAL EXISTS** / **FALLBACK**
+    - **RUNTIME IMG** = `REAL ASSET LOADED` or `FALLBACK LOADED`
+    - Short **TRIED** list (full candidate list is in the log)
+    - Temporary overworld art may be a scaled battle-front (`battle_front` /
+      `generated_overworld`); that is expected until dedicated OW sprites ship.
 12. Run **TEST SPAWN**. It must **not** raise
-    `sprites: content is frozen after load`.
-13. Read the result text: either all 7 steps passed, or the exact failing step:
+    `sprites: content is frozen after load`, and must **not** fail solely
+    because `cache/pidgey.png` (or any optional cache file) is missing.
+13. Read the result text: either all 7 steps passed (possibly
+    "Rendering with fallback sprite"), or the exact failing step:
 
     ```text
     1 Species resolved

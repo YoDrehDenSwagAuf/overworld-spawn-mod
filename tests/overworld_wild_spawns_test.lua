@@ -15,14 +15,14 @@ T.check(modMeta ~= nil, "loader discovered mod by manifest id")
 T.eq(modMeta.state, "loaded", "mod reached loaded state")
 T.eq(modMeta.manifest.id, "overworld_wild_spawns", "manifest id")
 T.eq(modMeta.manifest.name, "Overworld Wild Pokemon", "manifest name")
-T.eq(modMeta.manifest.version, "0.3.1", "manifest version")
+T.eq(modMeta.manifest.version, "0.3.2", "manifest version")
 T.eq(modMeta.manifest.entry, "main.lua", "entry path")
 T.eq(modMeta.manifest.category, "MECHANIC", "category")
 T.eq(modMeta.manifest.api, 2, "mod api version")
 
 local exports = run.loader.exports["overworld_wild_spawns"]
 T.check(exports ~= nil, "exports table published")
-T.eq(exports.version, "0.3.1", "version export")
+T.eq(exports.version, "0.3.2", "version export")
 T.check(exports.logic ~= nil, "logic export")
 T.check(exports.render ~= nil, "render export")
 T.check(exports.hud ~= nil, "hud export")
@@ -721,12 +721,27 @@ T.check(seenIds.FIXMON_A, "preview shows FIXMON_A without pokedex")
 T.check(seenIds.PIDGEY, "preview shows late PIDGEY without pokedex")
 T.check(seenIds.RATTATA, "preview shows late RATTATA without pokedex")
 T.check(seenIds.MAGIKARP or true, "preview may include species from content/data")
--- Late species without pre-registered sprites are listed as unavailable.
-T.check(seenIds.PIDGEY.right:find("UNAVAILABLE", 1, true)
-        or exports.render:assetStatusFor("PIDGEY", mockGame).spriteRegistered == false,
-        "late PIDGEY overworld preview unavailable (no pre-registered sprite)")
+-- Late species without per-species registration still get the shared fallback.
+T.check(seenIds.PIDGEY.right:find("FALLBACK", 1, true)
+        or exports.render:assetStatusFor("PIDGEY", mockGame).fallbackAvailable == true,
+        "late PIDGEY uses fallback overworld preview")
 -- Ensure pokedex filter is not applied: empty seen/owned still lists species.
 T.check(#rows > 0, "preview browser non-empty without pokedex")
+
+-- Fallback asset is registered at load and present on disk in the mod tree.
+T.eq(exports.render.fallbackId, "SPRITE_OW_WILD_FALLBACK", "fallback sprite id")
+T.check(exports.render.fallbackAvailable == true, "fallback available after load")
+local fbPath = exports.render.fallbackPath
+T.check(type(fbPath) == "string" and fbPath:find("fallback/pokemon_missing.png", 1, true),
+        "fallback path points at assets/fallback/pokemon_missing.png")
+local fbDef = run.loader.content.sprites:get("SPRITE_OW_WILD_FALLBACK")
+T.check(fbDef ~= nil, "fallback sprite registered in content")
+T.check(fbDef.image:find("fallback/pokemon_missing.png", 1, true),
+        "fallback content image path")
+-- Placeholder also uses the assets/ prefix (LÖVE virtual path under the mod).
+local phDef = run.loader.content.sprites:get("SPRITE_OW_WILD_PLACEHOLDER")
+T.check(phDef ~= nil and phDef.image:find("assets/spawn_placeholder.png", 1, true),
+        "placeholder uses assets/spawn_placeholder.png")
 
 -- Screens registered.
 local screens = run.loader.content.screens
@@ -800,20 +815,87 @@ T.eq(sid, "SPRITE_OW_WILD_FIXMON_A", "spriteIdFor returns pre-registered id")
 T.eq(sidErr, nil, "spriteIdFor no error for known species")
 T.eq(registerCalls, 0, "spriteIdFor does not call sprites:register")
 
-local missingId, missingErr = exports.render:spriteIdFor("PIDGEY")
-T.eq(missingId, nil, "spriteIdFor nil for species without pre-registration")
-T.check(type(missingErr) == "string"
-        and missingErr:find("pre%-registered", 1) ~= nil,
-        "spriteIdFor controlled missing-sprite error")
-T.eq(registerCalls, 0, "missing spriteIdFor still does not register")
+-- Late species without a per-species sprite still resolve to the shared fallback.
+local missingId, missingErr, usedFb = exports.render:spriteIdFor("PIDGEY")
+T.eq(missingId, "SPRITE_OW_WILD_FALLBACK", "spriteIdFor returns shared fallback")
+T.eq(missingErr, nil, "spriteIdFor no hard error when fallback exists")
+T.eq(usedFb, true, "spriteIdFor reports shared-fallback flag")
+T.eq(registerCalls, 0, "fallback spriteIdFor still does not register")
 
--- Late species with no pre-registered sprite: controlled step-2 failure.
+-- =====================================================================
+-- REGRESSION: missing cache/pidgey.png must NOT block test spawn.
+-- Given: species exists, no cache file, no real overworld PNG, fallback ok.
+-- When: test spawn Pidgey
+-- Then: fallback loaded, entity created/registered/rendered, no crash.
+-- =====================================================================
+exports.render:invalidateAssetCache("PIDGEY")
+local pidgeyCandidates = exports.render:assetCandidates("PIDGEY", mockGame)
+local sources = {}
+for _, c in ipairs(pidgeyCandidates) do sources[#sources + 1] = c.source end
+local joinedSources = table.concat(sources, ",")
+T.check(joinedSources:find("dex_padded", 1, true)
+        or joinedSources:find("species_id", 1, true),
+        "Pidgey candidates include species-id / dex paths before cache")
+T.check(joinedSources:find("runtime_cache", 1, true),
+        "Pidgey candidates list optional cache last among real sources")
+T.check(not (pidgeyCandidates[1] and pidgeyCandidates[1].source == "runtime_cache"),
+        "Pidgey is not searched exclusively under cache/")
+local cacheOnly = true
+for _, c in ipairs(pidgeyCandidates) do
+  if c.source ~= "runtime_cache" then cacheOnly = false break end
+end
+T.check(not cacheOnly, "Pidgey resolution is not cache-only")
+
+-- Same for Kakuna-shaped names: cache must not be the only candidate.
+mockGame.data.pokemon.KAKUNA = {
+  id = "KAKUNA", name = "Kakuna", dex = 14, spriteFront = "missing_kakuna.png",
+}
+exports.render:invalidateAssetCache("KAKUNA")
+local kakunaCandidates = exports.render:assetCandidates("KAKUNA", mockGame)
+T.check(#kakunaCandidates >= 2, "Kakuna has multiple candidate paths")
+T.check(kakunaCandidates[#kakunaCandidates].source == "runtime_cache"
+        or kakunaCandidates[#kakunaCandidates].path:find("cache/", 1, true),
+        "Kakuna cache candidate is last")
+local kakunaCacheOnly = true
+for _, c in ipairs(kakunaCandidates) do
+  if c.source ~= "runtime_cache" then kakunaCacheOnly = false break end
+end
+T.check(not kakunaCacheOnly, "Kakuna is not searched exclusively under cache/")
+
+-- Resolve with no readable real asset → FALLBACK_LOADED.
+local resolvedPidgey = exports.render:resolveAsset("PIDGEY", mockGame, { force = true })
+T.eq(resolvedPidgey.status, "FALLBACK_LOADED", "Pidgey resolves to fallback when real assets missing")
+T.check(resolvedPidgey.fallbackUsed == true, "Pidgey fallbackUsed")
+T.check(resolvedPidgey.path
+        and resolvedPidgey.path:find("fallback/pokemon_missing.png", 1, true),
+        "Pidgey resolved path is fallback png")
+
+-- Bake must return a LÖVE virtual path, never getSaveDirectory() absolute.
+local renderSrcBake = modApi:read("lib/spawn_render.lua")
+T.check(not renderSrcBake:find("getSaveDirectory() ..", 1, true)
+        and not renderSrcBake:find("getSaveDirectory()..", 1, true),
+        "bakeSheet does not concatenate getSaveDirectory() into image paths")
+T.check(renderSrcBake:find('overworld_wild_spawns-cache', 1, true),
+        "optional cache uses overworld_wild_spawns-cache virtual dir")
+T.check(renderSrcBake:find("assets/fallback/pokemon_missing.png", 1, true),
+        "static fallback asset path present")
+-- Documented: never return OS absolute bake paths.
+T.check(renderSrcBake:find("never an OS absolute path", 1, true)
+        or renderSrcBake:find("LÖVE-virtual relative path", 1, true)
+        or renderSrcBake:find("virtual path", 1, true),
+        "bake path contract documented as virtual")
+
+-- Late species with no per-species sprite: test spawn SUCCEEDS via fallback.
 local missingSpawn = exports.testSpawn("PIDGEY", { level = 4 })
-T.check(missingSpawn.ok == false, "test spawn fails without pre-registered sprite")
-T.eq(missingSpawn.failedAt, 2, "fails at sprite registered step")
-T.check(tostring(missingSpawn.error):find("pre%-registered", 1) ~= nil
-        or tostring(missingSpawn.error):find("No pre%-registered", 1) ~= nil,
-        "missing sprite error is controlled")
+T.check(missingSpawn.ok == true,
+        "test spawn succeeds with fallback when real asset missing: "
+          .. tostring(missingSpawn.error))
+T.check(missingSpawn.fallbackUsed == true, "test spawn reports fallbackUsed")
+T.eq(missingSpawn.runtimeImage, "FALLBACK_LOADED", "preview runtime FALLBACK LOADED")
+T.check(missingSpawn.summary
+        and missingSpawn.summary:find("fallback", 1, true),
+        "test spawn summary mentions fallback")
+T.eq(registerCalls, 0, "fallback test spawn does not register content")
 
 -- Happy path with a species registered during mod init.
 local result = exports.testSpawn("FIXMON_A", { level = 4 })
@@ -830,6 +912,16 @@ T.check(next(mockGame.save.pokedex.seen) == nil, "test spawn does not mark seen"
 T.check(next(mockGame.save.pokedex.owned) == nil, "test spawn does not mark owned")
 T.check(mockGame.save.flags == flagsBefore, "test spawn does not replace flags table")
 
+-- Entity with fallback is registered in the world list.
+local fbEntity = nil
+for _, e in ipairs(mockOw.entities) do
+  if e.overworldWildSpawn and e.species == "PIDGEY" then fbEntity = e break end
+end
+T.check(fbEntity ~= nil, "fallback test spawn entity present in world")
+T.check(fbEntity.registeredInWorld == true, "fallback entity registeredInWorld")
+T.check(fbEntity.sprite ~= nil and fbEntity.draw ~= nil, "fallback entity has draw path")
+T.check(fbEntity.usingFallback == true, "fallback entity.usingFallback")
+
 -- Repeated test spawn must not re-register sprites.
 local result2 = exports.testSpawn("FIXMON_B", { level = 5 })
 T.check(result2.ok == true, "second test spawn succeeds: " .. tostring(result2.error))
@@ -837,6 +929,28 @@ T.eq(registerCalls, 0, "no sprites:register across test spawns after freeze")
 T.eq(overrideCalls, 0, "no sprites:override after freeze")
 T.eq(patchCalls, 0, "no sprites:patch after freeze")
 T.eq(removeCalls, 0, "no sprites:remove after freeze")
+
+-- Name sanitization: Mr. Mime / Farfetch'd style tokens.
+local mimeTok = nil
+do
+  -- exercise sanitize via candidates for a synthetic mon
+  mockGame.data.pokemon.MR_MIME = {
+    id = "MR_MIME", name = "Mr. Mime", dex = 122,
+    spriteFront = "assets/generated/battle/front/mr_mime.png",
+  }
+  local cands = exports.render:assetCandidates("MR_MIME", mockGame)
+  local hasDisplay = false
+  for _, c in ipairs(cands) do
+    if c.source == "display_name" then
+      hasDisplay = true
+      T.check(c.path:find("mrmime", 1, true), "Mr. Mime display token strips punctuation")
+    end
+    if c.source == "dex_padded" then
+      T.check(c.path:find("122.png", 1, true), "dex-padded path uses species dex")
+    end
+  end
+  T.check(hasDisplay, "Mr. Mime has sanitized display_name candidate")
+end
 
 -- Preview browser navigation / status after freeze: no registry mutation.
 exports.browser:invalidateIndex()

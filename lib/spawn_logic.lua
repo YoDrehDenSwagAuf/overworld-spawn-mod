@@ -346,16 +346,20 @@ function SpawnLogic:initializeForMap(mapId, game)
   end
   st.eligibleTilesAvailable = true
 
-  -- 6/7) Required assets + load/validate
+  -- 6/7) Required assets + load/validate (real or fallback both count)
   st.assetsLoading = true
+  if Config.devMode(self.mod) then
+    self.render.debugMarkers = true
+    self.render:auditAssets(game)
+  end
   local required, loaded = self.render:countAssets(speciesNames, game)
   st.requiredAssets = required
   st.loadedAssets = loaded
   st.assetsLoading = false
   if required > 0 and loaded == 0 then
-    -- Placeholder path still allows entity creation; mark soft asset warning.
+    -- Fallback path still allows entity creation; mark soft asset warning.
     st.assetError = nil
-    self:_log("no real overworld assets loaded; placeholder path active")
+    self:_log("no real overworld assets loaded; fallback path active")
   end
 
   -- 8) Renderer capability
@@ -505,37 +509,46 @@ function SpawnLogic:trySpawn(game, opts)
 
   local ok, entityOrErr = pcall(self.render.makeEntity, self.render, game, record)
   if not ok then
-    self:_warn("entity creation failed for %s: %s", tostring(species), tostring(entityOrErr))
-    DebugLog.error(self.mod, "Entity creation failed: %s", tostring(entityOrErr))
-    st:markError(entityOrErr)
-    st.lastSpawnError = tostring(entityOrErr)
+    local phase = "ENTITY CREATE ERROR"
+    local msg = tostring(entityOrErr)
+    if msg:find("ASSET LOAD", 1, true) then phase = "ASSET LOAD ERROR"
+    elseif msg:find("INVALID POSITION", 1, true) then phase = "INVALID POSITION"
+    elseif msg:find("SpriteRenderer", 1, true) then phase = "ENTITY CREATE ERROR"
+    end
+    self:_warn("%s for %s: %s", phase, tostring(species), msg)
+    DebugLog.error(self.mod, "%s: %s", phase, msg)
+    st:markError(phase .. ": " .. msg)
+    st.lastSpawnError = phase .. ": " .. msg
     if not opts.testSpawn then
       self:_restoreVanillaEncounters("entity creation failed")
     end
-    return nil, "entity creation failed: " .. tostring(entityOrErr)
+    return nil, phase .. ": " .. msg
   end
   local entity = entityOrErr
   if not entity then
-    st:markError("makeEntity returned nil")
-    st.lastSpawnError = "makeEntity returned nil"
+    st:markError("ENTITY CREATE ERROR: makeEntity returned nil")
+    st.lastSpawnError = "ENTITY CREATE ERROR: makeEntity returned nil"
     if not opts.testSpawn then
       self:_restoreVanillaEncounters("entity creation nil")
     end
-    return nil, "entity creation failed"
+    return nil, "ENTITY CREATE ERROR: makeEntity returned nil"
   end
-  self:_debug("Entity created id=%s", id)
+  self:_debug("Entity created id=%s fallback=%s phase=%s",
+              id, tostring(entity.usingFallback), tostring(entity.entityPhase))
 
   local attached, attachErr = self:_attach(entity)
   if not attached then
-    self:_warn("render registration failed: %s", tostring(attachErr))
-    DebugLog.error(self.mod, "Entity registration failed: %s", tostring(attachErr))
-    st:markError(attachErr)
-    st.lastSpawnError = tostring(attachErr)
+    self:_warn("WORLD REGISTER ERROR: %s", tostring(attachErr))
+    DebugLog.error(self.mod, "WORLD REGISTER ERROR: %s", tostring(attachErr))
+    st:markError("WORLD REGISTER ERROR: " .. tostring(attachErr))
+    st.lastSpawnError = "WORLD REGISTER ERROR: " .. tostring(attachErr)
     if not opts.testSpawn then
       self:_restoreVanillaEncounters("render registration failed")
     end
-    return nil, "render registration failed: " .. tostring(attachErr)
+    return nil, "WORLD REGISTER ERROR: " .. tostring(attachErr)
   end
+  if entity then entity.entityPhase = entity.usingFallback
+      and "FALLBACK LOADED" or "ENTITY REGISTERED" end
   self:_debug("Entity registered")
   self:_debug("Renderer registered")
 
@@ -603,23 +616,34 @@ function SpawnLogic:testSpawn(species, opts)
   end
   pass(1, species)
 
-  -- 2) Pre-registered sprite ID (pure lookup; no content registry writes)
-  self.render.assetInfo[species] = nil
-  self.render.runtimeImageCache[species] = nil
+  -- 2) Sprite ID lookup (species sprite or shared fallback; no registry writes)
+  self.render:invalidateAssetCache(species)
   local spriteId, spriteErr = self.render:spriteIdFor(species)
   if not spriteId then
     return fail(2, spriteErr or ("No pre-registered sprite for species " .. tostring(species)))
   end
   pass(2, spriteId)
 
-  -- 3) Runtime asset available (load/cache only — never registry mutation)
+  -- 3) Runtime asset available (real image OR fallback — never abort on missing cache)
   local runtime = self.render:getRuntimeImage(species, game)
-  if not runtime or runtime.status ~= "LOADED" then
+  local runtimeOk = runtime and (runtime.status == "LOADED"
+                              or runtime.status == "FALLBACK_LOADED")
+  if not runtimeOk then
     return fail(3, (runtime and runtime.status and ("Sprite asset could not be loaded (" .. tostring(runtime.status) .. ")"))
       or "Sprite asset could not be loaded.")
   end
   local info = self.render:assetStatusFor(species, game)
-  pass(3, runtime.kind or info.status)
+  local detail = runtime.status
+  if runtime.fallbackUsed then
+    detail = "FALLBACK_LOADED"
+  elseif runtime.kind then
+    detail = tostring(runtime.kind)
+  end
+  result.runtimeImage = detail
+  result.fallbackUsed = runtime.fallbackUsed == true
+  result.realAssetPath = info.realAssetPath
+  result.tried = info.tried
+  pass(3, detail)
 
   -- 4) Spawn tile resolved
   if not ow or not ow.map or not ow.player then
@@ -670,42 +694,57 @@ function SpawnLogic:testSpawn(species, opts)
 
   local okCreate, entityOrErr = pcall(self.render.makeEntity, self.render, game, record)
   if not okCreate then
-    DebugLog.error(self.mod, "stack/error: %s", tostring(entityOrErr))
-    return fail(5, entityOrErr)
+    DebugLog.error(self.mod, "ENTITY CREATE ERROR: %s", tostring(entityOrErr))
+    return fail(5, "ENTITY CREATE ERROR: " .. tostring(entityOrErr))
   end
   if not entityOrErr then
-    return fail(5, "makeEntity returned nil")
+    return fail(5, "ENTITY CREATE ERROR: makeEntity returned nil")
   end
   pass(5, id)
   local entity = entityOrErr
+  result.entityPhase = entity.entityPhase
+  result.fallbackUsed = entity.usingFallback == true or result.fallbackUsed
 
   -- 6) Entity registered in the world entity list
   local attached, attachErr = self:_attach(entity)
   if not attached then
-    DebugLog.error(self.mod, "Entity registration failed: %s", tostring(attachErr))
-    return fail(6, attachErr or "Entity registration returned nil.")
+    DebugLog.error(self.mod, "WORLD REGISTER ERROR: %s", tostring(attachErr))
+    return fail(6, "WORLD REGISTER ERROR: " .. tostring(attachErr or "nil"))
   end
   if not entity.sprite or not entity.pose or not entity.draw then
     self:_removeEntity(entity)
-    return fail(6, "renderer contract missing pose/draw/sprite")
+    return fail(6, "DRAW REGISTER ERROR: renderer contract missing pose/draw/sprite")
   end
   if self.render.rendererMode ~= "base" then
     self:_removeEntity(entity)
-    return fail(6, self.render.lastError or "renderer not ready")
+    return fail(6, "DRAW REGISTER ERROR: " .. tostring(self.render.lastError or "renderer not ready"))
   end
+  entity.entityPhase = result.fallbackUsed and "FALLBACK LOADED" or "ENTITY REGISTERED"
   pass(6, "registered")
 
   -- 7) Visible = registered + asset + non-zero opacity + on map.
   local opacity = Config.get(self.mod, "sprite_opacity") or 1
   if opacity <= 0 then
     self:_removeEntity(entity)
-    return fail(7, "entity fully transparent")
+    return fail(7, "OUTSIDE CAMERA: entity fully transparent")
   end
   if not entity.registeredInWorld then
     self:_removeEntity(entity)
-    return fail(7, "entity not registered in world")
+    return fail(7, "ENTITY REMOVED IMMEDIATELY: not registered in world")
   end
-  pass(7, "visible")
+  local iw, ih = 0, 0
+  if entity.sprite and entity.sprite.image and entity.sprite.image.getDimensions then
+    iw, ih = entity.sprite.image:getDimensions()
+  end
+  if iw == 0 or ih == 0 then
+    -- Headless stubs may omit dimensions; only fail when graphics can answer.
+    if love and love.graphics and entity.sprite and entity.sprite.image then
+      self:_removeEntity(entity)
+      return fail(7, "ASSET LOAD ERROR: image width/height is 0")
+    end
+  end
+  pass(7, result.fallbackUsed and "FALLBACK LOADED" or "RENDERED")
+  entity.entityPhase = result.fallbackUsed and "FALLBACK LOADED" or "RENDERED"
 
   self.spawns[id] = record
   self.entities[id] = entity
@@ -726,8 +765,12 @@ function SpawnLogic:testSpawn(species, opts)
   result.x, result.y = x, y
   result.level = level
   result.id = id
+  result.summary = result.fallbackUsed
+    and "TEST SPAWN SUCCESS — Rendering with fallback sprite"
+    or "TEST SPAWN SUCCESS — Rendering with real sprite"
   self.lastTestSpawn = result
-  self:_log("Test spawn OK species=%s at (%d,%d)", tostring(species), x, y)
+  self:_log("Test spawn OK species=%s at (%d,%d) fallback=%s",
+            tostring(species), x, y, tostring(result.fallbackUsed))
   return result
 end
 
