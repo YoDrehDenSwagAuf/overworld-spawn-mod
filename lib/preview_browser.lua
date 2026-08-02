@@ -61,6 +61,12 @@ local function allSpecies(mod, game)
       add(id, mon)
     end
   end
+  -- Also surface follow-mapped species (including >151) for the preview browser.
+  if mod._owwildFollowPreviewRows then
+    for _, row in ipairs(mod._owwildFollowPreviewRows) do
+      add(row.id, { name = row.name, dex = row.dex })
+    end
+  end
   table.sort(rows, function(a, b)
     if a.dex ~= b.dex then return a.dex < b.dex end
     return a.id < b.id
@@ -89,6 +95,7 @@ function PreviewBrowser.new(mod, logic)
     direction = "down",
     frameIndex = 1,
     elapsed = 0,
+    variant = "normal",
   }
   return self
 end
@@ -190,13 +197,36 @@ function PreviewBrowser:_openDetail(game, speciesId)
 
   local runtimeLabel
   if enh.available then
-    runtimeLabel = "ENHANCED ATLAS"
+    runtimeLabel = "FOLLOW_SPRITES"
   elseif info.fallbackUsed then
     runtimeLabel = "FALLBACK LOADED"
   elseif info.realAssetLoaded then
     runtimeLabel = "REAL ASSET LOADED"
   else
     runtimeLabel = tostring(info.runtimeStatus or info.status)
+  end
+
+  local selectedVariant = (self._preview and self._preview.variant) or "normal"
+  local hasNormal = render.animated
+    and dexId
+    and render.animated:hasVariant(dexId, "normal")
+  local hasShiny = render.animated
+    and dexId
+    and render.animated:hasVariant(dexId, "shiny")
+  local vm = render.animated
+    and dexId
+    and render.animated:getVariantMapping(dexId, selectedVariant)
+  local fallbackSource = "FOLLOW_SPRITES"
+  if not enh.available then
+    if info.fallbackUsed then
+      fallbackSource = "BLACK_FALLBACK"
+    elseif info.realAssetLoaded then
+      fallbackSource = "LEGACY_PNG"
+    else
+      fallbackSource = tostring(info.spriteSource or "NONE")
+    end
+  elseif selectedVariant == "shiny" and not hasShiny and hasNormal then
+    fallbackSource = "FOLLOW_NORMAL (shiny missing)"
   end
 
   local spawnSupported = info.entityReady == true
@@ -206,10 +236,15 @@ function PreviewBrowser:_openDetail(game, speciesId)
     { label = "SPECIES ID", right = tostring(speciesId) },
     { label = "DEX / SPECIESID", right = tostring(dexId or "?") },
     { label = "LOCALIZED NAME", right = tostring(mon.name or speciesId) },
-    { label = "MAPPING NAME", right = tostring((mapping and mapping.speciesName) or "(n/a)") },
-    { label = "MAPPING FILE", right = tostring(enh.fileName or AnimatedSprites.mappingFileName(dexId or 0)) },
+    { label = "FOLLOW NORMAL", right = hasNormal and "YES" or "NO" },
+    { label = "FOLLOW SHINY", right = hasShiny and "YES" or "NO" },
+    { label = "SELECTED VARIANT", right = tostring(selectedVariant):upper() },
+    { label = "IMAGE FILE", right = tostring((vm and vm.fileName) or "(n/a)") },
+    { label = "IMAGE SIZE", right = vm and string.format("%dx%d", vm.imageWidth or 0, vm.imageHeight or 0) or "?" },
+    { label = "TILE SIZE", right = vm and string.format("%dx%d", vm.cellWidth or 0, vm.cellHeight or 0) or "?" },
     { label = "MAPPING STATUS", right = tostring(enh.status or "?") },
-    { label = "ATLAS LOADED", right = (render.animated and render.animated:isReady()) and "YES" or "NO" },
+    { label = "FOLLOW READY", right = (render.animated and render.animated:isReady()) and "YES" or "NO" },
+    { label = "FALLBACK SOURCE", right = fallbackSource },
     { label = "LEGACY PNG", right = info.realAssetLoaded and "YES" or "NO" },
     { label = "BLACK FALLBACK", right = info.fallbackAvailable and "YES" or "NO" },
     { label = "CURRENT SOURCE", right = tostring(info.spriteSource or runtimeLabel) },
@@ -227,10 +262,28 @@ function PreviewBrowser:_openDetail(game, speciesId)
     { label = "POKEDEX OWN", right = tostring(owned) .. " (diag)" },
   }
 
+  items[#items + 1] = {
+    label = "VARIANT: NORMAL",
+    right = selectedVariant == "normal" and "*" or "",
+    onSelect = function()
+      self._preview.variant = "normal"
+      mod.ui.push(game, PreviewBrowser.DETAIL, speciesId)
+    end,
+  }
+  items[#items + 1] = {
+    label = "VARIANT: SHINY",
+    right = selectedVariant == "shiny" and "*" or "",
+    onSelect = function()
+      self._preview.variant = "shiny"
+      mod.ui.push(game, PreviewBrowser.DETAIL, speciesId)
+    end,
+  }
+
   if mapping and mapping.valid then
+    local vmap = vm or mapping
     for _, anim in ipairs(PREVIEW_ANIMS) do
       for _, dir in ipairs(PREVIEW_DIRS) do
-        local frames = mapping[anim] and mapping[anim][dir] or {}
+        local frames = vmap[anim] and vmap[anim][dir] or {}
         items[#items + 1] = {
           label = (anim .. " " .. dir):upper(),
           right = tostring(#frames) .. " fr",
@@ -244,7 +297,7 @@ function PreviewBrowser:_openDetail(game, speciesId)
       }
     end
   elseif Config.useAnimatedOverworldSprites(mod) then
-    items[#items + 1] = { label = "Enhanced sprite unavailable" }
+    items[#items + 1] = { label = "Follow sprite unavailable" }
     if info.fallbackUsed then
       items[#items + 1] = { label = "Using black fallback sprite" }
     else
@@ -277,7 +330,7 @@ function PreviewBrowser:_openDetail(game, speciesId)
   if info.fallbackUsed then
     items[#items + 1] = { label = "RESULT", right = "Fallback loaded" }
   elseif enh.available then
-    items[#items + 1] = { label = "RESULT", right = "Enhanced atlas" }
+    items[#items + 1] = { label = "RESULT", right = "Follow sprites" }
   elseif info.realAssetLoaded then
     items[#items + 1] = { label = "RESULT", right = "Real asset loaded" }
   elseif info.lastError then
@@ -311,6 +364,7 @@ function PreviewBrowser:_openDetail(game, speciesId)
         self._preview.direction = "down"
         self._preview.frameIndex = 1
         self._preview.elapsed = 0
+        self._preview.variant = self._preview.variant or "normal"
         mod.ui.push(game, PreviewBrowser.ANIM, speciesId)
       end,
     }
@@ -343,7 +397,7 @@ function PreviewBrowser:_openDetail(game, speciesId)
                       result.x or 0, result.y or 0,
                       tostring(result.runtimeImage or runtimeLabel))
           if result.entity and result.entity.usingEnhancedSprite then
-            msg = msg .. "\nSprite source: ENHANCED_ATLAS"
+            msg = msg .. "\nSprite source: FOLLOW_SPRITES"
           elseif result.fallbackUsed then
             msg = msg .. "\nRendering with fallback sprite"
           else
@@ -399,12 +453,13 @@ function PreviewBrowser:_openAnimPreview(game, speciesId)
   local browser = self
 
   local function frameInfo()
+    local variant = browser._preview.variant or "normal"
     if not animated or not dexId then
       return { count = 0, w = 0, h = 0, idx = 1, cells = "?" }
     end
     local frame, count, idx = animated:getFrame(
       dexId, browser._preview.anim, browser._preview.direction,
-      browser._preview.frameIndex)
+      browser._preview.frameIndex, variant)
     return {
       count = count or 0,
       w = frame and frame.width or 0,
@@ -412,6 +467,7 @@ function PreviewBrowser:_openAnimPreview(game, speciesId)
       idx = idx or 1,
       frame = frame,
       cells = frame and string.format("%dx%d", frame.widthCells, frame.heightCells) or "?",
+      variant = variant,
     }
   end
 
@@ -420,7 +476,7 @@ function PreviewBrowser:_openAnimPreview(game, speciesId)
   local items = {
     { label = "SPECIES ID", right = tostring(dexId or "?") },
     { label = "LOCALIZED", right = tostring(mon.name or speciesId) },
-    { label = "MAPPING NAME", right = tostring((mapping and mapping.speciesName) or "") },
+    { label = "VARIANT", right = tostring(browser._preview.variant or "normal"):upper() },
     { label = "ANIMATION", right = browser._preview.anim:upper() },
     { label = "DIRECTION", right = browser._preview.direction:upper() },
     { label = "FRAME", right = string.format("%d / %d", fi.idx, math.max(1, fi.count)) },
@@ -429,6 +485,24 @@ function PreviewBrowser:_openAnimPreview(game, speciesId)
     { label = "CELLS WxH", right = fi.cells },
     { label = "RENDERED", right = string.format("%dx%d", fi.w, fi.h) },
     { label = "FALLBACK", right = tostring(enh.status) },
+    {
+      label = "VARIANT NORMAL",
+      onSelect = function()
+        browser._preview.variant = "normal"
+        browser._preview.frameIndex = 1
+        browser._preview.elapsed = 0
+        mod.ui.push(game, PreviewBrowser.ANIM, speciesId)
+      end,
+    },
+    {
+      label = "VARIANT SHINY",
+      onSelect = function()
+        browser._preview.variant = "shiny"
+        browser._preview.frameIndex = 1
+        browser._preview.elapsed = 0
+        mod.ui.push(game, PreviewBrowser.ANIM, speciesId)
+      end,
+    },
     {
       label = "PREVIEW GRASS",
       right = (browser._preview.grassOcclusion and "IMMERSED") or "ABOVE",
@@ -479,9 +553,12 @@ function PreviewBrowser:_openAnimPreview(game, speciesId)
         if item and item.onSelect then item.onSelect() end
       end,
       present = function(canvas, ctx)
-        if not (love and love.graphics and animated and animated.atlasImage and dexId) then
+        local variant = browser._preview.variant or "normal"
+        if not (love and love.graphics and animated and dexId) then
           return canvas
         end
+        local img = animated:getImage(dexId, variant)
+        if not img or img._owwildStub then return canvas end
         local dt = (ctx and ctx.dt) or (1 / 60)
         local moving = browser._preview.anim == "walk"
         local state = {
@@ -492,6 +569,7 @@ function PreviewBrowser:_openAnimPreview(game, speciesId)
           frameDuration = moving and AnimatedSprites.WALK_FRAME_DURATION
                           or AnimatedSprites.IDLE_FRAME_DURATION,
           usingEnhancedSprite = true,
+          variant = variant,
         }
         animated:updateAnimation(state, dexId, dt, moving, browser._preview.direction)
         browser._preview.frameIndex = state.frameIndex
@@ -499,10 +577,10 @@ function PreviewBrowser:_openAnimPreview(game, speciesId)
 
         local frame = animated:getFrame(
           dexId, browser._preview.anim, browser._preview.direction,
-          browser._preview.frameIndex)
+          browser._preview.frameIndex, variant)
         local quad = animated:getQuad(
           dexId, browser._preview.anim, browser._preview.direction,
-          browser._preview.frameIndex)
+          browser._preview.frameIndex, variant)
         if not frame or not quad or quad._owwildStub then return canvas end
 
         love.graphics.push("all")
@@ -515,10 +593,8 @@ function PreviewBrowser:_openAnimPreview(game, speciesId)
         love.graphics.setColor(0, 0, 0, 0.55)
         love.graphics.rectangle("fill", x - 4, y - 4, dw + 8, dh + 8)
         love.graphics.setColor(1, 1, 1, 1)
-        if animated.atlasImage.setFilter then
-          animated.atlasImage:setFilter("nearest", "nearest")
-        end
-        love.graphics.draw(animated.atlasImage, quad, x, y, 0, scale, scale)
+        if img.setFilter then img:setFilter("nearest", "nearest") end
+        love.graphics.draw(img, quad, x, y, 0, scale, scale)
         if browser._preview.grassOcclusion then
           local GrassOcclusion = V.require("grass_occlusion")
           local cover = GrassOcclusion.computeOcclusionHeight(frame.height) * scale

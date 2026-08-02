@@ -165,7 +165,7 @@ function VoxelAdapter:markFallback(entity, err)
   entity.grassRenderer = "EMERGENCY_OVERLAY"
   -- Asset source stays ENHANCED when that was the intended presentation.
   if entity.usingEnhancedSprite then
-    entity.spriteSource2D = "ENHANCED_ATLAS"
+    entity.spriteSource2D = "FOLLOW_SPRITES"
   end
   pcall(DebugLog.warn, self.mod,
     "World billboard failed for %s; spatial overlay emergency. (%s)",
@@ -196,7 +196,7 @@ function VoxelAdapter:updateEntity(entity)
   self.voxelActive = active
 
   entity.spriteSource2D = entity.spriteSource
-    or (entity.usingEnhancedSprite and "ENHANCED_ATLAS")
+    or (entity.usingEnhancedSprite and "FOLLOW_SPRITES")
     or (entity.usingFallback and "BLACK_FALLBACK")
     or "LEGACY_PNG"
   entity.voxelScale = 1

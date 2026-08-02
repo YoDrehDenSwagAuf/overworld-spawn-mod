@@ -104,6 +104,29 @@ foreach ($name in $names) {
       $name -eq "ARCHITECTURE.md") {
     throw "ZIP contains forbidden path: $name"
   }
+  # Commercial Anima atlas must never be packaged.
+  if ($name -eq "assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png" -or
+      $name -like "*/POKEMON 1.png") {
+    throw "ERROR: old commercial POKEMON 1.png is included: $name"
+  }
+}
+
+$requiredFollow = @(
+  "assets/enhanced_overworld/followsprites_mapping/followsprites_mapping.json"
+)
+foreach ($req in $requiredFollow) {
+  if ($names -notcontains $req) {
+    throw "ZIP missing required follow-sprite asset: $req"
+  }
+}
+$followPng = @($names | Where-Object {
+  $_ -like "assets/enhanced_overworld/followsprites/*.png" -or
+  $_ -like "assets/enhanced_overworld/followsprites/*.PNG"
+})
+if ($followPng.Count -lt 1) {
+  Write-Warning "ZIP contains no follow-sprite PNGs (license/local-import mode?)"
+} else {
+  Write-Host ("  follow-sprite PNGs: {0}" -f $followPng.Count)
 }
 
 $IdVersioned = Join-Path $Dist ("{0}-{1}.zip" -f $manifest.id, $manifest.version)

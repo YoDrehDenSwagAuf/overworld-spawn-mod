@@ -1,4 +1,4 @@
-# Architecture — Wilds of Kanto 0.5.6
+# Architecture — Wilds of Kanto 0.6.0
 
 Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
@@ -10,9 +10,9 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `options.lua` | Mod Manager schema |
 | `lib/config.lua` | Defaults + option helpers |
 | `lib/json_decode.lua` | Minimal JSON decoder for mappings |
-| `lib/animated_sprites.lua` | Atlas + 151 JSON load, quads, animation, card cache |
+| `lib/animated_sprites.lua` | Follow-sprite mapping, lazy images/quads, animation, card cache |
 | `lib/enhanced_world_sprite.lua` | Stable DS SpriteRenderer-compatible adapter |
-| `lib/tile.lua` | Gen1Recomp tile size (16×16) |
+| `lib/tile.lua` | Gen1Recomp tile size (16x16) |
 | `lib/movement.lua` | Central tile-step movement |
 | `lib/grass_occlusion.lua` | Flat feet-overdraw + above-lift helpers |
 | `lib/voxel_adapter.lua` | DS hooks; emergency overlay filter |
@@ -42,19 +42,19 @@ ground = groundAt(map, e.cellX, e.cellY)
 sprite must provide: def + resolveImage() → love Image
 ```
 
-Entity billboards are **fixed 16×16** meshes. Atlas+Quad is not accepted.
-Wilds supplies cached 16×16 card Images; DS owns depth, grass mesh, occlusion.
+Entity billboards are **fixed 16x16** meshes. Sheet+Quad is not accepted by DS.
+Wilds supplies cached 16x16 card Images; DS owns depth, grass mesh, occlusion.
 
 ## Flat vs Voxel presentation
 
 ```text
 FLAT (no Dramatic Shape / voxel off)
-  Entity:draw → atlas quad (native size) or legacy PNG
+  Entity:draw → follow-sprite quad (native tile size) or legacy PNG
 
 VOXEL (Dramatic Shape drawWorld active)
   Wild entities stay in ow.entities
   pose() → EnhancedWorldSprite (stable)
-  resolveImage() → cached 16×16 atlas card
+  resolveImage() → cached 16x16 follow-sprite card
   VoxelScene SpriteBillboards → depth + object occlusion + native grass
   ctx.drawFx → alert emotes; Pokemon BODY only if SPATIAL_OVERLAY_EMERGENCY
 ```
@@ -70,22 +70,25 @@ Primary Pokemon renderer: `WORLD_BILLBOARD_ENHANCED`.
 
 No custom grass color/mask on the success world-billboard path.
 
-## Animated sprites
+## Follow-sprites
 
-- Atlas: `assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png`
-- Mappings: `assets/enhanced_overworld/pokedex_mapping/pokemon_%03d_project.json`
+- PNGs: `assets/enhanced_overworld/followsprites/{id}-{form}-{n|s}.png`
+- Mapping: `assets/enhanced_overworld/followsprites_mapping/followsprites_mapping.json`
 - Identity: numeric speciesId / dex only
+- Layout: rows = directions, columns = frames (verified)
 - Shared animation state: `BehaviorTick` → `syncEntityAnimation`
 - `animation.renderRevision` increments only on visible changes
-- Card cache key: `speciesId:anim:direction:frameIndex:w:h`
+- Image cache: `speciesId:variant`; quad/card: `speciesId:variant:anim:dir:frame:...`
 - UV carrier asset: `assets/runtime/dynamic_billboard_base.png`
+- Runtime shiny: NOT AVAILABLE (preview may force shiny)
 
 ## Non-negotiables
 
-- No Pokédex gate for spawns
+- No Pokedex gate for spawns
 - No player teleport
 - Battle starts exactly once per encounter
 - No content-registry mutation after load
-- Hidden encounters never show Pokemon atlas sprites
-- Valid atlas frames are never replaced by Legacy because Voxel is on
+- Hidden encounters never show Pokemon follow-sprites
+- Valid follow-sprites are never replaced by Legacy because Voxel is on
 - Legacy SpriteRenderer is never mutated for the enhanced voxel path
+- Commercial Anima atlas PNG must not be packaged

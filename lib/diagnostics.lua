@@ -151,13 +151,30 @@ function Diagnostics.entityDetail(logic, entity, record)
   end
   lines[#lines + 1] = ("Sprite source: %s"):format(
     tostring(entity.spriteSource2D or entity.spriteSource
-      or (entity.usingEnhancedSprite and "ENHANCED_ATLAS")
+      or (entity.usingEnhancedSprite and "FOLLOW_SPRITES")
       or (entity.usingFallback and "BLACK_FALLBACK") or "LEGACY_PNG"))
   -- Requested/Actual renderer lines come from VoxelAdapter.statusLines
   -- via RenderDiagnostics (honest counters).
   if entity.animation and entity.usingEnhancedSprite then
     local anim = entity.animation
     local frameCount = anim._lastFrameCount or "?"
+    local variant = tostring(anim.variant or entity.spriteVariant or "normal"):upper()
+    lines[#lines + 1] = ("Sprite system: %s"):format(
+      tostring(anim.source or entity.spriteSource2D or "FOLLOW_SPRITES"))
+    lines[#lines + 1] = ("Variant: %s"):format(variant)
+    local AnimatedSprites = V.require("animated_sprites")
+    lines[#lines + 1] = ("Runtime shiny support: %s"):format(
+      tostring(AnimatedSprites.RUNTIME_SHINY_SUPPORT))
+    if AnimatedSprites.RUNTIME_SHINY_SUPPORT ~= "AVAILABLE" then
+      lines[#lines + 1] = "Using variant: NORMAL"
+    end
+    if entity.enhancedDexId and logic and logic.render and logic.render.animated then
+      local vm = logic.render.animated:getVariantMapping(
+        entity.enhancedDexId, anim.variant or entity.spriteVariant or "normal")
+      if vm and vm.fileName then
+        lines[#lines + 1] = ("Image file: %s"):format(tostring(vm.fileName))
+      end
+    end
     lines[#lines + 1] = ("Animation: %s"):format(
       tostring(anim.type or anim.name or "?"):upper())
     lines[#lines + 1] = ("Direction: %s"):format(tostring(anim.direction or "?"):upper())
@@ -307,7 +324,7 @@ function Diagnostics.hudLines(logic)
   local animated = render and render.animated
   if animated then
     local sum = animated:summary()
-    lines[#lines + 1] = ("Animated atlas: %s"):format(animated:statusLabel())
+    lines[#lines + 1] = ("Follow sprites: %s"):format(animated:statusLabel())
     lines[#lines + 1] = ("Mapping files found: %d"):format(sum.mappingFilesFound or 0)
     lines[#lines + 1] = ("Valid mappings: %d"):format(sum.validSpeciesCount or 0)
     lines[#lines + 1] = ("Partial mappings: %d"):format(sum.partialSpeciesCount or 0)

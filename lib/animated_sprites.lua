@@ -1,27 +1,26 @@
--- Animated overworld Pokemon sprites from a shared atlas + per-species JSON.
+-- Follow-sprite overworld Pokemon: one PNG per species/variant (normal/shiny).
 --
 -- Identity = numeric National Pokedex / speciesId (never localized names).
--- Display names (JSON speciesName or game localization) are UI/logging only.
---
--- Load once at mod init. No content-registry mutation. Quads live in a
--- mod-owned cache only.
+-- Shared mapping JSON + lazy per-species image/quad caches.
+-- Old Anima atlas path is intentionally unused at runtime.
 local V = ...
 local Config = V.require("config")
 local JsonDecode = V.require("json_decode")
 local Tile = V.require("tile")
-local DebugLog = V.require("debug_log")
 
 local AnimatedSprites = {}
 AnimatedSprites.__index = AnimatedSprites
 
 local CELL = Tile.CELL
-local MAX_SPECIES = 151
+local MAX_SPECIES_GAME = 151
 
--- Discovered asset layout (repo-relative, LÖVE virtual paths via mod.assets).
-AnimatedSprites.ATLAS_REL = "assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png"
-AnimatedSprites.ATLAS_FILENAME = "POKEMON 1.png"
-AnimatedSprites.MAPPING_DIR = "assets/enhanced_overworld/pokedex_mapping"
-AnimatedSprites.MAPPING_PATTERN = "pokemon_%03d_project.json"
+AnimatedSprites.MAPPING_REL =
+  "assets/enhanced_overworld/followsprites_mapping/followsprites_mapping.json"
+AnimatedSprites.SPRITE_DIR = "assets/enhanced_overworld/followsprites"
+-- Legacy Anima atlas kept on disk / gitignored; not a runtime source.
+AnimatedSprites.LEGACY_ATLAS_REL =
+  "assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png"
+AnimatedSprites.LEGACY_MAPPING_DIR = "assets/enhanced_overworld/pokedex_mapping"
 
 AnimatedSprites.STATUS = {
   ENHANCED_READY = "ENHANCED_READY",
@@ -34,7 +33,9 @@ AnimatedSprites.STATUS = {
   DISABLED = "DISABLED",
 }
 
--- Facing values that exist in this mod / Gen1Recomp NPC path.
+AnimatedSprites.RUNTIME_SHINY_SUPPORT = "NOT_AVAILABLE"
+AnimatedSprites.SOURCE_FOLLOW = "FOLLOW_SPRITES"
+
 local FACING_MAP = {
   front = "down",
   down = "down",
@@ -50,15 +51,13 @@ local FACING_MAP = {
 
 local DIRECTIONS = { "down", "up", "left", "right" }
 local CORE_ANIMS = { "idle", "walk" }
-local EXTRA_ANIMS = { "fly", "follow", "surf" }
 
--- Central animation speeds (seconds per frame).
 AnimatedSprites.IDLE_FPS = 3
 AnimatedSprites.WALK_FPS = 7
 AnimatedSprites.IDLE_FRAME_DURATION = 1 / AnimatedSprites.IDLE_FPS
 AnimatedSprites.WALK_FRAME_DURATION = 1 / AnimatedSprites.WALK_FPS
--- Voxel billboards are always 16×16 cards (DramaticShape SpriteBillboards).
 AnimatedSprites.VOXEL_CARD = 16
+AnimatedSprites.BILLBOARD_CARD = 16
 
 function AnimatedSprites.normalizeFacing(facing)
   if facing == nil then return "down" end
@@ -66,20 +65,26 @@ function AnimatedSprites.normalizeFacing(facing)
   return FACING_MAP[key] or "down"
 end
 
-function AnimatedSprites.mappingFileName(speciesId)
-  return string.format(AnimatedSprites.MAPPING_PATTERN, tonumber(speciesId) or 0)
+function AnimatedSprites.normalizeVariant(variant)
+  if variant == true or variant == "shiny" or variant == "s" or variant == "SHINY" then
+    return "shiny"
+  end
+  return "normal"
 end
 
-function AnimatedSprites.mappingRelPath(speciesId)
-  return AnimatedSprites.MAPPING_DIR .. "/" .. AnimatedSprites.mappingFileName(speciesId)
+-- Compatibility aliases for older call sites / tests.
+function AnimatedSprites.mappingFileName(_speciesId)
+  return "followsprites_mapping.json"
 end
 
--- Resolve numeric National Pokedex / speciesId from a game species key.
--- NEVER uses localized display names for lookup.
+function AnimatedSprites.mappingRelPath(_speciesId)
+  return AnimatedSprites.MAPPING_REL
+end
+
 function AnimatedSprites.resolveSpeciesId(speciesKey, game, mod)
   if speciesKey == nil then return nil end
   local n = tonumber(speciesKey)
-  if n and n >= 1 and n <= MAX_SPECIES and math.floor(n) == n then
+  if n and n >= 1 and math.floor(n) == n then
     return math.floor(n)
   end
 
@@ -99,6 +104,24 @@ function AnimatedSprites.resolveSpeciesId(speciesKey, game, mod)
   return nil
 end
 
+-- Gen1 / Gen1Recomp wild spawns currently have no reliable pre-battle shiny flag.
+-- Do not invent random shinies for the overworld. Preview may force shiny.
+function AnimatedSprites.resolveRuntimeVariant(entity, opts)
+  opts = opts or {}
+  if opts.forceVariant then
+    return AnimatedSprites.normalizeVariant(opts.forceVariant)
+  end
+  if entity and entity.previewForceVariant then
+    return AnimatedSprites.normalizeVariant(entity.previewForceVariant)
+  end
+  if AnimatedSprites.RUNTIME_SHINY_SUPPORT == "AVAILABLE" then
+    if entity and (entity.isShiny == true or entity.shiny == true) then
+      return "shiny"
+    end
+  end
+  return "normal"
+end
+
 local function emptyAnimDirs()
   return { down = {}, up = {}, left = {}, right = {} }
 end
@@ -106,10 +129,10 @@ end
 local function framePixelRect(frame, cellW, cellH)
   local col = tonumber(frame.col)
   local row = tonumber(frame.row)
-  local wCells = tonumber(frame.w)
-  local hCells = tonumber(frame.h)
-  if not col or not row or not wCells or not hCells then
-    return nil, "frame missing col/row/w/h"
+  local wCells = tonumber(frame.w) or 1
+  local hCells = tonumber(frame.h) or 1
+  if not col or not row then
+    return nil, "frame missing col/row"
   end
   if col < 0 or row < 0 or wCells <= 0 or hCells <= 0 then
     return nil, "frame has negative or non-positive geometry"
@@ -135,11 +158,11 @@ local function countFrames(animTable)
   return n
 end
 
-local function missingCoreDirs(mapping)
+local function missingCoreDirs(entry)
   local missing = {}
   for _, anim in ipairs(CORE_ANIMS) do
     for _, dir in ipairs(DIRECTIONS) do
-      local list = mapping[anim] and mapping[anim][dir]
+      local list = entry[anim] and entry[anim][dir]
       if type(list) ~= "table" or #list == 0 then
         missing[#missing + 1] = anim .. "." .. dir
       end
@@ -148,15 +171,35 @@ local function missingCoreDirs(mapping)
   return missing
 end
 
+local function deepCopyAnimTemplate(template)
+  local out = emptyAnimDirs()
+  if type(template) ~= "table" then return out end
+  for _, dir in ipairs(DIRECTIONS) do
+    local src = template[dir]
+    local dest = {}
+    if type(src) == "table" then
+      for i, fr in ipairs(src) do
+        dest[i] = {
+          col = fr.col, row = fr.row,
+          w = fr.w or 1, h = fr.h or 1,
+        }
+      end
+    end
+    out[dir] = dest
+  end
+  return out
+end
+
 function AnimatedSprites.new(mod)
   local self = setmetatable({}, AnimatedSprites)
   self.mod = mod
-  self.atlasImage = nil
-  self.atlasPath = nil
-  self.atlasWidth = 0
-  self.atlasHeight = 0
+  self.mappingRoot = nil
+  self.layout = nil
+  self.animTemplate = nil
+  self.rawSpecies = {}
   self.mappingsBySpeciesId = {}
-  self.quadCache = {}
+  self.imageCache = {}       -- "speciesId:variant" -> Image|stub
+  self.quadCache = {}        -- "speciesId:variant:anim:dir:frame"
   self.voxelCardCache = {}
   self.billboardCache = {}
   self.voxelCacheHits = 0
@@ -169,9 +212,15 @@ function AnimatedSprites.new(mod)
   self.missingSpeciesCount = 0
   self.mappingFilesFound = 0
   self.loaded = false
-  self.atlasReady = false
+  self.atlasReady = false -- kept for API compat (= mapping ready)
+  self.mappingReady = false
   self.error = nil
   self._fallbackLogged = {}
+  self._mappingWarnLogged = false
+  -- Compat: some callers still read atlasImage; prefer getImage().
+  self.atlasImage = nil
+  self.atlasWidth = 0
+  self.atlasHeight = 0
   return self
 end
 
@@ -213,49 +262,11 @@ function AnimatedSprites:_readText(rel)
   return nil
 end
 
-function AnimatedSprites:_loadAtlas()
-  self:_notice("Loading animated Pokemon atlas")
-  local rel = AnimatedSprites.ATLAS_REL
-  local path = self:_modPath(rel)
-  self.atlasPath = path or rel
-
-  if not (love and love.graphics and love.graphics.newImage) then
-    -- Headless / test: mark atlas metadata-ready without Image userdata.
-    self.atlasWidth = 1536
-    self.atlasHeight = 480
-    self.atlasReady = true
-    self.atlasImage = nil
-    self:_notice("Atlas stubbed for headless load (%dx%d)", self.atlasWidth, self.atlasHeight)
-    return true
-  end
-
-  local ok, imageOrErr = pcall(love.graphics.newImage, path or rel)
-  if not ok or not imageOrErr then
-    self.error = "atlas load failed: " .. tostring(imageOrErr)
-    self.atlasReady = false
-    self:_error("%s", self.error)
-    return false
-  end
-  if imageOrErr.setFilter then
-    imageOrErr:setFilter("nearest", "nearest")
-  end
-  local w, h = imageOrErr:getDimensions()
-  self.atlasImage = imageOrErr
-  self.atlasWidth = w or 0
-  self.atlasHeight = h or 0
-  self.atlasReady = self.atlasWidth > 0 and self.atlasHeight > 0
-  if self.atlasReady then
-    self:_notice("Atlas loaded: %dx%d", self.atlasWidth, self.atlasHeight)
-  else
-    self.error = "atlas has invalid dimensions"
-    self:_error("%s", self.error)
-  end
-  return self.atlasReady
-end
-
-function AnimatedSprites:_normalizeFrames(rawList, cellW, cellH, errors)
+function AnimatedSprites:_normalizeFrames(rawList, cellW, cellH, errors, imageW, imageH)
   local out = {}
   if type(rawList) ~= "table" then return out end
+  local maxW = imageW or self.atlasWidth or 0
+  local maxH = imageH or self.atlasHeight or 0
   for _, raw in ipairs(rawList) do
     if type(raw) == "table" then
       local fr, err = framePixelRect(raw, cellW, cellH)
@@ -264,11 +275,11 @@ function AnimatedSprites:_normalizeFrames(rawList, cellW, cellH, errors)
       else
         local x2 = fr.x + fr.width
         local y2 = fr.y + fr.height
-        if fr.x < 0 or fr.y < 0
-           or x2 > self.atlasWidth or y2 > self.atlasHeight then
+        if maxW > 0 and maxH > 0
+           and (fr.x < 0 or fr.y < 0 or x2 > maxW or y2 > maxH) then
           errors[#errors + 1] = string.format(
-            "frame out of atlas bounds col=%s row=%s w=%s h=%s",
-            tostring(raw.col), tostring(raw.row), tostring(raw.w), tostring(raw.h))
+            "frame out of image bounds col=%s row=%s",
+            tostring(raw.col), tostring(raw.row))
         else
           out[#out + 1] = fr
         end
@@ -278,32 +289,18 @@ function AnimatedSprites:_normalizeFrames(rawList, cellW, cellH, errors)
   return out
 end
 
-function AnimatedSprites:_validateSourceSheet(sourceSheet)
-  if type(sourceSheet) ~= "string" or sourceSheet == "" then
-    return false, "missing sourceSheet"
-  end
-  local expected = AnimatedSprites.ATLAS_FILENAME
-  if sourceSheet == expected then return true end
-  if sourceSheet:lower() == expected:lower() then
-    -- Case differs — treat as invalid on case-sensitive platforms.
-    return false, string.format(
-      "sourceSheet case mismatch file=%s expected=%s", sourceSheet, expected)
-  end
-  return false, string.format(
-    "sourceSheet mismatch file=%s expected=%s", sourceSheet, expected)
-end
-
-function AnimatedSprites:_loadOneMapping(speciesId)
-  local fileName = AnimatedSprites.mappingFileName(speciesId)
-  local rel = AnimatedSprites.mappingRelPath(speciesId)
+function AnimatedSprites:_buildVariantEntry(speciesId, variantName, rawVariant, animTemplate)
   local entry = {
     speciesId = speciesId,
+    variant = variantName,
     speciesName = nil,
-    fileName = fileName,
-    relPath = rel,
-    cellWidth = 16,
-    cellHeight = 16,
-    sourceSheet = nil,
+    fileName = rawVariant and rawVariant.file or nil,
+    relPath = (rawVariant and (rawVariant.path or rawVariant.relPath)) or nil,
+    form = rawVariant and rawVariant.form or nil,
+    cellWidth = tonumber(rawVariant and rawVariant.tileWidth) or 0,
+    cellHeight = tonumber(rawVariant and rawVariant.tileHeight) or 0,
+    imageWidth = tonumber(rawVariant and rawVariant.imageWidth) or 0,
+    imageHeight = tonumber(rawVariant and rawVariant.imageHeight) or 0,
     idle = emptyAnimDirs(),
     walk = emptyAnimDirs(),
     fly = emptyAnimDirs(),
@@ -317,77 +314,46 @@ function AnimatedSprites:_loadOneMapping(speciesId)
     usableFrameCount = 0,
   }
 
-  local text = self:_readText(rel)
-  if not text then
-    entry.status = AnimatedSprites.STATUS.MAPPING_MISSING
-    entry.errors[#entry.errors + 1] = "mapping file missing"
-    return entry
-  end
-  self.mappingFilesFound = self.mappingFilesFound + 1
-
-  local data, err = JsonDecode.decode(text)
-  if not data then
-    entry.status = AnimatedSprites.STATUS.MAPPING_INVALID
-    entry.errors[#entry.errors + 1] = "json decode: " .. tostring(err)
+  if not rawVariant then
+    entry.errors[#entry.errors + 1] = variantName .. " variant missing"
     return entry
   end
 
-  local jsonId = tonumber(data.speciesId)
-  if not jsonId or math.floor(jsonId) ~= speciesId then
+  if entry.cellWidth <= 0 or entry.cellHeight <= 0 then
     entry.status = AnimatedSprites.STATUS.MAPPING_INVALID
-    entry.errors[#entry.errors + 1] = string.format(
-      "Mapping ID mismatch: file=%s filenameSpeciesId=%d jsonSpeciesId=%s",
-      fileName, speciesId, tostring(data.speciesId))
-    self:_warn(
-      "Mapping ID mismatch: file=%s filenameSpeciesId=%d jsonSpeciesId=%s fallback=LEGACY_PNG",
-      fileName, speciesId, tostring(data.speciesId))
+    entry.errors[#entry.errors + 1] = "tileWidth/tileHeight must be > 0"
     return entry
   end
-
-  entry.speciesName = data.speciesName -- display / logging only
-  entry.sourceSheet = data.sourceSheet
-  local sheetOk, sheetErr = self:_validateSourceSheet(data.sourceSheet)
-  if not sheetOk then
+  if entry.imageWidth <= 0 or entry.imageHeight <= 0 then
     entry.status = AnimatedSprites.STATUS.MAPPING_INVALID
-    entry.errors[#entry.errors + 1] = sheetErr
+    entry.errors[#entry.errors + 1] = "imageWidth/imageHeight must be > 0"
     return entry
   end
-
-  local cellW = tonumber(data.cellWidth) or 0
-  local cellH = tonumber(data.cellHeight) or 0
-  if cellW <= 0 or cellH <= 0 then
+  if (entry.imageWidth % 4) ~= 0 or (entry.imageHeight % 4) ~= 0 then
     entry.status = AnimatedSprites.STATUS.MAPPING_INVALID
-    entry.errors[#entry.errors + 1] = "cellWidth/cellHeight must be > 0"
-    return entry
-  end
-  entry.cellWidth = cellW
-  entry.cellHeight = cellH
-
-  if type(data.animations) ~= "table" then
-    entry.status = AnimatedSprites.STATUS.MAPPING_INVALID
-    entry.errors[#entry.errors + 1] = "animations missing"
+    entry.errors[#entry.errors + 1] = "image size not divisible by 4"
     return entry
   end
 
   local frameErrors = {}
   local function ingest(animName)
-    local rawAnim = data.animations[animName]
+    local rawAnim = animTemplate and animTemplate[animName]
     local dest = entry[animName] or emptyAnimDirs()
     entry[animName] = dest
     if type(rawAnim) ~= "table" then
-      -- Extra anims may be absent; core ones must exist as objects.
       if animName == "idle" or animName == "walk" then
         frameErrors[#frameErrors + 1] = animName .. " missing"
       end
       return
     end
     for _, dir in ipairs(DIRECTIONS) do
-      dest[dir] = self:_normalizeFrames(rawAnim[dir], cellW, cellH, frameErrors)
+      dest[dir] = self:_normalizeFrames(
+        rawAnim[dir], entry.cellWidth, entry.cellHeight, frameErrors,
+        entry.imageWidth, entry.imageHeight)
     end
   end
 
   for _, name in ipairs(CORE_ANIMS) do ingest(name) end
-  for _, name in ipairs(EXTRA_ANIMS) do ingest(name) end
 
   entry.usableFrameCount = countFrames(entry.idle) + countFrames(entry.walk)
   if #frameErrors > 0 and entry.usableFrameCount == 0 then
@@ -412,35 +378,147 @@ function AnimatedSprites:_loadOneMapping(speciesId)
     entry.valid = true
     entry.partial = true
     entry.status = AnimatedSprites.STATUS.ENHANCED_PARTIAL
-    if #entry.missingDirs > 0 then
-      self:_warn("species=%d file=%s reason=%s",
-                 speciesId, fileName, table.concat(entry.missingDirs, ","))
-    end
   end
   return entry
 end
 
--- LOAD PHASE: atlas once + all 151 mappings once.
+function AnimatedSprites:_materializeSpecies(speciesId)
+  local raw = self.rawSpecies[speciesId] or self.rawSpecies[tostring(speciesId)]
+  if not raw then
+    return {
+      speciesId = speciesId,
+      normal = nil,
+      shiny = nil,
+      preferredForm = nil,
+      alternateForms = nil,
+      valid = false,
+      status = AnimatedSprites.STATUS.MAPPING_MISSING,
+      fileName = nil,
+      usableFrameCount = 0,
+      idle = emptyAnimDirs(),
+      walk = emptyAnimDirs(),
+      missingDirs = {},
+      errors = { "species not in follow-sprite mapping" },
+      partial = false,
+    }
+  end
+
+  local normal = self:_buildVariantEntry(
+    speciesId, "normal", raw.normal, self.animTemplate)
+  local shiny = nil
+  if raw.shiny then
+    shiny = self:_buildVariantEntry(
+      speciesId, "shiny", raw.shiny, self.animTemplate)
+  end
+
+  local primary = normal.valid and normal or (shiny and shiny.valid and shiny) or normal
+  local entry = {
+    speciesId = speciesId,
+    preferredForm = raw.preferredForm,
+    alternateForms = raw.alternateForms,
+    normal = normal,
+    shiny = shiny,
+    -- Flatten primary variant for callers that read entry.idle/walk directly.
+    idle = primary.idle,
+    walk = primary.walk,
+    cellWidth = primary.cellWidth,
+    cellHeight = primary.cellHeight,
+    imageWidth = primary.imageWidth,
+    imageHeight = primary.imageHeight,
+    fileName = primary.fileName,
+    relPath = primary.relPath,
+    form = primary.form,
+    valid = primary.valid == true,
+    partial = primary.partial == true,
+    status = primary.status,
+    errors = primary.errors,
+    missingDirs = primary.missingDirs,
+    usableFrameCount = primary.usableFrameCount,
+    speciesName = nil,
+  }
+  return entry
+end
+
 function AnimatedSprites:load()
   if self.loaded then return true end
 
-  local atlasOk = self:_loadAtlas()
-  if not atlasOk then
+  self:_notice("Loading follow-sprite mapping")
+  local text = self:_readText(AnimatedSprites.MAPPING_REL)
+  if not text then
     self.loaded = true
+    self.mappingReady = false
     self.atlasReady = false
-    self:_warn("Animated atlas unavailable; enhanced sprites disabled globally")
+    self.error = "followsprites mapping missing"
+    if not self._mappingWarnLogged then
+      self._mappingWarnLogged = true
+      self:_warn("Follow-sprite mapping missing; using legacy/Pokédex sprites")
+    end
     return false
   end
 
-  self.mappingFilesFound = 0
+  local data, err = JsonDecode.decode(text)
+  if not data then
+    self.loaded = true
+    self.mappingReady = false
+    self.atlasReady = false
+    self.error = "followsprites mapping decode failed: " .. tostring(err)
+    self:_error("%s", self.error)
+    return false
+  end
+
+  self.mappingRoot = data
+  self.layout = data.layout or {}
+  self.animTemplate = (self.layout.animations)
+    or {
+      idle = {
+        down = { { col = 0, row = 0, w = 1, h = 1 } },
+        left = { { col = 0, row = 1, w = 1, h = 1 } },
+        right = { { col = 0, row = 2, w = 1, h = 1 } },
+        up = { { col = 0, row = 3, w = 1, h = 1 } },
+      },
+      walk = {
+        down = {
+          { col = 0, row = 0, w = 1, h = 1 }, { col = 1, row = 0, w = 1, h = 1 },
+          { col = 2, row = 0, w = 1, h = 1 }, { col = 3, row = 0, w = 1, h = 1 },
+        },
+        left = {
+          { col = 0, row = 1, w = 1, h = 1 }, { col = 1, row = 1, w = 1, h = 1 },
+          { col = 2, row = 1, w = 1, h = 1 }, { col = 3, row = 1, w = 1, h = 1 },
+        },
+        right = {
+          { col = 0, row = 2, w = 1, h = 1 }, { col = 1, row = 2, w = 1, h = 1 },
+          { col = 2, row = 2, w = 1, h = 1 }, { col = 3, row = 2, w = 1, h = 1 },
+        },
+        up = {
+          { col = 0, row = 3, w = 1, h = 1 }, { col = 1, row = 3, w = 1, h = 1 },
+          { col = 2, row = 3, w = 1, h = 1 }, { col = 3, row = 3, w = 1, h = 1 },
+        },
+      },
+    }
+
+  self.rawSpecies = {}
+  local speciesTable = data.species or {}
+  local count = 0
+  for key, raw in pairs(speciesTable) do
+    local id = tonumber(raw and raw.speciesId) or tonumber(key)
+    if id then
+      self.rawSpecies[id] = raw
+      count = count + 1
+    end
+  end
+  self.mappingFilesFound = 1
+
   self.validSpeciesCount = 0
   self.partialSpeciesCount = 0
   self.invalidSpeciesCount = 0
   self.missingSpeciesCount = 0
   self.mappedSpeciesCount = 0
+  self.mappingsBySpeciesId = {}
 
-  for id = 1, MAX_SPECIES do
-    local entry = self:_loadOneMapping(id)
+  -- Materialize all known species (including >151) for preview; gameplay
+  -- still only spawns supported Gen1 IDs.
+  for id, _ in pairs(self.rawSpecies) do
+    local entry = self:_materializeSpecies(id)
     self.mappingsBySpeciesId[id] = entry
     if entry.status == AnimatedSprites.STATUS.ENHANCED_READY then
       self.validSpeciesCount = self.validSpeciesCount + 1
@@ -452,48 +530,140 @@ function AnimatedSprites:load()
       self.missingSpeciesCount = self.missingSpeciesCount + 1
     else
       self.invalidSpeciesCount = self.invalidSpeciesCount + 1
-      for _, e in ipairs(entry.errors) do
-        self:_warn("species=%d file=%s reason=%s", id, entry.fileName, e)
-      end
+    end
+  end
+
+  -- Ensure 1..151 slots exist for diagnostics even if a Gen1 ID is absent.
+  for id = 1, MAX_SPECIES_GAME do
+    if not self.mappingsBySpeciesId[id] then
+      local entry = self:_materializeSpecies(id)
+      self.mappingsBySpeciesId[id] = entry
+      self.missingSpeciesCount = self.missingSpeciesCount + 1
     end
   end
 
   self.loaded = true
-  self:_notice("Mapping files found: %d", self.mappingFilesFound)
-  self:_notice("Valid species mappings: %d", self.validSpeciesCount)
-  if self.partialSpeciesCount > 0 then
-    self:_warn("Partial species mappings: %d", self.partialSpeciesCount)
+  self.mappingReady = self.mappedSpeciesCount > 0
+  self.atlasReady = self.mappingReady
+  if self.mappingReady then
+    self:_notice("Follow-sprite mapping ready: %d species (%d valid, %d partial)",
+      self.mappedSpeciesCount, self.validSpeciesCount, self.partialSpeciesCount)
+    self:_notice("Runtime shiny support: %s", AnimatedSprites.RUNTIME_SHINY_SUPPORT)
   else
-    self:_notice("Partial species mappings: 0")
+    self.error = "no usable follow-sprite species"
+    self:_warn("%s", self.error)
   end
-  if self.invalidSpeciesCount > 0 then
-    self:_error("Invalid species mappings: %d", self.invalidSpeciesCount)
-  else
-    self:_notice("Invalid species mappings: 0")
-  end
-  return true
+  return self.mappingReady
 end
 
 function AnimatedSprites:isReady()
-  return self.loaded and self.atlasReady == true
+  return self.loaded and self.mappingReady == true
 end
 
 function AnimatedSprites:getMapping(speciesId)
   speciesId = tonumber(speciesId)
   if not speciesId then return nil end
-  return self.mappingsBySpeciesId[speciesId]
+  local cached = self.mappingsBySpeciesId[speciesId]
+  if cached then return cached end
+  if self.rawSpecies[speciesId] then
+    local entry = self:_materializeSpecies(speciesId)
+    self.mappingsBySpeciesId[speciesId] = entry
+    return entry
+  end
+  return nil
 end
 
-function AnimatedSprites:isEnhancedAvailable(speciesId)
+function AnimatedSprites:getVariantMapping(speciesId, variant)
+  local m = self:getMapping(speciesId)
+  if not m then return nil end
+  variant = AnimatedSprites.normalizeVariant(variant)
+  if variant == "shiny" then
+    if m.shiny and m.shiny.valid then return m.shiny end
+    if m.normal and m.normal.valid then return m.normal end
+    return m.shiny or m.normal
+  end
+  return m.normal or m
+end
+
+function AnimatedSprites:isEnhancedAvailable(speciesId, variant)
   if not self:isReady() then return false end
-  local m = self:getMapping(speciesId)
-  return m and m.valid == true and m.usableFrameCount > 0
+  local vm = self:getVariantMapping(speciesId, variant or "normal")
+  return vm and vm.valid == true and vm.usableFrameCount > 0
 end
 
--- Frame resolution with controlled internal fallbacks for idle/walk.
-function AnimatedSprites:resolveFrames(speciesId, animName, direction)
+function AnimatedSprites:hasVariant(speciesId, variant)
   local m = self:getMapping(speciesId)
-  if not m or not m.valid then return nil, nil end
+  if not m then return false end
+  variant = AnimatedSprites.normalizeVariant(variant)
+  if variant == "shiny" then
+    return m.shiny and m.shiny.valid == true
+  end
+  return m.normal and m.normal.valid == true
+end
+
+function AnimatedSprites:imageCacheKey(speciesId, variant)
+  return string.format("%d:%s",
+    tonumber(speciesId) or 0,
+    AnimatedSprites.normalizeVariant(variant))
+end
+
+function AnimatedSprites:getImage(speciesId, variant)
+  variant = AnimatedSprites.normalizeVariant(variant)
+  local key = self:imageCacheKey(speciesId, variant)
+  local cached = self.imageCache[key]
+  if cached ~= nil then
+    if cached == false then return nil end
+    return cached
+  end
+
+  local vm = self:getVariantMapping(speciesId, variant)
+  if not vm or not vm.relPath then
+    self.imageCache[key] = false
+    return nil
+  end
+
+  -- If shiny requested but fell back to normal mapping, load the normal file.
+  local effectiveVariant = vm.variant or variant
+  local effectiveKey = self:imageCacheKey(speciesId, effectiveVariant)
+  if effectiveKey ~= key and self.imageCache[effectiveKey] ~= nil then
+    local img = self.imageCache[effectiveKey]
+    self.imageCache[key] = img
+    return img ~= false and img or nil
+  end
+
+  local path = self:_modPath(vm.relPath)
+  if not (love and love.graphics and love.graphics.newImage) then
+    local stub = {
+      _owwildStub = true,
+      width = vm.imageWidth,
+      height = vm.imageHeight,
+      getDimensions = function(s) return s.width, s.height end,
+      setFilter = function() end,
+    }
+    self.imageCache[key] = stub
+    if effectiveKey ~= key then self.imageCache[effectiveKey] = stub end
+    return stub
+  end
+
+  local ok, imageOrErr = pcall(love.graphics.newImage, path or vm.relPath)
+  if not ok or not imageOrErr then
+    self:_warn("follow sprite load failed species=%s variant=%s path=%s err=%s",
+      tostring(speciesId), tostring(effectiveVariant),
+      tostring(vm.relPath), tostring(imageOrErr))
+    self.imageCache[key] = false
+    return nil
+  end
+  if imageOrErr.setFilter then
+    imageOrErr:setFilter("nearest", "nearest")
+  end
+  self.imageCache[key] = imageOrErr
+  if effectiveKey ~= key then self.imageCache[effectiveKey] = imageOrErr end
+  return imageOrErr
+end
+
+function AnimatedSprites:resolveFrames(speciesId, animName, direction, variant)
+  local vm = self:getVariantMapping(speciesId, variant or "normal")
+  if not vm or not vm.valid then return nil, nil end
   direction = AnimatedSprites.normalizeFacing(direction)
   animName = (animName == "walk") and "walk" or "idle"
 
@@ -502,54 +672,60 @@ function AnimatedSprites:resolveFrames(speciesId, animName, direction)
     return nil
   end
 
-  local primary = m[animName] and first(m[animName][direction])
+  local primary = vm[animName] and first(vm[animName][direction])
   if primary then return primary, animName end
 
   if animName == "idle" then
-    local walkSame = m.walk and first(m.walk[direction])
+    local walkSame = vm.walk and first(vm.walk[direction])
     if walkSame then return { walkSame[1] }, "walk" end
-    local idleDown = m.idle and first(m.idle.down)
+    local idleDown = vm.idle and first(vm.idle.down)
     if idleDown then return idleDown, "idle" end
-    local walkDown = m.walk and first(m.walk.down)
+    local walkDown = vm.walk and first(vm.walk.down)
     if walkDown then return { walkDown[1] }, "walk" end
   else
-    local idleSame = m.idle and first(m.idle[direction])
+    local idleSame = vm.idle and first(vm.idle[direction])
     if idleSame then return idleSame, "idle" end
-    local walkDown = m.walk and first(m.walk.down)
+    local walkDown = vm.walk and first(vm.walk.down)
     if walkDown then return walkDown, "walk" end
-    local idleDown = m.idle and first(m.idle.down)
+    local idleDown = vm.idle and first(vm.idle.down)
     if idleDown then return idleDown, "idle" end
   end
   return nil, nil
 end
 
-function AnimatedSprites:getFrame(speciesId, animName, direction, frameIndex)
-  local frames = self:resolveFrames(speciesId, animName, direction)
+function AnimatedSprites:getFrame(speciesId, animName, direction, frameIndex, variant)
+  local frames = self:resolveFrames(speciesId, animName, direction, variant)
   if not frames or #frames == 0 then return nil end
   local idx = ((tonumber(frameIndex) or 1) - 1) % #frames + 1
   return frames[idx], #frames, idx
 end
 
-function AnimatedSprites:quadKey(speciesId, animName, direction, frameIndex)
-  return string.format("%d:%s:%s:%d",
+function AnimatedSprites:quadKey(speciesId, animName, direction, frameIndex, variant)
+  return string.format("%d:%s:%s:%s:%d",
     tonumber(speciesId) or 0,
+    AnimatedSprites.normalizeVariant(variant),
     tostring(animName),
     tostring(direction),
     tonumber(frameIndex) or 1)
 end
 
-function AnimatedSprites:getQuad(speciesId, animName, direction, frameIndex)
-  local key = self:quadKey(speciesId, animName, direction, frameIndex)
+function AnimatedSprites:getQuad(speciesId, animName, direction, frameIndex, variant)
+  variant = AnimatedSprites.normalizeVariant(variant)
+  local key = self:quadKey(speciesId, animName, direction, frameIndex, variant)
   local cached = self.quadCache[key]
-  if cached ~= nil then return cached end
+  if cached ~= nil then return cached ~= false and cached or nil end
 
-  local frame = self:getFrame(speciesId, animName, direction, frameIndex)
+  local frame = self:getFrame(speciesId, animName, direction, frameIndex, variant)
   if not frame then
     self.quadCache[key] = false
     return nil
   end
+
+  local vm = self:getVariantMapping(speciesId, variant)
+  local imgW = (vm and vm.imageWidth) or 0
+  local imgH = (vm and vm.imageHeight) or 0
+
   if not (love and love.graphics and love.graphics.newQuad) then
-    -- Headless: store a lightweight rect stand-in.
     local stub = {
       x = frame.x, y = frame.y, w = frame.width, h = frame.height,
       _owwildStub = true, frame = frame,
@@ -557,13 +733,29 @@ function AnimatedSprites:getQuad(speciesId, animName, direction, frameIndex)
     self.quadCache[key] = stub
     return stub
   end
-  if not self.atlasImage or self.atlasWidth < 1 or self.atlasHeight < 1 then
+
+  local img = self:getImage(speciesId, variant)
+  if not img or img._owwildStub then
+    -- Still allow stub quads in headless.
+    if img and img._owwildStub then
+      local stub = {
+        x = frame.x, y = frame.y, w = frame.width, h = frame.height,
+        _owwildStub = true, frame = frame,
+      }
+      self.quadCache[key] = stub
+      return stub
+    end
     self.quadCache[key] = false
     return nil
   end
+
+  if imgW < 1 or imgH < 1 then
+    local w, h = img:getDimensions()
+    imgW, imgH = w or 0, h or 0
+  end
+
   local ok, quad = pcall(love.graphics.newQuad,
-    frame.x, frame.y, frame.width, frame.height,
-    self.atlasWidth, self.atlasHeight)
+    frame.x, frame.y, frame.width, frame.height, imgW, imgH)
   if not ok or not quad then
     self.quadCache[key] = false
     return nil
@@ -577,13 +769,9 @@ function AnimatedSprites.calculateAnimatedSpriteScale(_entity, frame, opts)
   local tile = opts.tileSize or CELL
   local fw = math.max(1, (frame and frame.width) or tile)
   local fh = math.max(1, (frame and frame.height) or tile)
-  -- Native atlas pixels map 1:1 to world pixels. Multi-cell frames may span
-  -- multiple tiles visually; logical collision stays one tile.
   local scale = 1.0
   local minOpt = tonumber(opts.minSpriteSizeOption)
   if minOpt and minOpt > 0 then
-    -- Upscale only when the shorter side is below the preferred minimum and
-    -- the frame is still a single-cell (or smaller) sprite.
     local shorter = math.min(fw, fh)
     if shorter < minOpt and fw <= tile and fh <= tile then
       scale = minOpt / shorter
@@ -621,7 +809,7 @@ end
 function AnimatedSprites:newAnimationState(direction)
   return {
     type = "idle",
-    name = "idle", -- alias of type for older call sites
+    name = "idle",
     direction = AnimatedSprites.normalizeFacing(direction),
     frameIndex = 1,
     elapsed = 0,
@@ -630,7 +818,8 @@ function AnimatedSprites:newAnimationState(direction)
     fallbackLevel = nil,
     frameChanged = false,
     directionChanged = false,
-    source = "ENHANCED_ATLAS",
+    source = AnimatedSprites.SOURCE_FOLLOW,
+    variant = "normal",
     renderRevision = 0,
   }
 end
@@ -643,6 +832,7 @@ function AnimatedSprites.bumpRenderRevision(state, prev)
     or (prev.direction ~= nil and prev.direction ~= state.direction)
     or (prev.frameIndex ~= nil and prev.frameIndex ~= state.frameIndex)
     or (prev.source ~= nil and prev.source ~= state.source)
+    or (prev.variant ~= nil and prev.variant ~= state.variant)
   if changed or state.frameChanged or state.directionChanged then
     state.renderRevision = (state.renderRevision or 0) + 1
   end
@@ -670,9 +860,6 @@ function AnimatedSprites:setAnim(state, name, direction, resetFrame)
   end
 end
 
--- Returns true when frame or direction changed (callers update Voxel card).
--- movementProgress: optional 0..1 tile-step progress; when moving, drives walk
--- frames so 2D and Voxel stay locked to the same step.
 function AnimatedSprites:updateAnimation(state, speciesId, dt, moving, facing, movementProgress)
   if not state or not state.usingEnhancedSprite then return false end
   state.frameChanged = false
@@ -681,12 +868,13 @@ function AnimatedSprites:updateAnimation(state, speciesId, dt, moving, facing, m
   local prevName = state.name or state.type or "idle"
   local prevDir = state.direction
   local prevFrame = state.frameIndex or 1
+  local variant = state.variant or "normal"
 
   local dir = AnimatedSprites.normalizeFacing(facing or state.direction)
   local name = moving and "walk" or "idle"
   self:setAnim(state, name, dir, false)
 
-  local frames = self:resolveFrames(speciesId, state.name, state.direction)
+  local frames = self:resolveFrames(speciesId, state.name, state.direction, variant)
   local count = frames and #frames or 1
 
   if moving and type(movementProgress) == "number" and count > 1 then
@@ -725,19 +913,19 @@ function AnimatedSprites:updateAnimation(state, speciesId, dt, moving, facing, m
       direction = prevDir,
       frameIndex = prevFrame,
       source = state.source,
+      variant = variant,
     })
   end
 
   return state.frameChanged or state.directionChanged
 end
 
-AnimatedSprites.BILLBOARD_CARD = 16
-
-function AnimatedSprites:billboardKey(speciesId, animName, direction, frameIndex, frame)
+function AnimatedSprites:billboardKey(speciesId, animName, direction, frameIndex, frame, variant)
   local w = frame and frame.width or 16
   local h = frame and frame.height or 16
-  return string.format("%d:%s:%s:%d:%d:%d",
+  return string.format("%d:%s:%s:%s:%d:%d:%d",
     tonumber(speciesId) or 0,
+    AnimatedSprites.normalizeVariant(variant),
     tostring(animName), tostring(direction),
     tonumber(frameIndex) or 1, w, h)
 end
@@ -749,13 +937,14 @@ function AnimatedSprites:entityAnimParts(entity)
   local animName = anim.type or anim.name or "idle"
   local direction = anim.direction or entity.facing or "down"
   local frameIndex = anim.frameIndex or 1
-  return speciesId, animName, direction, frameIndex, anim
+  local variant = anim.variant or entity.spriteVariant or "normal"
+  return speciesId, animName, direction, frameIndex, anim, variant
 end
 
 function AnimatedSprites:getCurrentBillboardKey(entity)
-  local speciesId, animName, direction, frameIndex = self:entityAnimParts(entity)
-  local frame = self:getFrame(speciesId, animName, direction, frameIndex)
-  return self:billboardKey(speciesId, animName, direction, frameIndex, frame)
+  local speciesId, animName, direction, frameIndex, _, variant = self:entityAnimParts(entity)
+  local frame = self:getFrame(speciesId, animName, direction, frameIndex, variant)
+  return self:billboardKey(speciesId, animName, direction, frameIndex, frame, variant)
 end
 
 function AnimatedSprites:peekBillboardImage(key)
@@ -767,10 +956,10 @@ function AnimatedSprites:peekBillboardImage(key)
 end
 
 function AnimatedSprites:prepareBillboardImage(entity, key)
-  local speciesId, animName, direction, frameIndex = self:entityAnimParts(entity)
+  local speciesId, animName, direction, frameIndex, _, variant = self:entityAnimParts(entity)
   key = key or self:billboardKey(speciesId, animName, direction, frameIndex,
-    self:getFrame(speciesId, animName, direction, frameIndex))
-  local result = self:getBillboardCard(speciesId, animName, direction, frameIndex)
+    self:getFrame(speciesId, animName, direction, frameIndex, variant), variant)
+  local result = self:getBillboardCard(speciesId, animName, direction, frameIndex, variant)
   if type(result) == "table" and result.status == "READY" and result.image then
     self.billboardCache = self.billboardCache or {}
     self.billboardCache[key] = result.image
@@ -789,12 +978,10 @@ function AnimatedSprites:getCurrentBillboardImage(entity)
   return nil, key, false
 end
 
--- Bake current atlas frame into a 16×16 Image for Dramatic Shape
--- SpriteBillboards (mesh UVs come from def.image 16×16; live tex = this Image).
--- Returns a result table: status READY | TEMPORARILY_UNAVAILABLE | FRAME_MISSING | ...
-function AnimatedSprites:getBillboardCard(speciesId, animName, direction, frameIndex)
-  local frame = self:getFrame(speciesId, animName, direction, frameIndex)
-  local key = self:billboardKey(speciesId, animName, direction, frameIndex, frame)
+function AnimatedSprites:getBillboardCard(speciesId, animName, direction, frameIndex, variant)
+  variant = AnimatedSprites.normalizeVariant(variant)
+  local frame = self:getFrame(speciesId, animName, direction, frameIndex, variant)
+  local key = self:billboardKey(speciesId, animName, direction, frameIndex, frame, variant)
   local cached = self.voxelCardCache[key]
   if type(cached) == "table" and cached.status == "READY" and cached.image then
     self.voxelCacheHits = self.voxelCacheHits + 1
@@ -803,7 +990,6 @@ function AnimatedSprites:getBillboardCard(speciesId, animName, direction, frameI
     self.billboardCache[key] = cached.image
     return cached
   end
-  -- Do not treat prior TEMP as permanent miss. Drop stale non-READY entries.
   if type(cached) == "table" and cached.status ~= "READY"
      and cached.status ~= "PERMANENT_INVALID" then
     self.voxelCardCache[key] = nil
@@ -817,12 +1003,12 @@ function AnimatedSprites:getBillboardCard(speciesId, animName, direction, frameI
       key = key,
       retry = false,
     }
-    -- Permanent asset miss may be cached; never cache TEMP as permanent.
     self.voxelCardCache[key] = result
     return result
   end
 
-  if not self.atlasImage then
+  local sheet = self:getImage(speciesId, variant)
+  if not sheet or sheet._owwildStub then
     if not (love and love.graphics and love.graphics.newImage) then
       return {
         status = "TEMPORARILY_UNAVAILABLE",
@@ -831,16 +1017,12 @@ function AnimatedSprites:getBillboardCard(speciesId, animName, direction, frameI
         retry = true,
       }
     end
-    -- Atlas may have been stubbed headless then graphics appeared.
-    local okLoad = self:_loadAtlas()
-    if not okLoad or not self.atlasImage then
-      return {
-        status = "TEMPORARILY_UNAVAILABLE",
-        reason = "atlas image not ready",
-        key = key,
-        retry = true,
-      }
-    end
+    return {
+      status = "TEMPORARILY_UNAVAILABLE",
+      reason = "follow sprite image not ready",
+      key = key,
+      retry = true,
+    }
   end
 
   if not (love and love.graphics and love.graphics.newCanvas) then
@@ -852,7 +1034,7 @@ function AnimatedSprites:getBillboardCard(speciesId, animName, direction, frameI
     }
   end
 
-  local quad = self:getQuad(speciesId, animName, direction, frameIndex)
+  local quad = self:getQuad(speciesId, animName, direction, frameIndex, variant)
   if not quad or quad._owwildStub then
     return {
       status = "TEMPORARILY_UNAVAILABLE",
@@ -881,10 +1063,8 @@ function AnimatedSprites:getBillboardCard(speciesId, animName, direction, frameI
     love.graphics.setBlendMode("alpha")
     love.graphics.setColor(1, 1, 1, 1)
     if love.graphics.setShader then love.graphics.setShader() end
-    if self.atlasImage.setFilter then
-      self.atlasImage:setFilter("nearest", "nearest")
-    end
-    love.graphics.draw(self.atlasImage, quad, ox, oy, 0, fit, fit)
+    if sheet.setFilter then sheet:setFilter("nearest", "nearest") end
+    love.graphics.draw(sheet, quad, ox, oy, 0, fit, fit)
     love.graphics.setCanvas(prevCanvas)
     love.graphics.pop()
 
@@ -925,16 +1105,15 @@ function AnimatedSprites:getBillboardCard(speciesId, animName, direction, frameI
   return result
 end
 
--- Alias kept for older call sites / tests.
-function AnimatedSprites:getVoxelCard(speciesId, animName, direction, frameIndex)
-  return self:getBillboardCard(speciesId, animName, direction, frameIndex)
+function AnimatedSprites:getVoxelCard(speciesId, animName, direction, frameIndex, variant)
+  return self:getBillboardCard(speciesId, animName, direction, frameIndex, variant)
 end
 
 function AnimatedSprites:logFallbackOnce(speciesId, reason)
   local key = tostring(speciesId) .. ":" .. tostring(reason)
   if self._fallbackLogged[key] then return end
   self._fallbackLogged[key] = true
-  self:_warn("species=%s enhanced sprite unavailable; %s",
+  self:_warn("species=%s follow sprite unavailable; %s",
              tostring(speciesId), tostring(reason))
 end
 
@@ -942,17 +1121,27 @@ function AnimatedSprites:summary()
   return {
     loaded = self.loaded,
     atlasReady = self.atlasReady,
+    mappingReady = self.mappingReady,
     atlasWidth = self.atlasWidth,
     atlasHeight = self.atlasHeight,
-    atlasPath = AnimatedSprites.ATLAS_REL,
-    mappingDir = AnimatedSprites.MAPPING_DIR,
-    mappingPattern = AnimatedSprites.MAPPING_PATTERN,
+    atlasPath = AnimatedSprites.MAPPING_REL,
+    mappingDir = "assets/enhanced_overworld/followsprites_mapping",
+    mappingPattern = "followsprites_mapping.json",
+    spriteDir = AnimatedSprites.SPRITE_DIR,
     mappingFilesFound = self.mappingFilesFound,
     mappedSpeciesCount = self.mappedSpeciesCount,
     validSpeciesCount = self.validSpeciesCount,
     partialSpeciesCount = self.partialSpeciesCount,
     invalidSpeciesCount = self.invalidSpeciesCount,
     missingSpeciesCount = self.missingSpeciesCount,
+    runtimeShinySupport = AnimatedSprites.RUNTIME_SHINY_SUPPORT,
+    imageCacheEntries = (function()
+      local n = 0
+      for _, v in pairs(self.imageCache) do
+        if v and v ~= false then n = n + 1 end
+      end
+      return n
+    end)(),
     voxelCacheEntries = (function()
       local n = 0
       for _, v in pairs(self.voxelCardCache) do
@@ -969,7 +1158,7 @@ end
 
 function AnimatedSprites:statusLabel()
   if not self.loaded then return "NOT_LOADED" end
-  if not self.atlasReady then return "ATLAS_FAILED" end
+  if not self.mappingReady then return "MAPPING_FAILED" end
   return "READY"
 end
 

@@ -16,33 +16,39 @@ of the overworld I used to imagine when playing these games as a child.
 
 <!-- Optional: add a screenshot or banner here -->
 
-## New: Animated Overworld Pokémon
+## Animated Overworld Pokémon
 
-All 151 Generation I Pokémon can now appear in the overworld with directional
-idle and walking animations.
+Wilds of Kanto now uses individual follow-sprite sheets as its preferred
+animated overworld sprite source.
 
-Wild Pokémon no longer remain completely static. They can look around, turn in
-different directions, walk through grass, wander around their area, and use the
-appropriate directional animation while moving or chasing the player.
+Each supported Pokémon can use:
 
-Species are matched by Pokédex / species ID, so the correct sprites are used
-regardless of the game language.
+- directional idle sprites for down, left, right, and up;
+- directional walking sprites for down, left, right, and up;
+- visible idle direction changes while looking around;
+- walking animations while wandering or chasing the player.
 
-The feature is enabled by default. If you prefer the previous appearance,
-disable **Use animated overworld Pokemon sprites** in the mod settings. The mod
-will then use the original Pokédex-based images again.
+The sprites are matched exclusively by Pokédex / species ID, so the system
+remains independent of the selected game language.
 
-Missing or invalid animated sprite mappings automatically fall back to the
-previous sprite system.
+Normal and shiny sprite variants are supported by the asset format. Shiny
+sprites are only used during normal gameplay when the game provides a reliable
+shiny state. They remain available in the developer preview for testing.
 
-### Sprite Credits
+The improved sprites are enabled by default. They can be disabled in the mod
+settings to restore the previous Pokédex-based sprite appearance.
 
-The animated Pokémon overworld sprites are based on the excellent **GBC Pokémon**
-asset pack created by **Anima**.
+If a follow sprite or mapping is missing, the mod automatically falls back to:
 
-Please support the original artist:
+1. the normal follow-sprite variant;
+2. the previous Pokédex-based sprite;
+3. the black fallback sprite.
 
-https://anima-nel.itch.io/gbc-pokemon
+Follow-sprites work in both the normal 2D overworld path and with Dramatic
+Shape. Idle look, wander, and aggressive chase behaviour keep the same logic as
+before; hidden grass encounters still show no Pokémon sprite. Species above 151
+may already exist in the mapping for later use, but Gen 1 gameplay only spawns
+species the current game actually supports.
 
 ## What it does
 
@@ -57,7 +63,7 @@ tables and places tangible wild Pokemon (or hidden markers) on eligible tiles.
   (engine `drawCellBottom` feet overdraw, like the player)
 - Small species get nearest-neighbor sprite scaling so they stay readable
 - Real Pokemon art is preferred; when available, directional idle/walk
-  animations from the shared overworld atlas are used (option on by default)
+  follow-sprites are used (option on by default)
 - Otherwise legacy species / battle PNGs are used; a black fallback sprite is
   used when no image resolves (hidden behaviours draw no Pokemon sprite)
 - Vanilla random grass encounters remain as a fail-safe until the visible
@@ -101,13 +107,13 @@ Idle and Wander only (no aggressive chase or hidden water markers).
 - Map-aware spawn density and connected spawn regions
 - Grass, cave (no grass graphics required), and Surf-water surfaces
 - Fishing stays rod-only — fishing tables never free-spawn
-- Sprite scaling: legacy art is capped to one map tile; animated atlas frames
-  keep native cell size (including 16×32 / 32×16) with feet anchored to the tile
+- Sprite scaling: legacy art is capped to one map tile; follow-sprite frames
+  keep native tile size with feet anchored to the tile
 - Engine tall-grass overlay with relative occlusion; Dramatic Shape uses
   world billboards so bushes/walls occlude Pokemon like trainers
-- Fallback chain: animated atlas → legacy PNG → black fallback
+- Fallback chain: follow-sprite → legacy PNG → black fallback
 - Developer mode with debug HUD, tile/behaviour overlays, and Pokemon preview
-  browser (mapping status, animated idle/walk, encounter locations, Test spawn)
+  browser (follow normal/shiny, idle/walk, encounter locations, Test spawn)
 - Optional coexistence with [Dramatic Shape Voxel Mod](https://github.com/DramaticShape/DramaticShapeVoxelMod)
   (not required); wild Pokemon use a stable `EnhancedWorldSprite` adapter and
   cached 16×16 billboard cards so DS depth/grass/occlusion match trainers;

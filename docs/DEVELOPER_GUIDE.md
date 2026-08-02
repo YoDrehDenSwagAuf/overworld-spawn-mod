@@ -1,27 +1,28 @@
-# Wilds of Kanto — Developer Guide (0.5.6)
+# Wilds of Kanto — Developer Guide (0.6.0)
 
-> Animated atlas sprites, EnhancedWorldSprite adapter, and Dramatic Shape
-> billboard contract match the 0.5.6 implementation.
+> Follow-sprites, EnhancedWorldSprite adapter, and Dramatic Shape billboard
+> contract match the 0.6.0 implementation.
 
 Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
 This document describes the **implemented** architecture. It does not invent Gen1Recomp APIs.
 
-## Dramatic Shape integration (0.5.6)
+## Dramatic Shape integration (0.6.0)
 
 Verified contract: `pose()` returns `sprite, visualX, visualY, facing, phase, flip`.
 DS uses `e.py` as ground and `e.py - visualY` as lift. Entity billboards are
-fixed 16×16 meshes — **no atlas+quad**. Wilds supplies:
+fixed 16x16 meshes — **no sheet+quad**. Wilds supplies:
 
 1. Central animation state (`idle`/`walk`, direction, frameIndex, renderRevision)
 2. Stable `EnhancedWorldSprite` (`def.frames=1`, `trueColor`, `resolveImage`)
-3. Cached proportional 16×16 card Images
+3. Cached proportional 16x16 card Images
 
 Legacy `SpriteRenderer` is kept separately and **not** mutated. Flat 2D still
-draws atlas quads at native size. Success HUD:
+draws follow-sprite quads at native tile size. Success HUD:
 
 ```text
 Renderer: WORLD_BILLBOARD_ENHANCED
+Sprite system: FOLLOW_SPRITES
 Grass renderer: DRAMATIC_SHAPE_NATIVE
 Depth integration: ACTIVE
 Object occlusion: ACTIVE
@@ -33,18 +34,21 @@ Repository root **is** the mod (DramaticShape layout):
 
 ```text
 manifest.json  main.lua  options.lua  mod.card
-assets/  lib/  docs/  tests/  scripts/
+assets/  lib/  docs/  tests/  scripts/  tools/
 ```
 
 Local engine: `./scripts/bootstrap.sh` → `.deps/gen1recomp` with symlink
 `mods/overworld_wild_spawns` → repo root.
 
-Animated assets:
+Follow-sprite assets:
 
 ```text
-assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png
-assets/enhanced_overworld/pokedex_mapping/pokemon_XXX_project.json
+assets/enhanced_overworld/followsprites/*.png
+assets/enhanced_overworld/followsprites_mapping/followsprites_mapping.json
 ```
+
+Legacy Anima mappings under `pokedex_mapping/` remain unused. Commercial
+`Pokemon_Sprites/POKEMON 1.png` must not ship.
 
 See `docs/ANIMATED_SPRITE_FORMAT.md`.
 
@@ -55,7 +59,7 @@ See `docs/ANIMATED_SPRITE_FORMAT.md`.
 1. Virtual `V.require` loads `lib/*.lua`
 2. `Config.defineOptions`
 3. `SpawnRender:registerContent()` — **only** content-registry writes
-4. `AnimatedSprites:load()` — atlas + 151 JSON mappings (no registry writes)
+4. `AnimatedSprites:load()` — shared follow-sprite mapping (no registry writes)
 5. Register HUD / preview / behaviour-tick pipelines
 6. Hook `encounter.roll` + `movement.collision` when enabled
 7. Subscribe to map/world/battle/save/options events
@@ -79,13 +83,14 @@ test spawn, or preview. Runtime uses `speciesSpriteIds` lookup + image path reso
 
 ## 5. Sprite resolution
 
-### Enhanced atlas (preferred when option on)
+### Follow-sprites (preferred when option on)
 
 Identity = numeric `mon.dex` / `speciesId` only:
 
 ```lua
 local speciesId = AnimatedSprites.resolveSpeciesId(entity.species, game, mod)
 local mapping = mappingsBySpeciesId[speciesId]
+local variant = AnimatedSprites.resolveRuntimeVariant(entity) -- currently always normal
 ```
 
 Never: `mappingByName[pokemon.name]` or filename from localized names.
@@ -95,7 +100,7 @@ Never: `mappingByName[pokemon.name]` or filename from localized names.
 explicit map → dex-padded PNG → species_id PNG → display-name token →
 battle front/back → menu icon → optional save-dir cache → fallback
 
-Fallback chain: **enhanced atlas → legacy PNG → black fallback**.
+Fallback chain: **follow variant → follow normal → legacy PNG → black fallback**.
 
 ## 6. Runtime image cache
 

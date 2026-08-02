@@ -580,12 +580,12 @@ function SpawnRender:registerContent()
   self.missingCount = missing
   self.contentRegistrationOpen = false
 
-  -- Enhanced atlas + JSON mappings: load-once, no registry writes.
+  -- Follow-sprite mapping: load-once, no registry writes.
   local okAnim, animErr = pcall(function()
     self.animated:load()
   end)
   if not okAnim then
-    DebugLog.warn(self.mod, "animated sprite load failed: %s", tostring(animErr))
+    DebugLog.warn(self.mod, "follow sprite load failed: %s", tostring(animErr))
   end
 
   self:_notice("Registered sprites: %d", registered)
@@ -593,11 +593,25 @@ function SpawnRender:registerContent()
   self:_notice("Fallback available: yes")
   if self.animated and self.animated:isReady() then
     local s = self.animated:summary()
-    self:_notice("Animated atlas: READY (%dx%d)", s.atlasWidth, s.atlasHeight)
-    self:_notice("Animated mappings valid/partial/invalid: %d/%d/%d",
+    self:_notice("Follow sprites: READY (%d mapped species)", s.mappedSpeciesCount or 0)
+    self:_notice("Follow mappings valid/partial/invalid: %d/%d/%d",
                  s.validSpeciesCount, s.partialSpeciesCount, s.invalidSpeciesCount)
+    self:_notice("Runtime shiny support: %s", tostring(s.runtimeShinySupport))
+    -- Preview browser can list mapped species above Gen1.
+    local previewRows = {}
+    for id, entry in pairs(self.animated.mappingsBySpeciesId or {}) do
+      if type(id) == "number" and entry and entry.valid then
+        previewRows[#previewRows + 1] = {
+          id = tostring(id),
+          name = ("SPECIES_%03d"):format(id),
+          dex = id,
+        }
+      end
+    end
+    self.mod._owwildFollowPreviewRows = previewRows
   else
-    self:_warn("Animated atlas: UNAVAILABLE (legacy/fallback sprites still work)")
+    self:_warn("Follow sprites: UNAVAILABLE (legacy/fallback sprites still work)")
+    self.mod._owwildFollowPreviewRows = nil
   end
   self:_notice("Content registration complete")
   return true
@@ -844,7 +858,7 @@ function SpawnRender:assetStatusFor(species, game)
   info.mappingFile = enh.fileName
   info.mappingName = enh.speciesName
   if enh.available then
-    info.spriteSource = "ENHANCED_ATLAS"
+    info.spriteSource = "FOLLOW_SPRITES"
     info.phase = enh.status
   elseif info.fallbackUsed then
     info.spriteSource = "BLACK_FALLBACK"
@@ -1154,7 +1168,7 @@ function Entity:getWorldSprite()
   -- or when strict debug forces the enhanced path (no silent legacy).
   if self.worldSprite
      and self.animation
-     and self.animation.source == "ENHANCED_ATLAS"
+     and self.animation.source == "FOLLOW_SPRITES"
      and self.usingEnhancedSprite then
     if self.worldBillboardReady == true
        or RenderDiagnostics.strictEnabled(self.mod) then
@@ -1239,12 +1253,13 @@ function Entity:_drawAnimatedSprite(camX, camY, opacity)
   if not animated or not anim or not self.enhancedDexId then return end
   if not (love and love.graphics) then return end
 
+  local variant = anim.variant or self.spriteVariant or "normal"
   local frame, frameCount, frameIndex = animated:getFrame(
-    self.enhancedDexId, anim.name, anim.direction, anim.frameIndex)
+    self.enhancedDexId, anim.name, anim.direction, anim.frameIndex, variant)
   if not frame then return end
   local quad = animated:getQuad(
-    self.enhancedDexId, anim.name, anim.direction, frameIndex or anim.frameIndex)
-  local img = animated.atlasImage
+    self.enhancedDexId, anim.name, anim.direction, frameIndex or anim.frameIndex, variant)
+  local img = animated:getImage(self.enhancedDexId, variant)
   if not img or not quad or quad._owwildStub then return end
   if img.setFilter then img:setFilter("nearest", "nearest") end
 
@@ -1541,7 +1556,7 @@ function SpawnRender:enhancedStatusFor(speciesKey, game)
       dexId = dexId,
       status = AnimatedSprites.STATUS.DISABLED,
       available = false,
-      reason = self.animated.error or "atlas unavailable",
+      reason = self.animated.error or "follow sprites unavailable",
     }
   end
   if not dexId then
@@ -1610,16 +1625,22 @@ function SpawnRender:attachEnhancedToEntity(entity, game)
     return false
   end
 
+  local variant = AnimatedSprites.resolveRuntimeVariant(entity)
+  if variant == "shiny" and not self.animated:hasVariant(enh.dexId, "shiny") then
+    variant = "normal"
+  end
+  entity.spriteVariant = variant
   entity.usingEnhancedSprite = true
-  entity.spriteSource = "ENHANCED_ATLAS"
-  entity.spriteSource2D = "ENHANCED_ATLAS"
-  entity.voxelSource = "ENHANCED_ATLAS"
+  entity.spriteSource = "FOLLOW_SPRITES"
+  entity.spriteSource2D = "FOLLOW_SPRITES"
+  entity.voxelSource = "FOLLOW_SPRITES"
   if not entity.animation or not entity.animation.usingEnhancedSprite then
     entity.animation = self.animated:newAnimationState(entity.facing or "down")
   end
   entity.animation.usingEnhancedSprite = true
   entity.animation.fallbackLevel = enh.status
-  entity.animation.source = "ENHANCED_ATLAS"
+  entity.animation.source = "FOLLOW_SPRITES"
+  entity.animation.variant = variant
   entity.animation.renderRevision = entity.animation.renderRevision or 0
   self:refreshEnhancedScale(entity)
   self:bindWorldBillboard(entity, true)
@@ -1701,7 +1722,7 @@ function SpawnRender:bindWorldBillboard(entity, force)
       entity.objectOcclusion = "INACTIVE"
       entity.dramaticBillboardSkipped = true
       entity.grassRenderer = "NONE"
-      entity.spriteSource2D = "ENHANCED_ATLAS"
+      entity.spriteSource2D = "FOLLOW_SPRITES"
       return false, d.lastFailureReason
     end
     entity.pokemonRenderer = R.SPATIAL_OVERLAY_EMERGENCY
@@ -1709,7 +1730,7 @@ function SpawnRender:bindWorldBillboard(entity, force)
     entity.objectOcclusion = "INACTIVE"
     entity.dramaticBillboardSkipped = true
     entity.grassRenderer = "EMERGENCY_OVERLAY"
-    entity.spriteSource2D = "ENHANCED_ATLAS"
+    entity.spriteSource2D = "FOLLOW_SPRITES"
     return false, d.lastFailureReason
   end
 
@@ -1744,8 +1765,8 @@ function SpawnRender:bindWorldBillboard(entity, force)
     entity.depthIntegration = "INACTIVE"
     entity.objectOcclusion = "INACTIVE"
     entity.dramaticBillboardSkipped = true
-    entity.spriteSource2D = "ENHANCED_ATLAS"
-    entity.voxelSource = "ENHANCED_ATLAS"
+    entity.spriteSource2D = "FOLLOW_SPRITES"
+    entity.voxelSource = "FOLLOW_SPRITES"
     d.lastFailureReason = reason
     if strict then
       -- Strict: stay invisible rather than paper over with overlay.
@@ -1820,8 +1841,8 @@ function SpawnRender:bindWorldBillboard(entity, force)
   entity.objectOcclusion = "UNVERIFIED"
   entity.grassRenderer = "UNVERIFIED"
   entity.dramaticBillboardSkipped = false
-  entity.spriteSource2D = "ENHANCED_ATLAS"
-  entity.voxelSource = "ENHANCED_ATLAS"
+  entity.spriteSource2D = "FOLLOW_SPRITES"
+  entity.voxelSource = "FOLLOW_SPRITES"
   entity.voxelLastError = nil
   d.lastFailureReason = nil
   return true, "READY"
@@ -1882,9 +1903,9 @@ function SpawnRender:syncEntityAnimation(entity, dt)
     entity.renderDirty.frame = false
     entity.renderDirty.direction = false
   end
-  entity.spriteSource2D = "ENHANCED_ATLAS"
+  entity.spriteSource2D = "FOLLOW_SPRITES"
   if entity.pokemonRenderer == R.WORLD_BILLBOARD_ENHANCED then
-    entity.voxelSource = "ENHANCED_ATLAS"
+    entity.voxelSource = "FOLLOW_SPRITES"
     entity.grassRenderer = "DRAMATIC_SHAPE_NATIVE"
   end
   return changed
@@ -1895,8 +1916,9 @@ function SpawnRender:refreshEnhancedScale(entity)
   local dexId = entity.enhancedDexId
   local anim = entity.animation
   if not dexId or not anim then return end
+  local variant = anim.variant or entity.spriteVariant or "normal"
   local frame = self.animated:getFrame(
-    dexId, anim.name or anim.type, anim.direction, anim.frameIndex)
+    dexId, anim.name or anim.type, anim.direction, anim.frameIndex, variant)
   if not frame then return end
   local minSize = Config.get(self.mod, "min_sprite_size") or Config.DEFAULTS.min_sprite_size
   entity.scaleInfo = AnimatedSprites.calculateAnimatedSpriteScale(entity, frame, {

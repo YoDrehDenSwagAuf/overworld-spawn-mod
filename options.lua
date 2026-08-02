@@ -133,10 +133,10 @@ return {
   -- ------- Visuals
   {
     key = "use_animated_overworld_sprites",
-    label = "Use animated overworld Pokemon sprites",
+    label = "Use enhanced overworld Pokemon sprites",
     type = "toggle",
     default = true,
-    description = "Use directional idle and walking animations from the Pokemon overworld sprite atlas when available.",
+    description = "Use directional idle and walking follow-sprites when available. Disable to use legacy Pokedex images.",
   },
   {
     key = "sprite_opacity",
@@ -156,7 +156,7 @@ return {
     choices = {
       { "12", 12 }, { "14", 14 }, { "16", 16 },
     },
-    description = "Controls the preferred minimum readable size for legacy sprites. Animated atlas frames keep their native cell size (16x16 / 16x32 / 32x16 / 32x32) and are not squashed to one tile.",
+    description = "Preferred minimum readable size for legacy sprites. Follow-sprite frames keep their native tile size and are not squashed to one tile.",
   },
   {
     key = "pokemon_grass_render_mode",

@@ -24,3 +24,9 @@ __pycache__/
 overworld-spawns-cache/
 overworld_wild_spawns-cache/
 .cache/
+
+# Commercial Anima atlas — keep locally if present, never commit or ship.
+/assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png
+
+# Local inspect crops (authoring only).
+/assets/_inspect/

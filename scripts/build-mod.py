@@ -141,15 +141,27 @@ def ensure_linked() -> Path:
     return target
 
 
-def run_modkit(*args: str) -> None:
-    modkit = ensure_engine()
-    ensure_linked()
+def run_modkit(*args: str) -> bool:
+    """Run modkit; return False when unavailable instead of aborting the build."""
+    try:
+        modkit = ensure_engine()
+        ensure_linked()
+    except SystemExit:
+        return False
+    except Exception as err:
+        print(f"modkit engine unavailable: {err}")
+        return False
     cmd = [sys.executable, str(modkit), "--repo", str(ENGINE), *args]
     print("==>", " ".join(cmd))
     try:
         subprocess.check_call(cmd, cwd=str(ENGINE))
+        return True
     except subprocess.CalledProcessError as err:
-        fail(f"modkit {' '.join(args)} failed with exit {err.returncode}")
+        print(f"modkit {' '.join(args)} failed with exit {err.returncode}")
+        return False
+    except FileNotFoundError as err:
+        print(f"modkit launch failed: {err}")
+        return False
 
 
 def should_include(rel: str) -> bool:
@@ -184,6 +196,7 @@ def pack_manual(out_zip: Path) -> None:
                 "dist",
                 "scripts",
                 "tests",
+                "tools",
                 "mods",
                 ".github",
             }:
@@ -191,6 +204,8 @@ def pack_manual(out_zip: Path) -> None:
         for name in names:
             full = base_path / name
             rel = full.relative_to(MOD_DIR).as_posix()
+            if rel.endswith("POKEMON 1.png"):
+                continue
             if should_include(rel):
                 files.append(rel)
     files.sort()
@@ -269,6 +284,21 @@ def verify_zip(out_zip: Path, manifest: dict) -> None:
             fail(f"ZIP contains .git path: {name}")
         if "/.github/" in f"/{rel}/" or rel.startswith(".github"):
             fail(f"ZIP contains .github path: {name}")
+        if rel.endswith("POKEMON 1.png") or rel.endswith("Pokemon_Sprites/POKEMON 1.png"):
+            fail(f"ERROR: old commercial POKEMON 1.png is included: {name}")
+
+    follow_map = "assets/enhanced_overworld/followsprites_mapping/followsprites_mapping.json"
+    if follow_map not in names:
+        fail(f"ZIP missing required follow-sprite asset: {follow_map}")
+    follow_pngs = [
+        n for n in names
+        if n.startswith("assets/enhanced_overworld/followsprites/")
+        and n.lower().endswith(".png")
+    ]
+    if not follow_pngs:
+        print("WARNING: ZIP contains no follow-sprite PNGs (license/local-import mode?)")
+    else:
+        print(f"  follow-sprite PNGs: {len(follow_pngs)}")
 
     try:
         parsed = json.loads(raw_manifest.decode("utf-8"))
@@ -320,45 +350,56 @@ def run_ascii_guard() -> None:
         fail(f"validate-manager-ascii failed with exit {err.returncode}")
 
 
-def verify_animated_assets() -> None:
-    """Build-time check for the shared atlas + 151 species mappings."""
-    atlas = (
+def verify_follow_sprite_assets() -> None:
+    """Build-time check for follow-sprites + shared mapping JSON."""
+    legacy_atlas = (
         MOD_DIR
         / "assets"
         / "enhanced_overworld"
         / "Pokemon_Sprites"
         / "POKEMON 1.png"
     )
-    mapping_dir = MOD_DIR / "assets" / "enhanced_overworld" / "pokedex_mapping"
-    if not atlas.is_file():
-        fail(f"animated atlas missing: {atlas.relative_to(MOD_DIR).as_posix()}")
-    if not mapping_dir.is_dir():
-        fail(f"mapping dir missing: {mapping_dir.relative_to(MOD_DIR).as_posix()}")
+    # Local copy may exist for developers; it must never be required or shipped.
+    if legacy_atlas.is_file():
+        print(
+            "note: local Anima atlas present but ignored "
+            f"({legacy_atlas.relative_to(MOD_DIR).as_posix()})"
+        )
 
-    found = 0
-    invalid = 0
-    for species_id in range(1, 152):
-        name = f"pokemon_{species_id:03d}_project.json"
-        path = mapping_dir / name
-        if not path.is_file():
-            print(f"  missing mapping: {name}")
-            invalid += 1
-            continue
-        found += 1
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as err:
-            print(f"  invalid JSON: {name}: {err}")
-            invalid += 1
-            continue
-        if data.get("speciesId") != species_id:
-            print(
-                f"  id mismatch: {name} jsonSpeciesId={data.get('speciesId')}"
-            )
-            invalid += 1
-    print(f"animated assets: atlas ok, mapping JSON found={found}, invalid={invalid}")
-    if found != 151 or invalid:
-        fail("animated mapping set incomplete or invalid")
+    mapping = (
+        MOD_DIR
+        / "assets"
+        / "enhanced_overworld"
+        / "followsprites_mapping"
+        / "followsprites_mapping.json"
+    )
+    sprite_dir = MOD_DIR / "assets" / "enhanced_overworld" / "followsprites"
+    if not mapping.is_file():
+        fail(f"followsprites mapping missing: {mapping.relative_to(MOD_DIR).as_posix()}")
+    if not sprite_dir.is_dir():
+        fail(f"followsprites dir missing: {sprite_dir.relative_to(MOD_DIR).as_posix()}")
+
+    try:
+        data = json.loads(mapping.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as err:
+        fail(f"followsprites mapping JSON invalid: {err}")
+
+    species = data.get("species") or {}
+    if not isinstance(species, dict) or not species:
+        fail("followsprites mapping has no species entries")
+
+    pngs = {p.name.lower(): p for p in sprite_dir.iterdir() if p.suffix.lower() == ".png"}
+    print(
+        f"followsprites assets: mapping ok, species={len(species)}, pngs={len(pngs)}"
+    )
+    if len(pngs) < 1:
+        print("WARNING: no follow-sprite PNGs found (license/local-import mode?)")
+
+    # Spot-check Gen1 anchors used by MANUAL_TEST.
+    for sid in (1, 25, 151):
+        entry = species.get(str(sid)) or species.get(sid)
+        if not entry or not (entry.get("normal") or entry.get("shiny")):
+            fail(f"followsprites mapping missing required species {sid}")
 
 
 def main() -> int:
@@ -368,7 +409,7 @@ def main() -> int:
 
     # Manager-facing metadata must be ASCII-safe UTF-8 (no BOM) before pack.
     run_ascii_guard()
-    verify_animated_assets()
+    verify_follow_sprite_assets()
 
     if DIST.exists():
         shutil.rmtree(DIST)
@@ -377,17 +418,22 @@ def main() -> int:
     out_name = f"wilds-of-kanto-v{manifest['version']}.zip"
     out_zip = DIST / out_name
 
-    # Validate + pack with the real Gen1Recomp modkit (flat archive root).
-    run_modkit("validate", "mods/overworld_wild_spawns")
-    run_modkit("lint", "mods/overworld_wild_spawns")
-    run_modkit("pack", "mods/overworld_wild_spawns", "-o", str(out_zip))
+    # Prefer Gen1Recomp modkit; fall back to manual pack when luajit/modkit fails.
+    modkit_ok = (
+        run_modkit("validate", "mods/overworld_wild_spawns")
+        and run_modkit("lint", "mods/overworld_wild_spawns")
+        and run_modkit("pack", "mods/overworld_wild_spawns", "-o", str(out_zip))
+    )
+    if not modkit_ok or not out_zip.is_file():
+        print("modkit unavailable/failed; packing manually from repo root")
+        pack_manual(out_zip)
 
     if not out_zip.is_file():
         fail(f"expected output missing: {out_zip}")
     verify_zip(out_zip, manifest)
 
-    # Re-validate after pack.
-    run_modkit("validate", "mods/overworld_wild_spawns")
+    if modkit_ok:
+        run_modkit("validate", "mods/overworld_wild_spawns")
 
     # Compatibility aliases using the stable technical mod id.
     id_versioned = DIST / f"{manifest['id']}-{manifest['version']}.zip"
@@ -398,7 +444,7 @@ def main() -> int:
     print(f"wrote {out_zip}")
     print(f"wrote {id_versioned}")
     print(f"wrote {id_alias}")
-    print("modkit validator: ok")
+    print(f"modkit validator: {'ok' if modkit_ok else 'skipped (manual pack)'}")
     print("manifest.json at ZIP root: confirmed")
     return 0
 

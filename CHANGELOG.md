@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.6.0
+
+### Changed
+
+- **Follow-sprites replace the Anima atlas** as the active enhanced overworld
+  sprite source. One PNG per species/variant under
+  `assets/enhanced_overworld/followsprites/`, with a shared
+  `followsprites_mapping.json`.
+- Species identity remains Pokédex / species ID only (never localized names).
+- Idle and walk animations in four directions; walk uses a 4-frame cycle per
+  direction (rows = directions, columns = frames — verified against the real
+  PNGs).
+- Normal and shiny files are mapped; **runtime Gen1 wild spawns always use
+  normal** because Gen1Recomp does not expose a reliable pre-battle shiny flag.
+  The developer preview browser can still force Shiny for inspection.
+- Public option kept as enhanced overworld sprites
+  (`use_animated_overworld_sprites`); it now toggles follow-sprites vs legacy
+  Pokédex images. The old Anima atlas is no longer selectable.
+- Commercial `POKEMON 1.png` is gitignored and blocked from release ZIPs.
+  Old per-species Anima mapping JSONs remain in the repo unused.
+
+### Fallback chain
+
+1. Requested follow-sprite variant
+2. Normal follow-sprite (if shiny missing)
+3. Legacy Pokédex / battle PNG
+4. Black fallback
+
 ## 0.5.7
 
 ### Added

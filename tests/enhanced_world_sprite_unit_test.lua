@@ -97,12 +97,14 @@ local k3 = anim:billboardKey(5, "idle", "left", 2, frame16)
 local k4 = anim:billboardKey(6, "walk", "left", 2, frame16)
 local k5 = anim:billboardKey(5, "walk", "right", 2, frame16)
 local k6 = anim:billboardKey(5, "walk", "left", 2, frame32)
-eq(k1, "5:walk:left:2:16:16", "key format species:anim:dir:idx:w:h")
+eq(k1, "5:normal:walk:left:2:16:16", "key format species:variant:anim:dir:idx:w:h")
 check(k1 ~= k2, "frame index differs keys")
 check(k1 ~= k3, "animation differs keys")
 check(k1 ~= k4, "species differs keys")
 check(k1 ~= k5, "direction differs keys")
 check(k1 ~= k6, "size differs keys")
+local kShiny = anim:billboardKey(5, "walk", "left", 2, frame16, "shiny")
+check(k1 ~= kShiny, "variant differs keys")
 
 -- --- fit math (documented Dramatic Shape constraint) ---
 local function fit(sw, sh)
@@ -146,12 +148,13 @@ local entity = {
   pokemonRenderer = "WORLD_BILLBOARD_ENHANCED",
   mod = V.mod,
 }
-entity.animation.source = "ENHANCED_ATLAS"
+entity.animation.source = "FOLLOW_SPRITES"
+entity.animation.variant = "normal"
 entity.animation.type = "walk"
 entity.animation.name = "walk"
 entity.animation.direction = "left"
 entity.animation.frameIndex = 2
-
+entity.spriteVariant = "normal"
 local world1 = EnhancedWorldSprite.new({
   entity = entity,
   animatedSprites = anim,
@@ -180,7 +183,7 @@ eq(legacy.def.frames, 1, "legacy frames untouched")
 check(legacy.resolveImage ~= EnhancedWorldSprite.resolveImage, "legacy resolveImage not replaced")
 
 local key = anim:getCurrentBillboardKey(entity)
-eq(key, "5:walk:left:2:16:16", "current billboard key from entity animation")
+eq(key, "5:normal:walk:left:2:32:32", "current billboard key from entity animation")
 
 -- headless prepare → TEMP or READY or permanent
 local result = anim:prepareBillboardImage(entity, key)

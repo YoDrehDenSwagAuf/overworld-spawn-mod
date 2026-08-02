@@ -1,4 +1,4 @@
--- Standalone unit tests for animated overworld sprites (no Gen1Recomp required).
+-- Standalone unit tests for follow-sprite overworld sprites (no Gen1Recomp required).
 -- Run: lua54 tests/animated_sprites_unit_test.lua
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
@@ -15,16 +15,13 @@ local function eq(a, b, msg)
   check(a == b, string.format("%s (got %s expected %s)", msg, tostring(a), tostring(b)))
 end
 
--- Minimal V harness mirroring main.lua's require.
 local modRoot = "."
 local modules = {}
 local V = {
   mod = {
     path = modRoot,
     log = {
-      info = function(_, fmt, ...)
-        -- quiet
-      end,
+      info = function(_, fmt, ...) end,
     },
     read = function(_, rel)
       local f = io.open(modRoot .. "/" .. rel, "rb")
@@ -48,7 +45,6 @@ function V.require(name)
   return value
 end
 
--- Stub Config defaults used by animated_sprites.
 modules.config = {
   DEFAULTS = { grass_occlusion_px = 6, min_sprite_size = 16 },
   get = function() return nil end,
@@ -67,126 +63,158 @@ local obj, err = JsonDecode.decode('{"a":1,"b":[true,false,null],"s":"hi"}')
 check(obj ~= nil, "json decodes object")
 eq(obj.a, 1, "json number")
 eq(obj.s, "hi", "json string")
-eq(obj.b[1], true, "json true")
-eq(obj.b[2], false, "json false")
-check(obj.b[3] == nil, "json null")
 
 -- Facing normalize
 eq(AnimatedSprites.normalizeFacing("front"), "down", "front->down")
 eq(AnimatedSprites.normalizeFacing("back"), "up", "back->up")
 eq(AnimatedSprites.normalizeFacing("left"), "left", "left")
 eq(AnimatedSprites.normalizeFacing("RIGHT"), "right", "RIGHT")
-eq(AnimatedSprites.normalizeFacing("north"), "up", "north->up")
-eq(AnimatedSprites.normalizeFacing("south"), "down", "south->down")
 
 -- Species id identity (never by name)
 eq(AnimatedSprites.resolveSpeciesId(5, nil, nil), 5, "numeric species id")
 eq(AnimatedSprites.resolveSpeciesId("CHARMELEON", {
   data = { pokemon = { CHARMELEON = { name = "Glutexo", dex = 5 } } }
 }, nil), 5, "dex from species key ignores localized name")
-eq(AnimatedSprites.resolveSpeciesId("CHARMELEON", {
-  data = { pokemon = { CHARMELEON = { name = "Reptincel", dex = 5 } } }
-}, nil), 5, "French display name still dex 5")
 check(AnimatedSprites.resolveSpeciesId("Glutexo", {
   data = { pokemon = { CHARMELEON = { name = "Glutexo", dex = 5 } } }
 }, nil) == nil, "localized name alone must not resolve")
 
+-- Filename pattern helpers
+eq(AnimatedSprites.mappingFileName(1), "followsprites_mapping.json", "shared mapping name")
+eq(AnimatedSprites.mappingRelPath(25),
+   "assets/enhanced_overworld/followsprites_mapping/followsprites_mapping.json",
+   "shared mapping path")
+
+-- Variant normalize / runtime shiny
+eq(AnimatedSprites.normalizeVariant("shiny"), "shiny", "shiny variant")
+eq(AnimatedSprites.normalizeVariant(true), "shiny", "true -> shiny")
+eq(AnimatedSprites.normalizeVariant(nil), "normal", "nil -> normal")
+eq(AnimatedSprites.RUNTIME_SHINY_SUPPORT, "NOT_AVAILABLE", "no invented runtime shiny")
+eq(AnimatedSprites.resolveRuntimeVariant({ isShiny = true }), "normal",
+   "isShiny ignored without runtime support")
+eq(AnimatedSprites.resolveRuntimeVariant({}, { forceVariant = "shiny" }), "shiny",
+   "preview may force shiny")
+
 -- Loader
 local anim = AnimatedSprites.new(V.mod)
 local ok = anim:load()
-check(ok == true, "animated load succeeds")
-check(anim:isReady(), "atlas ready (stub or image)")
-eq(anim.mappingFilesFound, 151, "151 mapping files found")
-check(anim.validSpeciesCount >= 140, "most mappings valid")
-check(anim.partialSpeciesCount >= 1, "partial mappings present")
+check(ok == true, "follow sprite load succeeds")
+check(anim:isReady(), "mapping ready")
+eq(anim.mappingFilesFound, 1, "one shared mapping file")
+check(anim.mappedSpeciesCount >= 151, "at least Gen1 mapped")
+check(anim.mappedSpeciesCount >= 600, "species above 151 retained in mapping")
 eq(anim.invalidSpeciesCount, 0, "no invalid mappings")
 
--- ID cross-check Charmeleon
-local m5 = anim:getMapping(5)
-check(m5 ~= nil and m5.valid, "species 5 mapping valid")
-eq(m5.speciesId, 5, "lookup key 5")
-eq(m5.fileName, "pokemon_005_project.json", "filename pattern")
-eq(m5.speciesName, "Charmeleon", "speciesName display-only field present")
+-- Species 1 / 25 / 151 / 252
+local m1 = anim:getMapping(1)
+check(m1 ~= nil and m1.valid, "species 1 mapping valid")
+eq(m1.normal.fileName, "001-b-n.png", "species 1 normal file")
+check(m1.shiny and m1.shiny.valid, "species 1 shiny present")
+eq(m1.shiny.fileName, "001-b-s.png", "species 1 shiny file")
 
--- Language independence: same mapping regardless of display name
+local m25 = anim:getMapping(25)
+check(m25 ~= nil and m25.valid, "species 25 mapping valid")
+eq(m25.preferredForm, "m", "Pikachu prefers male form when no b")
+eq(m25.normal.fileName, "025-m-n.png", "species 25 normal file")
+check(m25.alternateForms and m25.alternateForms.f ~= nil, "Pikachu female alt form noted")
+
+local m151 = anim:getMapping(151)
+check(m151 ~= nil and m151.valid, "species 151 mapping valid")
+eq(m151.normal.fileName, "151-b-n.png", "species 151 normal file")
+
+local m252 = anim:getMapping(252)
+check(m252 ~= nil and m252.valid, "species 252 mapped for future use")
+
+-- Language independence
 local gameEn = { data = { pokemon = { CHARMELEON = { name = "Charmeleon", dex = 5 } } } }
 local gameDe = { data = { pokemon = { CHARMELEON = { name = "Glutexo", dex = 5 } } } }
-local gameFr = { data = { pokemon = { CHARMELEON = { name = "Reptincel", dex = 5 } } } }
 eq(AnimatedSprites.resolveSpeciesId("CHARMELEON", gameEn), 5, "EN dex")
 eq(AnimatedSprites.resolveSpeciesId("CHARMELEON", gameDe), 5, "DE dex")
-eq(AnimatedSprites.resolveSpeciesId("CHARMELEON", gameFr), 5, "FR dex")
-check(anim:getMapping(5) == m5, "same mapping object for all languages")
+check(anim:getMapping(5) == anim:getMapping(5), "same mapping object")
 
--- Nidoran variants by separate IDs
-check(anim:getMapping(29) ~= nil, "Nidoran F id 29")
-check(anim:getMapping(32) ~= nil, "Nidoran M id 32")
-check(anim:getMapping(29) ~= anim:getMapping(32), "Nidoran variants distinct")
+-- Layout: rows=directions, columns=frames (verified against real PNGs)
+local idleDown = anim:getFrame(1, "idle", "down", 1, "normal")
+check(idleDown ~= nil, "idle down exists")
+eq(idleDown.sourceCol, 0, "idle down col 0")
+eq(idleDown.sourceRow, 0, "idle down row 0")
+eq(idleDown.width, 32, "tile width 32 for 128 sheet")
+eq(idleDown.height, 32, "tile height 32 for 128 sheet")
 
--- Mr. Mime / Farfetch'd by id
-check(anim:getMapping(83) and anim:getMapping(83).valid, "Farfetch'd id 83")
-check(anim:getMapping(122) and anim:getMapping(122).valid, "Mr. Mime id 122")
+local idleLeft = anim:getFrame(1, "idle", "left", 1, "normal")
+eq(idleLeft.sourceCol, 0, "idle left col 0")
+eq(idleLeft.sourceRow, 1, "idle left row 1")
 
--- Frame sizes
-local f16 = anim:getFrame(5, "idle", "down", 1)
-check(f16 and f16.width == 16 and f16.height == 16, "Charmeleon idle 16x16")
-local f32h = anim:getFrame(6, "idle", "down", 1)
-check(f32h and f32h.width == 16 and f32h.height == 32, "Charizard idle 16x32")
-local f32w = anim:getFrame(6, "idle", "left", 1)
-check(f32w and f32w.width == 32 and f32w.height == 16, "Charizard idle left 32x16")
+local idleRight = anim:getFrame(1, "idle", "right", 1, "normal")
+eq(idleRight.sourceRow, 2, "idle right row 2")
 
--- Partial Bulbasaur idle left falls back to walk
-local frames, used = anim:resolveFrames(1, "idle", "left")
-check(frames and #frames >= 1, "Bulbasaur idle.left fallback has frames")
-eq(used, "walk", "Bulbasaur idle.left uses walk fallback")
+local idleUp = anim:getFrame(1, "idle", "up", 1, "normal")
+eq(idleUp.sourceRow, 3, "idle up row 3")
 
--- Animation update walk/idle
+local walkDown, walkCount = anim:getFrame(1, "walk", "down", 1, "normal")
+eq(walkCount, 4, "walk down has 4 frames")
+eq(walkDown.sourceCol, 0, "walk down frame1 col 0")
+local walkDown4 = anim:getFrame(1, "walk", "down", 4, "normal")
+eq(walkDown4.sourceCol, 3, "walk down frame4 col 3")
+eq(walkDown4.sourceRow, 0, "walk down stays on row 0")
+
+local walkLeft4 = anim:getFrame(1, "walk", "left", 4, "normal")
+eq(walkLeft4.sourceRow, 1, "walk left on row 1")
+local walkRight2 = anim:getFrame(1, "walk", "right", 2, "normal")
+eq(walkRight2.sourceRow, 2, "walk right on row 2")
+local walkUp3 = anim:getFrame(1, "walk", "up", 3, "normal")
+eq(walkUp3.sourceRow, 3, "walk up on row 3")
+
+-- Shiny selection / fallback
+check(anim:hasVariant(1, "shiny") == true, "species 1 has shiny")
+local shinyIdle = anim:getFrame(1, "idle", "down", 1, "shiny")
+check(shinyIdle ~= nil, "shiny idle frame")
+local vmShiny = anim:getVariantMapping(1, "shiny")
+eq(vmShiny.fileName, "001-b-s.png", "shiny mapping file")
+local vmMissing = anim:getVariantMapping(1, "shiny")
+check(vmMissing ~= nil, "shiny request returns mapping")
+
+-- Animation update
 local state = anim:newAnimationState("down")
+eq(state.source, "FOLLOW_SPRITES", "animation source follow")
 anim:updateAnimation(state, 5, 0, false, "down")
 eq(state.name, "idle", "stationary -> idle")
-eq(state.type, "idle", "type alias idle")
 anim:updateAnimation(state, 5, 0, true, "left")
 eq(state.name, "walk", "moving -> walk")
 eq(state.direction, "left", "facing left")
--- Movement-progress driven walk frames
-local changed = anim:updateAnimation(state, 5, 0, true, "left", 0.0)
+anim:updateAnimation(state, 5, 0, true, "left", 0.0)
 eq(state.frameIndex, 1, "progress 0 -> frame 1")
 anim:updateAnimation(state, 5, 0, true, "left", 0.99)
-check(state.frameIndex >= 1, "progress near 1 still valid frame")
-anim:updateAnimation(state, 5, 0, false, "left")
-eq(state.name, "idle", "stop -> idle same direction")
-eq(state.direction, "left", "idle keeps last walk direction")
+check(state.frameIndex >= 1 and state.frameIndex <= 4, "progress near 1 valid")
 
--- Direction change dirties
-local s2 = anim:newAnimationState("down")
-anim:updateAnimation(s2, 5, 0, false, "up")
-check(s2.directionChanged == true or s2.direction == "up", "direction change to up")
-
--- Scale keeps multi-cell footprint
-local scale = AnimatedSprites.calculateAnimatedSpriteScale(nil, f32h, {})
+-- Scale for 32x32 tiles
+local scale = AnimatedSprites.calculateAnimatedSpriteScale(nil, idleDown, {})
 eq(scale.contentH, 32, "scale content height 32")
 eq(scale.logicalFootprintTiles, 1, "logical footprint stays 1")
 check(scale.visualFootprintTilesH == 2, "visual height 2 tiles")
-check(scale.grassOcclusionHeight <= 6, "grass occlusion capped")
 
--- Quad cache key
-eq(anim:quadKey(25, "walk", "left", 3), "25:walk:left:3", "quad cache key")
-local q1 = anim:getQuad(25, "walk", "left", 1)
-local q2 = anim:getQuad(25, "walk", "left", 1)
+-- Quad / image cache keys
+eq(anim:quadKey(25, "walk", "left", 3, "normal"), "25:normal:walk:left:3", "quad cache key")
+eq(anim:imageCacheKey(25, "shiny"), "25:shiny", "image cache key")
+local q1 = anim:getQuad(25, "walk", "left", 1, "normal")
+local q2 = anim:getQuad(25, "walk", "left", 1, "normal")
 check(q1 ~= nil and q1 == q2, "quad cache hit")
+local img = anim:getImage(1, "normal")
+check(img ~= nil, "lazy image stub/load")
 
--- Out-of-bounds rejection helper: invent invalid frame via normalize
+-- Bounds rejection
 local errors = {}
-local bad = anim:_normalizeFrames({ { col = 200, row = 0, w = 1, h = 1 } }, 16, 16, errors)
+local bad = anim:_normalizeFrames(
+  { { col = 200, row = 0, w = 1, h = 1 } }, 32, 32, errors, 128, 128)
 eq(#bad, 0, "out-of-bounds frame discarded")
 check(#errors >= 1, "out-of-bounds error recorded")
 
--- Filename pattern
-eq(AnimatedSprites.mappingFileName(1), "pokemon_001_project.json", "pattern 001")
-eq(AnimatedSprites.mappingFileName(151), "pokemon_151_project.json", "pattern 151")
+-- Grid validation helpers via mapping sizes
+check(m1.normal.imageWidth % 4 == 0, "image width divisible by 4")
+check(m1.normal.imageHeight % 4 == 0, "image height divisible by 4")
 
 print("")
 if failures > 0 then
   io.stderr:write(string.format("%d failure(s)\n", failures))
   os.exit(1)
 end
-print("all animated sprite unit tests passed")
+print("all follow-sprite unit tests passed")

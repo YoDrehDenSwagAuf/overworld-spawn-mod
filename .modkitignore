@@ -19,3 +19,9 @@ ARCHITECTURE.md
 # Local inspect crops (authoring only).
 assets/_inspect/char_001_block.png
 assets/_inspect/char_001_block_x4.png
+
+# Commercial Anima atlas must never ship in release ZIPs.
+assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png
+
+# Mapping generator (repo tooling only).
+tools/generate_followsprites_mapping.ps1

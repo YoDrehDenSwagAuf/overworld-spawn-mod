@@ -145,8 +145,8 @@ All options are live (`mod.options_changed`). Map-density retargets on change; a
 | Label | Key | Default | Effect |
 |---|---|---|---|
 | Sprite fade | `sprite_opacity` | 1.0 | Solid / Tucked / Faint |
-| Use animated overworld Pokemon sprites | `use_animated_overworld_sprites` | true | Atlas idle/walk when mapping is valid |
-| Minimum Pokemon sprite size | `min_sprite_size` | 16 | Preferred readable size for legacy sprites; animated frames keep native cell size |
+| Use enhanced overworld Pokemon sprites | `use_animated_overworld_sprites` | true | Follow-sprite idle/walk when mapping is valid |
+| Minimum Pokemon sprite size | `min_sprite_size` | 16 | Preferred readable size for legacy sprites; follow-sprite frames keep native tile size |
 | Pokemon grass rendering | `pokemon_grass_render_mode` | immersed | `above` = fully visible; `immersed` = feet under tall grass like the player |
 | Enable grass movement effects | `enable_grass_movement_effects` | true | Hidden shake / dust pulses |
 
@@ -181,13 +181,14 @@ Lists species from ROM/content data (not the Pokédex). Shows asset status, enco
 
 Presentation order:
 
-1. Animated atlas (when the option is on and the species mapping is valid)
+1. Follow-sprite (when the option is on and the species mapping is valid)
 2. Legacy species / battle PNG
 3. `assets/fallback/pokemon_missing.png`
 
 Spawns still appear in every case. Mapping errors affect only that species.
 Sprite identity always uses the numeric Pokedex / species id — never the
-localized display name.
+localized display name. Shiny follow-sprites exist in assets/preview, but
+Gen1 wild spawns currently always use the normal variant.
 
 ## 17. Known limitations
 
@@ -196,7 +197,7 @@ localized display name.
 - Water Pokemon are a best-effort swim presentation; vanilla Surf rolls stay on
 - Fishing Pokemon never free-roam
 - With Dramatic Shape, wild Pokemon use the same world billboards as trainers
-  (depth + native grass). Large atlas frames are fitted into 16×16 cards for
+  (depth + native grass). Large follow-sprite frames are fitted into 16x16 cards for
   Voxel only; flat 2D keeps native frame size.
 - Aggressive chase keeps a stable entity id and uses the engine `!` emote
 
@@ -208,8 +209,8 @@ localized display name.
 | Only random grass | Spawn system not READY → vanilla fail-safe is working |
 | Too empty on long routes | Raise **Spawn density** or lower **Tiles per additional** |
 | Too crowded | Lower density or max visible |
-| Tiny sprites in grass | Raise **Minimum Pokemon sprite size** (legacy path); animated atlas uses native size |
-| Prefer classic static sprites | Turn off **Use animated overworld Pokemon sprites** |
+| Tiny sprites in grass | Raise **Minimum Pokemon sprite size** (legacy path); follow-sprites use native size |
+| Prefer classic static sprites | Turn off **Use enhanced overworld Pokemon sprites** |
 | Want classic feel | Disable aggressive / hidden, or turn the feature off |
 
 ## 19. Uninstall
