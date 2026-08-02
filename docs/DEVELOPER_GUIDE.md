@@ -1,11 +1,31 @@
-# Wilds of Kanto — Developer Guide (0.4.2)
+# Wilds of Kanto — Developer Guide (0.5.6)
 
-> Tile size, one-tile 2D scale, Voxel adapter, and aggressive SM notes below
-> match the 0.4.2 implementation.
+> Animated atlas sprites, EnhancedWorldSprite adapter, and Dramatic Shape
+> billboard contract match the 0.5.6 implementation.
 
 Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
 This document describes the **implemented** architecture. It does not invent Gen1Recomp APIs.
+
+## Dramatic Shape integration (0.5.6)
+
+Verified contract: `pose()` returns `sprite, visualX, visualY, facing, phase, flip`.
+DS uses `e.py` as ground and `e.py - visualY` as lift. Entity billboards are
+fixed 16×16 meshes — **no atlas+quad**. Wilds supplies:
+
+1. Central animation state (`idle`/`walk`, direction, frameIndex, renderRevision)
+2. Stable `EnhancedWorldSprite` (`def.frames=1`, `trueColor`, `resolveImage`)
+3. Cached proportional 16×16 card Images
+
+Legacy `SpriteRenderer` is kept separately and **not** mutated. Flat 2D still
+draws atlas quads at native size. Success HUD:
+
+```text
+Renderer: WORLD_BILLBOARD_ENHANCED
+Grass renderer: DRAMATIC_SHAPE_NATIVE
+Depth integration: ACTIVE
+Object occlusion: ACTIVE
+```
 
 ## 1. Project structure
 
@@ -19,6 +39,15 @@ assets/  lib/  docs/  tests/  scripts/
 Local engine: `./scripts/bootstrap.sh` → `.deps/gen1recomp` with symlink
 `mods/overworld_wild_spawns` → repo root.
 
+Animated assets:
+
+```text
+assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png
+assets/enhanced_overworld/pokedex_mapping/pokemon_XXX_project.json
+```
+
+See `docs/ANIMATED_SPRITE_FORMAT.md`.
+
 ## 2. Mod lifecycle
 
 `main.lua` returns `function(mod)`. During load:
@@ -26,9 +55,10 @@ Local engine: `./scripts/bootstrap.sh` → `.deps/gen1recomp` with symlink
 1. Virtual `V.require` loads `lib/*.lua`
 2. `Config.defineOptions`
 3. `SpawnRender:registerContent()` — **only** content-registry writes
-4. Register HUD / preview / behaviour-tick pipelines
-5. Hook `encounter.roll` + `movement.collision` when enabled
-6. Subscribe to map/world/battle/save/options events
+4. `AnimatedSprites:load()` — atlas + 151 JSON mappings (no registry writes)
+5. Register HUD / preview / behaviour-tick pipelines
+6. Hook `encounter.roll` + `movement.collision` when enabled
+7. Subscribe to map/world/battle/save/options events
 
 Gen1Recomp freezes content registries after all mods load.
 
@@ -49,10 +79,23 @@ test spawn, or preview. Runtime uses `speciesSpriteIds` lookup + image path reso
 
 ## 5. Sprite resolution
 
-Ordered candidates (species **id** first, not display name alone):
+### Enhanced atlas (preferred when option on)
+
+Identity = numeric `mon.dex` / `speciesId` only:
+
+```lua
+local speciesId = AnimatedSprites.resolveSpeciesId(entity.species, game, mod)
+local mapping = mappingsBySpeciesId[speciesId]
+```
+
+Never: `mappingByName[pokemon.name]` or filename from localized names.
+
+### Legacy candidates (species **id** first, not display name alone)
 
 explicit map → dex-padded PNG → species_id PNG → display-name token →
 battle front/back → menu icon → optional save-dir cache → fallback
+
+Fallback chain: **enhanced atlas → legacy PNG → black fallback**.
 
 ## 6. Runtime image cache
 
@@ -123,15 +166,24 @@ Records in `logic.spawns` / `logic.entities` / `logic.byMap`.
 Entities implement `pose()` / `draw()` on `ow.entities`.
 Scaled draw uses `love.graphics.draw` + nearest filter; feet-biased growth.
 Engine `TileRenderer:drawCellBottom` after every entity on grass provides
-the player/NPC grass overdraw — no custom black mask.
+the GB feet-overdraw (bottom 8px of the cell).
+
+Option `pokemon_grass_render_mode` (`immersed` default / `above`):
+- `immersed` — use overdraw; relative lift keeps small sprites readable
+- `above` — lift clears flat overdraw; voxel overlay skips overdraw
+
+`inGrassOverlay` tracks live grass tiles (source + step target).
+Relative occlusion: `GrassOcclusion.computeOcclusionHeight` (~25–32% of
+rendered height, min ~8px still visible). No custom black mask — real tile
+art from `drawCellBottom`.
 
 ## 15. Grass overlay
 
 Implemented by Gen1Recomp for all `ow.entities` on grass cells.
 Mod sets `grass_tuck_px = 0` by default so sprites are not pushed into the turf.
 `inGrassOverlay` tracks live cell grass for HUD.
-Relative occlusion: `min(grass_occlusion_px, renderedVisibleHeight * 0.35)` with
-a small upward lift so small sprites are not fully covered.
+Relative occlusion via `lib/grass_occlusion.lua` with a small upward lift so
+small sprites are not fully covered.
 Aggressive entities clear the grass flag when their committed tile leaves grass.
 
 ## 16. Sprite scaling (one tile)
@@ -149,7 +201,8 @@ final2DScale  = min(desiredScale, maximumScale)
 - Aspect ratio preserved; nearest-neighbor filter.
 - Logical footprint stays one tile (collision / sight / contact unchanged).
 - Camera zoom is engine-only and is not folded into `final2DScale`.
-- Voxel billboards stay a 16×16 card (`voxelScale = 1`); never reuse the 2D scale.
+- With Dramatic Shape active, wild Pokemon use `WILDS_2D_POST_VOXEL` (same
+  `Entity:draw` / atlas path after the voxel world). No 16×16 card bake.
 
 ## 17. Behaviour state machines
 

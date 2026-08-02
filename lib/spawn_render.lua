@@ -22,6 +22,10 @@ local Behavior = V.require("behavior")
 local Surface = V.require("surface")
 local Tile = V.require("tile")
 local Movement = V.require("movement")
+local AnimatedSprites = V.require("animated_sprites")
+local GrassOcclusion = V.require("grass_occlusion")
+local EnhancedWorldSprite = V.require("enhanced_world_sprite")
+local RenderDiagnostics = V.require("render_diagnostics")
 
 local SpawnRender = {}
 SpawnRender.__index = SpawnRender
@@ -33,6 +37,20 @@ local FALLBACK_ID = "SPRITE_OW_WILD_FALLBACK"
 local CACHE_DIR = "overworld_wild_spawns-cache"
 local FALLBACK_REL = "assets/fallback/pokemon_missing.png"
 local PLACEHOLDER_REL = "assets/spawn_placeholder.png"
+local BILLBOARD_BASE_REL = EnhancedWorldSprite.BASE_ASSET_REL
+
+-- Render status taxonomy (voxel world billboard path).
+SpawnRender.RENDERER = {
+  WORLD_BILLBOARD_ENHANCED = "WORLD_BILLBOARD_ENHANCED",
+  WORLD_BILLBOARD_LEGACY = "WORLD_BILLBOARD_LEGACY",
+  WORLD_BILLBOARD_BLACK_FALLBACK = "WORLD_BILLBOARD_BLACK_FALLBACK",
+  TEMPORARILY_UNAVAILABLE = "TEMPORARILY_UNAVAILABLE",
+  SPATIAL_OVERLAY_EMERGENCY = "SPATIAL_OVERLAY_EMERGENCY",
+  -- Alias kept for older call sites / tests.
+  SPATIAL_OVERLAY_FALLBACK = "SPATIAL_OVERLAY_EMERGENCY",
+  HIDDEN = "HIDDEN",
+  WILDS_2D = "WILDS_2D",
+}
 
 -- Optional explicit speciesId -> mod-relative asset path (under the mod root).
 -- Species id is the primary key; keep this table sparse and deterministic.
@@ -224,6 +242,7 @@ function SpawnRender.new(mod)
   self.realAssetsMissing = 0
   self.fallbackAvailable = false
   self.debugMarkers = false
+  self.animated = AnimatedSprites.new(mod)
   return self
 end
 
@@ -258,6 +277,10 @@ end
 
 function SpawnRender:_fallbackPath()
   return self:_modAssetPath(FALLBACK_REL)
+end
+
+function SpawnRender:_billboardBasePath()
+  return self:_modAssetPath(BILLBOARD_BASE_REL)
 end
 
 function SpawnRender:_placeholderPath()
@@ -557,9 +580,25 @@ function SpawnRender:registerContent()
   self.missingCount = missing
   self.contentRegistrationOpen = false
 
+  -- Enhanced atlas + JSON mappings: load-once, no registry writes.
+  local okAnim, animErr = pcall(function()
+    self.animated:load()
+  end)
+  if not okAnim then
+    DebugLog.warn(self.mod, "animated sprite load failed: %s", tostring(animErr))
+  end
+
   self:_notice("Registered sprites: %d", registered)
   self:_notice("Missing real sprite sources at register: %d", missing)
   self:_notice("Fallback available: yes")
+  if self.animated and self.animated:isReady() then
+    local s = self.animated:summary()
+    self:_notice("Animated atlas: READY (%dx%d)", s.atlasWidth, s.atlasHeight)
+    self:_notice("Animated mappings valid/partial/invalid: %d/%d/%d",
+                 s.validSpeciesCount, s.partialSpeciesCount, s.invalidSpeciesCount)
+  else
+    self:_warn("Animated atlas: UNAVAILABLE (legacy/fallback sprites still work)")
+  end
   self:_notice("Content registration complete")
   return true
 end
@@ -651,7 +690,7 @@ function SpawnRender:checkAvailable(game)
   self.rendererMode = "base"
   local dramatic = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
   if dramatic then
-    self:_log("DRAMATIC_SHAPE present; using shared pose()/entities billboard path")
+    self:_log("DRAMATIC_SHAPE present; wild Pokemon use WORLD_BILLBOARD depth path")
   else
     self:_log("base Gen1Recomp 2D renderer path active")
   end
@@ -782,7 +821,7 @@ function SpawnRender:assetStatusFor(species, game)
 
   local dramatic = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
   if dramatic then
-    info.voxel = "DRAMATIC_SHAPE present (pose billboard)"
+    info.voxel = "DRAMATIC_SHAPE WORLD_BILLBOARD"
   end
 
   if self.rendererMode == "base" then
@@ -796,6 +835,25 @@ function SpawnRender:assetStatusFor(species, game)
   -- Entity can be created whenever we have any draw path (real or fallback).
   info.entityReady = (info.status == "LOADED" or info.status == "FALLBACK_LOADED")
                      and self.rendererMode == "base"
+
+  local enh = self:enhancedStatusFor(species, game)
+  info.enhanced = enh
+  info.enhancedStatus = enh.status
+  info.enhancedAvailable = enh.available == true
+  info.enhancedDexId = enh.dexId
+  info.mappingFile = enh.fileName
+  info.mappingName = enh.speciesName
+  if enh.available then
+    info.spriteSource = "ENHANCED_ATLAS"
+    info.phase = enh.status
+  elseif info.fallbackUsed then
+    info.spriteSource = "BLACK_FALLBACK"
+  elseif info.status == "LOADED" then
+    info.spriteSource = "LEGACY_PNG"
+  else
+    info.spriteSource = info.phase or info.status
+  end
+
   self.assetInfo[species] = info
   return info
 end
@@ -828,6 +886,7 @@ Entity.__index = Entity
 function Entity.new(game, mod, render, record)
   local self = setmetatable({}, Entity)
   self.overworldWildSpawn = true
+  self._owwildEntity = true
   self.passable = true
   -- Stable public id for the entity's full lifetime (never regenerates).
   self.id = record.id
@@ -851,6 +910,11 @@ function Entity.new(game, mod, render, record)
   self.voxelUpdateOk = false
   self.voxelScale = 1
   self.render2DFallback = false
+  self.worldRenderer = "GEN1_FLAT"
+  self.pokemonRenderer = "WILDS_2D"
+  self.dramaticBillboardSkipped = false
+  self.spriteSource2D = nil
+  self.voxelSource = nil
   self.alertIcon = false
   self.usingFallback = false
   self.entityPhase = "CREATING"
@@ -863,6 +927,8 @@ function Entity.new(game, mod, render, record)
   self.visualScale = 1
   self.final2DScale = 1
   self.grassOcclusionHeight = 0
+  self.grassOcclusionActive = false
+  self.grassRenderMode = GrassOcclusion.MODE_IMMERSED
   self.waterSink = (self.surface == Surface.WATER) and 2 or 0
   self.assetInfo = nil
   Movement.init(self, record.x, record.y, self.facing)
@@ -991,6 +1057,16 @@ function Entity.new(game, mod, render, record)
     end
   end
 
+  -- Immutable legacy SpriteRenderer reference (never wrap/mutate for voxel).
+  self.legacySprite = self.sprite
+  if self.usingFallback then
+    self.blackFallbackSprite = self.sprite
+  end
+  self.worldSprite = nil
+  self.worldBillboardReady = false
+  self.worldSpriteAdapterStatus = "N/A"
+  self.grassRenderer = "ENGINE_2D"
+
   if self.sprite and self.sprite.image and self.sprite.image.setFilter then
     self.sprite.image:setFilter("nearest", "nearest")
   end
@@ -1003,9 +1079,10 @@ function Entity.new(game, mod, render, record)
   self.visualScale = self.scaleInfo.final2DScale or self.scaleInfo.scale or 1
   self.final2DScale = self.visualScale
   self.grassOcclusionHeight = self.scaleInfo.grassOcclusionHeight or 0
-  -- Voxel billboards are always a 16×16 card from the sheet — never reuse
-  -- the 2D finalScale as a world/voxel scale.
   self.voxelScale = 1
+
+  -- Optional enhanced atlas animation (identity = dex / speciesId only).
+  render:attachEnhancedToEntity(self, game)
   return self
 end
 
@@ -1027,31 +1104,106 @@ function Entity:update(dt)
   else
     Movement.syncLegacyFields(self)
   end
+
+  if self.render and self.render.syncEntityAnimation then
+    self.render:syncEntityAnimation(self, dt or 0)
+  end
+end
+
+function Entity:_grassTuck()
+  local pokemonRenderer = self.pokemonRenderer
+  local overlayEmergency = pokemonRenderer == SpawnRender.RENDERER.SPATIAL_OVERLAY_EMERGENCY
+    or pokemonRenderer == "SPATIAL_OVERLAY_FALLBACK"
+  local mode = GrassOcclusion.mode(self.mod)
+  local worldBillboard = pokemonRenderer == SpawnRender.RENDERER.WORLD_BILLBOARD_ENHANCED
+    or pokemonRenderer == SpawnRender.RENDERER.WORLD_BILLBOARD_LEGACY
+    or pokemonRenderer == SpawnRender.RENDERER.WORLD_BILLBOARD_BLACK_FALLBACK
+
+  -- World billboards: immersed uses DS native grass (no tuck). Above uses a
+  -- small visualY lift so feet clear the late grass mesh (object occlusion stays).
+  if worldBillboard then
+    if mode == GrassOcclusion.MODE_ABOVE and self.inGrassOverlay then
+      local lift = Config.get(self.mod, "grass_above_lift_px")
+        or Config.DEFAULTS.grass_above_lift_px
+        or GrassOcclusion.ENGINE_BOTTOM_COVER_PX
+      return -(tonumber(lift) or 8)
+    end
+    return self.tuck or 0
+  end
+
+  -- Flat path and emergency overlay.
+  return GrassOcclusion.tuckDelta(self, {
+    mode = mode,
+    engineOverdrawExpected = (mode == GrassOcclusion.MODE_ABOVE)
+      and not overlayEmergency,
+  })
+end
+
+function Entity:calculateVisualY()
+  Movement.syncLegacyFields(self)
+  local tuck = self:_grassTuck()
+  return (self.py or 0) + tuck + (self.waterSink or 0)
+end
+
+-- Priority: Enhanced world adapter → legacy species → black fallback.
+function Entity:getWorldSprite()
+  if self.hiddenEncounter or self.visibleSprite == false then
+    return nil
+  end
+  -- Only use the enhanced adapter when THIS entity's bind succeeded,
+  -- or when strict debug forces the enhanced path (no silent legacy).
+  if self.worldSprite
+     and self.animation
+     and self.animation.source == "ENHANCED_ATLAS"
+     and self.usingEnhancedSprite then
+    if self.worldBillboardReady == true
+       or RenderDiagnostics.strictEnabled(self.mod) then
+      return self.worldSprite
+    end
+  end
+  if self.legacySprite then
+    return self.legacySprite
+  end
+  if self.blackFallbackSprite then
+    return self.blackFallbackSprite
+  end
+  return self.sprite
 end
 
 function Entity:pose()
   -- Contract expected by Gen1Recomp + DramaticShapeVoxelMod VoxelScene.posesOf:
   --   sprite, visualX, visualY, facing, phase, flip [, hop]
-  -- Voxel uses entity.py for the ground plane and (entity.py - visualY) as lift.
-  -- Never return a nil sprite for entities that join ow.entities.
   Movement.syncLegacyFields(self)
-  local sprite = self.sprite
+  local sprite = self:getWorldSprite()
+  local d = RenderDiagnostics.ensure(self)
+  d.poseCalls = (d.poseCalls or 0) + 1
+  d.lastPoseSpriteType = RenderDiagnostics.spriteTypeName(sprite)
+  if sprite and sprite.def then
+    d.lastDefImage = sprite.def.image
+  end
   if sprite == nil then
-    -- Hidden / broken entities must not be in ow.entities; guard anyway.
+    d.lastFailureReason = "pose() nil sprite"
     return nil, self.px or 0, self.py or 0, self.facing or "down", 0, false, false
   end
-  -- Feet-biased visual Y. Grass tuck lifts small sprites so the engine
-  -- drawCellBottom overdraw does not swallow them entirely.
-  local tuck = self.tuck or 0
-  if self.inGrassOverlay and (self.grassOcclusionHeight or 0) > 0 then
-    -- Raise by (default engine cover − our relative occlusion) so only the
-    -- lower quarter–third of the rendered sprite sits under grass.
-    local defaultCover = Config.DEFAULTS.grass_occlusion_px or 6
-    local lift = math.max(0, defaultCover - (self.grassOcclusionHeight or 0))
-    tuck = tuck - lift
-  end
-  local visualY = (self.py or 0) + tuck + (self.waterSink or 0)
+  local visualY = self:calculateVisualY()
+  self._lastVisualY = visualY
+  self._lastLift = (self.py or 0) - visualY
   return sprite, self.px or 0, visualY, self.facing or "down", 0, false, false
+end
+
+-- When Dramatic Shape owns the body as a world billboard, Entity:draw must
+-- not paint a second body (that would sit on top of grass with no depth).
+function Entity:_voxelBillboardOwnsBody()
+  if self.worldRenderer ~= "DRAMATIC_SHAPE" then return false end
+  local r = self.pokemonRenderer
+  return r == SpawnRender.RENDERER.WORLD_BILLBOARD_ENHANCED
+    or r == SpawnRender.RENDERER.WORLD_BILLBOARD_LEGACY
+    or r == SpawnRender.RENDERER.WORLD_BILLBOARD_BLACK_FALLBACK
+end
+
+function Entity:_strictHidesBody()
+  return RenderDiagnostics.strictEnabled(self.mod)
+    and self.worldRenderer == "DRAMATIC_SHAPE"
 end
 
 function Entity:_drawHiddenEffect(camX, camY)
@@ -1078,7 +1230,58 @@ function Entity:_drawHiddenEffect(camX, camY)
   love.graphics.setColor(1, 1, 1, 1)
 end
 
+function Entity:_drawAnimatedSprite(camX, camY, opacity)
+  local d = RenderDiagnostics.ensure(self)
+  d.animatedSpriteDrawCalls = (d.animatedSpriteDrawCalls or 0) + 1
+  local render = self.render
+  local animated = render and render.animated
+  local anim = self.animation
+  if not animated or not anim or not self.enhancedDexId then return end
+  if not (love and love.graphics) then return end
+
+  local frame, frameCount, frameIndex = animated:getFrame(
+    self.enhancedDexId, anim.name, anim.direction, anim.frameIndex)
+  if not frame then return end
+  local quad = animated:getQuad(
+    self.enhancedDexId, anim.name, anim.direction, frameIndex or anim.frameIndex)
+  local img = animated.atlasImage
+  if not img or not quad or quad._owwildStub then return end
+  if img.setFilter then img:setFilter("nearest", "nearest") end
+
+  local scale = self.final2DScale or 1
+  local contentW = frame.width
+  local contentH = frame.height
+  local renderedW = contentW * scale
+  local renderedH = contentH * scale
+
+  local baseX = math.floor(self.px - (camX or 0))
+  local tuck = self:_grassTuck()
+  local baseY = math.floor(self.py + tuck + (self.waterSink or 0)
+                           - (camY or 0) - 4)
+
+  -- Anchor: center X, feet on tile floor (anchorX=0.5, anchorY=1.0).
+  local dx = baseX + (CELL - renderedW) * 0.5
+  local dy = baseY + (CELL - renderedH)
+
+  if opacity < 1 then love.graphics.setColor(1, 1, 1, opacity) end
+  -- Dedicated left/right atlas frames — do not mirror.
+  love.graphics.draw(img, quad, dx, dy, 0, scale, scale)
+  if opacity < 1 then love.graphics.setColor(1, 1, 1, 1) end
+
+  local ok, PaletteFX = pcall(require, "src.render.PaletteFX")
+  if ok and PaletteFX and PaletteFX.markTrueColor then
+    PaletteFX.markTrueColor(dx, dy, renderedW, renderedH)
+  end
+
+  anim._lastFrameCount = frameCount
+  anim._lastFrameSize = { contentW, contentH }
+end
+
 function Entity:_drawScaledSprite(camX, camY, opacity)
+  if self.usingEnhancedSprite then
+    self:_drawAnimatedSprite(camX, camY, opacity)
+    return
+  end
   local sprite = self.sprite
   if not sprite or not sprite.image then return end
   -- One final 2D scale only — no species*grass*camera multiplication here.
@@ -1096,11 +1299,7 @@ function Entity:_drawScaledSprite(camX, camY, opacity)
 
   -- Anchor: horizontally centered on the tile, feet (visible bottom) on tile floor.
   local baseX = math.floor(self.px - (camX or 0))
-  local tuck = self.tuck or 0
-  if self.inGrassOverlay and (self.grassOcclusionHeight or 0) > 0 then
-    local defaultCover = Config.DEFAULTS.grass_occlusion_px or 6
-    tuck = tuck - math.max(0, defaultCover - (self.grassOcclusionHeight or 0))
-  end
+  local tuck = self:_grassTuck()
   local baseY = math.floor(self.py + tuck + (self.waterSink or 0)
                            - (camY or 0) - 4)
 
@@ -1144,16 +1343,37 @@ end
 
 function Entity:draw(camX, camY)
   -- 2D renderer: read-only with respect to world simulation state.
+  local d = RenderDiagnostics.ensure(self)
+  local skipBody = false
+  if self:_voxelBillboardOwnsBody() then
+    -- Body belongs to Dramatic Shape SpriteBillboards — never double-draw.
+    skipBody = true
+    d.lastFailureReason = d.lastFailureReason
+      or "Entity:draw skipped body (WORLD_BILLBOARD owns body)"
+  elseif self:_strictHidesBody() then
+    -- Strict debug: no emergency/post-voxel body; only DS billboard may show.
+    skipBody = true
+    d.lastFailureReason = "strict_world_billboard_debug: Entity:draw body suppressed"
+  end
+
   if self.hiddenEncounter or not self.visibleSprite then
     self:_drawHiddenEffect(camX, camY)
-  else
+  elseif not skipBody then
+    d.entityDrawBodyCalls = (d.entityDrawBodyCalls or 0) + 1
+    if self.worldRenderer == "DRAMATIC_SHAPE" then
+      d.postVoxelBodyDrawCalls = (d.postVoxelBodyDrawCalls or 0) + 1
+    end
     local opacity = Config.get(self.mod, "sprite_opacity") or 1
     local scale = self.final2DScale or self.visualScale or 1
-    if love and love.graphics and (scale ~= 1 or self.facing == "left"
+    if self.usingEnhancedSprite then
+      self:_drawAnimatedSprite(camX, camY, opacity)
+    elseif love and love.graphics and (scale ~= 1 or self.facing == "left"
         or self.facing == "right"
         or (self.scaleInfo and (self.scaleInfo.offsetX or 0) ~= 0)) then
+      d.legacySpriteDrawCalls = (d.legacySpriteDrawCalls or 0) + 1
       self:_drawScaledSprite(camX, camY, opacity)
     else
+      d.legacySpriteDrawCalls = (d.legacySpriteDrawCalls or 0) + 1
       local sprite, px, py, facing, phase, flip = self:pose()
       if sprite then
         if opacity < 1 and love and love.graphics and love.graphics.setColor then
@@ -1164,6 +1384,17 @@ function Entity:draw(camX, camY)
           sprite:draw(px, py, camX, camY, facing, phase, flip)
         end
       end
+    end
+
+    -- Spatial emergency overlay only: world billboards get DS tall-grass.
+    -- Never draw custom grass for WORLD_BILLBOARD_* success paths.
+    local emergency = self.pokemonRenderer == SpawnRender.RENDERER.SPATIAL_OVERLAY_EMERGENCY
+      or self.pokemonRenderer == "SPATIAL_OVERLAY_FALLBACK"
+    if emergency and not RenderDiagnostics.strictEnabled(self.mod)
+       and GrassOcclusion.shouldOcclude(self, self.mod) then
+      local world = self.mod and self.mod.world
+      local ow = world and world.overworld and world:overworld()
+      GrassOcclusion.drawForeground(self, camX, camY, ow and ow.map)
     end
   end
 
@@ -1277,6 +1508,446 @@ function SpawnRender:previewImagePath(species, game)
   if info.battleFront then return info.battleFront, "battle_front" end
   if self.fallbackPath then return self.fallbackPath, "fallback" end
   return self:_placeholderPath(), "placeholder"
+end
+
+-- Numeric Pokedex id for atlas mapping (identity). Display names never used.
+function SpawnRender:resolveDexId(speciesKey, game)
+  return AnimatedSprites.resolveSpeciesId(speciesKey, game, self.mod)
+end
+
+function SpawnRender:animatedEnabled()
+  return Config.useAnimatedOverworldSprites(self.mod)
+     and self.animated and self.animated:isReady()
+end
+
+function SpawnRender:enhancedStatusFor(speciesKey, game)
+  local dexId = self:resolveDexId(speciesKey, game)
+  if not self.animated or not self.animated.loaded then
+    return {
+      dexId = dexId,
+      status = AnimatedSprites.STATUS.DISABLED,
+      available = false,
+    }
+  end
+  if not Config.useAnimatedOverworldSprites(self.mod) then
+    return {
+      dexId = dexId,
+      status = AnimatedSprites.STATUS.DISABLED,
+      available = false,
+    }
+  end
+  if not self.animated:isReady() then
+    return {
+      dexId = dexId,
+      status = AnimatedSprites.STATUS.DISABLED,
+      available = false,
+      reason = self.animated.error or "atlas unavailable",
+    }
+  end
+  if not dexId then
+    return {
+      dexId = nil,
+      status = AnimatedSprites.STATUS.MAPPING_MISSING,
+      available = false,
+      reason = "no numeric speciesId/dex",
+    }
+  end
+  local mapping = self.animated:getMapping(dexId)
+  if not mapping then
+    return {
+      dexId = dexId,
+      status = AnimatedSprites.STATUS.MAPPING_MISSING,
+      available = false,
+    }
+  end
+  return {
+    dexId = dexId,
+    status = mapping.status,
+    available = mapping.valid == true,
+    mapping = mapping,
+    speciesName = mapping.speciesName,
+    fileName = mapping.fileName,
+    missingDirs = mapping.missingDirs,
+    partial = mapping.partial,
+  }
+end
+
+function SpawnRender:attachEnhancedToEntity(entity, game)
+  if not entity or entity.hiddenEncounter or not entity.visibleSprite then
+    return false
+  end
+  entity.animation = entity.animation or nil
+  entity.usingEnhancedSprite = false
+  entity.enhancedDexId = nil
+  entity.spriteSource = entity.usingFallback and "BLACK_FALLBACK" or "LEGACY_PNG"
+  entity.worldBillboardReady = false
+  entity.worldSpriteAdapterStatus = "N/A"
+  entity.renderDirty = entity.renderDirty or {
+    frame = false, direction = false, position = false,
+    visibility = false, grassState = false,
+  }
+
+  if not self:animatedEnabled() then
+    -- Keep any prior worldSprite idle; point presentation at legacy.
+    if entity.legacySprite then
+      entity.sprite = entity.legacySprite
+    end
+    entity.worldSprite = nil
+    return false
+  end
+
+  local enh = self:enhancedStatusFor(entity.species, game)
+  entity.enhancedDexId = enh.dexId
+  entity.enhancedStatus = enh.status
+  if not enh.available then
+    if enh.dexId then
+      self.animated:logFallbackOnce(enh.dexId, "using legacy PNG")
+    end
+    if entity.legacySprite then
+      entity.sprite = entity.legacySprite
+    end
+    entity.worldSprite = nil
+    return false
+  end
+
+  entity.usingEnhancedSprite = true
+  entity.spriteSource = "ENHANCED_ATLAS"
+  entity.spriteSource2D = "ENHANCED_ATLAS"
+  entity.voxelSource = "ENHANCED_ATLAS"
+  if not entity.animation or not entity.animation.usingEnhancedSprite then
+    entity.animation = self.animated:newAnimationState(entity.facing or "down")
+  end
+  entity.animation.usingEnhancedSprite = true
+  entity.animation.fallbackLevel = enh.status
+  entity.animation.source = "ENHANCED_ATLAS"
+  entity.animation.renderRevision = entity.animation.renderRevision or 0
+  self:refreshEnhancedScale(entity)
+  self:bindWorldBillboard(entity, true)
+  return true
+end
+
+-- Bind stable EnhancedWorldSprite; never mutate legacySprite.def / resolveImage.
+-- ENHANCED is only claimed after card READY + Assets.image(def.image) + mesh probe.
+function SpawnRender:bindWorldBillboard(entity, force)
+  if not entity then
+    return false, "no entity"
+  end
+
+  local R = SpawnRender.RENDERER
+  local d = RenderDiagnostics.ensure(entity)
+  local strict = RenderDiagnostics.strictEnabled(self.mod)
+
+  if entity.hiddenEncounter or entity.visibleSprite == false then
+    entity.pokemonRenderer = R.HIDDEN
+    entity.worldBillboardReady = false
+    return false, "hidden"
+  end
+
+  if not entity.usingEnhancedSprite or not entity.animation or not self.animated then
+    if entity.legacySprite then
+      entity.sprite = entity.legacySprite
+    end
+    entity.worldSprite = nil
+    entity.worldBillboardReady = true
+    entity.worldSpriteAdapterStatus = "LEGACY"
+    if entity.usingFallback then
+      entity.pokemonRenderer = R.WORLD_BILLBOARD_BLACK_FALLBACK
+      entity.spriteSource2D = "BLACK_FALLBACK"
+    else
+      entity.pokemonRenderer = R.WORLD_BILLBOARD_LEGACY
+      entity.spriteSource2D = entity.spriteSource2D or "LEGACY_PNG"
+    end
+    -- Honest flags only after mesh/assets probe for legacy def.
+    local def = entity.sprite and entity.sprite.def
+    local meshOk, meshErr, meshKey = RenderDiagnostics.probeMesh(def, 0)
+    d.lastMeshOk = meshOk
+    d.lastMeshKey = meshKey
+    d.lastDefImage = def and def.image
+    if meshOk then
+      entity.depthIntegration = "ACTIVE"
+      entity.objectOcclusion = "ACTIVE"
+      entity.dramaticBillboardSkipped = false
+      entity.grassRenderer = "DRAMATIC_SHAPE_NATIVE"
+    else
+      entity.depthIntegration = "UNVERIFIED"
+      entity.objectOcclusion = "UNVERIFIED"
+      entity.dramaticBillboardSkipped = false
+      entity.grassRenderer = "UNVERIFIED"
+      d.lastFailureReason = meshErr
+    end
+    return true, "legacy"
+  end
+
+  -- Prefer transparent base; fall back to the always-registered missing PNG
+  -- carrier so Assets.image always has a real mods/... path.
+  local basePath = self:_billboardBasePath()
+  local fbPath = self.fallbackPath or self:_fallbackPath()
+  if type(basePath) ~= "string" or basePath == "" then
+    basePath = fbPath
+  end
+  -- Validate carrier is loadable; if base fails, use fallback path.
+  local okBase = RenderDiagnostics.probeAssetsImage(basePath)
+  if not okBase and fbPath and fbPath ~= basePath then
+    basePath = fbPath
+    okBase = RenderDiagnostics.probeAssetsImage(basePath)
+  end
+  if not okBase or type(basePath) ~= "string" or basePath == "" then
+    d.lastFailureReason = "no loadable def.image carrier path"
+    entity.worldBillboardReady = false
+    entity.worldSpriteAdapterStatus = "PERMANENT_INVALID"
+    if strict then
+      entity.pokemonRenderer = R.TEMPORARILY_UNAVAILABLE
+      entity.depthIntegration = "INACTIVE"
+      entity.objectOcclusion = "INACTIVE"
+      entity.dramaticBillboardSkipped = true
+      entity.grassRenderer = "NONE"
+      entity.spriteSource2D = "ENHANCED_ATLAS"
+      return false, d.lastFailureReason
+    end
+    entity.pokemonRenderer = R.SPATIAL_OVERLAY_EMERGENCY
+    entity.depthIntegration = "INACTIVE"
+    entity.objectOcclusion = "INACTIVE"
+    entity.dramaticBillboardSkipped = true
+    entity.grassRenderer = "EMERGENCY_OVERLAY"
+    entity.spriteSource2D = "ENHANCED_ATLAS"
+    return false, d.lastFailureReason
+  end
+
+  if not entity.worldSprite then
+    entity.worldSprite = EnhancedWorldSprite.new({
+      entity = entity,
+      animatedSprites = self.animated,
+      legacySprite = entity.legacySprite,
+      baseImagePath = basePath,
+      id = "SPRITE_OW_WILD_ENH_" .. tostring(entity.enhancedDexId or entity.species),
+      seed = entity.id or entity.spawnId,
+    })
+  else
+    entity.worldSprite.entity = entity
+    entity.worldSprite.animatedSprites = self.animated
+    entity.worldSprite.legacySprite = entity.legacySprite
+    entity.worldSprite:setBaseImagePath(basePath)
+  end
+
+  entity.sprite = entity.worldSprite
+  d.lastDefImage = basePath
+
+  local key = self.animated:getCurrentBillboardKey(entity)
+  local result = self.animated:prepareBillboardImage(entity, key)
+
+  entity.voxelCardKey = key
+  entity._voxelCardKey = key
+
+  local function markEmergency(reason, status)
+    entity.worldBillboardReady = false
+    entity.worldSpriteAdapterStatus = status or "TEMPORARILY_UNAVAILABLE"
+    entity.depthIntegration = "INACTIVE"
+    entity.objectOcclusion = "INACTIVE"
+    entity.dramaticBillboardSkipped = true
+    entity.spriteSource2D = "ENHANCED_ATLAS"
+    entity.voxelSource = "ENHANCED_ATLAS"
+    d.lastFailureReason = reason
+    if strict then
+      -- Strict: stay invisible rather than paper over with overlay.
+      entity.pokemonRenderer = R.TEMPORARILY_UNAVAILABLE
+      entity.grassRenderer = "NONE"
+      return false, reason
+    end
+    entity.pokemonRenderer = R.SPATIAL_OVERLAY_EMERGENCY
+    entity.grassRenderer = "EMERGENCY_OVERLAY"
+    return false, reason
+  end
+
+  if type(result) ~= "table" then
+    return markEmergency("prepareBillboardImage non-table", "TEMPORARILY_UNAVAILABLE")
+  end
+
+  entity.voxelCardStatus = result.status
+  entity.voxelCardReason = result.reason
+  entity.voxelCardType = result.type
+  entity.voxelCardSize = result.width
+    and string.format("%dx%d", result.width, result.height) or "16x16"
+  entity.voxelFrameCacheStatus =
+    (result._fromCache and "HIT") or (result.status == "READY" and "READY") or result.status
+
+  if result.status ~= "READY" or not result.image then
+    if result.status == "TEMPORARILY_UNAVAILABLE"
+       or result.status == "VOXEL_CARD_BUILD_ERROR" then
+      return markEmergency(tostring(result.status), "TEMPORARILY_UNAVAILABLE")
+    end
+    -- Permanent enhanced miss → legacy world billboard (still depth path).
+    entity.sprite = entity.legacySprite or entity.sprite
+    entity.worldSprite = nil
+    entity.worldBillboardReady = true
+    entity.worldSpriteAdapterStatus = "PERMANENT_INVALID"
+    entity.pokemonRenderer = entity.usingFallback
+      and R.WORLD_BILLBOARD_BLACK_FALLBACK or R.WORLD_BILLBOARD_LEGACY
+    entity.depthIntegration = "ACTIVE"
+    entity.objectOcclusion = "ACTIVE"
+    entity.dramaticBillboardSkipped = false
+    entity.grassRenderer = "DRAMATIC_SHAPE_NATIVE"
+    entity.voxelSource = entity.usingFallback and "BLACK_FALLBACK" or "LEGACY_PNG"
+    d.lastFailureReason = tostring(result.status)
+    return false, result.status
+  end
+
+  -- Card ready — still require DS mesh carrier to resolve.
+  local meshOk, meshErr, meshKey = RenderDiagnostics.probeMesh(entity.worldSprite.def, 0)
+  d.lastMeshOk = meshOk
+  d.lastMeshKey = meshKey
+  if not meshOk then
+    -- Try fallback carrier once more on the existing adapter.
+    if fbPath and fbPath ~= basePath then
+      entity.worldSprite:setBaseImagePath(fbPath)
+      meshOk, meshErr, meshKey = RenderDiagnostics.probeMesh(entity.worldSprite.def, 0)
+      d.lastMeshOk = meshOk
+      d.lastMeshKey = meshKey
+      d.lastDefImage = fbPath
+    end
+  end
+  if not meshOk then
+    return markEmergency(
+      "SpriteBillboards mesh unavailable: " .. tostring(meshErr),
+      "TEMPORARILY_UNAVAILABLE")
+  end
+
+  entity.worldBillboardReady = true
+  entity.worldSpriteAdapterStatus = "READY"
+  entity.pokemonRenderer = R.WORLD_BILLBOARD_ENHANCED
+  -- Honest depth/grass only once actual path is proven at runtime via counters.
+  -- Until pose+resolveImage+mesh observations exist, mark UNVERIFIED not ACTIVE.
+  entity.depthIntegration = "UNVERIFIED"
+  entity.objectOcclusion = "UNVERIFIED"
+  entity.grassRenderer = "UNVERIFIED"
+  entity.dramaticBillboardSkipped = false
+  entity.spriteSource2D = "ENHANCED_ATLAS"
+  entity.voxelSource = "ENHANCED_ATLAS"
+  entity.voxelLastError = nil
+  d.lastFailureReason = nil
+  return true, "READY"
+end
+
+-- Single simulation→presentation sync. Call from BehaviorTick (not Draw).
+function SpawnRender:syncEntityAnimation(entity, dt)
+  if not entity or entity.hiddenEncounter or not entity.visibleSprite then
+    return false
+  end
+  entity.renderDirty = entity.renderDirty or {
+    frame = false, direction = false, position = false,
+    visibility = false, grassState = false,
+  }
+
+  Movement.syncLegacyFields(entity)
+  local moving = Movement.isBusy(entity)
+  entity.isMoving = moving == true
+
+  if not entity.usingEnhancedSprite or not entity.animation or not self.animated then
+    return false
+  end
+
+  local progress = nil
+  if moving and entity.movement and entity.movement.duration
+     and entity.movement.duration > 0 then
+    progress = (entity.movement.progress or 0) / entity.movement.duration
+  end
+
+  local prevRev = entity.animation.renderRevision or 0
+  local changed = self.animated:updateAnimation(
+    entity.animation,
+    entity.enhancedDexId,
+    dt or 0,
+    moving,
+    entity.facing or "down",
+    progress)
+
+  if entity.animation.directionChanged then
+    entity.renderDirty.direction = true
+  end
+  if entity.animation.frameChanged or changed then
+    entity.renderDirty.frame = true
+  end
+  if moving then
+    entity.renderDirty.position = true
+  end
+
+  self:refreshEnhancedScale(entity)
+
+  local R = SpawnRender.RENDERER
+  local needBind = entity.renderDirty.frame or entity.renderDirty.direction
+    or entity.pokemonRenderer ~= R.WORLD_BILLBOARD_ENHANCED
+    or entity.worldBillboardReady ~= true
+    or (entity.animation.renderRevision or 0) ~= prevRev
+  if needBind then
+    self:bindWorldBillboard(entity, false)
+    entity.renderDirty.frame = false
+    entity.renderDirty.direction = false
+  end
+  entity.spriteSource2D = "ENHANCED_ATLAS"
+  if entity.pokemonRenderer == R.WORLD_BILLBOARD_ENHANCED then
+    entity.voxelSource = "ENHANCED_ATLAS"
+    entity.grassRenderer = "DRAMATIC_SHAPE_NATIVE"
+  end
+  return changed
+end
+
+function SpawnRender:refreshEnhancedScale(entity)
+  if not entity or not entity.usingEnhancedSprite or not self.animated then return end
+  local dexId = entity.enhancedDexId
+  local anim = entity.animation
+  if not dexId or not anim then return end
+  local frame = self.animated:getFrame(
+    dexId, anim.name or anim.type, anim.direction, anim.frameIndex)
+  if not frame then return end
+  local minSize = Config.get(self.mod, "min_sprite_size") or Config.DEFAULTS.min_sprite_size
+  entity.scaleInfo = AnimatedSprites.calculateAnimatedSpriteScale(entity, frame, {
+    minSpriteSizeOption = minSize,
+    defaultGrassOcclusion = Config.DEFAULTS.grass_occlusion_px,
+  })
+  entity.visualScale = entity.scaleInfo.final2DScale or 1
+  entity.final2DScale = entity.visualScale
+  entity.grassOcclusionHeight = entity.scaleInfo.grassOcclusionHeight
+    or GrassOcclusion.computeOcclusionHeight(
+      (entity.scaleInfo.renderedH or CELL))
+  entity.grassRenderMode = GrassOcclusion.mode(self.mod)
+end
+
+-- Live option toggle: re-bind presentation without respawning entities.
+function SpawnRender:refreshAllEntitySprites(logic, game)
+  if not logic or not logic.entities then return 0 end
+  local n = 0
+  for _, entity in pairs(logic.entities) do
+    if entity and not entity.hiddenEncounter and entity.visibleSprite ~= false then
+      local wasEnhanced = entity.usingEnhancedSprite == true
+      self:attachEnhancedToEntity(entity, game)
+      if wasEnhanced and not entity.usingEnhancedSprite then
+        -- Restore legacy scale from the still-held SpriteRenderer image.
+        local minSize = Config.get(self.mod, "min_sprite_size") or Config.DEFAULTS.min_sprite_size
+        entity.scaleInfo = SpriteScale.compute(entity.species,
+          entity.legacySprite and entity.legacySprite.image
+            or (entity.sprite and entity.sprite.image),
+          { minSpriteSizeOption = minSize })
+        entity.visualScale = entity.scaleInfo.final2DScale or entity.scaleInfo.scale or 1
+        entity.final2DScale = entity.visualScale
+        entity.grassOcclusionHeight = entity.scaleInfo.grassOcclusionHeight or 0
+        entity.animation = nil
+        entity.worldSprite = nil
+        entity.sprite = entity.legacySprite
+        entity.worldBillboardReady = true
+        entity.worldSpriteAdapterStatus = "LEGACY"
+      end
+      n = n + 1
+    end
+  end
+  return n
+end
+
+function SpawnRender:countAnimatedEntities(logic)
+  local n = 0
+  if not logic or not logic.entities then return 0 end
+  for _, entity in pairs(logic.entities) do
+    if entity and entity.usingEnhancedSprite then n = n + 1 end
+  end
+  return n
 end
 
 return SpawnRender

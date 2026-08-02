@@ -145,8 +145,9 @@ All options are live (`mod.options_changed`). Map-density retargets on change; a
 | Label | Key | Default | Effect |
 |---|---|---|---|
 | Sprite fade | `sprite_opacity` | 1.0 | Solid / Tucked / Faint |
-| Minimum Pokemon sprite size | `min_sprite_size` | 16 | Preferred readable size; always capped to one map tile |
-| Show Pokemon in grass | `show_pokemon_in_grass` | true | Prefer engine grass overdraw path |
+| Use animated overworld Pokemon sprites | `use_animated_overworld_sprites` | true | Atlas idle/walk when mapping is valid |
+| Minimum Pokemon sprite size | `min_sprite_size` | 16 | Preferred readable size for legacy sprites; animated frames keep native cell size |
+| Pokemon grass rendering | `pokemon_grass_render_mode` | immersed | `above` = fully visible; `immersed` = feet under tall grass like the player |
 | Enable grass movement effects | `enable_grass_movement_effects` | true | Hidden shake / dust pulses |
 
 ### Developer
@@ -178,7 +179,15 @@ Lists species from ROM/content data (not the Pokédex). Shows asset status, enco
 
 ## 16. Fallback sprites
 
-If no real image resolves, `assets/fallback/pokemon_missing.png` is used. Spawns still appear.
+Presentation order:
+
+1. Animated atlas (when the option is on and the species mapping is valid)
+2. Legacy species / battle PNG
+3. `assets/fallback/pokemon_missing.png`
+
+Spawns still appear in every case. Mapping errors affect only that species.
+Sprite identity always uses the numeric Pokedex / species id — never the
+localized display name.
 
 ## 17. Known limitations
 
@@ -186,7 +195,9 @@ If no real image resolves, `assets/fallback/pokemon_missing.png` is used. Spawns
 - Aggressive AI uses tile steps (not full NPC pixel tweening)
 - Water Pokemon are a best-effort swim presentation; vanilla Surf rolls stay on
 - Fishing Pokemon never free-roam
-- Voxel billboards are always 16×16 cards (2D one-tile scale is separate)
+- With Dramatic Shape, wild Pokemon use the same world billboards as trainers
+  (depth + native grass). Large atlas frames are fitted into 16×16 cards for
+  Voxel only; flat 2D keeps native frame size.
 - Aggressive chase keeps a stable entity id and uses the engine `!` emote
 
 ## 18. Troubleshooting
@@ -197,7 +208,8 @@ If no real image resolves, `assets/fallback/pokemon_missing.png` is used. Spawns
 | Only random grass | Spawn system not READY → vanilla fail-safe is working |
 | Too empty on long routes | Raise **Spawn density** or lower **Tiles per additional** |
 | Too crowded | Lower density or max visible |
-| Tiny sprites in grass | Raise **Minimum Pokemon sprite size** (still capped to one tile) |
+| Tiny sprites in grass | Raise **Minimum Pokemon sprite size** (legacy path); animated atlas uses native size |
+| Prefer classic static sprites | Turn off **Use animated overworld Pokemon sprites** |
 | Want classic feel | Disable aggressive / hidden, or turn the feature off |
 
 ## 19. Uninstall

@@ -1,0 +1,132 @@
+{
+    "schemaVersion":  1,
+    "speciesId":  130,
+    "speciesName":  "Gyarados",
+    "sourceSheet":  "POKEMON 1.png",
+    "cellWidth":  16,
+    "cellHeight":  16,
+    "animations":  {
+                       "idle":  {
+                                    "down":  [
+                                                 {
+                                                     "col":  59,
+                                                     "row":  24,
+                                                     "w":  1,
+                                                     "h":  2
+                                                 }
+                                             ],
+                                    "up":  [
+                                               {
+                                                   "col":  61,
+                                                   "row":  24,
+                                                   "w":  1,
+                                                   "h":  2
+                                               }
+                                           ],
+                                    "left":  [
+                                                 {
+                                                     "col":  56,
+                                                     "row":  24,
+                                                     "w":  3,
+                                                     "h":  1
+                                                 }
+                                             ],
+                                    "right":  [
+                                                  {
+                                                      "col":  56,
+                                                      "row":  25,
+                                                      "w":  3,
+                                                      "h":  1
+                                                  }
+                                              ]
+                                },
+                       "walk":  {
+                                    "down":  [
+                                                 {
+                                                     "col":  59,
+                                                     "row":  24,
+                                                     "w":  1,
+                                                     "h":  2
+                                                 },
+                                                 {
+                                                     "col":  60,
+                                                     "row":  24,
+                                                     "w":  1,
+                                                     "h":  2
+                                                 }
+                                             ],
+                                    "up":  [
+                                               {
+                                                   "col":  61,
+                                                   "row":  24,
+                                                   "w":  1,
+                                                   "h":  2
+                                               },
+                                               {
+                                                   "col":  62,
+                                                   "row":  24,
+                                                   "w":  1,
+                                                   "h":  2
+                                               }
+                                           ],
+                                    "left":  [
+                                                 {
+                                                     "col":  56,
+                                                     "row":  24,
+                                                     "w":  3,
+                                                     "h":  1
+                                                 }
+                                             ],
+                                    "right":  [
+                                                  {
+                                                      "col":  56,
+                                                      "row":  25,
+                                                      "w":  3,
+                                                      "h":  1
+                                                  }
+                                              ]
+                                },
+                       "fly":  {
+                                   "down":  [
+
+                                            ],
+                                   "up":  [
+
+                                          ],
+                                   "left":  [
+
+                                            ],
+                                   "right":  [
+
+                                             ]
+                               },
+                       "follow":  {
+                                      "down":  [
+
+                                               ],
+                                      "up":  [
+
+                                             ],
+                                      "left":  [
+
+                                               ],
+                                      "right":  [
+
+                                                ]
+                                  },
+                       "surf":  {
+                                    "down":  [
+
+                                             ],
+                                    "up":  [
+
+                                           ],
+                                    "left":  [
+
+                                             ],
+                                    "right":  [
+
+                                              ]
+                                }
+                   }
+}

@@ -102,10 +102,18 @@ end
 function Movement.setFacing(entity, facing)
   ensureTables(entity)
   if FACING_DELTA[facing] then
+    local prev = entity.movement.facing or entity.facing
     entity.movement.facing = facing
     entity.facing = facing
     if entity.behaviorState then
       entity.behaviorState.facing = facing
+    end
+    if prev ~= facing then
+      entity.renderDirty = entity.renderDirty or {}
+      entity.renderDirty.direction = true
+      if entity.animation then
+        entity.animation.directionChanged = true
+      end
     end
   end
 end
@@ -226,11 +234,9 @@ end
 function Movement.refreshGrassFlag(entity, mod)
   local world = mod and mod.world
   local ow = world and world.overworld and world:overworld()
-  local Config = V.require("config")
-  if ow and ow.map and ow.map.isGrassCell and entity.cellX and entity.cellY then
-    entity.inGrassOverlay = ow.map:isGrassCell(entity.cellX, entity.cellY)
-      and Config.get(mod, "show_pokemon_in_grass") ~= false
-  end
+  local GrassOcclusion = V.require("grass_occlusion")
+  local map = ow and ow.map
+  GrassOcclusion.refreshEntity(entity, mod, map)
 end
 
 return Movement

@@ -21,6 +21,10 @@ PreviewBrowser.__index = PreviewBrowser
 
 PreviewBrowser.SCREEN = "OverworldSpawnPreview"
 PreviewBrowser.DETAIL = "OverworldSpawnPreviewDetail"
+PreviewBrowser.ANIM = "OverworldSpawnPreviewAnim"
+
+local PREVIEW_DIRS = { "down", "up", "left", "right" }
+local PREVIEW_ANIMS = { "idle", "walk" }
 
 local function pokedexDiag(game)
   local save = game and game.save
@@ -79,6 +83,13 @@ function PreviewBrowser.new(mod, logic)
   self.logic = logic
   self._index = nil
   self._registered = false
+  self._preview = {
+    speciesId = nil,
+    anim = "idle",
+    direction = "down",
+    frameIndex = 1,
+    elapsed = 0,
+  }
   return self
 end
 
@@ -172,9 +183,15 @@ function PreviewBrowser:_openDetail(game, speciesId)
     Config.get(mod, "preview_encounter_kind") or "any")
   local imgPath, imgKind = render:previewImagePath(speciesId, game)
   local seen, owned = pokedexDiag(game)
+  local AnimatedSprites = V.require("animated_sprites")
+  local enh = render:enhancedStatusFor(speciesId, game)
+  local dexId = enh.dexId or mon.dex
+  local mapping = enh.mapping
 
   local runtimeLabel
-  if info.fallbackUsed then
+  if enh.available then
+    runtimeLabel = "ENHANCED ATLAS"
+  elseif info.fallbackUsed then
     runtimeLabel = "FALLBACK LOADED"
   elseif info.realAssetLoaded then
     runtimeLabel = "REAL ASSET LOADED"
@@ -187,21 +204,53 @@ function PreviewBrowser:_openDetail(game, speciesId)
                       or info.status == "FALLBACK_LOADED"
   local items = {
     { label = "SPECIES ID", right = tostring(speciesId) },
-    { label = "DEX NO", right = tostring(mon.dex or "?") },
-    { label = "SPECIES EXISTS", right = "YES" },
+    { label = "DEX / SPECIESID", right = tostring(dexId or "?") },
+    { label = "LOCALIZED NAME", right = tostring(mon.name or speciesId) },
+    { label = "MAPPING NAME", right = tostring((mapping and mapping.speciesName) or "(n/a)") },
+    { label = "MAPPING FILE", right = tostring(enh.fileName or AnimatedSprites.mappingFileName(dexId or 0)) },
+    { label = "MAPPING STATUS", right = tostring(enh.status or "?") },
+    { label = "ATLAS LOADED", right = (render.animated and render.animated:isReady()) and "YES" or "NO" },
+    { label = "LEGACY PNG", right = info.realAssetLoaded and "YES" or "NO" },
+    { label = "BLACK FALLBACK", right = info.fallbackAvailable and "YES" or "NO" },
+    { label = "CURRENT SOURCE", right = tostring(info.spriteSource or runtimeLabel) },
     { label = "SPRITE REG", right = info.spriteRegistered and "YES" or "NO" },
-    { label = "REAL PATH", right = tostring(info.realAssetPath or "(none)"):sub(1, 22) },
-    { label = "REAL EXISTS", right = info.realAssetExists and "YES" or "NO" },
-    { label = "FALLBACK", right = info.fallbackAvailable and "YES" or "NO" },
-    { label = "RUNTIME IMG", right = runtimeLabel },
-    { label = "ASSET KIND", right = tostring(imgKind) },
-    { label = "RENDERER", right = tostring(info.renderer) },
+    { label = "2D RENDERER", right = tostring(info.renderer) },
+    { label = "VOXEL ADAPTER", right = "EnhancedWorldSprite" },
+    { label = "WORLD BILLBOARD", right = tostring(
+      (render.worldBillboardReady and "READY")
+        or (enh.available and "ENHANCED") or "LEGACY") },
+    { label = "CARD SIZE", right = "16x16 (DS mesh)" },
     { label = "OW ENTITY", right = tostring(info.entityStatus or info.phase or "?") },
     { label = "TEST SPAWN", right = spawnSupported and "READY" or "DISABLED" },
     { label = "ENCOUNTERS", right = tostring(#locs) },
     { label = "POKEDEX SEEN", right = tostring(seen) .. " (diag)" },
     { label = "POKEDEX OWN", right = tostring(owned) .. " (diag)" },
   }
+
+  if mapping and mapping.valid then
+    for _, anim in ipairs(PREVIEW_ANIMS) do
+      for _, dir in ipairs(PREVIEW_DIRS) do
+        local frames = mapping[anim] and mapping[anim][dir] or {}
+        items[#items + 1] = {
+          label = (anim .. " " .. dir):upper(),
+          right = tostring(#frames) .. " fr",
+        }
+      end
+    end
+    if mapping.partial and mapping.missingDirs and #mapping.missingDirs > 0 then
+      items[#items + 1] = {
+        label = "MISSING DIRS",
+        right = table.concat(mapping.missingDirs, ","):sub(1, 22),
+      }
+    end
+  elseif Config.useAnimatedOverworldSprites(mod) then
+    items[#items + 1] = { label = "Enhanced sprite unavailable" }
+    if info.fallbackUsed then
+      items[#items + 1] = { label = "Using black fallback sprite" }
+    else
+      items[#items + 1] = { label = "Using legacy PNG fallback" }
+    end
+  end
 
   -- Short tried list on screen; full details go to the log.
   local tried = info.tried or {}
@@ -227,6 +276,8 @@ function PreviewBrowser:_openDetail(game, speciesId)
 
   if info.fallbackUsed then
     items[#items + 1] = { label = "RESULT", right = "Fallback loaded" }
+  elseif enh.available then
+    items[#items + 1] = { label = "RESULT", right = "Enhanced atlas" }
   elseif info.realAssetLoaded then
     items[#items + 1] = { label = "RESULT", right = "Real asset loaded" }
   elseif info.lastError then
@@ -241,15 +292,40 @@ function PreviewBrowser:_openDetail(game, speciesId)
   if #locs == 0 then
     items[#items + 1] = { label = "(no encounter locations)" }
   end
+
+  if enh.available then
+    items[#items + 1] = {
+      label = "VOXEL PATH",
+      right = "WORLD BILLBOARD",
+    }
+    items[#items + 1] = {
+      label = "DS BILLBOARD",
+      right = "ENHANCED CARD",
+    }
+    items[#items + 1] = {
+      label = "ANIMATED PREVIEW",
+      onSelect = function()
+        self._preview.speciesId = speciesId
+        self._preview.dexId = dexId
+        self._preview.anim = "idle"
+        self._preview.direction = "down"
+        self._preview.frameIndex = 1
+        self._preview.elapsed = 0
+        mod.ui.push(game, PreviewBrowser.ANIM, speciesId)
+      end,
+    }
+  end
+
   items[#items + 1] = {
     label = "SHOW PREVIEW",
     onSelect = function()
       if mod.ui and mod.ui.PicBox then
         game.stack:push(mod.ui.PicBox.new(game, imgPath,
-          ("Overworld path: %s\nKind: %s\nRuntime: %s\nFallback: %s")
+          ("Overworld path: %s\nKind: %s\nRuntime: %s\nFallback: %s\nEnhanced: %s")
             :format(tostring(imgPath), tostring(imgKind),
                     tostring(runtimeLabel),
-                    tostring(info.fallbackUsed))))
+                    tostring(info.fallbackUsed),
+                    tostring(enh.status))))
       end
     end,
   }
@@ -266,8 +342,12 @@ function PreviewBrowser:_openDetail(game, speciesId)
               :format(tostring(speciesId), result.level or 1,
                       result.x or 0, result.y or 0,
                       tostring(result.runtimeImage or runtimeLabel))
-          if result.fallbackUsed then
+          if result.entity and result.entity.usingEnhancedSprite then
+            msg = msg .. "\nSprite source: ENHANCED_ATLAS"
+          elseif result.fallbackUsed then
             msg = msg .. "\nRendering with fallback sprite"
+          else
+            msg = msg .. "\nSprite source: LEGACY_PNG"
           end
         else
           msg = ("Test spawn failed at step %d:\n%s\n%s")
@@ -308,6 +388,150 @@ function PreviewBrowser:_openDetail(game, speciesId)
   })
 end
 
+function PreviewBrowser:_openAnimPreview(game, speciesId)
+  local mod = self.mod
+  local render = self.logic.render
+  local animated = render.animated
+  local AnimatedSprites = V.require("animated_sprites")
+  local mon = (game.data.pokemon and game.data.pokemon[speciesId]) or {}
+  local enh = render:enhancedStatusFor(speciesId, game)
+  local dexId = enh.dexId
+  local browser = self
+
+  local function frameInfo()
+    if not animated or not dexId then
+      return { count = 0, w = 0, h = 0, idx = 1, cells = "?" }
+    end
+    local frame, count, idx = animated:getFrame(
+      dexId, browser._preview.anim, browser._preview.direction,
+      browser._preview.frameIndex)
+    return {
+      count = count or 0,
+      w = frame and frame.width or 0,
+      h = frame and frame.height or 0,
+      idx = idx or 1,
+      frame = frame,
+      cells = frame and string.format("%dx%d", frame.widthCells, frame.heightCells) or "?",
+    }
+  end
+
+  local fi = frameInfo()
+  local mapping = enh.mapping
+  local items = {
+    { label = "SPECIES ID", right = tostring(dexId or "?") },
+    { label = "LOCALIZED", right = tostring(mon.name or speciesId) },
+    { label = "MAPPING NAME", right = tostring((mapping and mapping.speciesName) or "") },
+    { label = "ANIMATION", right = browser._preview.anim:upper() },
+    { label = "DIRECTION", right = browser._preview.direction:upper() },
+    { label = "FRAME", right = string.format("%d / %d", fi.idx, math.max(1, fi.count)) },
+    { label = "FRAME SIZE", right = string.format("%dx%d", fi.w, fi.h) },
+    { label = "CELL SIZE", right = mapping and string.format("%dx%d", mapping.cellWidth, mapping.cellHeight) or "?" },
+    { label = "CELLS WxH", right = fi.cells },
+    { label = "RENDERED", right = string.format("%dx%d", fi.w, fi.h) },
+    { label = "FALLBACK", right = tostring(enh.status) },
+    {
+      label = "PREVIEW GRASS",
+      right = (browser._preview.grassOcclusion and "IMMERSED") or "ABOVE",
+      onSelect = function()
+        browser._preview.grassOcclusion = not browser._preview.grassOcclusion
+        mod.ui.push(game, PreviewBrowser.ANIM, speciesId)
+      end,
+    },
+    {
+      label = "TOGGLE IDLE/WALK",
+      onSelect = function()
+        browser._preview.anim = (browser._preview.anim == "idle") and "walk" or "idle"
+        browser._preview.frameIndex = 1
+        browser._preview.elapsed = 0
+        mod.ui.push(game, PreviewBrowser.ANIM, speciesId)
+      end,
+    },
+  }
+  for _, dir in ipairs(PREVIEW_DIRS) do
+    items[#items + 1] = {
+      label = "FACE " .. dir:upper(),
+      onSelect = function()
+        browser._preview.direction = dir
+        browser._preview.frameIndex = 1
+        browser._preview.elapsed = 0
+        mod.ui.push(game, PreviewBrowser.ANIM, speciesId)
+      end,
+    }
+  end
+  items[#items + 1] = {
+    label = "SHOW CURRENT FRAME",
+    onSelect = function()
+      local cur = frameInfo()
+      local msg = ("Anim %s %s\nFrame %d/%d\nSize %dx%d\nStatus %s")
+        :format(browser._preview.anim, browser._preview.direction,
+                cur.idx, math.max(1, cur.count), cur.w, cur.h, tostring(enh.status))
+      if mod.ui and mod.ui.TextBox then
+        game.stack:push(mod.ui.TextBox.new(game, msg))
+      end
+    end,
+  }
+
+  return mod.ui.ListMenu.new(game,
+    ("ANIM %s"):format(tostring(mon.name or speciesId)), items, {
+      pageJump = true,
+      footer = "A: action  B: back",
+      onChoose = function(item)
+        if item and item.onSelect then item.onSelect() end
+      end,
+      present = function(canvas, ctx)
+        if not (love and love.graphics and animated and animated.atlasImage and dexId) then
+          return canvas
+        end
+        local dt = (ctx and ctx.dt) or (1 / 60)
+        local moving = browser._preview.anim == "walk"
+        local state = {
+          name = browser._preview.anim,
+          direction = browser._preview.direction,
+          frameIndex = browser._preview.frameIndex,
+          elapsed = browser._preview.elapsed or 0,
+          frameDuration = moving and AnimatedSprites.WALK_FRAME_DURATION
+                          or AnimatedSprites.IDLE_FRAME_DURATION,
+          usingEnhancedSprite = true,
+        }
+        animated:updateAnimation(state, dexId, dt, moving, browser._preview.direction)
+        browser._preview.frameIndex = state.frameIndex
+        browser._preview.elapsed = state.elapsed
+
+        local frame = animated:getFrame(
+          dexId, browser._preview.anim, browser._preview.direction,
+          browser._preview.frameIndex)
+        local quad = animated:getQuad(
+          dexId, browser._preview.anim, browser._preview.direction,
+          browser._preview.frameIndex)
+        if not frame or not quad or quad._owwildStub then return canvas end
+
+        love.graphics.push("all")
+        love.graphics.setCanvas(canvas)
+        local scale = 2
+        local dw = frame.width * scale
+        local dh = frame.height * scale
+        local x = 16
+        local y = ((ctx and ctx.height) or 144) - dh - 16
+        love.graphics.setColor(0, 0, 0, 0.55)
+        love.graphics.rectangle("fill", x - 4, y - 4, dw + 8, dh + 8)
+        love.graphics.setColor(1, 1, 1, 1)
+        if animated.atlasImage.setFilter then
+          animated.atlasImage:setFilter("nearest", "nearest")
+        end
+        love.graphics.draw(animated.atlasImage, quad, x, y, 0, scale, scale)
+        if browser._preview.grassOcclusion then
+          local GrassOcclusion = V.require("grass_occlusion")
+          local cover = GrassOcclusion.computeOcclusionHeight(frame.height) * scale
+          love.graphics.setColor(0.2, 0.55, 0.25, 0.85)
+          love.graphics.rectangle("fill", x - 4, y + dh - cover, dw + 8, cover + 4)
+          love.graphics.setColor(1, 1, 1, 1)
+        end
+        love.graphics.pop()
+        return canvas
+      end,
+    })
+end
+
 function PreviewBrowser:register()
   if self._registered then return end
   local mod = self.mod
@@ -345,6 +569,12 @@ function PreviewBrowser:register()
   mod.content.screens:register(PreviewBrowser.DETAIL, {
     new = function(game, speciesId)
       return browser:_openDetail(game, speciesId)
+    end,
+  })
+
+  mod.content.screens:register(PreviewBrowser.ANIM, {
+    new = function(game, speciesId)
+      return browser:_openAnimPreview(game, speciesId)
     end,
   })
 

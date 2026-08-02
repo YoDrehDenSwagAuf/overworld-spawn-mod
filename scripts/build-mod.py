@@ -62,6 +62,7 @@ FORBIDDEN_PREFIXES = (
     "gen1recomp/",
     "DramaticShapeVoxelMod/",
     "dist/",
+    "assets/_inspect/",
 )
 FORBIDDEN_NAMES = {
     ".git",
@@ -76,6 +77,7 @@ FORBIDDEN_EXACT = {
     "scripts/validate-manager-ascii.py",
     "tests/overworld_wild_spawns_test.lua",
     "tests/voxel_aggressive_compat_test.lua",
+    "tests/animated_sprites_unit_test.lua",
     # Root pointer only; docs/ARCHITECTURE.md is shipped.
     "ARCHITECTURE.md",
 }
@@ -318,6 +320,47 @@ def run_ascii_guard() -> None:
         fail(f"validate-manager-ascii failed with exit {err.returncode}")
 
 
+def verify_animated_assets() -> None:
+    """Build-time check for the shared atlas + 151 species mappings."""
+    atlas = (
+        MOD_DIR
+        / "assets"
+        / "enhanced_overworld"
+        / "Pokemon_Sprites"
+        / "POKEMON 1.png"
+    )
+    mapping_dir = MOD_DIR / "assets" / "enhanced_overworld" / "pokedex_mapping"
+    if not atlas.is_file():
+        fail(f"animated atlas missing: {atlas.relative_to(MOD_DIR).as_posix()}")
+    if not mapping_dir.is_dir():
+        fail(f"mapping dir missing: {mapping_dir.relative_to(MOD_DIR).as_posix()}")
+
+    found = 0
+    invalid = 0
+    for species_id in range(1, 152):
+        name = f"pokemon_{species_id:03d}_project.json"
+        path = mapping_dir / name
+        if not path.is_file():
+            print(f"  missing mapping: {name}")
+            invalid += 1
+            continue
+        found += 1
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as err:
+            print(f"  invalid JSON: {name}: {err}")
+            invalid += 1
+            continue
+        if data.get("speciesId") != species_id:
+            print(
+                f"  id mismatch: {name} jsonSpeciesId={data.get('speciesId')}"
+            )
+            invalid += 1
+    print(f"animated assets: atlas ok, mapping JSON found={found}, invalid={invalid}")
+    if found != 151 or invalid:
+        fail("animated mapping set incomplete or invalid")
+
+
 def main() -> int:
     if not (MOD_DIR / "manifest.json").is_file():
         fail(f"missing mod manifest at repo root: {MOD_DIR / 'manifest.json'}")
@@ -325,6 +368,7 @@ def main() -> int:
 
     # Manager-facing metadata must be ASCII-safe UTF-8 (no BOM) before pack.
     run_ascii_guard()
+    verify_animated_assets()
 
     if DIST.exists():
         shutil.rmtree(DIST)

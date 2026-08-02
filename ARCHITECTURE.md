@@ -1,7 +1,5 @@
 # Architecture
 
-The living architecture overview ships in the release package as
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Full architecture overview: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-This root file is excluded from the release ZIP (see `.modkitignore`) and only
-exists so repository browsers still find a pointer.
+Animated sprite format: [`docs/ANIMATED_SPRITE_FORMAT.md`](docs/ANIMATED_SPRITE_FORMAT.md).

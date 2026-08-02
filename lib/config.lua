@@ -26,14 +26,19 @@ Config.DEFAULTS = {
   wander_every_steps = 0, -- legacy; behaviours own movement now
   suppress_random_grass = true,
   sprite_opacity = 1.0,
+  use_animated_overworld_sprites = true,
+  pokemon_grass_render_mode = "immersed",
   grass_tuck_px = 0, -- engine drawCellBottom provides grass feet overdraw
-  show_pokemon_in_grass = true,
+  show_pokemon_in_grass = true, -- legacy alias → immersed/above
   enable_grass_movement_effects = true,
   min_sprite_size = 16,
   min_sprite_visible_height = 14,
   target_sprite_visible_height = 16,
   max_sprite_visible_height = 16, -- hard one-tile cap (Gen1Recomp CELL)
   grass_occlusion_px = 6,
+  -- Dramatic Shape tall-grass south-row clearance for pokemon_grass_render_mode=above.
+  -- Applied as pose visualY lift only (lift = e.py - visualY); does not change e.py.
+  grass_above_lift_px = 8,
   enable_idle = true,
   enable_wander = true,
   enable_aggressive = true,
@@ -58,6 +63,8 @@ Config.DEFAULTS = {
   preview_search = "",
   preview_map_filter = "",
   preview_encounter_kind = "any",
+  strict_world_billboard_debug = false,
+  strict_magenta_billboard_probe = false,
 }
 
 -- Entity lifecycle states for encounter safety.
@@ -140,6 +147,15 @@ end
 function Config.showBehaviorOverlays(mod)
   return Config.devMode(mod)
      and Config.get(mod, "show_behavior_overlays") == true
+end
+
+function Config.useAnimatedOverworldSprites(mod)
+  return Config.get(mod, "use_animated_overworld_sprites") ~= false
+end
+
+function Config.pokemonGrassRenderMode(mod)
+  local GrassOcclusion = V.require("grass_occlusion")
+  return GrassOcclusion.mode(mod)
 end
 
 function Config.maxVisible(mod)

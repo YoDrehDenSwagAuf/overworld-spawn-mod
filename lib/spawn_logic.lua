@@ -90,6 +90,12 @@ function SpawnLogic:attachDevTools(hud, overlay, browser, behaviorTick)
   self.overlay = overlay
   self.browser = browser
   self.behaviorTick = behaviorTick
+  if self.voxel and self.voxel.attachLogic then
+    self.voxel:attachLogic(self)
+  end
+  if behaviorTick and behaviorTick.voxel and behaviorTick.voxel.attachLogic then
+    behaviorTick.voxel:attachLogic(self)
+  end
 end
 
 function SpawnLogic:canSuppressVanilla()
@@ -1202,6 +1208,25 @@ function SpawnLogic:onOptionsChanged(payload)
     if key == "dev_mode" and payload.value == false then
       if self.overlay then self.overlay:clear() end
     end
+  elseif key == "use_animated_overworld_sprites" then
+    local world = self.mod.world
+    local game = world and world.game
+    self.render:invalidateAssetCache()
+    local n = self.render:refreshAllEntitySprites(self, game)
+    self:_log("use_animated_overworld_sprites -> %s; refreshed %d entities (no respawn)",
+              tostring(payload.value), n)
+  elseif key == "pokemon_grass_render_mode"
+      or key == "show_pokemon_in_grass" then
+    local Movement = V.require("movement")
+    local n = 0
+    for _, entity in pairs(self.entities or {}) do
+      if entity then
+        Movement.refreshGrassFlag(entity, self.mod)
+        n = n + 1
+      end
+    end
+    self:_log("grass render mode -> %s; refreshed %d entities (no respawn)",
+              tostring(Config.pokemonGrassRenderMode(self.mod)), n)
   end
 end
 

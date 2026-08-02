@@ -1,0 +1,120 @@
+{
+    "schemaVersion":  1,
+    "speciesId":  120,
+    "speciesName":  "Staryu",
+    "sourceSheet":  "POKEMON 1.png",
+    "cellWidth":  16,
+    "cellHeight":  16,
+    "animations":  {
+                       "idle":  {
+                                    "down":  [
+                                                 {
+                                                     "col":  64,
+                                                     "row":  22,
+                                                     "w":  1,
+                                                     "h":  1
+                                                 }
+                                             ],
+                                    "up":  [
+                                               {
+                                                   "col":  65,
+                                                   "row":  22,
+                                                   "w":  1,
+                                                   "h":  1
+                                               }
+                                           ],
+                                    "left":  [
+                                                 {
+                                                     "col":  66,
+                                                     "row":  22,
+                                                     "w":  1,
+                                                     "h":  1
+                                                 }
+                                             ],
+                                    "right":  [
+                                                  {
+                                                      "col":  67,
+                                                      "row":  22,
+                                                      "w":  1,
+                                                      "h":  1
+                                                  }
+                                              ]
+                                },
+                       "walk":  {
+                                    "down":  [
+                                                 {
+                                                     "col":  64,
+                                                     "row":  22,
+                                                     "w":  1,
+                                                     "h":  1
+                                                 }
+                                             ],
+                                    "up":  [
+                                               {
+                                                   "col":  65,
+                                                   "row":  22,
+                                                   "w":  1,
+                                                   "h":  1
+                                               }
+                                           ],
+                                    "left":  [
+                                                 {
+                                                     "col":  66,
+                                                     "row":  22,
+                                                     "w":  1,
+                                                     "h":  1
+                                                 }
+                                             ],
+                                    "right":  [
+                                                  {
+                                                      "col":  67,
+                                                      "row":  22,
+                                                      "w":  1,
+                                                      "h":  1
+                                                  }
+                                              ]
+                                },
+                       "fly":  {
+                                   "down":  [
+
+                                            ],
+                                   "up":  [
+
+                                          ],
+                                   "left":  [
+
+                                            ],
+                                   "right":  [
+
+                                             ]
+                               },
+                       "follow":  {
+                                      "down":  [
+
+                                               ],
+                                      "up":  [
+
+                                             ],
+                                      "left":  [
+
+                                               ],
+                                      "right":  [
+
+                                                ]
+                                  },
+                       "surf":  {
+                                    "down":  [
+
+                                             ],
+                                    "up":  [
+
+                                           ],
+                                    "left":  [
+
+                                             ],
+                                    "right":  [
+
+                                              ]
+                                }
+                   }
+}

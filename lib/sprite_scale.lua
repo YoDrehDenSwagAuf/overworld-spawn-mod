@@ -227,9 +227,11 @@ function SpriteScale.compute(speciesId, image, opts)
     renderedH = ch * finalScale
   end
 
-  -- Relative grass occlusion: lower quarter–third of the *rendered* sprite.
-  local defaultGrass = opts.defaultGrassOcclusion or Config.DEFAULTS.grass_occlusion_px or 6
-  local grassOcclusionHeight = math.min(defaultGrass, renderedH * 0.35)
+  -- Relative grass occlusion for immersed mode (feet under drawCellBottom).
+  local GrassOcclusion = V.require("grass_occlusion")
+  local grassOcclusionHeight = GrassOcclusion.computeOcclusionHeight(renderedH, {
+    engineCover = opts.defaultGrassOcclusion or Config.DEFAULTS.grass_occlusion_px,
+  })
 
   return {
     scale = finalScale,

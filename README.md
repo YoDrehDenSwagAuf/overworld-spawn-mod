@@ -16,6 +16,34 @@ of the overworld I used to imagine when playing these games as a child.
 
 <!-- Optional: add a screenshot or banner here -->
 
+## New: Animated Overworld Pokémon
+
+All 151 Generation I Pokémon can now appear in the overworld with directional
+idle and walking animations.
+
+Wild Pokémon no longer remain completely static. They can look around, turn in
+different directions, walk through grass, wander around their area, and use the
+appropriate directional animation while moving or chasing the player.
+
+Species are matched by Pokédex / species ID, so the correct sprites are used
+regardless of the game language.
+
+The feature is enabled by default. If you prefer the previous appearance,
+disable **Use animated overworld Pokemon sprites** in the mod settings. The mod
+will then use the original Pokédex-based images again.
+
+Missing or invalid animated sprite mappings automatically fall back to the
+previous sprite system.
+
+### Sprite Credits
+
+The animated Pokémon overworld sprites are based on the excellent **GBC Pokémon**
+asset pack created by **Anima**.
+
+Please support the original artist:
+
+https://anima-nel.itch.io/gbc-pokemon
+
 ## What it does
 
 On maps with wild encounter data, the mod reads Gen1Recomp’s imported encounter
@@ -25,10 +53,13 @@ tables and places tangible wild Pokemon (or hidden markers) on eligible tiles.
 - Spawns work without the Pokédex — Route 1 before Oak’s parcel is fine
 - Spawn density scales with encounter-area size; larger routes can hold more
   active Pokemon, distributed across connected regions
-- Tall-grass presentation uses the engine’s feet overdraw (like the player)
+- Tall-grass presentation: option for fully above grass or partially immersed
+  (engine `drawCellBottom` feet overdraw, like the player)
 - Small species get nearest-neighbor sprite scaling so they stay readable
-- Real Pokemon art is preferred; a black fallback sprite is used when no image
-  resolves (hidden behaviours draw no Pokemon sprite)
+- Real Pokemon art is preferred; when available, directional idle/walk
+  animations from the shared overworld atlas are used (option on by default)
+- Otherwise legacy species / battle PNGs are used; a black fallback sprite is
+  used when no image resolves (hidden behaviours draw no Pokemon sprite)
 - Vanilla random grass encounters remain as a fail-safe until the visible
   system is ready; they can stay suppressed afterward via options
 - Story progress, player position, and warps are never modified
@@ -70,13 +101,17 @@ Idle and Wander only (no aggressive chase or hidden water markers).
 - Map-aware spawn density and connected spawn regions
 - Grass, cave (no grass graphics required), and Surf-water surfaces
 - Fishing stays rod-only — fishing tables never free-spawn
-- Sprite scaling capped to one map tile (16×16); transparent margins ignored
-- Engine tall-grass overlay with relative occlusion for small sprites
-- Fallback sprite when art is missing
+- Sprite scaling: legacy art is capped to one map tile; animated atlas frames
+  keep native cell size (including 16×32 / 32×16) with feet anchored to the tile
+- Engine tall-grass overlay with relative occlusion; Dramatic Shape uses
+  world billboards so bushes/walls occlude Pokemon like trainers
+- Fallback chain: animated atlas → legacy PNG → black fallback
 - Developer mode with debug HUD, tile/behaviour overlays, and Pokemon preview
-  browser (asset status, encounter locations, Test spawn)
+  browser (mapping status, animated idle/walk, encounter locations, Test spawn)
 - Optional coexistence with [Dramatic Shape Voxel Mod](https://github.com/DramaticShape/DramaticShapeVoxelMod)
-  (not required); per-entity 2D fallback if a wild pose would break Voxel
+  (not required); wild Pokemon use a stable `EnhancedWorldSprite` adapter and
+  cached 16×16 billboard cards so DS depth/grass/occlusion match trainers;
+  emergency 2D overlay only if the adapter bind fails
 - Vanilla grass encounter fallback when the spawn system is not ready
 
 ## Compatibility and testing status
@@ -146,7 +181,7 @@ All options are live (`mod.options_changed`); no restart is required.
 | Aggressive encounter frequency | Normal | Relative weight when picking Aggressive |
 | Sprite fade | Solid | Opacity of overworld sprites |
 | Minimum Pokemon sprite size | 16 | Minimum visible height after scaling (px) |
-| Show Pokemon in grass | on | Prefer engine tall-grass feet overdraw |
+| Pokemon grass rendering | Partially hidden in grass | Draw fully above grass, or immerse feet in tall grass like the player |
 | Enable grass movement effects | on | Hidden shake / dust pulses when supported |
 | Developer mode | off | Debug HUD + Pokemon preview browser |
 | Keep spawn debug HUD visible | off | Keep HUD up while developer mode is on |

@@ -130,13 +130,81 @@ function Diagnostics.entityDetail(logic, entity, record)
   local Tile = V.require("tile")
   local VoxelAdapter = V.require("voxel_adapter")
   local lines = {
-    ("Stable entity ID: %s"):format(tostring(entity.id or entity.spawnId or "?")),
+    ("Entity ID: %s"):format(tostring(entity.id or entity.spawnId or "?")),
     ("Behavior: %s"):format(tostring(entity.behavior or record and record.behavior)),
     ("Behavior state: %s"):format(tostring(bx.state or "?")),
     ("Surface: %s"):format(tostring(entity.surface or "?")),
     ("Home region: %s"):format(tostring(entity.homeRegionId or "?")),
     ("Facing: %s"):format(tostring(entity.facing or bx.facing or "?")),
   }
+  if entity.species then
+    lines[#lines + 1] = ("Species ID: %s"):format(tostring(entity.species))
+  end
+  if entity.enhancedDexId then
+    lines[#lines + 1] = ("Dex / speciesId: %s"):format(tostring(entity.enhancedDexId))
+  end
+  if entity.enhancedStatus then
+    lines[#lines + 1] = ("Mapping: %s"):format(tostring(entity.enhancedStatus))
+  end
+  for _, line in ipairs(VoxelAdapter.statusLines(entity)) do
+    lines[#lines + 1] = line
+  end
+  lines[#lines + 1] = ("Sprite source: %s"):format(
+    tostring(entity.spriteSource2D or entity.spriteSource
+      or (entity.usingEnhancedSprite and "ENHANCED_ATLAS")
+      or (entity.usingFallback and "BLACK_FALLBACK") or "LEGACY_PNG"))
+  -- Requested/Actual renderer lines come from VoxelAdapter.statusLines
+  -- via RenderDiagnostics (honest counters).
+  if entity.animation and entity.usingEnhancedSprite then
+    local anim = entity.animation
+    local frameCount = anim._lastFrameCount or "?"
+    lines[#lines + 1] = ("Animation: %s"):format(
+      tostring(anim.type or anim.name or "?"):upper())
+    lines[#lines + 1] = ("Direction: %s"):format(tostring(anim.direction or "?"):upper())
+    lines[#lines + 1] = ("Frame: %s / %s"):format(
+      tostring(anim.frameIndex or 1), tostring(frameCount))
+    if anim._lastFrameSize then
+      lines[#lines + 1] = ("Frame size source: %dx%d"):format(
+        anim._lastFrameSize[1] or 0, anim._lastFrameSize[2] or 0)
+    elseif scale.contentW then
+      lines[#lines + 1] = ("Frame size source: %dx%d"):format(
+        scale.contentW or 0, scale.contentH or 0)
+    end
+    lines[#lines + 1] = ("Billboard card size: %s"):format(
+      tostring(entity.voxelCardSize or "16x16"))
+    lines[#lines + 1] = ("Render revision: %s"):format(
+      tostring(anim.renderRevision or 0))
+    lines[#lines + 1] = ("Scale: %s"):format(
+      string.format("%.2f", entity.final2DScale or 1))
+    if scale.visualFootprintTilesW or scale.visualFootprintTilesH then
+      lines[#lines + 1] = ("Visual footprint: %.0fx%.0f tiles"):format(
+        scale.visualFootprintTilesW or 1, scale.visualFootprintTilesH or 1)
+    end
+  end
+  lines[#lines + 1] = ("Ground Y: %.1f"):format(entity.py or 0)
+  lines[#lines + 1] = ("Visual Y: %.1f"):format(
+    entity._lastVisualY or entity.py or 0)
+  lines[#lines + 1] = ("Lift: %.1f"):format(entity._lastLift or 0)
+  lines[#lines + 1] = ("World pos: %.1f, %.1f"):format(
+    entity.px or 0, entity.py or 0)
+  for _, line in ipairs((function()
+    local GrassOcclusion = V.require("grass_occlusion")
+    return GrassOcclusion.statusLines(entity)
+  end)()) do
+    lines[#lines + 1] = line
+  end
+  if entity.scaleInfo and (entity.scaleInfo.renderedW or entity.animation) then
+    local rw = entity.scaleInfo.renderedW
+    local rh = entity.scaleInfo.renderedH
+    if entity.animation and entity.animation._lastFrameSize then
+      local s = entity.final2DScale or 1
+      rw = (entity.animation._lastFrameSize[1] or 0) * s
+      rh = (entity.animation._lastFrameSize[2] or 0) * s
+    end
+    if rw and rh then
+      lines[#lines + 1] = ("Rendered sprite size: %.0fx%.0f"):format(rw, rh)
+    end
+  end
   local now = (love and love.timer and love.timer.getTime and love.timer.getTime())
               or os.clock()
   if bx.nextActionAt then
@@ -145,8 +213,6 @@ function Diagnostics.entityDetail(logic, entity, record)
   end
   lines[#lines + 1] = ("2D registered: %s"):format(
     (entity.registeredInWorld or entity.registered2D) and "YES" or "NO")
-  lines[#lines + 1] = ("Grass overlay: %s"):format(
-    entity.inGrassOverlay and "YES" or "NO")
   lines[#lines + 1] = ("Alert icon: %s"):format(
     entity.alertIcon and "ON" or "OFF")
   lines[#lines + 1] = ("Battle pending: %s"):format(
@@ -168,9 +234,6 @@ function Diagnostics.entityDetail(logic, entity, record)
       scale.renderedW or 0, scale.renderedH or 0)
     lines[#lines + 1] = ("Logical footprint: %d tile"):format(
       scale.logicalFootprintTiles or 1)
-  end
-  for _, line in ipairs(VoxelAdapter.statusLines(entity)) do
-    lines[#lines + 1] = line
   end
   if entity.behavior == "AGGRESSIVE" then
     lines[#lines + 1] = ("Sight range: %s"):format(
@@ -239,6 +302,28 @@ function Diagnostics.hudLines(logic)
     ("Registered: %d"):format(s.registered),
     ("Rendered: %d"):format(s.rendered),
   }
+
+  local render = logic.render
+  local animated = render and render.animated
+  if animated then
+    local sum = animated:summary()
+    lines[#lines + 1] = ("Animated atlas: %s"):format(animated:statusLabel())
+    lines[#lines + 1] = ("Mapping files found: %d"):format(sum.mappingFilesFound or 0)
+    lines[#lines + 1] = ("Valid mappings: %d"):format(sum.validSpeciesCount or 0)
+    lines[#lines + 1] = ("Partial mappings: %d"):format(sum.partialSpeciesCount or 0)
+    lines[#lines + 1] = ("Invalid mappings: %d"):format(sum.invalidSpeciesCount or 0)
+    lines[#lines + 1] = ("Animated entities: %d"):format(
+      render:countAnimatedEntities(logic))
+    local VoxelAdapter = V.require("voxel_adapter")
+    local va = logic.voxel or (logic.behaviorTick and logic.behaviorTick.voxel)
+    if va and va.hooksInstalled then
+      lines[#lines + 1] = "Voxel Pokemon: WORLD_BILLBOARD"
+    end
+    lines[#lines + 1] = ("Billboard frames cached: %d"):format(sum.voxelCacheEntries or 0)
+    lines[#lines + 1] = ("Billboard cache hits/misses: %d/%d"):format(
+      sum.voxelCacheHits or 0, sum.voxelCacheMisses or 0)
+  end
+
   -- Detail the nearest entity when developer overlays are on.
   if Config.devMode(logic.mod) then
     local world = logic.mod.world

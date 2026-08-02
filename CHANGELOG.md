@@ -1,77 +1,117 @@
 # Changelog
 
-## 0.4.2
+## 0.5.7
+
+### Added
+
+- **Animated overworld Pokémon sprites** for all 151 Gen I species: directional
+  idle and walk animations, language-independent Pokédex/species-ID mapping,
+  and automatic fallback to the previous Pokédex-image presentation when the
+  option is off or a mapping is missing/invalid.
+- Mod option: **Use animated overworld Pokemon sprites**
+  (`use_animated_overworld_sprites`, default on).
+- Sprite credit: animated overworld art is based on Anima’s **GBC Pokémon**
+  pack — https://anima-nel.itch.io/gbc-pokemon
+
+### Diagnosis / Fixed
+
+- **Honest render-path instrumentation**: HUD now shows Requested vs Actual body
+  renderer from real call counters (`poseCalls`, `enhancedResolveImageCalls`,
+  emergency/post-voxel body draws, mesh/Assets probes) instead of wishful status.
+- **`strict_world_billboard_debug`**: disables emergency/post-voxel Pokemon body
+  draws so a broken DS billboard path can no longer hide behind an overlay.
+- Optional **`strict_magenta_billboard_probe`** for a magenta 16×16 DS texture probe.
+- **Entity:draw no longer paints the body** when `WORLD_BILLBOARD_*` owns it
+  (prevents double-draw on top of voxel grass).
+- `worldBillboardReady` is per-entity only; ENHANCED requires card READY +
+  loadable `def.image` + SpriteBillboards mesh probe.
+- Depth/grass HUD flags stay `UNVERIFIED` until counters prove
+  `DRAMATIC_SPRITE_BILLBOARD`.
+
+## 0.5.6
+
+### Fixed / Changed
+
+- **Stable `EnhancedWorldSprite` adapter**: Dramatic Shape receives a dedicated
+  SpriteRenderer-compatible object (`def` + `resolveImage()`), not a mutated
+  legacy SpriteRenderer. Legacy sprites stay untouched for the flat 2D path.
+- `Entity:getWorldSprite()` / `Entity:pose()` deliver the adapter with
+  `phase = 0` and `frames = 1`; frame changes come only from cached 16×16
+  billboard cards returned by `resolveImage()`.
+- UV mesh carrier is the static transparent
+  `assets/runtime/dynamic_billboard_base.png`; live pixels stay on the card
+  Image cache (`species:anim:dir:frame:w:h`).
+- Post-voxel Pokemon **body** draw remains emergency-only
+  (`SPATIAL_OVERLAY_EMERGENCY`). Success path uses native DS depth + grass mesh.
+- `immersed` grass: `Grass renderer: DRAMATIC_SHAPE_NATIVE` (no custom grass
+  color/mask). `above`: small `visualY` lift (`grass_above_lift_px`); object
+  occlusion stays active.
+- `animation.renderRevision` bumps only on visible animation changes.
+- Developer HUD fields for adapter status, card cache, ground/visual Y, lift,
+  and grass renderer.
+
+### Known limitation
+
+- Dramatic Shape entity billboards are fixed **16×16** meshes (no atlas+quad).
+  Large frames are fitted proportionally bottom-center into cards. Flat 2D
+  still draws native frame sizes.
+
+## 0.5.5
 
 ### Fixed
 
-- **Dramatic Shape Voxel Mod corruption during aggressive chase**: hidden
-  wild markers (nil sprite) no longer join `ow.entities`. A nil `sprite.def`
-  in VoxelScene's `posesOf` / `shadowSignature` / `drawEntity` path was
-  retiring the entire DRAMATIC_SHAPE render pipeline for the session.
-- **Aggressive alert/chase state machine**: detection fires once; movement
-  stops during ALERT; chase starts only from the engine emote `onDone`
-  (no parallel timer); tile steps use NPC-compatible previous/current
-  pixel interpolation so Voxel billboards stay coherent when leaving grass.
-- **2D sprites larger than one map tile**: final scale is now
-  `min(desiredReadableScale, oneTileMaxScale)` from non-transparent visible
-  bounds, capped to Gen1Recomp's 16×16 cell. Aspect ratio preserved
-  (nearest-neighbor).
+- **Pokemon appearing in front of bushes / world objects with Dramatic Shape**:
+  the post-voxel 2D overlay drew Pokemon after the finished scene, so they had
+  no depth. Wild Pokemon now use Dramatic Shape `SpriteBillboards` again via
+  `pose()` → cached 16×16 trueColor atlas cards (`WORLD_BILLBOARD_ENHANCED`),
+  sharing player/trainer depth and object occlusion.
+- Post-voxel body draw is only an emergency `SPATIAL_OVERLAY_FALLBACK`.
+  Emotes/debug stay on the overlay seam.
+
+### Changed
+
+- `above` grass mode no longer means “screen overlay”; it only skips grass
+  feet cover while world occlusion stays active.
+
+## 0.5.4
 
 ### Added
 
-- `lib/tile.lua` — Gen1Recomp tile size (16) as the single source of truth.
-- `lib/movement.lua` — central tile-step movement (IDLE/ALERT/MOVING/CHASING).
-- `lib/voxel_adapter.lua` — read-only Voxel safety checks + per-entity 2D
-  fallback when a wild entity would break the Voxel pose contract.
-- Stable entity ids: `wilds_of_kanto_entity_<n>` for the full lifetime.
-- Dev HUD lines for scale bounds, stable id, Voxel fallback, alert/battle.
-- `tests/voxel_aggressive_compat_test.lua` — simulated VoxelScene pose path
-  through alert → chase → battle.
+- **Pokemon grass rendering** option (`pokemon_grass_render_mode`):
+  - `immersed` (default) — lower part of the sprite hidden by tall-grass
+    feet-overdraw, like the player and trainers
+  - `above` — fully visible above grass (previous post-voxel look)
+- Uses Gen1Recomp `TileRenderer:drawCellBottom` on the flat path (engine) and
+  the same call after the post-voxel 2D Pokemon draw when Dramatic Shape is on
+- Live toggle; legacy `show_pokemon_in_grass=false` maps to `above`
+- Preview browser: Preview grass Immersed/Above toggle
+- Developer HUD: grass mode / occlusion active / height
+
+## 0.5.3
 
 ### Changed
 
-- "Minimum Pokemon sprite size" option: preferred readable size only; never
-  bypasses the one-tile footprint cap.
-- Grass occlusion height is relative to rendered visible height
-  (`min(default, renderedH * 0.35)`).
-- Voxel billboard scale stays `1` (16×16 card); 2D `final2DScale` is never
-  reused as a Voxel world scale.
+- **Voxel wild Pokemon architecture**: abandoned atlas→16×16 card→Dramatic
+  Shape billboard conversion. Dramatic Shape still renders the voxel world;
+  Wilds of Kanto draws animated Pokemon with the **same** 2D atlas renderer
+  as a post-voxel overlay (`WILDS_2D_POST_VOXEL`), using `Voxel3D.project`
+  for screen placement. Wild entities with enhanced sprites are skipped from
+  Dramatic Shape `posesOf` so Voxel does not also draw a legacy billboard
+  (no double sprite).
 
-## 0.4.1
+### Known
 
-### Changed
+- Post-voxel overlays are drawn after the 3D depth pass, so buildings do not
+  occlude Pokemon bodies on this path (depth integration inactive).
 
-- Renamed the public mod title to **Wilds of Kanto** (technical id
-  `overworld_wild_spawns` unchanged for save/options compatibility).
-- Reworked the README with installation, features, compatibility notes and
-  project background.
-- Added clearer links to Gen1Recomp and Dramatic Shape Voxel Mod.
-- Updated visible HUD / preview titles and debug log prefix to match the
-  public name.
-- Release ZIP primary filename is now `wilds-of-kanto-v<version>.zip`
-  (technical-id aliases still written).
+## 0.5.1
 
-## 0.4.0
+### Fixed
 
-### Added
+- **Voxel Mod invisible / static wild sprites**: Dramatic Shape billboards
+  expected `SpriteRenderer` sheets; animated atlas frames are now baked into
+  cached 16×16 cards for the voxel path while 2D keeps atlas+quad.
 
-- **Map-aware spawn density** from eligible encounter tiles + connected regions
-  (`spawn_density`, min/max visible, tiles-per-additional, refill interval).
-- **Four behaviours**: Idle Look, Grass Wander, Aggressive, Hidden Grass/Cave.
-- **Aggressive** spotting with engine `ow.emote` exclamation, chase (may leave
-  grass), single unavoidable battle; sight blocked by non-walkable tiles.
-- **Hidden** markers: grass shake or cave dust — no Pokemon sprite / no fallback.
-- **Surface abstraction**: GRASS, CAVE, WATER (Surf), with fishing kept rod-only.
-- **Cave spawns** on walkable indoor tiles without requiring grass graphics.
-- **Water spawns** from Surf encounter tables on water cells (optional).
-- **Sprite scaling** (nearest-neighbor, bounds/species aware) so small mons stay
-  readable in tall grass; engine `drawCellBottom` feet overdraw unchanged.
-- Behaviour tick present-pipeline (`owwild_behavior_tick`).
-- Developer HUD fields: Target / Active / Regions / Surface + entity detail.
-- Behaviour overlay option; expanded options categories.
-- Docs: `docs/USER_GUIDE.md`, `docs/DEVELOPER_GUIDE.md`, `docs/ARCHITECTURE.md`.
+## 0.5.0
 
-### Changed
-
-- Default max visible raised to 12 (density-capped); min player distance 3;
-  spawn band expanded for long routes.
+See prior history in git for earlier releases.

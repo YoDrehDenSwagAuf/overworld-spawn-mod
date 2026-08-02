@@ -11,6 +11,7 @@ local Behavior = V.require("behavior")
 local Movement = V.require("movement")
 local VoxelAdapter = V.require("voxel_adapter")
 local Tile = V.require("tile")
+local DebugLog = V.require("debug_log")
 
 local BehaviorTick = {}
 BehaviorTick.__index = BehaviorTick
@@ -113,7 +114,7 @@ function BehaviorTick:step(ctx)
   for id, entity in pairs(logic.entities or {}) do
     local record = logic.spawns[id]
     if record and record.state == Config.STATE.AVAILABLE and entity then
-      -- Keep Voxel-readable fields synced; never mutate DRAMATIC_SHAPE.
+      -- Keep entity presentation flags synced for Voxel overlay / HUD.
       local okVoxel, voxelErr = pcall(function()
         self.voxel:updateEntity(entity)
       end)
@@ -161,23 +162,28 @@ function BehaviorTick:step(ctx)
         end
       end
 
+      -- Shared animation state for flat 2D and post-voxel 2D overlay.
+      if logic.render and logic.render.syncEntityAnimation then
+        local okAnim, animErr = pcall(logic.render.syncEntityAnimation,
+                                      logic.render, entity, dt)
+        if not okAnim then
+          DebugLog.warn(self.mod, "animation sync failed for %s: %s",
+                        tostring(id), tostring(animErr))
+        end
+      end
+
       -- Keep record coords in sync after movement (committed tile only).
       if entity.cellX and entity.cellY then
         record.x, record.y = entity.cellX, entity.cellY
       end
 
-      -- Re-validate Voxel safety after movement.
-      if entity.registeredInWorld and not entity.voxelDisabled then
-        local ok, why = VoxelAdapter.isPoseSafe(entity)
-        if not ok then
-          self.voxel:markFallback(entity, why)
-          -- Keep entity in ow.entities only if pose is still safe; otherwise
-          -- detach so VoxelScene cannot retire the whole pipeline.
-          if entity.sprite == nil then
-            logic:_detachFromWorld(entity)
-            entity.render2DFallback = true
-          end
-        end
+      -- Hidden markers must stay out of ow.entities; visible wilds stay in
+      -- for simulation and are filtered only from DS billboard posing.
+      if entity.registeredInWorld and entity.sprite == nil
+         and not entity.hiddenEncounter then
+        self.voxel:markFallback(entity, "sprite became nil")
+        logic:_detachFromWorld(entity)
+        entity.render2DFallback = true
       end
     end
   end

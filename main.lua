@@ -238,9 +238,10 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "0.4.2"
+  mod.exports.version = "0.5.7"
   mod.exports.logic = logic
   mod.exports.render = render
+  mod.exports.animated = render.animated
   mod.exports.hud = hud
   mod.exports.overlay = overlay
   mod.exports.browser = browser

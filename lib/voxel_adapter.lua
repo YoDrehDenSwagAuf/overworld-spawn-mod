@@ -1,35 +1,53 @@
--- Optional Dramatic Shape Voxel Mod adapter.
+-- Dramatic Shape integration: wild Pokemon as depth-sorted world billboards.
 --
--- The Voxel Mod (DRAMATIC_SHAPE) billboards every entry in ow.entities via
--- pose() → sprite.def / sprite:resolveImage() / px,py / cellX,cellY
--- (see DramaticShapeVoxelMod lib/VoxelScene.lua posesOf / drawEntity).
+-- Primary path (successful):
+--   entity stays in ow.entities → posesOf → SpriteBillboards
+--   pose() returns EnhancedWorldSprite (stable adapter)
+--   resolveImage() → cached 16×16 atlas frame Image (trueColor)
+--   Same depth / object occlusion / native grass as player and trainers.
 --
--- A single throw inside that path marks the entire voxel render pipeline
--- broken for the session (Gen1Recomp Pipelines.guard). Wilds of Kanto must
--- therefore never put unsafe entities into ow.entities, and must never mutate
--- private Voxel Mod structures.
+-- Emergency only:
+--   SPATIAL_OVERLAY_EMERGENCY draws Entity:draw via ctx.drawFx (no depth).
 --
--- This adapter is read-mostly: it validates / prepares entity fields that the
--- Voxel Mod will observe, and on failure disables Voxel presentation for that
--- one entity while keeping 2D + world simulation alive.
+-- Alert icons stay on the engine emote / drawFx path (not Pokemon bodies).
 local V = ...
 local DebugLog = V.require("debug_log")
 local Movement = V.require("movement")
+local Config = V.require("config")
+local RenderDiagnostics = V.require("render_diagnostics")
 
 local VoxelAdapter = {}
 VoxelAdapter.__index = VoxelAdapter
+
+VoxelAdapter.WORLD_RENDERER = "DRAMATIC_SHAPE"
+VoxelAdapter.POKEMON_WORLD_ENHANCED = "WORLD_BILLBOARD_ENHANCED"
+VoxelAdapter.POKEMON_WORLD_LEGACY = "WORLD_BILLBOARD_LEGACY"
+VoxelAdapter.POKEMON_WORLD_BLACK = "WORLD_BILLBOARD_BLACK_FALLBACK"
+VoxelAdapter.POKEMON_OVERLAY_EMERGENCY = "SPATIAL_OVERLAY_EMERGENCY"
+-- Alias for older call sites / tests.
+VoxelAdapter.POKEMON_OVERLAY_FALLBACK = VoxelAdapter.POKEMON_OVERLAY_EMERGENCY
 
 function VoxelAdapter.new(mod)
   local self = setmetatable({}, VoxelAdapter)
   self.mod = mod
   self.present = false
-  self.lastScanAt = 0
+  self.hooksInstalled = false
+  self.voxelActive = false
+  self.logic = nil
   return self
+end
+
+function VoxelAdapter:attachLogic(logic)
+  self.logic = logic
 end
 
 function VoxelAdapter:refreshPresence()
   local dramatic = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
   self.present = dramatic ~= nil
+  if self.present then
+    self:ensureHooks()
+  end
+  self.voxelActive = self:_probeVoxelActive()
   return self.present
 end
 
@@ -38,7 +56,40 @@ function VoxelAdapter:isPresent()
   return self:refreshPresence()
 end
 
--- Fields the Voxel Mod reads from every ow.entities entry.
+function VoxelAdapter:_probeVoxelActive()
+  local ds = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
+  local lib = ds and ds.exports and ds.exports.lib
+  if not lib or type(lib.require) ~= "function" then return false end
+  local ok, Voxel = pcall(lib.require, "VoxelState")
+  if not ok or not Voxel or type(Voxel.active) ~= "function" then
+    return false
+  end
+  local okActive, active = pcall(Voxel.active)
+  return okActive and active == true
+end
+
+function VoxelAdapter:isVoxelCameraActive()
+  if not self.present then
+    self:refreshPresence()
+  end
+  return self:_probeVoxelActive()
+end
+
+function VoxelAdapter.isWildEntity(entity)
+  return entity ~= nil and entity.overworldWildSpawn == true
+end
+
+local function isWorldBillboard(renderer)
+  return renderer == VoxelAdapter.POKEMON_WORLD_ENHANCED
+    or renderer == VoxelAdapter.POKEMON_WORLD_LEGACY
+    or renderer == VoxelAdapter.POKEMON_WORLD_BLACK
+end
+
+local function isEmergencyOverlay(renderer)
+  return renderer == VoxelAdapter.POKEMON_OVERLAY_EMERGENCY
+    or renderer == "SPATIAL_OVERLAY_FALLBACK"
+end
+
 function VoxelAdapter.isPoseSafe(entity)
   if not entity then
     return false, "nil entity"
@@ -46,15 +97,9 @@ function VoxelAdapter.isPoseSafe(entity)
   if entity.hiddenEncounter or entity.visibleSprite == false then
     return false, "hidden entity must not join ow.entities for Voxel"
   end
-  if entity.voxelDisabled then
-    return false, entity.voxelLastError or "voxel disabled for entity"
-  end
-  local sprite = entity.sprite
+  local sprite = entity.getWorldSprite and entity:getWorldSprite() or entity.sprite
   if sprite == nil then
     return false, "sprite is nil"
-  end
-  if type(sprite) ~= "table" and type(sprite) ~= "userdata" then
-    return false, "sprite is not a table"
   end
   if sprite.def == nil then
     return false, "sprite.def missing"
@@ -80,11 +125,10 @@ function VoxelAdapter.isPoseSafe(entity)
   return true
 end
 
--- Probe pose() the way VoxelScene.posesOf does, without drawing.
 function VoxelAdapter.probePose(entity)
   local okSafe, why = VoxelAdapter.isPoseSafe(entity)
   if not okSafe then return false, why end
-  local ok, sprite, vx, vy, facing, phase, flip = pcall(function()
+  local ok, sprite, vx, vy = pcall(function()
     return entity:pose()
   end)
   if not ok then
@@ -99,53 +143,46 @@ function VoxelAdapter.probePose(entity)
   if type(sprite.resolveImage) ~= "function" then
     return false, "pose() sprite lacks resolveImage"
   end
-  if type(vx) ~= "number" or type(vy) ~= "number" then
-    return false, "pose() pixel coords invalid"
-  end
-  -- Mirror VoxelScene: py comes from entity.py, lift = entity.py - visualY.
-  if entity.py == nil then
-    return false, "entity.py nil after pose"
-  end
   return true, {
     sprite = sprite,
     px = vx,
     py = entity.py,
-    facing = facing,
-    phase = phase,
-    flip = flip,
-    lift = entity.py - vy,
+    lift = entity.py - (vy or entity.py),
   }
 end
 
 function VoxelAdapter:markFallback(entity, err)
   if not entity then return end
-  entity.voxelDisabled = true
-  entity.voxelRegistered = false
-  entity.voxelUpdateOk = false
   entity.voxelLastError = tostring(err)
+  entity.pokemonRenderer = VoxelAdapter.POKEMON_OVERLAY_EMERGENCY
+  entity.depthIntegration = "INACTIVE"
+  entity.objectOcclusion = "INACTIVE"
+  entity.dramaticBillboardSkipped = true
+  entity.voxelDisabled = true
   entity.render2DFallback = true
-  local okLog, logErr = pcall(DebugLog.error, self.mod,
-    "Voxel entity update failed for %s. Falling back to 2D rendering for this entity. (%s)",
+  entity.worldBillboardReady = false
+  entity.worldSpriteAdapterStatus = "EMERGENCY"
+  entity.grassRenderer = "EMERGENCY_OVERLAY"
+  -- Asset source stays ENHANCED when that was the intended presentation.
+  if entity.usingEnhancedSprite then
+    entity.spriteSource2D = "ENHANCED_ATLAS"
+  end
+  pcall(DebugLog.warn, self.mod,
+    "World billboard failed for %s; spatial overlay emergency. (%s)",
     tostring(entity.id or entity.spawnId or "?"),
     tostring(err))
-  if not okLog and self.mod and self.mod.log and self.mod.log.info then
-    self.mod.log:info("[WildsOfKanto][ERROR] Voxel entity update failed for %s. Falling back to 2D rendering for this entity. (%s)",
-      tostring(entity.id or entity.spawnId or "?"), tostring(err))
-  elseif not okLog then
-    -- Headless tests may lack mod.log; keep the entity flag anyway.
-    logErr = logErr
-  end
 end
 
--- Keep movement/position fields Voxel-readable. Never writes into DRAMATIC_SHAPE.
 function VoxelAdapter:updateEntity(entity)
   if not entity or entity.state == "removed" then return false end
   if entity.hiddenEncounter or entity.visibleSprite == false then
     entity.voxelRegistered = false
-    return false
-  end
-  if entity.voxelDisabled then
-    entity.voxelRegistered = false
+    entity.dramaticBillboardSkipped = false
+    entity.pokemonRenderer = "HIDDEN"
+    entity.worldRenderer = "GEN1_FLAT"
+    entity.depthIntegration = "N/A"
+    entity.objectOcclusion = "N/A"
+    entity.grassRenderer = "N/A"
     return false
   end
 
@@ -155,18 +192,82 @@ function VoxelAdapter:updateEntity(entity)
     return false
   end
 
-  local ok, detail = VoxelAdapter.probePose(entity)
-  if not ok then
+  local active = self:isVoxelCameraActive()
+  self.voxelActive = active
+
+  entity.spriteSource2D = entity.spriteSource
+    or (entity.usingEnhancedSprite and "ENHANCED_ATLAS")
+    or (entity.usingFallback and "BLACK_FALLBACK")
+    or "LEGACY_PNG"
+  entity.voxelScale = 1
+
+  if not active then
+    entity.worldRenderer = "GEN1_FLAT"
+    entity.pokemonRenderer = "WILDS_2D"
+    entity.dramaticBillboardSkipped = false
+    entity.voxelRegistered = false
+    entity.depthIntegration = "N/A"
+    entity.objectOcclusion = "N/A"
+    entity.grassRenderer = "ENGINE_2D"
+    entity.voxelUpdateOk = true
+    entity.voxelSource = entity.spriteSource2D
+    return true
+  end
+
+  entity.worldRenderer = VoxelAdapter.WORLD_RENDERER
+
+  -- Bind / refresh enhanced billboard adapter for DS SpriteBillboards.
+  if entity.render and entity.render.bindWorldBillboard then
+    local okBind, why = pcall(entity.render.bindWorldBillboard,
+                              entity.render, entity, false)
+    if not okBind then
+      self:markFallback(entity, why)
+      entity.voxelRegistered = true
+      entity.voxelUpdateOk = false
+      return false
+    end
+  end
+
+  local okPose, detail = VoxelAdapter.probePose(entity)
+  if not okPose then
     self:markFallback(entity, detail)
+    entity.voxelRegistered = true
+    entity.voxelUpdateOk = false
     return false
   end
 
-  entity.voxelRegistered = self:isPresent()
+  if not isWorldBillboard(entity.pokemonRenderer)
+     and not isEmergencyOverlay(entity.pokemonRenderer) then
+    entity.pokemonRenderer = entity.usingEnhancedSprite
+      and VoxelAdapter.POKEMON_OVERLAY_EMERGENCY
+      or VoxelAdapter.POKEMON_WORLD_LEGACY
+  end
+
+  if isWorldBillboard(entity.pokemonRenderer) then
+    -- Promote UNVERIFIED → ACTIVE only when counters prove DS path.
+    if RenderDiagnostics.honestDepthActive(entity) then
+      entity.depthIntegration = "ACTIVE"
+      entity.objectOcclusion = "ACTIVE"
+      entity.grassRenderer = "DRAMATIC_SHAPE_NATIVE"
+    elseif entity.depthIntegration ~= "INACTIVE" then
+      entity.depthIntegration = entity.depthIntegration or "UNVERIFIED"
+      entity.objectOcclusion = entity.objectOcclusion or "UNVERIFIED"
+      entity.grassRenderer = entity.grassRenderer or "UNVERIFIED"
+    end
+    entity.dramaticBillboardSkipped = false
+  else
+    entity.depthIntegration = "INACTIVE"
+    entity.objectOcclusion = "INACTIVE"
+    entity.dramaticBillboardSkipped = true
+    if isEmergencyOverlay(entity.pokemonRenderer) then
+      entity.grassRenderer = "EMERGENCY_OVERLAY"
+    end
+  end
+
+  entity.voxelRegistered = true
   entity.voxelUpdateOk = true
-  entity.voxelLastError = nil
-  -- Voxel billboards are always a 16×16 card from the sprite sheet.
-  -- Never feed the 2D finalScale into Voxel as a world scale.
-  entity.voxelScale = 1
+  entity.voxelDisabled = false
+  entity.voxelSource = entity.spriteSource2D
   return true
 end
 
@@ -176,21 +277,192 @@ function VoxelAdapter:unregister(entity)
   entity.voxelUpdateOk = false
 end
 
+-- ------------------------------------------------------------------ hooks
+
+local function filterOverlayEmergencyEntities(entities)
+  local kept = {}
+  for _, e in ipairs(entities or {}) do
+    local d = RenderDiagnostics.ensure(e)
+    local isEmerg = VoxelAdapter.isWildEntity(e) and isEmergencyOverlay(e.pokemonRenderer)
+    if isEmerg then
+      d.dramaticBillboardRejected = (d.dramaticBillboardRejected or 0) + 1
+      d.lastFilterKept = false
+      d.lastFailureReason = d.lastFailureReason
+        or ("filtered from posesOf: " .. tostring(e.pokemonRenderer))
+    else
+      if VoxelAdapter.isWildEntity(e) then
+        d.dramaticBillboardAccepted = (d.dramaticBillboardAccepted or 0) + 1
+        d.lastFilterKept = true
+      end
+      kept[#kept + 1] = e
+    end
+  end
+  return kept
+end
+
+function VoxelAdapter:ensureHooks()
+  if self.hooksInstalled then return true end
+
+  local ds = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
+  local lib = ds and ds.exports and ds.exports.lib
+  if lib and type(lib.require) == "function" then
+    local okScene, VoxelScene = pcall(lib.require, "VoxelScene")
+    if okScene and VoxelScene and type(VoxelScene.render) == "function"
+       and not VoxelScene._owwildRenderWrapped then
+      local origRender = VoxelScene.render
+      VoxelScene.render = function(state, w, h, vw, vh, paletteFor)
+        local prev = state and state.entities
+        if state and prev then
+          state.entities = filterOverlayEmergencyEntities(prev)
+        end
+        local ok, canvasOrErr = pcall(origRender, state, w, h, vw, vh, paletteFor)
+        if state then state.entities = prev end
+        if not ok then error(canvasOrErr, 0) end
+        return canvasOrErr
+      end
+      VoxelScene._owwildRenderWrapped = true
+    end
+  end
+
+  local okPipe, Pipelines = pcall(require, "src.render.Pipelines")
+  if not okPipe or not Pipelines or type(Pipelines.get) ~= "function" then
+    return false
+  end
+  local def = Pipelines.get("voxel")
+  if not def or type(def.drawWorld) ~= "function" then
+    return false
+  end
+  if def._owwildDrawWrapped then
+    self.hooksInstalled = true
+    return true
+  end
+
+  local adapter = self
+  local origDrawWorld = def.drawWorld
+  def.drawWorld = function(ctx)
+    local origDrawFx = ctx and ctx.drawFx
+    if ctx then
+      ctx.drawFx = function(project, scale)
+        if type(origDrawFx) == "function" then
+          origDrawFx(project, scale)
+        end
+        adapter:drawOverlayFallbackBodies(ctx, project, scale)
+      end
+    end
+    return origDrawWorld(ctx)
+  end
+  def._owwildDrawWrapped = true
+
+  self.hooksInstalled = true
+  DebugLog.info(self.mod,
+    "Voxel hooks: WORLD_BILLBOARD in posesOf; overlay body only as emergency")
+  return true
+end
+
+-- Draw Pokemon body ONLY when depth billboard failed for that entity.
+-- Strict world-billboard debug disables this entirely.
+function VoxelAdapter:drawOverlayFallbackBodies(ctx, project, scale)
+  if RenderDiagnostics.strictEnabled(self.mod) then
+    return
+  end
+  if type(project) ~= "function" then return end
+  if not (love and love.graphics) then return end
+
+  local state = ctx and ctx.state
+  local cam = (ctx and ctx.cam) or (state and state.camera)
+  if not cam then return end
+
+  local list = {}
+  local function consider(e)
+    if VoxelAdapter.isWildEntity(e)
+       and not e.hiddenEncounter
+       and e.visibleSprite ~= false
+       and e.state ~= "removed"
+       and isEmergencyOverlay(e.pokemonRenderer) then
+      list[#list + 1] = e
+    end
+  end
+
+  if type(state and state.entities) == "table" then
+    for _, e in ipairs(state.entities) do consider(e) end
+  elseif self.logic and self.logic.entities then
+    for _, e in pairs(self.logic.entities) do
+      if e.registeredInWorld then consider(e) end
+    end
+  end
+
+  table.sort(list, function(a, b)
+    local ay, by = a.py or 0, b.py or 0
+    if ay == by then return (a.px or 0) < (b.px or 0) end
+    return ay < by
+  end)
+
+  scale = scale or (ctx and ctx.scale) or 1
+  local camX, camY = cam.x or 0, cam.y or 0
+
+  for _, entity in ipairs(list) do
+    local d = RenderDiagnostics.ensure(entity)
+    d.emergencyOverlayBodyDrawCalls = (d.emergencyOverlayBodyDrawCalls or 0) + 1
+    local wx = (entity.px or 0) + 8
+    local wy = (entity.py or 0) + 16
+    local sx, sy, depthScale = project(wx, wy)
+    if sx then
+      entity._overlayScreenX = sx
+      entity._overlayScreenY = sy
+      entity._overlayDepth = depthScale
+      local fx, fy = wx - camX, wy - camY
+      love.graphics.push()
+      love.graphics.scale(scale, scale)
+      love.graphics.translate(sx / scale - fx, sy / scale - fy)
+      pcall(function() entity:draw(camX, camY) end)
+      love.graphics.pop()
+    end
+  end
+end
+
 function VoxelAdapter.statusLines(entity)
   if not entity then return {} end
   local lines = {}
-  if entity.voxelDisabled or entity.render2DFallback then
-    lines[#lines + 1] = "Voxel rendering: DISABLED FOR ENTITY"
-    lines[#lines + 1] = "2D fallback: ACTIVE"
-    if entity.voxelLastError then
-      lines[#lines + 1] = ("Last voxel error: %s"):format(
-        tostring(entity.voxelLastError))
-    end
-  else
-    lines[#lines + 1] = ("Voxel registered: %s"):format(
-      entity.voxelRegistered and "YES" or "NO")
-    lines[#lines + 1] = ("Voxel update: %s"):format(
-      entity.voxelUpdateOk and "OK" or "n/a")
+  for _, line in ipairs(RenderDiagnostics.statusLines(entity)) do
+    lines[#lines + 1] = line
+  end
+  lines[#lines + 1] = ("World renderer: %s"):format(
+    tostring(entity.worldRenderer or "GEN1_FLAT"))
+  lines[#lines + 1] = ("World sprite adapter: %s"):format(
+    tostring(entity.worldSpriteAdapterStatus
+      or (entity.worldSprite and entity.worldSprite.status
+          and entity.worldSprite:status())
+      or "N/A"))
+  lines[#lines + 1] = ("Dramatic Shape entity registered: %s"):format(
+    entity.voxelRegistered and "YES" or "NO")
+  lines[#lines + 1] = ("Depth integration: %s"):format(
+    tostring(entity.depthIntegration or "N/A"))
+  lines[#lines + 1] = ("Object occlusion: %s"):format(
+    tostring(entity.objectOcclusion or "N/A"))
+  lines[#lines + 1] = ("Grass renderer: %s"):format(
+    tostring(entity.grassRenderer or "N/A"))
+  lines[#lines + 1] = ("Dramatic billboard skipped: %s"):format(
+    entity.dramaticBillboardSkipped and "YES" or "NO")
+  lines[#lines + 1] = ("Sprite source: %s"):format(
+    tostring(entity.spriteSource2D or entity.spriteSource or "?"))
+  if entity.voxelCardSize or entity.voxelCardType then
+    lines[#lines + 1] = ("Billboard card: %s %s"):format(
+      tostring(entity.voxelCardType or "Image"),
+      tostring(entity.voxelCardSize or "16x16"))
+  end
+  if entity.voxelCardKey or entity._voxelCardKey then
+    lines[#lines + 1] = ("Card cache key: %s"):format(
+      tostring(entity.voxelCardKey or entity._voxelCardKey))
+  end
+  if entity.voxelFrameCacheStatus then
+    lines[#lines + 1] = ("Card cache: %s"):format(
+      tostring(entity.voxelFrameCacheStatus))
+  end
+  if entity._lastLift ~= nil then
+    lines[#lines + 1] = ("Lift: %s"):format(tostring(entity._lastLift))
+  end
+  if entity._lastVisualY ~= nil then
+    lines[#lines + 1] = ("Visual Y: %s"):format(tostring(entity._lastVisualY))
   end
   return lines
 end

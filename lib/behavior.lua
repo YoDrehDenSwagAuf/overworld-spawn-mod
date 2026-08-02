@@ -464,12 +464,24 @@ local function tickAggressive(entity, ctx, bx, t)
   end
 
   if Behavior.playerInSight(entity, player, map, entities, range) then
-    -- PLAYER_DETECTED → ALERT once.
+    -- PLAYER_DETECTED → ALERT once. Face the player so Idle looks correct
+    -- in both 2D and Voxel before chase begins.
     bx.playerDetected = true
     bx.sightDisabled = true
     bx.alertEmoteSpawned = false
     bx.chaseReady = false
     bx.state = Behavior.STATE.PLAYER_DETECTED
+    if player and entity.cellX and entity.cellY then
+      local fdx = (player.cellX or 0) - entity.cellX
+      local fdy = (player.cellY or 0) - entity.cellY
+      local face
+      if math.abs(fdx) >= math.abs(fdy) then
+        face = (fdx >= 0) and "right" or "left"
+      else
+        face = (fdy >= 0) and "down" or "up"
+      end
+      Movement.setFacing(entity, face)
+    end
     Movement.stop(entity, Movement.STATE.ALERT)
     bx.state = Behavior.STATE.ALERT
     return "alert"

@@ -1,50 +1,64 @@
-# Manual test guide — Wilds of Kanto 0.4.2
+# Manual test guide — Wilds of Kanto 0.5.7
 
-## A. Normal 2D presentation
+## Critical: prove the actual body path
 
-1. Import `dist/wilds-of-kanto-v0.4.2.zip`, enable mod + Developer mode.
-2. Open the Pokemon preview browser.
-3. Select a very small species and a very large species.
-4. Check HUD / detail: Source image size, Visible bounds, Tile size 16×16,
-   Desired scale, Maximum one-tile scale, Final 2D scale, Rendered visible size.
-5. Test-spawn both. Confirm each occupies at most one map tile (outline).
-6. Stand them in tall grass — upper body remains visible (relative occlusion).
-7. Confirm logical footprint stays one tile (adjacent walk / contact).
+Developer mode on. Inspect one wild Pokemon in the HUD:
 
-## B. Voxel Mod + aggressive chase
-
-1. Enable Dramatic Shape Voxel Mod and Wilds of Kanto.
-2. Press the Voxel hotkey (usually `3`) so VOXEL is active.
-3. Force / wait for an aggressive wild Pokemon (or test-spawn with aggressive
-   behaviour if available via options).
-4. Enter its facing sight line.
-5. Confirm one `!` bubble (engine emote), short pause, no teleport.
-6. Chase in all four directions; let it leave grass.
-7. Contact → exactly one wild battle.
-8. After battle, return to the overworld: terrain, camera, NPCs, Voxel world
-   still intact; no blank / flat-fallback world.
-9. Dev HUD: stable entity id unchanged across alert→chase; Voxel update OK
-   (or per-entity 2D fallback only for a broken entity).
-
-## C. Error case (per-entity Voxel fallback)
-
-1. With Voxel active, use a test adapter / injected failure (dev) so one wild
-   entity's Voxel update fails.
-2. Confirm only that entity falls back to 2D.
-3. Confirm the rest of the Voxel world keeps rendering.
-
-## D. Automated (ROM-free)
-
-```sh
-cd .deps/gen1recomp
-lua mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
-lua mods/overworld_wild_spawns/tests/voxel_aggressive_compat_test.lua
+```text
+Requested renderer: ...
+Actual body renderer: ...
+Pose calls: ...
+Enhanced resolveImage calls: ...
+Dramatic billboard accepted: YES/NO
+Post-voxel body draw calls: ...
+Emergency overlay body draw calls: ...
+Failure reason: ...
 ```
 
-## E. Regression checklist
+### Success (real DS billboard)
 
-- [ ] Vanilla grass encounters still work when spawn system is not ready
-- [ ] Pokédex empty does not block spawns
-- [ ] Player position never teleports
-- [ ] Four behaviours still selectable (Idle / Wander / Aggressive / Hidden)
-- [ ] Content registries are not written after load
+```text
+Requested renderer: WORLD_BILLBOARD_ENHANCED
+Actual body renderer: DRAMATIC_SPRITE_BILLBOARD
+Pose calls: > 0
+Enhanced resolveImage calls: > 0
+Dramatic billboard accepted: YES
+Post-voxel body draw calls: 0
+Emergency overlay body draw calls: 0
+Depth integration: ACTIVE
+Grass renderer: DRAMATIC_SHAPE_NATIVE
+```
+
+### Likely pre-fix failure (overlay)
+
+```text
+Actual body renderer: SPATIAL_OVERLAY_EMERGENCY
+Emergency overlay body draw calls: > 0
+Enhanced resolveImage calls: 0
+Dramatic billboard accepted: NO
+```
+
+## Strict World Billboard Debug
+
+1. Enable Developer mode.
+2. Enable **Strict World Billboard Debug**.
+3. Optionally enable **Strict magenta billboard probe**.
+4. Dramatic Shape on; spawn Species 5.
+5. Emergency/post-voxel bodies are fully disabled.
+
+| Result | Meaning |
+|--------|---------|
+| Pokemon visible (or magenta card) | DS billboard path works; check grass/depth next |
+| Pokemon invisible + Failure reason | Overlay was hiding the real failure; fix that reason |
+
+## Visual checks (only after Actual = DRAMATIC_SPRITE_BILLBOARD)
+
+- Immersed grass: native voxel grass covers feet (same as player/trainer).
+- Bush: bush can occlude Pokemon; Pokemon can stand in front.
+
+## Body draw sites (instrumented)
+
+1. Dramatic Shape `drawEntity` / `resolveImage` → billboard
+2. `VoxelAdapter:drawOverlayFallbackBodies` → emergency overlay
+3. `Entity:draw` / `_drawAnimatedSprite` → flat or emergency body
+4. Hidden effects only (no Pokemon body)

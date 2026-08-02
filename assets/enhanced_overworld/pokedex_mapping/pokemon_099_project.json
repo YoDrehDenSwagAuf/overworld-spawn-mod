@@ -1,0 +1,144 @@
+{
+    "schemaVersion":  1,
+    "speciesId":  99,
+    "speciesName":  "Kingler",
+    "sourceSheet":  "POKEMON 1.png",
+    "cellWidth":  16,
+    "cellHeight":  16,
+    "animations":  {
+                       "idle":  {
+                                    "down":  [
+                                                 {
+                                                     "col":  56,
+                                                     "row":  18,
+                                                     "w":  2,
+                                                     "h":  1
+                                                 }
+                                             ],
+                                    "up":  [
+                                               {
+                                                   "col":  60,
+                                                   "row":  18,
+                                                   "w":  2,
+                                                   "h":  1
+                                               }
+                                           ],
+                                    "left":  [
+                                                 {
+                                                     "col":  66,
+                                                     "row":  18,
+                                                     "w":  1,
+                                                     "h":  2
+                                                 }
+                                             ],
+                                    "right":  [
+                                                  {
+                                                      "col":  64,
+                                                      "row":  18,
+                                                      "w":  1,
+                                                      "h":  2
+                                                  }
+                                              ]
+                                },
+                       "walk":  {
+                                    "down":  [
+                                                 {
+                                                     "col":  56,
+                                                     "row":  18,
+                                                     "w":  2,
+                                                     "h":  1
+                                                 },
+                                                 {
+                                                     "col":  58,
+                                                     "row":  18,
+                                                     "w":  2,
+                                                     "h":  1
+                                                 }
+                                             ],
+                                    "up":  [
+                                               {
+                                                   "col":  60,
+                                                   "row":  18,
+                                                   "w":  2,
+                                                   "h":  1
+                                               },
+                                               {
+                                                   "col":  62,
+                                                   "row":  18,
+                                                   "w":  2,
+                                                   "h":  1
+                                               }
+                                           ],
+                                    "left":  [
+                                                 {
+                                                     "col":  66,
+                                                     "row":  18,
+                                                     "w":  1,
+                                                     "h":  2
+                                                 },
+                                                 {
+                                                     "col":  67,
+                                                     "row":  18,
+                                                     "w":  1,
+                                                     "h":  2
+                                                 }
+                                             ],
+                                    "right":  [
+                                                  {
+                                                      "col":  64,
+                                                      "row":  18,
+                                                      "w":  1,
+                                                      "h":  2
+                                                  },
+                                                  {
+                                                      "col":  65,
+                                                      "row":  18,
+                                                      "w":  1,
+                                                      "h":  2
+                                                  }
+                                              ]
+                                },
+                       "fly":  {
+                                   "down":  [
+
+                                            ],
+                                   "up":  [
+
+                                          ],
+                                   "left":  [
+
+                                            ],
+                                   "right":  [
+
+                                             ]
+                               },
+                       "follow":  {
+                                      "down":  [
+
+                                               ],
+                                      "up":  [
+
+                                             ],
+                                      "left":  [
+
+                                               ],
+                                      "right":  [
+
+                                                ]
+                                  },
+                       "surf":  {
+                                    "down":  [
+
+                                             ],
+                                    "up":  [
+
+                                           ],
+                                    "left":  [
+
+                                             ],
+                                    "right":  [
+
+                                              ]
+                                }
+                   }
+}

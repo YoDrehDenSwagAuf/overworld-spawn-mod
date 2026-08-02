@@ -132,6 +132,13 @@ return {
 
   -- ------- Visuals
   {
+    key = "use_animated_overworld_sprites",
+    label = "Use animated overworld Pokemon sprites",
+    type = "toggle",
+    default = true,
+    description = "Use directional idle and walking animations from the Pokemon overworld sprite atlas when available.",
+  },
+  {
     key = "sprite_opacity",
     label = "Sprite fade",
     type = "choice",
@@ -149,14 +156,18 @@ return {
     choices = {
       { "12", 12 }, { "14", 14 }, { "16", 16 },
     },
-    description = "Controls the preferred minimum readable size. Sprites are always capped to a maximum footprint of one map tile.",
+    description = "Controls the preferred minimum readable size for legacy sprites. Animated atlas frames keep their native cell size (16x16 / 16x32 / 32x16 / 32x32) and are not squashed to one tile.",
   },
   {
-    key = "show_pokemon_in_grass",
-    label = "Show Pokemon in grass",
-    type = "toggle",
-    default = true,
-    description = "Use the engine grass feet-overdraw so Pokemon stand in tall grass like the player.",
+    key = "pokemon_grass_render_mode",
+    label = "Pokemon grass rendering",
+    type = "choice",
+    default = "immersed",
+    choices = {
+      { "Above grass", "above" },
+      { "Partially hidden in grass", "immersed" },
+    },
+    description = "Choose whether visible wild Pokemon are drawn fully above tall grass or partially hidden inside it like the player and trainers.",
   },
   {
     key = "enable_grass_movement_effects",
@@ -207,7 +218,21 @@ return {
     label = "Debug log",
     type = "toggle",
     default = false,
-    description = "Log map/encounter/tile/spawn diagnostics. Also forced on when Developer mode is enabled.",
+    description = "Write extra Wilds of Kanto diagnostics to the log. Also forced on when Developer mode is enabled.",
+  },
+  {
+    key = "strict_world_billboard_debug",
+    label = "Strict World Billboard Debug",
+    type = "toggle",
+    default = false,
+    description = "DEV: disable emergency/post-voxel Pokemon body draws. Only Dramatic Shape SpriteBillboards may show the body. If that fails the Pokemon stays invisible and the HUD shows the failure reason.",
+  },
+  {
+    key = "strict_magenta_billboard_probe",
+    label = "Strict magenta billboard probe",
+    type = "toggle",
+    default = false,
+    description = "DEV: with Strict World Billboard Debug, resolveImage returns a magenta 16x16 probe card to prove the DS texture path.",
   },
   {
     key = "force_test_spawn",

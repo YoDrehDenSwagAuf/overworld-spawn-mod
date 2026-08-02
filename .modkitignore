@@ -5,6 +5,7 @@
 # Unit tests - require the engine test harness, not the shipped archive.
 tests/overworld_wild_spawns_test.lua
 tests/voxel_aggressive_compat_test.lua
+tests/animated_sprites_unit_test.lua
 
 # Repo / authoring tooling (not runtime).
 scripts/bootstrap.sh
@@ -14,3 +15,7 @@ scripts/validate-manager-ascii.py
 # Root pointer only; full overview ships as docs/ARCHITECTURE.md.
 ARCHITECTURE.md
 .gitignore
+
+# Local inspect crops (authoring only).
+assets/_inspect/char_001_block.png
+assets/_inspect/char_001_block_x4.png

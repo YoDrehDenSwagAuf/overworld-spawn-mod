@@ -15,21 +15,26 @@ return {
       "data-driven overworld wild Pokemon entities on grass, cave, and surf-water tiles",
       "aggressive spotting with engine exclamation emote and chase",
       "hidden grass shake / cave dust encounter markers",
-      "nearest-neighbor sprite scaling capped to one 16x16 map tile",
+      "directional animated overworld sprites from a shared atlas (151 species JSON)",
+      "nearest-neighbor sprite scaling; atlas frames keep native multi-cell size",
       "fail-safe that keeps classic grass encounters if the spawn system is not ready",
       "Developer mode with spawn debug HUD, Pokemon preview browser, and phased test spawn",
-      "Voxel-safe aggressive chase (stable ids, engine emote, per-entity 2D fallback)",
+      "Voxel-compatible: wild Pokemon use Dramatic Shape SpriteBillboards via a "
+        .. "stable EnhancedWorldSprite adapter (WORLD_BILLBOARD_ENHANCED)",
     },
     known = {
       "species overworld sprites are registered at mod load from battle fronts "
         .. "(optional runtime bake into overworld_wild_spawns-cache/; "
         .. "LOVE virtual paths only; never after registry freeze)",
+      "animated atlas + mappings load once at mod init; quads stay in a mod-owned cache",
       "when no real image is available, assets/fallback/pokemon_missing.png is used "
         .. "(hidden behaviours draw no Pokemon sprite and stay out of ow.entities)",
+      "sprite identity uses numeric speciesId/dex only; localized names are display-only",
       "spawns are runtime-only and reset when you leave and re-enter a map",
       "fishing encounter tables are never used for free overworld spawns",
       "Dramatic Shape overworld battles cull non-player entities from the arena shot",
-      "Voxel billboards stay 16x16 cards; 2D finalScale is not applied as world scale",
+      "Voxel entity billboards are fixed 16x16 meshes; large atlas frames are fitted "
+        .. "proportionally into cached cards (bottom-center); 2D keeps native size",
       "fishing, surf vanilla rolls, static, scripted, and trainer encounters stay available",
     },
   },

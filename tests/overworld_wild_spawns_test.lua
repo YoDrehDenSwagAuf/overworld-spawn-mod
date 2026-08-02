@@ -15,14 +15,14 @@ T.check(modMeta ~= nil, "loader discovered mod by manifest id")
 T.eq(modMeta.state, "loaded", "mod reached loaded state")
 T.eq(modMeta.manifest.id, "overworld_wild_spawns", "manifest id")
 T.eq(modMeta.manifest.name, "Wilds of Kanto", "manifest name")
-T.eq(modMeta.manifest.version, "0.4.2", "manifest version")
+T.eq(modMeta.manifest.version, "0.5.7", "manifest version")
 T.eq(modMeta.manifest.entry, "main.lua", "entry path")
 T.eq(modMeta.manifest.category, "MECHANIC", "category")
 T.eq(modMeta.manifest.api, 2, "mod api version")
 
 local exports = run.loader.exports["overworld_wild_spawns"]
 T.check(exports ~= nil, "exports table published")
-T.eq(exports.version, "0.4.2", "version export")
+T.eq(exports.version, "0.5.7", "version export")
 T.check(exports.logic ~= nil, "logic export")
 T.check(exports.render ~= nil, "render export")
 T.check(exports.hud ~= nil, "hud export")
@@ -1569,6 +1569,87 @@ for _, rec in pairs(logic.spawns) do
   if rec.behavior then anyBehavior = true end
 end
 T.check(anyBehavior, "spawned entities receive a behaviour type")
+
+-- ------- animated overworld sprites
+local AnimatedSprites = exports.lib.require("animated_sprites")
+local JsonDecode = exports.lib.require("json_decode")
+T.check(exports.animated ~= nil, "animated export present")
+T.check(exports.render.animated ~= nil, "render.animated present")
+
+local animOpt
+for _, row in ipairs(schema) do
+  if row.key == "use_animated_overworld_sprites" then animOpt = row end
+end
+T.check(animOpt ~= nil, "use_animated_overworld_sprites option present")
+T.eq(animOpt.type, "toggle", "animated option is toggle")
+T.eq(animOpt.default, true, "animated option defaults true")
+T.eq(animOpt.label, "Use animated overworld Pokemon sprites", "animated option label")
+T.eq(Config.DEFAULTS.use_animated_overworld_sprites, true, "DEFAULTS animated true")
+T.eq(Config.useAnimatedOverworldSprites(modApi), true, "animated helper true")
+
+local animSys = exports.animated
+T.check(animSys.loaded == true, "animated system loaded at mod init")
+T.check(animSys.mappingFilesFound == 151, "151 mapping files found at load")
+T.check(animSys.validSpeciesCount + animSys.partialSpeciesCount == 151,
+        "all 151 species have usable or partial mappings")
+T.eq(AnimatedSprites.ATLAS_REL,
+     "assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png",
+     "atlas relative path")
+T.eq(AnimatedSprites.MAPPING_DIR,
+     "assets/enhanced_overworld/pokedex_mapping",
+     "mapping dir")
+
+-- Language-independent identity = dex / speciesId
+T.eq(AnimatedSprites.resolveSpeciesId("CHARMELEON", {
+  data = { pokemon = { CHARMELEON = { name = "Glutexo", dex = 5 } } }
+}), 5, "German display name still resolves dex 5")
+T.eq(AnimatedSprites.resolveSpeciesId("CHARMELEON", {
+  data = { pokemon = { CHARMELEON = { name = "Reptincel", dex = 5 } } }
+}), 5, "French display name still resolves dex 5")
+T.check(AnimatedSprites.resolveSpeciesId("Glutexo", {
+  data = { pokemon = { CHARMELEON = { name = "Glutexo", dex = 5 } } }
+}) == nil, "localized name is not a lookup key")
+
+local m5 = animSys:getMapping(5)
+T.check(m5 and m5.valid, "pokemon_005_project.json loaded for speciesId 5")
+T.eq(m5.fileName, "pokemon_005_project.json", "mapping filename for 5")
+T.eq(m5.speciesName, "Charmeleon", "mapping speciesName is display-only")
+
+-- Facing map
+T.eq(AnimatedSprites.normalizeFacing("front"), "down", "front=down")
+T.eq(AnimatedSprites.normalizeFacing("back"), "up", "back=up")
+
+-- Large frames
+local charizard = animSys:getFrame(6, "idle", "down", 1)
+T.check(charizard and charizard.height == 32, "Charizard idle frame is 16x32")
+local scaleInfo = AnimatedSprites.calculateAnimatedSpriteScale(nil, charizard, {})
+T.eq(scaleInfo.logicalFootprintTiles, 1, "large frame keeps 1-tile collision")
+T.check(scaleInfo.visualFootprintTilesH == 2, "large frame visual height 2 tiles")
+
+-- Partial fallback
+local idleLeftFrames, usedAnim = animSys:resolveFrames(1, "idle", "left")
+T.check(idleLeftFrames and #idleLeftFrames >= 1, "Bulbasaur missing idle.left falls back")
+T.eq(usedAnim, "walk", "Bulbasaur idle.left uses walk frame")
+
+-- JSON decode smoke
+local decoded = JsonDecode.decode('{"speciesId":1,"ok":true}')
+T.check(decoded and decoded.speciesId == 1 and decoded.ok == true, "json_decode works")
+
+-- Option off falls back without respawn requirement
+run.loader.modOptions["overworld_wild_spawns"].use_animated_overworld_sprites = false
+T.eq(Config.useAnimatedOverworldSprites(modApi), false, "animated option can disable")
+logic:onOptionsChanged({
+  mod = modApi.id, key = "use_animated_overworld_sprites", value = false,
+})
+run.loader.modOptions["overworld_wild_spawns"].use_animated_overworld_sprites = true
+logic:onOptionsChanged({
+  mod = modApi.id, key = "use_animated_overworld_sprites", value = true,
+})
+
+-- HUD mentions atlas
+local linesAnim = Diagnostics.hudLines(logic)
+local joinedAnim = table.concat(linesAnim, "\n")
+T.check(joinedAnim:find("Animated atlas", 1, true), "HUD shows animated atlas status")
 
 -- Mod disable clears entities.
 run.loader.modOptions["overworld_wild_spawns"].enabled = false
