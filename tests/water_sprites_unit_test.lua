@@ -178,7 +178,17 @@ check(land ~= nil and land.def ~= nil, "land resolve returns def")
 if land then
   eq(land.spriteState, "land", "land spriteState")
   check(land.waterOverride ~= true, "land no water override")
+  check(land.providerId ~= "followers_ex", "explicit pokemmo land never followers_ex")
 end
+
+local keyLand = resolver:cacheKey(landEntity, {
+  style = "pokemmo", speciesId = 54, variant = "normal", form = nil,
+}, "land")
+eq(keyLand, "54:normal:default:land:pokemmo", "cache key includes style+surface")
+local keyAuto = resolver:cacheKey(landEntity, {
+  style = "auto", speciesId = 54, variant = "normal", form = nil,
+}, "land")
+check(keyLand ~= keyAuto, "pokemmo and auto use different cache keys")
 
 local waterEntity = {
   species = "PSYDUCK",

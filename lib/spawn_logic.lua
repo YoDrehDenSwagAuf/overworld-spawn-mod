@@ -246,13 +246,19 @@ function SpawnLogic:_onAggressiveAlert(entity, record)
   if not bx then return end
   -- Exactly one alert / emote per detection.
   if bx.alertEmoteSpawned then return end
-  if ow.emote or ow.engaging then return end
 
   -- Stop movement and disable sight for the reaction pause.
   Movement.stop(entity, "ALERT")
   bx.sightDisabled = true
-  bx.alertEmoteSpawned = true
+  bx.alertAt = bx.alertAt or (love and love.timer and love.timer.getTime and love.timer.getTime()) or os.clock()
   bx.state = Behavior.STATE.ALERT
+
+  if ow.emote or ow.engaging then
+    -- Emote slot busy: Behaviour.healAggroFlags will markChaseReady after timeout.
+    return
+  end
+
+  bx.alertEmoteSpawned = true
 
   -- Engine emotion bubble (same path as trainers). NOT a wild/Voxel entity.
   -- No species, no collision, no spawn slot — only npc.px/py for anchoring.
@@ -472,17 +478,33 @@ function SpawnLogic:_computeWaterTarget(waterCells)
   waterCells = tonumber(waterCells) or 0
   if waterCells <= 0 then return 0 end
   if not Config.waterMons(self.mod) then return 0 end
-  local raw = math.floor(waterCells / 24)
+  -- Scale by visible water cells so Spawn Amount is clearly visible.
+  -- small ≈1, medium 2–4, large 4–8+ (capped by max_water_mons / regions).
+  local raw = math.floor(waterCells / 12)
   local density = Config.spawnDensity(self.mod)
   local factor = SpawnRegions.densityFactor(density)
   raw = math.floor(raw * factor + 0.5)
-  if waterCells >= 8 and raw < 1 then raw = 1 end
-  if waterCells < 8 then raw = math.min(raw, 1) end
-  if waterCells < 4 then raw = 0 end
+  if waterCells >= 6 and raw < 1 then raw = 1 end
+  if waterCells < 6 then raw = math.min(raw, 1) end
+  if waterCells < 3 then raw = 0 end
+
+  -- Prefer at least one spawn per sufficiently large connected water region.
+  local regionBonus = 0
+  for _, region in ipairs(self.waterRegions or {}) do
+    local tiles = tonumber(region.tileCount) or 0
+    if tiles >= 6 then
+      regionBonus = regionBonus + 1
+    elseif tiles >= 3 then
+      regionBonus = regionBonus + 0 -- still covered by global floor above
+    end
+  end
+  if regionBonus > raw then raw = regionBonus end
+
   local maxW = Config.maxWaterMons(self.mod)
   if raw > maxW then raw = maxW end
-  if raw > math.floor(waterCells / 6) then
-    raw = math.max(0, math.floor(waterCells / 6))
+  -- Soft cell density cap: allow denser water than land grass.
+  if raw > math.floor(waterCells / 4) then
+    raw = math.max(0, math.floor(waterCells / 4))
   end
   return raw
 end
@@ -900,6 +922,10 @@ function SpawnLogic:trySpawn(game, opts)
     return nil, "feature disabled"
   end
 
+  if self.render and self.render.ensureStyleOwnedMakeEntity then
+    pcall(function() self.render:ensureStyleOwnedMakeEntity(game) end)
+  end
+
   local st = self.state
   if st.lastError and not opts.force and not opts.testSpawn then
     return nil, "paused after error: " .. tostring(st.lastError)
@@ -1147,6 +1173,10 @@ function SpawnLogic:trySpawnWater(game, opts)
     return nil, "water mons disabled"
   end
 
+  if self.render and self.render.ensureStyleOwnedMakeEntity then
+    pcall(function() self.render:ensureStyleOwnedMakeEntity(game) end)
+  end
+
   local world = self.mod.world
   if not world or not world.overworld then
     return nil, "no world"
@@ -1244,6 +1274,7 @@ function SpawnLogic:trySpawnWater(game, opts)
     recentSpecies = self.recentWaterSpecies,
     speciesCounts = self:_speciesCountsOnMap(mapId, true),
     maxSameSpecies = maxSame,
+    fallbackEntries = self.waterPool and self.waterPool.entries,
   })
   if not pick then
     -- Fallback: any zone pool that is non-empty.
@@ -1252,6 +1283,7 @@ function SpawnLogic:trySpawnWater(game, opts)
         recentSpecies = self.recentWaterSpecies,
         speciesCounts = self:_speciesCountsOnMap(mapId, true),
         maxSameSpecies = maxSame,
+        fallbackEntries = self.waterPool and self.waterPool.entries,
       })
       if pick then
         zone = z
@@ -1741,6 +1773,15 @@ function SpawnLogic:onMapEntered(ev)
   self:_clearMap(mapId)
   if self.overlay then self.overlay:clear() end
   self:_restoreVanillaEncounters("map enter before init")
+
+  -- Re-assert style-owned makeEntity wrap before any spawn (Followers may wrap later).
+  if self.render and self.render.ensureStyleOwnedMakeEntity then
+    local world = self.mod.world
+    local game = world and world.game
+    pcall(function() self.render:ensureStyleOwnedMakeEntity(game) end)
+    local style = Config.spriteStyle(self.mod)
+    self:_log("sprite_style mapenter saved/config/resolver=%s", tostring(style))
+  end
 
   if not self:featureActive() then
     self.state:reset("disabled")

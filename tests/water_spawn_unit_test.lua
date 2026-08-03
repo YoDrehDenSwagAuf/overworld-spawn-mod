@@ -248,4 +248,51 @@ local ev = Behavior.tick(waterEnt, {
 eq(ev, "chase_abort", "water chase aborts when player on land")
 check(Behavior.isWater(waterEnt.behavior), "stays on water behaviour after abort")
 
+print("== Good Rod allowed near shore ==")
+local goodNear = false
+for _, e in ipairs(zonePools.near) do
+  if e.species == "GOLDEEN" or e.species == "POLIWAG" then goodNear = true end
+end
+check(goodNear, "Good Rod species appear in near shore pool")
+
+print("== isWaterCapable ==")
+local capableGame = {
+  data = {
+    pokemon = {
+      SQUIRTLE = { types = { "WATER" }, name = "SQUIRTLE" },
+      CHARMANDER = { types = { "FIRE" }, name = "CHARMANDER" },
+    },
+  },
+}
+local okWater, whyWater = WaterSpawn.isWaterCapable("SQUIRTLE", capableGame)
+check(okWater == true, "Squirtle water-capable via types")
+eq(whyWater, "type:WATER", "reason type:WATER")
+local okFire = WaterSpawn.isWaterCapable("CHARMANDER", capableGame)
+check(okFire == false, "Charmander not water-capable by type alone")
+local okLocal = select(1, WaterSpawn.isWaterCapable("TENTACOOL", capableGame, {
+  localPoolSpecies = { TENTACOOL = true },
+}))
+check(okLocal == true, "local encounter marks water-capable")
+
+print("== Behavior.pick water fallback ==")
+local emptyPick = Behavior.pick("MISSINGNO", Surface.WATER, {
+  enable_idle = false,
+  enable_wander = false,
+  enable_aggressive = false,
+  enable_water_aggressive = false,
+})
+eq(emptyPick, Behavior.WATER_IDLE, "empty water weights fall back to WATER_IDLE")
+
+print("== SpawnFx fail-safe ==")
+local SpawnFx = V.require("spawn_fx")
+local fxEnt = { id = "fx1" }
+SpawnFx.begin(fxEnt, SpawnFx.KIND.WATER)
+fxEnt.spawnFx.elapsed = 5.0
+check(SpawnFx.canAct(fxEnt) == true, "stale FX unlocks canAct")
+check(SpawnFx.canBattle(fxEnt) == true, "stale FX unlocks canBattle")
+check(fxEnt.spawnFx.done == true, "stale FX forced done")
+local noFx = { id = "nofx", canTriggerBattle = true }
+check(SpawnFx.canAct(noFx) == true, "no FX ⇒ canAct")
+check(SpawnFx.canBattle(noFx) == true, "no FX ⇒ canBattle")
+
 print("All water_spawn_unit_test checks passed.")

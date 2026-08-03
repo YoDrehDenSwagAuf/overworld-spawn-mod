@@ -181,6 +181,9 @@ function Behavior.pick(species, surface, opts, rng)
     total = total + (weights[b] or 0)
   end
   if total <= 0 then
+    if surface == Surface.WATER then
+      return Behavior.WATER_IDLE
+    end
     return Behavior.IDLE_LOOK
   end
   local roll = rng() * total
@@ -189,6 +192,9 @@ function Behavior.pick(species, surface, opts, rng)
   for _, b in ipairs(order) do
     acc = acc + (weights[b] or 0)
     if roll <= acc then return b end
+  end
+  if surface == Surface.WATER then
+    return Behavior.WATER_IDLE
   end
   return Behavior.IDLE_LOOK
 end
@@ -268,8 +274,9 @@ local function canStep(map, entities, entity, player, nx, ny, region, allowLeave
   local blocked = occupiedBlocked(entities, nx, ny, entity)
   if blocked then return false, "occupied" end
 
+  -- Water-surface entities stay on water. Land aggro must never inherit
+  -- water-only from behaviour name alone (shared tick must not leak).
   local onWater = entity.surface == Surface.WATER
-                  or Behavior.isWater(entity.behavior)
   local forceWaterOnly = opts.waterOnly == true or onWater
 
   if forceWaterOnly then
@@ -458,22 +465,125 @@ local function contactWithPlayer(entity, player)
   return adx + ady == 1
 end
 
-local function abortWaterChase(entity, bx, t)
+local function resetAggro(bx, t)
+  if not bx then return end
   bx.chasing = false
   bx.playerDetected = false
   bx.chaseReady = false
   bx.sightDisabled = false
   bx.chaseFailCount = 0
+  bx.battlePending = false
+  bx.alertEmoteSpawned = false
+  bx.alertAt = nil
+  bx.battlePendingAt = nil
+  bx.pendingWaterEnter = false
   bx.waterChase = false
+  bx.state = Behavior.STATE.IDLE
+  bx.nextActionAt = (t or now()) + 1.5
+end
+
+local function enterDetected(entity, bx, player)
+  bx.playerDetected = true
+  bx.sightDisabled = true
+  bx.alertEmoteSpawned = false
+  bx.chaseReady = false
+  bx.alertAt = now()
+  bx.state = Behavior.STATE.PLAYER_DETECTED
+  if player and entity.cellX and entity.cellY then
+    local fdx = (player.cellX or 0) - entity.cellX
+    local fdy = (player.cellY or 0) - entity.cellY
+    local face
+    if math.abs(fdx) >= math.abs(fdy) then
+      face = (fdx >= 0) and "right" or "left"
+    else
+      face = (fdy >= 0) and "down" or "up"
+    end
+    Movement.setFacing(entity, face)
+  end
+  Movement.stop(entity, Movement.STATE.ALERT)
+  bx.state = Behavior.STATE.ALERT
+end
+
+local function enterAlert(bx)
+  bx.state = Behavior.STATE.ALERT
+  bx.sightDisabled = true
+  if not bx.alertAt then bx.alertAt = now() end
+end
+
+local function enterChase(entity, bx)
+  bx.chasing = true
+  bx.leftHome = true
+  bx.sightDisabled = true
+  bx.chaseReady = true
+  bx.state = Behavior.STATE.CHASING
+  if entity.movement then entity.movement.state = Movement.STATE.CHASING end
+end
+
+local function leaveChase(entity, bx, t)
+  resetAggro(bx, t)
+  Movement.stop(entity, Movement.STATE.IDLE)
+end
+
+local function enterBattlePending(entity, bx)
+  bx.state = Behavior.STATE.BATTLE_PENDING
+  bx.battlePending = true
+  bx.battlePendingAt = now()
+  bx.sightDisabled = true
+  bx.chasing = true
+  Movement.stop(entity, Movement.STATE.BATTLE_PENDING)
+end
+
+-- Heal inconsistent aggro flags so sight/chase cannot soft-lock.
+local function healAggroFlags(entity, bx, t)
+  if not bx then return end
+  if bx.battleStarted then return end
+
+  if bx.battlePending and not bx.battleStarted then
+    local started = bx.battlePendingAt or bx.alertAt or t
+    if (t - started) > 5.0 then
+      -- Battle never started — release so AI/sight can recover.
+      bx.battlePending = false
+      bx.battlePendingAt = nil
+      if bx.state == Behavior.STATE.BATTLE_PENDING then
+        leaveChase(entity, bx, t)
+      end
+    end
+  end
+
+  if bx.playerDetected and bx.state == Behavior.STATE.IDLE and not bx.alertAt
+     and not bx.chasing and not bx.chaseReady then
+    bx.playerDetected = false
+    bx.sightDisabled = false
+  end
+
+  if bx.chasing
+     and bx.state ~= Behavior.STATE.CHASING
+     and bx.state ~= Behavior.STATE.CHASE_START
+     and bx.state ~= Behavior.STATE.ALERT
+     and bx.state ~= Behavior.STATE.PLAYER_DETECTED
+     and bx.state ~= Behavior.STATE.BATTLE_PENDING then
+    bx.chasing = false
+    bx.sightDisabled = false
+  end
+
+  -- Alert without chaseReady: fail-safe after reaction window.
+  if (bx.state == Behavior.STATE.ALERT or bx.state == Behavior.STATE.PLAYER_DETECTED)
+     and not bx.chaseReady and not bx.battlePending then
+    local alertAt = bx.alertAt or t
+    if (t - alertAt) >= 2.5 then
+      Behavior.markChaseReady(entity)
+    end
+  end
+end
+
+local function abortWaterChase(entity, bx, t)
+  leaveChase(entity, bx, t)
   local idle = (math.random() < 0.45) and Behavior.WATER_IDLE or Behavior.WATER_WANDER
   -- Stay on water; never return to land behaviour.
   if Behavior.isWater(bx.behavior) or entity.surface == Surface.WATER then
     bx.behavior = idle
     entity.behavior = idle
   end
-  bx.state = Behavior.STATE.IDLE
-  bx.nextActionAt = (t or now()) + 1.5
-  Movement.stop(entity, Movement.STATE.IDLE)
 end
 
 local function applyWaterSurfaceTransition(entity, ctx)
@@ -529,7 +639,7 @@ local function shoreDistanceOfPlayer(map, player, shoreMap)
     local k = player.cellX .. ":" .. player.cellY
     return shoreMap.distance[k]
   end
-  -- Fallback BFS-lite: chebyshev to nearest walkable land.
+  -- Fallback BFS-lite: manhattan to nearest walkable land.
   if not map then return nil end
   local best = nil
   local w = map.widthCells or 0
@@ -550,19 +660,15 @@ local function shoreDistanceOfPlayer(map, player, shoreMap)
   return best
 end
 
-local function tickAggressive(entity, ctx, bx, t)
+-- Land chase restored from f457d26. Water opts must not alter this path.
+local function tickLandAggressive(entity, ctx, bx, t)
   local map = ctx.map
   local entities = ctx.entities
   local player = ctx.player
   local region = entity.homeRegion
-  local waterMode = bx.behavior == Behavior.WATER_AGGRESSIVE
-                    or entity.surface == Surface.WATER
   local range = ctx.sightRange or Config.DEFAULTS.aggressive_sight_range or 4
-  if waterMode then
-    range = ctx.waterSightRange
-         or Config.DEFAULTS.water_aggressive_sight_range
-         or range
-  end
+
+  healAggroFlags(entity, bx, t)
 
   if bx.state == Behavior.STATE.BATTLE_PENDING
      or bx.state == Behavior.STATE.IN_BATTLE
@@ -573,40 +679,20 @@ local function tickAggressive(entity, ctx, bx, t)
     return bx.battleStarted and nil or "battle_pending"
   end
 
-  -- Water aggressive: abort when player leaves water / surf.
-  if waterMode and bx.chasing then
-    if not player or not playerSurfing(player, map) then
-      abortWaterChase(entity, bx, t)
-      return "chase_abort"
-    end
-    if not sameWaterComponent(map, ctx.waterRegions,
-                              entity.cellX, entity.cellY,
-                              player.cellX, player.cellY) then
-      abortWaterChase(entity, bx, t)
-      return "chase_abort"
-    end
-  end
-
-  -- Advance in-progress chase/wander steps first (central movement).
   if Movement.isBusy(entity) then
     local completed = Movement.update(entity, ctx.dt or 0.016)
     if completed then
       Movement.refreshGrassFlag(entity, entity.mod)
-      -- Detect land→water cell arrival mid-chase.
       if bx.pendingWaterEnter and map and map.isWaterCell
          and map:isWaterCell(entity.cellX, entity.cellY) then
         bx.pendingWaterEnter = false
         applyWaterSurfaceTransition(entity, ctx)
-        waterMode = true
         return "entered_water"
       end
     end
     if bx.state == Behavior.STATE.CHASING or bx.chasing then
       if contactWithPlayer(entity, player) then
-        bx.state = Behavior.STATE.BATTLE_PENDING
-        bx.battlePending = true
-        bx.sightDisabled = true
-        Movement.stop(entity, Movement.STATE.BATTLE_PENDING)
+        enterBattlePending(entity, bx)
         return "contact"
       end
     end
@@ -614,23 +700,16 @@ local function tickAggressive(entity, ctx, bx, t)
   end
 
   if bx.state == Behavior.STATE.CHASING or bx.chasing then
-    bx.chasing = true
-    bx.state = Behavior.STATE.CHASING
-    bx.leftHome = true
-    bx.sightDisabled = true
-    if entity.movement then entity.movement.state = Movement.STATE.CHASING end
+    enterChase(entity, bx)
     if not player then return nil end
     if contactWithPlayer(entity, player) then
-      bx.state = Behavior.STATE.BATTLE_PENDING
-      bx.battlePending = true
-      Movement.stop(entity, Movement.STATE.BATTLE_PENDING)
+      enterBattlePending(entity, bx)
       return "contact"
     end
 
-    local stepOpts = { waterOnly = waterMode }
-    local allowLeave = true
-    -- Land chase may enter water only under strict conditions.
-    if not waterMode and ctx.waterMonsEnabled ~= false
+    local stepOpts = {}
+    -- Optional controlled land→water chase (does not change land canStep defaults).
+    if ctx.waterMonsEnabled ~= false
        and playerSurfing(player, map)
        and entityHasWaterSprite(entity, ctx)
        and landAdjacentToWater(map, entity.cellX, entity.cellY) then
@@ -644,16 +723,13 @@ local function tickAggressive(entity, ctx, bx, t)
 
     local moved, why = stepToward(
       entity, map, entities, player,
-      player.cellX, player.cellY, region, allowLeave, true, stepOpts)
+      player.cellX, player.cellY, region, true, true, stepOpts)
     if why == "contact" then
-      bx.state = Behavior.STATE.BATTLE_PENDING
-      bx.battlePending = true
-      Movement.stop(entity, Movement.STATE.BATTLE_PENDING)
+      enterBattlePending(entity, bx)
       return "contact"
     end
     if why == "enter_water" then
       bx.pendingWaterEnter = true
-      -- If step completed synchronously (duration 0), apply immediately.
       if map.isWaterCell and map:isWaterCell(entity.cellX, entity.cellY)
          and not Movement.isBusy(entity) then
         bx.pendingWaterEnter = false
@@ -664,18 +740,7 @@ local function tickAggressive(entity, ctx, bx, t)
     if not moved then
       bx.chaseFailCount = (bx.chaseFailCount or 0) + 1
       if bx.chaseFailCount > 24 then
-        if waterMode then
-          abortWaterChase(entity, bx, t)
-          return "chase_abort"
-        end
-        bx.chasing = false
-        bx.playerDetected = false
-        bx.chaseReady = false
-        bx.sightDisabled = false
-        bx.state = Behavior.STATE.IDLE
-        bx.chaseFailCount = 0
-        bx.nextActionAt = t + 2.0
-        Movement.stop(entity, Movement.STATE.IDLE)
+        leaveChase(entity, bx, t)
       end
     else
       bx.chaseFailCount = 0
@@ -685,20 +750,13 @@ local function tickAggressive(entity, ctx, bx, t)
   end
 
   if bx.state == Behavior.STATE.CHASE_START then
-    bx.chasing = true
-    bx.leftHome = true
-    bx.sightDisabled = true
-    bx.state = Behavior.STATE.CHASING
-    if entity.movement then entity.movement.state = Movement.STATE.CHASING end
+    enterChase(entity, bx)
     return "chase_start"
   end
 
   if bx.state == Behavior.STATE.ALERT or bx.state == Behavior.STATE.PLAYER_DETECTED then
-    -- Hold still for the engine emotion bubble. Chase begins only when
-    -- chaseReady is set (emote onDone) — never from a parallel timer.
+    enterAlert(bx)
     Movement.stop(entity, Movement.STATE.ALERT)
-    bx.sightDisabled = true
-    bx.state = Behavior.STATE.ALERT
     if entity.movement then entity.movement.state = Movement.STATE.ALERT end
     if bx.chaseReady then
       bx.state = Behavior.STATE.CHASE_START
@@ -708,7 +766,6 @@ local function tickAggressive(entity, ctx, bx, t)
     return nil
   end
 
-  -- Idle / look while waiting; still scan sight.
   if Movement.isBusy(entity) then
     Movement.update(entity, ctx.dt or 0.016)
     return nil
@@ -719,20 +776,10 @@ local function tickAggressive(entity, ctx, bx, t)
   end
 
   local sightOpts = {}
-  if waterMode then
-    -- Water aggressive only sees a surfing player on the same water body.
-    if not playerSurfing(player, map) then return nil end
-    if not sameWaterComponent(map, ctx.waterRegions,
-                              entity.cellX, entity.cellY,
-                              player.cellX, player.cellY) then
-      return nil
-    end
-    sightOpts.waterOnly = true
-  elseif ctx.waterMonsEnabled ~= false
+  if ctx.waterMonsEnabled ~= false
      and playerSurfing(player, map)
      and entityHasWaterSprite(entity, ctx)
      and landAdjacentToWater(map, entity.cellX, entity.cellY) then
-    -- Land aggressive may spot a surfing player from the shore.
     local pDist = shoreDistanceOfPlayer(map, player, ctx.shoreMap)
     local maxPlayer = ctx.landWaterPlayerMax
                    or Config.DEFAULTS.land_water_chase_player_max or 5
@@ -742,29 +789,134 @@ local function tickAggressive(entity, ctx, bx, t)
   end
 
   if Behavior.playerInSight(entity, player, map, entities, range, sightOpts) then
-    -- PLAYER_DETECTED → ALERT once. Face the player so Idle looks correct
-    -- in both 2D and Voxel before chase begins.
-    bx.playerDetected = true
-    bx.sightDisabled = true
-    bx.alertEmoteSpawned = false
-    bx.chaseReady = false
-    bx.state = Behavior.STATE.PLAYER_DETECTED
-    if player and entity.cellX and entity.cellY then
-      local fdx = (player.cellX or 0) - entity.cellX
-      local fdy = (player.cellY or 0) - entity.cellY
-      local face
-      if math.abs(fdx) >= math.abs(fdy) then
-        face = (fdx >= 0) and "right" or "left"
-      else
-        face = (fdy >= 0) and "down" or "up"
-      end
-      Movement.setFacing(entity, face)
-    end
-    Movement.stop(entity, Movement.STATE.ALERT)
-    bx.state = Behavior.STATE.ALERT
+    enterDetected(entity, bx, player)
     return "alert"
   end
   return nil
+end
+
+-- Water aggressive: same state machine as land, water-only steps + surf gate.
+local function tickWaterAggressive(entity, ctx, bx, t)
+  local map = ctx.map
+  local entities = ctx.entities
+  local player = ctx.player
+  local region = entity.homeRegion
+  local range = ctx.waterSightRange
+             or Config.DEFAULTS.water_aggressive_sight_range
+             or ctx.sightRange
+             or Config.DEFAULTS.aggressive_sight_range
+             or 4
+
+  healAggroFlags(entity, bx, t)
+
+  if bx.state == Behavior.STATE.BATTLE_PENDING
+     or bx.state == Behavior.STATE.IN_BATTLE
+     or bx.state == Behavior.STATE.CLEANUP
+     or bx.battlePending or bx.battleStarted then
+    Movement.stop(entity, Movement.STATE.BATTLE_PENDING)
+    bx.sightDisabled = true
+    return bx.battleStarted and nil or "battle_pending"
+  end
+
+  if bx.chasing then
+    if not player or not playerSurfing(player, map) then
+      abortWaterChase(entity, bx, t)
+      return "chase_abort"
+    end
+    if not sameWaterComponent(map, ctx.waterRegions,
+                              entity.cellX, entity.cellY,
+                              player.cellX, player.cellY) then
+      abortWaterChase(entity, bx, t)
+      return "chase_abort"
+    end
+  end
+
+  if Movement.isBusy(entity) then
+    local completed = Movement.update(entity, ctx.dt or 0.016)
+    if completed then
+      Movement.refreshGrassFlag(entity, entity.mod)
+    end
+    if bx.state == Behavior.STATE.CHASING or bx.chasing then
+      if contactWithPlayer(entity, player) then
+        enterBattlePending(entity, bx)
+        return "contact"
+      end
+    end
+    return nil
+  end
+
+  if bx.state == Behavior.STATE.CHASING or bx.chasing then
+    enterChase(entity, bx)
+    if not player then return nil end
+    if contactWithPlayer(entity, player) then
+      enterBattlePending(entity, bx)
+      return "contact"
+    end
+    local moved, why = stepToward(
+      entity, map, entities, player,
+      player.cellX, player.cellY, region, true, true, { waterOnly = true })
+    if why == "contact" then
+      enterBattlePending(entity, bx)
+      return "contact"
+    end
+    if not moved then
+      bx.chaseFailCount = (bx.chaseFailCount or 0) + 1
+      if bx.chaseFailCount > 24 then
+        abortWaterChase(entity, bx, t)
+        return "chase_abort"
+      end
+    else
+      bx.chaseFailCount = 0
+    end
+    return nil
+  end
+
+  if bx.state == Behavior.STATE.CHASE_START then
+    enterChase(entity, bx)
+    return "chase_start"
+  end
+
+  if bx.state == Behavior.STATE.ALERT or bx.state == Behavior.STATE.PLAYER_DETECTED then
+    enterAlert(bx)
+    Movement.stop(entity, Movement.STATE.ALERT)
+    if entity.movement then entity.movement.state = Movement.STATE.ALERT end
+    if bx.chaseReady then
+      bx.state = Behavior.STATE.CHASE_START
+      bx.alertEmoteSpawned = true
+      return nil
+    end
+    return nil
+  end
+
+  if Movement.isBusy(entity) then
+    Movement.update(entity, ctx.dt or 0.016)
+    return nil
+  end
+
+  if t >= (bx.nextActionAt or 0) and not bx.playerDetected then
+    tryFace(entity, ctx.rng)
+  end
+
+  if not playerSurfing(player, map) then return nil end
+  if not sameWaterComponent(map, ctx.waterRegions,
+                            entity.cellX, entity.cellY,
+                            player.cellX, player.cellY) then
+    return nil
+  end
+
+  if Behavior.playerInSight(entity, player, map, entities, range, { waterOnly = true }) then
+    enterDetected(entity, bx, player)
+    return "alert"
+  end
+  return nil
+end
+
+local function tickAggressive(entity, ctx, bx, t)
+  -- Hard split: water surface / water behaviour never share land canStep opts.
+  if entity.surface == Surface.WATER or bx.behavior == Behavior.WATER_AGGRESSIVE then
+    return tickWaterAggressive(entity, ctx, bx, t)
+  end
+  return tickLandAggressive(entity, ctx, bx, t)
 end
 
 function Behavior.tick(entity, ctx)

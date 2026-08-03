@@ -92,12 +92,15 @@ function WaterSpawn.spawnRuleForTier(tier)
 end
 
 -- Zones a rod tier may appear in.
+-- Super-Rod-only (tier SUPER after dedupe) → Deep only.
+-- Good Rod → Near/Mid/Deep. Old Rod → Near/Mid. Surf → all.
 function WaterSpawn.zonesForTier(tier)
   if tier == WaterSpawn.ROD_TIER.SUPER then
     return { [WaterSpawn.ZONE.DEEP] = true }
   end
   if tier == WaterSpawn.ROD_TIER.GOOD then
     return {
+      [WaterSpawn.ZONE.NEAR] = true,
       [WaterSpawn.ZONE.MID] = true,
       [WaterSpawn.ZONE.DEEP] = true,
     }
@@ -114,6 +117,77 @@ function WaterSpawn.zonesForTier(tier)
     [WaterSpawn.ZONE.MID] = true,
     [WaterSpawn.ZONE.DEEP] = true,
   }
+end
+
+-- True when merged entry came only from Super Rod (lowest tier stayed SUPER).
+function WaterSpawn.isSuperRodOnly(entry)
+  return entry and entry.rodTier == WaterSpawn.ROD_TIER.SUPER
+end
+
+-- Species water capability from real Gen1Recomp / Wilds data only.
+-- Priority: types WATER → swimming/levitates mapping → local encounter → false.
+function WaterSpawn.isWaterCapable(species, game, opts)
+  opts = opts or {}
+  if species == nil then return false, "nil species" end
+  local name = species
+  if type(species) == "number" then
+    -- Dex id → name via game.data.pokemon when available.
+    local poke = game and game.data and game.data.pokemon and game.data.pokemon[species]
+    name = (poke and (poke.name or poke.id or poke.species)) or tostring(species)
+  end
+  name = tostring(name):upper()
+
+  -- 1) Explicit type table on species (Gen1Recomp: pokemon[N].types = {"WATER", ...}).
+  local pokeTable = game and game.data and game.data.pokemon
+  if type(pokeTable) == "table" then
+    local entry = pokeTable[name] or pokeTable[species]
+    if not entry then
+      for _, p in pairs(pokeTable) do
+        if type(p) == "table" then
+          local id = p.id or p.name or p.species
+          if id and tostring(id):upper() == name then
+            entry = p
+            break
+          end
+          if tonumber(species) and tonumber(p.dex or p.number or p.id) == tonumber(species) then
+            entry = p
+            break
+          end
+        end
+      end
+    end
+    if entry and type(entry.types) == "table" then
+      for _, t in ipairs(entry.types) do
+        if tostring(t):upper() == "WATER" then
+          return true, "type:WATER"
+        end
+      end
+    end
+  end
+
+  -- 2–3) Swimming / Levitates sprite mappings (technical water/float fitness).
+  local registry = opts.waterRegistry
+  if registry and registry.ready then
+    local sid = tonumber(opts.speciesId or species)
+    if not sid and type(name) == "string" and opts.resolveDex then
+      sid = opts.resolveDex(name)
+    end
+    if sid then
+      if registry:hasKind(sid, "swimming") then
+        return true, "swimming_sprite"
+      end
+      if registry:hasKind(sid, "levitates") then
+        return true, "levitates_sprite"
+      end
+    end
+  end
+
+  -- 4) Present in local Surf/rod encounter pool.
+  if opts.localPoolSpecies and opts.localPoolSpecies[name] then
+    return true, "local_encounter"
+  end
+
+  return false, "not_water_capable"
 end
 
 -- Relative weight multiplier by zone for Surf entries.
@@ -544,14 +618,36 @@ function WaterSpawn.buildZonePools(pool, hasDeep)
   for _, e in ipairs(pool.entries) do
     local zones = WaterSpawn.zonesForTier(e.rodTier)
     -- Super-Rod-only never appears without a real deep zone.
-    if e.rodTier == WaterSpawn.ROD_TIER.SUPER and not hasDeep then
-      -- skip
+    if WaterSpawn.isSuperRodOnly(e) and not hasDeep then
+      -- skip deep-only species on maps without deep water
     else
       if zones[WaterSpawn.ZONE.NEAR] then near[#near + 1] = e end
       if zones[WaterSpawn.ZONE.MID] then mid[#mid + 1] = e end
       if zones[WaterSpawn.ZONE.DEEP] and hasDeep then deep[#deep + 1] = e end
     end
   end
+
+  -- Zone empty → fall back to Surf-tier entries, then whole local pool.
+  local function surfOnly(list)
+    local out = {}
+    for _, e in ipairs(pool.entries) do
+      if e.rodTier == WaterSpawn.ROD_TIER.SURF then out[#out + 1] = e end
+    end
+    return out
+  end
+  if #near == 0 then
+    near = surfOnly()
+    if #near == 0 then near = pool.entries end
+  end
+  if #mid == 0 then
+    mid = surfOnly()
+    if #mid == 0 then mid = pool.entries end
+  end
+  if hasDeep and #deep == 0 then
+    deep = surfOnly()
+    if #deep == 0 then deep = pool.entries end
+  end
+
   return { near = near, mid = mid, deep = deep }
 end
 
@@ -631,32 +727,60 @@ local function weightedPick(entries, zone, recentSpecies, speciesCounts, maxSame
   for _, sp in ipairs(recentSpecies or {}) do
     recent[sp] = true
   end
-  local weights = {}
-  local total = 0
-  for i, e in ipairs(entries) do
-    local w = e.weight or 1
-    if e.rodTier == WaterSpawn.ROD_TIER.SURF then
-      w = w * WaterSpawn.surfZoneWeight(zone)
-    end
-    local count = speciesCounts and speciesCounts[e.species] or 0
-    if maxSame and count >= maxSame then
-      w = 0
-    elseif recent[e.species] then
-      w = w * WaterSpawn.ANTI_STREAK_MUL
-    end
-    weights[i] = w
-    total = total + w
-  end
-  if total <= 0 then
-    -- All blocked by same-species cap: allow any with base weight.
-    total = 0
+
+  local function buildWeights(respectSame, respectStreak)
+    local weights = {}
+    local total = 0
     for i, e in ipairs(entries) do
       local w = e.weight or 1
+      if e.rodTier == WaterSpawn.ROD_TIER.SURF then
+        w = w * WaterSpawn.surfZoneWeight(zone)
+      elseif WaterSpawn.isSuperRodOnly(e) and zone == WaterSpawn.ZONE.DEEP then
+        w = w * 1.35
+      end
+      local count = speciesCounts and speciesCounts[e.species] or 0
+      if respectSame and maxSame and count >= maxSame then
+        w = 0
+      elseif respectStreak and recent[e.species] then
+        w = w * WaterSpawn.ANTI_STREAK_MUL
+      end
       weights[i] = w
       total = total + w
     end
+    return weights, total
   end
-  if total <= 0 then return nil end
+
+  -- Diversity soft-fail: same-species → anti-streak → any highest-weight.
+  local weights, total = buildWeights(true, true)
+  if total <= 0 then
+    weights, total = buildWeights(true, false)
+  end
+  if total <= 0 then
+    weights, total = buildWeights(false, false)
+  end
+  if total <= 0 then
+    -- Last resort: highest base weight entry.
+    local best, bestW = entries[1], -1
+    for _, e in ipairs(entries) do
+      local w = e.weight or 1
+      if w > bestW then best, bestW = e, w end
+    end
+    if not best then return nil end
+    return {
+      species = best.species,
+      speciesId = best.species,
+      level = best.levelMin or 1,
+      levelMin = best.levelMin,
+      levelMax = best.levelMax,
+      source = best.source,
+      rodTier = best.rodTier,
+      weight = best.weight,
+      zone = zone,
+      spawnRule = WaterSpawn.spawnRuleForTier(best.rodTier),
+      encounterSource = tierLabel(best.rodTier),
+    }
+  end
+
   local roll = rng() * total
   if type(roll) ~= "number" then
     roll = ((rng(10000) - 1) / 10000) * total
@@ -716,9 +840,17 @@ function WaterSpawn.pickForZone(zonePools, zone, opts)
   else
     list = zonePools and zonePools.deep
   end
-  return weightedPick(
+  local pick = weightedPick(
     list, zone,
     opts.recentSpecies, opts.speciesCounts, opts.maxSameSpecies, opts.rng)
+  if pick then return pick end
+  -- Fallback: full local pool (never leave a zone empty when candidates exist).
+  if opts.fallbackEntries and #opts.fallbackEntries > 0 then
+    return weightedPick(
+      opts.fallbackEntries, zone,
+      opts.recentSpecies, opts.speciesCounts, opts.maxSameSpecies, opts.rng)
+  end
+  return nil
 end
 
 -- Choose a zone that still needs spawns, preferring underfilled targets.

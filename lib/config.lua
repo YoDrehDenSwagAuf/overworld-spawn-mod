@@ -57,7 +57,7 @@ Config.DEFAULTS = {
   idle_look_max_s = 10,
   enable_water_spawns = true, -- legacy internal alias
   water_spawns = true,        -- public "Water Mons" toggle
-  max_water_mons = 4,
+  max_water_mons = 12,
   -- Water spawn zones (tile distance from walkable land). Internal only.
   water_near_shore_max = 2,
   water_mid_water_max = 5,
@@ -495,7 +495,7 @@ end
 
 function Config.maxWaterMons(mod)
   return tonumber(Config.get(mod, "max_water_mons"))
-      or Config.DEFAULTS.max_water_mons or 4
+      or Config.DEFAULTS.max_water_mons or 12
 end
 
 -- Central setter for Spawn Amount (Start Menu). Same key as legacy Mod Settings.

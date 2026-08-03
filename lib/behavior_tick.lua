@@ -112,14 +112,20 @@ function BehaviorTick:step(ctx)
         self.voxel:markFallback(entity, voxelErr)
       end
 
+      -- Repair stuck movement before AI decides anything.
+      Movement.healBusy(entity)
+      SpawnFx.ensureProgress(entity)
+
       local bx = entity.behaviorState
       local chasing = bx and (bx.chasing or bx.state == Behavior.STATE.CHASING
                               or bx.state == Behavior.STATE.CHASE_START)
 
+      local alreadyMoved = false
       if Movement.isBusy(entity) and not (holdAi and bx
          and (bx.state == Behavior.STATE.ALERT
               or bx.state == Behavior.STATE.PLAYER_DETECTED)) then
         local done = Movement.update(entity, dt)
+        alreadyMoved = true
         if done then
           Movement.refreshGrassFlag(entity, self.mod)
         end
@@ -139,56 +145,81 @@ function BehaviorTick:step(ctx)
         entity.hiddenBody = false
         pcall(function() logic:_attach(entity) end)
       end
+      SpawnFx.ensureProgress(entity)
 
       if not SpawnFx.canAct(entity) then
-        -- Spawn pop in progress: no AI.
-      elseif holdAi and not chasing then
-        -- freeze
-      else
-        if bx and bx.chasing and Movement.isBusy(entity) then
-          -- wait
-        else
+        -- Spawn pop in progress: no wander/chase planning.
+        -- Contact during an in-progress chase step still needs the busy branch.
+        if bx and (bx.chasing or bx.state == Behavior.STATE.CHASING) then
           local event = Behavior.tick(entity, {
             map = ow.map,
             entities = ow.entities,
             player = ow.player,
-            dt = dt,
+            dt = 0,
             sightRange = sight,
             reactionDelay = react,
             chaseStepSeconds = chaseStep,
-            waterSightRange = Config.get(mod, "water_aggressive_sight_range")
+            waterSightRange = Config.get(self.mod, "water_aggressive_sight_range")
               or Config.DEFAULTS.water_aggressive_sight_range,
-            waterMonsEnabled = Config.waterMons(mod),
+            waterMonsEnabled = Config.waterMons(self.mod),
             waterRegions = logic.waterRegions,
             shoreMap = logic.shoreDistance,
-            landWaterPlayerMax = Config.get(mod, "land_water_chase_player_max")
+            landWaterPlayerMax = Config.get(self.mod, "land_water_chase_player_max")
               or Config.DEFAULTS.land_water_chase_player_max,
             game = world and world.game,
             hasWaterSprite = function(e)
               return logic:_entityHasCompatibleWaterSprite(e)
             end,
           })
-          if event == "alert" then
-            logic:_onAggressiveAlert(entity, record)
-          elseif event == "entered_water" then
-            record.behavior = entity.behavior
-            record.surface = Surface.WATER
-            record.waterEnteredByChase = true
-            record.originSurface = entity.originSurface or record.originSurface
-            record.encounterKind = record.encounterKind or "water"
-            if entity.cellX and entity.cellY and logic.shoreDistance then
-              record.shoreDistance = WaterSpawn.distanceAt(
-                logic.shoreDistance, entity.cellX, entity.cellY)
-              record.waterZone = WaterSpawn.zoneForDistance(record.shoreDistance)
-              entity.shoreDistance = record.shoreDistance
-              entity.waterZone = record.waterZone
-            end
-            DebugLog.info(mod, "land→water chase id=%s species=%s",
-                          tostring(id), tostring(record.species))
-          elseif event == "contact" or event == "battle_pending" then
+          if event == "contact" or event == "battle_pending" then
             if SpawnFx.canBattle(entity) then
               logic:_startBattle(record)
             end
+          end
+        end
+      elseif holdAi and not chasing then
+        -- freeze
+      else
+        local event = Behavior.tick(entity, {
+          map = ow.map,
+          entities = ow.entities,
+          player = ow.player,
+          dt = alreadyMoved and 0 or dt,
+          sightRange = sight,
+          reactionDelay = react,
+          chaseStepSeconds = chaseStep,
+          waterSightRange = Config.get(self.mod, "water_aggressive_sight_range")
+            or Config.DEFAULTS.water_aggressive_sight_range,
+          waterMonsEnabled = Config.waterMons(self.mod),
+          waterRegions = logic.waterRegions,
+          shoreMap = logic.shoreDistance,
+          landWaterPlayerMax = Config.get(self.mod, "land_water_chase_player_max")
+            or Config.DEFAULTS.land_water_chase_player_max,
+          game = world and world.game,
+          hasWaterSprite = function(e)
+            return logic:_entityHasCompatibleWaterSprite(e)
+          end,
+        })
+        if event == "alert" then
+          logic:_onAggressiveAlert(entity, record)
+        elseif event == "entered_water" then
+          record.behavior = entity.behavior
+          record.surface = Surface.WATER
+          record.waterEnteredByChase = true
+          record.originSurface = entity.originSurface or record.originSurface
+          record.encounterKind = record.encounterKind or "water"
+          if entity.cellX and entity.cellY and logic.shoreDistance then
+            record.shoreDistance = WaterSpawn.distanceAt(
+              logic.shoreDistance, entity.cellX, entity.cellY)
+            record.waterZone = WaterSpawn.zoneForDistance(record.shoreDistance)
+            entity.shoreDistance = record.shoreDistance
+            entity.waterZone = record.waterZone
+          end
+          DebugLog.info(self.mod, "land→water chase id=%s species=%s",
+                        tostring(id), tostring(record.species))
+        elseif event == "contact" or event == "battle_pending" then
+          if SpawnFx.canBattle(entity) then
+            logic:_startBattle(record)
           end
         end
       end

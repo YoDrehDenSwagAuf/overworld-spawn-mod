@@ -272,6 +272,22 @@ function SpriteResolver:resolveWaterSprite(entity, context)
   }
 end
 
+function SpriteResolver:cacheKey(entity, context, state)
+  context = context or {}
+  local style = tostring(context.style or Config.spriteStyle(self.mod) or "auto")
+  local speciesId = context.speciesId or resolveDex(entity, context.game, self.mod)
+    or (entity and (entity.species or entity.enhancedDexId)) or "?"
+  local variant = tostring(context.variant or resolveVariant(entity) or "normal")
+  local form = tostring(context.form or resolveForm(entity) or "default")
+  state = state or "land"
+  return string.format("%s:%s:%s:%s:%s",
+    tostring(speciesId), variant, form, state, style)
+end
+
+function SpriteResolver:invalidateCache()
+  self.cache = {}
+end
+
 function SpriteResolver:resolveForEntity(entity, context)
   context = context or {}
   local map = context.map
@@ -297,10 +313,49 @@ function SpriteResolver:resolveForEntity(entity, context)
     end
   end
 
-  if state == "water" then
-    return self:resolveWaterSprite(entity, context)
+  local style = context.style or Config.spriteStyle(self.mod)
+  context.style = style
+  if entity then
+    entity.requestedSpriteStyle = style
   end
-  return self:resolveLandSprite(entity, context)
+
+  local key = self:cacheKey(entity, context, state)
+  local cached = self.cache[key]
+  if cached ~= nil then
+    local result = copyResult(cached)
+    if entity and result then
+      self:applyEntityMeta(entity, result)
+    end
+    return result
+  end
+
+  local result
+  if state == "water" then
+    result = self:resolveWaterSprite(entity, context)
+  else
+    result = self:resolveLandSprite(entity, context)
+  end
+
+  -- Hard rule: explicit PokeMMO on land never resolves Followers EX.
+  if result and style == "pokemmo" and state == "land"
+     and result.providerId == "followers_ex" then
+    result = self.spriteProviders and self.spriteProviders:resolve(
+      "pokemmo",
+      context.speciesId or (entity and (entity.species or entity.enhancedDexId)),
+      context.variant or resolveVariant(entity),
+      context.game)
+    if result then
+      result.spriteState = "land"
+      result.spriteKind = result.providerId
+      result.waterOverride = false
+      result.fallbackReason = "rejected followers_ex for explicit pokemmo"
+    end
+  end
+
+  if result then
+    self.cache[key] = copyResult(result)
+  end
+  return result
 end
 
 function SpriteResolver:applyEntityMeta(entity, result)

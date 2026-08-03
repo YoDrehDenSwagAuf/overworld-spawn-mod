@@ -149,6 +149,42 @@ function Movement.isBusy(entity)
   return m.targetTileX ~= nil and m.progress < (m.duration or 0)
 end
 
+-- Repair inconsistent movement: target without progress budget, or MOVING with no target.
+function Movement.healBusy(entity)
+  if not entity then return false end
+  ensureTables(entity)
+  local m = entity.movement
+  if m.targetTileX == nil and m.targetTileY == nil then
+    if m.state == Movement.STATE.MOVING then
+      m.state = Movement.STATE.IDLE
+      Movement.syncLegacyFields(entity)
+      return true
+    end
+    return false
+  end
+  local dur = m.duration or 0
+  if dur <= 0 or (m.progress or 0) >= dur then
+    -- Force-complete a stuck step so Behaviour can plan the next one.
+    local p = entity.position
+    if m.targetTileX ~= nil and m.targetTileY ~= nil then
+      p.tileX = m.targetTileX
+      p.tileY = m.targetTileY
+      local px, py = Tile.pixelsForCell(p.tileX, p.tileY)
+      p.pixelX, p.pixelY = px, py
+      p.previousTileX, p.previousTileY = p.tileX, p.tileY
+      p.previousPixelX, p.previousPixelY = px, py
+    end
+    m.targetTileX, m.targetTileY = nil, nil
+    m.progress = 0
+    if m.state == Movement.STATE.MOVING then
+      m.state = Movement.STATE.IDLE
+    end
+    Movement.syncLegacyFields(entity)
+    return true
+  end
+  return false
+end
+
 -- Begin a one-tile step. Cell stays at origin until complete (NPC-compatible).
 function Movement.beginStep(entity, toTileX, toTileY, opts)
   opts = opts or {}
