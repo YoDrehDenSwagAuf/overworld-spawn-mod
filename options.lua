@@ -21,13 +21,6 @@ return {
     description = "Spawn visible wild Pokemon in eligible overworld encounter areas.",
   },
   {
-    key = "suppress_random_grass",
-    label = "Hide Grass RNG",
-    type = "toggle",
-    default = true,
-    description = "Suppress vanilla random grass encounters only after visible spawns are ready.",
-  },
-  {
     key = "sprite_style",
     label = "Sprite Style",
     type = "choice",
@@ -44,23 +37,18 @@ return {
   -- Spawn Amount (key: spawn_density) is Start-Menu only — not listed here.
   -- Internal key / saved value / density math are unchanged.
   {
-    key = "grass_encounters",
-    label = "Grass Enc",
-    type = "choice",
-    default = "hidden",
-    choices = {
-      { "Classic", "classic" },
-      { "Hidden", "hidden" },
-      { "Both", "both" },
-    },
-    description = "Grass encounters: Classic step RNG, Hidden idle lurkers, or both. Hidden is the default. Caves and water are unchanged.",
+    key = "random_encounters",
+    label = "Random Enc",
+    type = "toggle",
+    default = true,
+    description = "Allow classic step-based random encounters (grass, cave, and water). Off does not remove visible overworld Pokémon.",
   },
   {
     key = "water_spawns",
     label = "Water Mons",
     type = "toggle",
     default = true,
-    description = "Spawn visible wild Pokemon on water tiles from the map water encounter table. Classic surf encounters stay unchanged.",
+    description = "Spawn visible wild Pokemon on water tiles from the map water encounter table. Classic surf encounters follow Random Enc.",
   },
   {
     key = "pokemon_grass_render_mode",

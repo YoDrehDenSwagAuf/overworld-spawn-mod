@@ -91,9 +91,8 @@ end
 
 function GrassOcclusion.updateInGrassFlag(entity, mod, map)
   if not entity then return false end
-  local HiddenIdle = V.require("hidden_idle")
-  if entity.hiddenEncounter or entity.visibleSprite == false
-     or HiddenIdle.bodyHidden(entity) then
+  local SpawnFx = V.require("spawn_fx")
+  if not SpawnFx.bodyVisible(entity) then
     entity.inGrassOverlay = false
     entity.grassOcclusionActive = false
     return false

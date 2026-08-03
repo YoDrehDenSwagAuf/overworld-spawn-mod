@@ -14,7 +14,7 @@ Surface.OTHER = "OTHER_ENCOUNTER"
 -- Behaviours allowed per surface (Hidden Cave only when a cave effect exists).
 Surface.BEHAVIORS = {
   [Surface.GRASS] = {
-    "IDLE_LOOK", "GRASS_WANDER", "AGGRESSIVE", "HIDDEN_GRASS", "HIDDEN_IDLE",
+    "IDLE_LOOK", "GRASS_WANDER", "AGGRESSIVE", "HIDDEN_GRASS",
   },
   [Surface.CAVE] = {
     "IDLE_LOOK", "GRASS_WANDER", "AGGRESSIVE", "HIDDEN_CAVE",

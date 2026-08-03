@@ -1054,14 +1054,9 @@ function Entity.new(game, mod, render, record)
   self.canTriggerBattle = record.canTriggerBattle ~= false
   Movement.init(self, record.x, record.y, self.facing)
 
-  local isHiddenIdle = record.behavior == Behavior.HIDDEN_IDLE
-    or record.prepareHiddenIdleSprite == true
-
   -- Legacy HIDDEN_GRASS / HIDDEN_CAVE: never load a Pokemon sprite and must
   -- not join ow.entities (VoxelScene would retire the pipeline on nil sprite).
-  -- HIDDEN_IDLE prepares the sprite at spawn but keeps the body hidden until
-  -- reveal (pose/draw skip via hiddenIdle flags).
-  if (self.hiddenEncounter or not self.visibleSprite) and not isHiddenIdle then
+  if self.hiddenEncounter or not self.visibleSprite then
     self.sprite = nil
     self.spriteId = nil
     self.entityPhase = "HIDDEN"
@@ -1315,13 +1310,6 @@ function Entity.new(game, mod, render, record)
 
   -- Attach follow-sprite metadata + bind native world billboard presentation.
   render:attachEnhancedToEntity(self, game)
-  if isHiddenIdle then
-    -- Sprite + provider are fully resolved at spawn; body stays hidden until reveal.
-    self.entityPhase = "HIDDEN_IDLE"
-    self.visibleSprite = false
-    self.hiddenEncounter = true
-    self.canTriggerBattle = false
-  end
   return self
 end
 
@@ -1410,10 +1398,7 @@ function Entity:getWorldSprite()
     return nil
   end
   if self.hiddenEncounter or self.visibleSprite == false then
-    local hi = self.hiddenIdle
-    if not (hi and hi.revealed) then
-      return nil
-    end
+    return nil
   end
   if self.sprite and self.sprite.def then
     return self.sprite
@@ -1462,7 +1447,6 @@ function Entity:pose()
   self.flip = flip
   self.walkFlip = flip
   local hop = self.hopping == true
-    or (self.hiddenIdle and self.hiddenIdle.hopActive == true)
   if not hop then self.hopping = false end
   return sprite, self.px or 0, visualY, self.facing or "down", phase, flip, hop
 end
@@ -1484,9 +1468,7 @@ function Entity:_strictHidesBody()
 end
 
 function Entity:_drawHiddenEffect(camX, camY)
-  -- Legacy HIDDEN_GRASS / HIDDEN_CAVE keep the subtle marker. HIDDEN_IDLE uses
-  -- native grass rustle via BehaviorTick (no custom coloured grass art).
-  if self.behavior == Behavior.HIDDEN_IDLE then return end
+  -- Legacy HIDDEN_GRASS / HIDDEN_CAVE keep the subtle marker.
   if not (love and love.graphics) then return end
   if Config.get(self.mod, "enable_grass_movement_effects") == false then return end
   local x = math.floor(self.px - (camX or 0))
@@ -1641,8 +1623,7 @@ function Entity:draw(camX, camY)
     d.lastFailureReason = "strict_world_billboard_debug: Entity:draw body suppressed"
   end
 
-  if (self.hiddenEncounter or not self.visibleSprite)
-     and not (self.hiddenIdle and self.hiddenIdle.revealed) then
+  if (self.hiddenEncounter or not self.visibleSprite) then
     self:_drawHiddenEffect(camX, camY)
   elseif not skipBody then
     d.entityDrawBodyDrawCalls = (d.entityDrawBodyDrawCalls or 0) + 1
@@ -1872,12 +1853,8 @@ end
 -- facing / phase / flip / position / behaviour. No registry mutation.
 function SpawnRender:applyProviderSprite(entity, game)
   if not entity then return false end
-  local HiddenIdle = V.require("hidden_idle")
-  -- Allow HIDDEN_IDLE to keep its prepared sprite in sync; skip other hiddens.
   if entity.hiddenEncounter or entity.visibleSprite == false then
-    if not HiddenIdle.isEntity(entity) then
-      return false
-    end
+    return false
   end
   if not self.spriteProviders then
     return false
@@ -2208,13 +2185,11 @@ end
 -- Live option toggle: re-bind presentation without respawning entities.
 function SpawnRender:refreshAllEntitySprites(logic, game)
   if not logic or not logic.entities then return 0 end
-  local HiddenIdle = V.require("hidden_idle")
   local n = 0
   for _, entity in pairs(logic.entities) do
     if entity then
-      local allow = (not entity.hiddenEncounter and entity.visibleSprite ~= false)
-                    or HiddenIdle.isEntity(entity)
-      if allow and self:applyProviderSprite(entity, game) then
+      if not entity.hiddenEncounter and entity.visibleSprite ~= false
+         and self:applyProviderSprite(entity, game) then
         n = n + 1
       end
     end
@@ -2231,12 +2206,8 @@ function SpawnRender:installLateMakeEntityWrap()
   local render = self
   function self:makeEntity(game, record)
     local entity = orig(self, game, record)
-    local HiddenIdle = V.require("hidden_idle")
     if entity then
-      local allow = (not entity.hiddenEncounter and entity.visibleSprite ~= false)
-                    or (record and record.behavior == Behavior.HIDDEN_IDLE)
-                    or HiddenIdle.isEntity(entity)
-      if allow then
+      if not entity.hiddenEncounter and entity.visibleSprite ~= false then
         pcall(function()
           render:applyProviderSprite(entity, game)
         end)

@@ -1152,9 +1152,10 @@ T.check(mockGame.save.pokedex == nil
 local schemaKeys = {}
 for _, row in ipairs(schema) do schemaKeys[row.key] = row end
 T.check(schemaKeys.spawn_density == nil, "spawn_density removed from Mod Settings")
-T.check(schemaKeys.grass_encounters ~= nil, "grass_encounters option present")
-T.eq(schemaKeys.grass_encounters.default, "hidden", "grass_encounters default Hidden")
-T.eq(schemaKeys.grass_encounters.label, "Grass Enc", "grass_encounters label")
+T.check(schemaKeys.grass_encounters == nil, "grass_encounters removed from schema")
+T.check(schemaKeys.random_encounters ~= nil, "random_encounters option present")
+T.eq(schemaKeys.random_encounters.default, true, "random_encounters default ON")
+T.eq(schemaKeys.random_encounters.label, "Random Enc", "random_encounters label")
 T.check(schemaKeys.water_spawns ~= nil, "water_spawns option present")
 T.eq(schemaKeys.water_spawns.default, true, "water_spawns default ON")
 T.eq(schemaKeys.water_spawns.label, "Water Mons", "water_spawns label")

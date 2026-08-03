@@ -7,14 +7,12 @@
 --   lib/debug_hud.lua       - present-only render pipeline HUD (dev mode)
 --   lib/debug_overlay.lua   - passable tile marker entities (dev mode)
 --   lib/preview_browser.lua - OPTIONS/Start-menu Pokemon preview (dev mode)
---   lib/sprite_style_menu.lua - Start-menu Sprite Style / Spawn Amount / Grass Enc
---   lib/hidden_idle.lua       - Hidden Idle grass lurkers + cell reservations
+--   lib/sprite_style_menu.lua - Start-menu Sprite Style / Spawn Amount / Random Enc / Water Mons
 --   lib/diagnostics.lua     - status derivation for HUD/logs
 --   options.lua             - Mod Manager option schema
 --
--- Fail-safe: encounter.roll grass suppression follows grass_encounters
--- (classic / hidden / both) and only when the spawn system is ready.
--- Otherwise vanilla wild grass encounters remain active.
+-- Fail-safe: encounter.roll is suppressed when Random Enc is OFF (all
+-- classic terrains). Visible overworld Pokémon and Water Mons stay independent.
 --
 -- The Pokédex is never a spawn condition. The player is never teleported.
 -- DramaticShapeVoxelMod is optional; base Gen1Recomp 2D rendering is enough.
@@ -57,7 +55,7 @@ return function(mod)
 
   Config.defineOptions(mod)
   Config.migrateSpriteStyleOption(mod)
-  Config.migrateGrassEncountersOption(mod)
+  Config.migrateRandomEncountersOption(mod)
 
   local render = SpawnRender.new(mod)
   -- LOAD PHASE: all sprite content registration must finish here, before
@@ -160,7 +158,7 @@ return function(mod)
   mod.events:on("game.ready", function()
     hud:syncPipelineLevel()
     Config.migrateSpriteStyleOption(mod)
-    Config.migrateGrassEncountersOption(mod)
+    Config.migrateRandomEncountersOption(mod)
     render:finalizeSpriteProviders(mod.world and mod.world.game)
     if Config.devMode(mod) then
       render.debugMarkers = true
@@ -213,8 +211,7 @@ return function(mod)
     if unwraps.encounter or unwraps.collision then return end
 
     unwraps.encounter = mod.hooks:wrap("encounter.roll", function(next, encDef, ctx)
-      if ctx and ctx.terrain == "grass"
-         and logic:shouldSuppressClassicGrass(ctx) then
+      if logic:shouldSuppressClassicEncounter(ctx) then
         return nil
       end
       return next(encDef, ctx)
@@ -300,11 +297,11 @@ return function(mod)
     opts.logic = opts.logic or logic
     return Config.setSpawnAmount(mod, value, source or "export", opts)
   end
-  mod.exports.setGrassEncounters = function(value, source, opts)
+  mod.exports.setRandomEncounters = function(value, source, opts)
     opts = opts or {}
     opts.game = opts.game or (mod.world and mod.world.game)
     opts.logic = opts.logic or logic
-    return Config.setGrassEncounters(mod, value, source or "export", opts)
+    return Config.setRandomEncounters(mod, value, source or "export", opts)
   end
   mod.exports.setWaterMons = function(value, source, opts)
     opts = opts or {}

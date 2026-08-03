@@ -2,8 +2,8 @@
 -- wander, touch -> battle, developer test spawn. Rendering is delegated to
 -- SpawnRender.
 --
--- Fail-safe: vanilla grass rolls are suppressed only after the visible spawn
--- system is proven ready for the current map (see SpawnState:canSuppressVanilla).
+-- Fail-safe: vanilla encounter rolls are suppressed when Random Enc is OFF
+-- (see SpawnLogic:shouldSuppressClassicEncounter / canSuppressVanilla).
 -- The Pokédex is never a spawn gate. The player is never teleported.
 local V = ...
 local Config = V.require("config")
@@ -18,7 +18,6 @@ local SpawnRegions = V.require("spawn_regions")
 local Behavior = V.require("behavior")
 local Movement = V.require("movement")
 local VoxelAdapter = V.require("voxel_adapter")
-local HiddenIdle = V.require("hidden_idle")
 local SpawnFx = V.require("spawn_fx")
 
 local SpawnLogic = {}
@@ -70,8 +69,6 @@ function SpawnLogic.new(mod, render)
   self.regionQuotas = {}
   self.regionCounts = {}
   self.targetSpawnCount = 0
-  self.targetHiddenCount = 0
-  self.hiddenReserved = {}
   self.surfaceInfo = nil
   self.state = SpawnState.new()
   self.state.updateCallbackRegistered = true
@@ -82,7 +79,6 @@ function SpawnLogic.new(mod, render)
   self.behaviorTick = nil
   self.lastTestSpawn = nil
   self.voxel = VoxelAdapter.new(mod)
-  self._grassEncounterMode = nil
   self.spawnFx = SpawnFx.new(mod)
   self.waterCache = nil
   self.waterRegions = {}
@@ -109,52 +105,14 @@ function SpawnLogic:attachDevTools(hud, overlay, browser, behaviorTick)
 end
 
 function SpawnLogic:canSuppressVanilla()
-  if not self:featureActive() then return false end
-  -- Hidden mode suppresses classic grass when the map spawn system is ready.
-  -- Both keeps classic active (per-cell suppress via shouldSuppressClassicGrass).
-  if not Config.classicGrassEnabled(self.mod) then
-    local ok = self.state:canSuppressVanilla()
-    self.state.vanillaSuppressed = ok
-    return ok
-  end
-  self.state.vanillaSuppressed = false
-  return false
+  local suppress = not Config.randomEncountersEnabled(self.mod)
+  self.state.vanillaSuppressed = suppress
+  return suppress
 end
 
--- True when classic grass RNG must be blocked for this roll/step.
--- grass_encounters is authoritative; suppress_random_grass is legacy only.
-function SpawnLogic:shouldSuppressClassicGrass(ctx)
-  if not self:featureActive() then return false end
-  if not Config.classicGrassEnabled(self.mod) then
-    -- Mode hidden: suppress all classic grass once the map is supported.
-    -- Do not require suppress_random_grass — Grass Enc owns this decision.
-    if self.state.initialized or (self.state.mapSupported and self.state.encounterDataAvailable) then
-      return true
-    end
-    return false
-  end
-  -- classic: never suppress via this path
-  if not Config.hiddenGrassEnabled(self.mod) then
-    return false
-  end
-  -- both: suppress only on a reserved Hidden Idle cell
-  if not (self.state.initialized or self.state.mapSupported) then
-    return false
-  end
-  local x = ctx and (ctx.x or ctx.cellX or ctx.toX)
-  local y = ctx and (ctx.y or ctx.cellY or ctx.toY)
-  if x == nil or y == nil then
-    local world = self.mod.world
-    local ow = world and world.overworld and world:overworld()
-    local player = ow and ow.player
-    if player then
-      x, y = player.cellX, player.cellY
-    end
-  end
-  if x ~= nil and y ~= nil and HiddenIdle.isReserved(self, x, y) then
-    return true
-  end
-  return false
+-- True when classic encounter RNG must be blocked (grass / cave / water).
+function SpawnLogic:shouldSuppressClassicEncounter(ctx)
+  return not Config.randomEncountersEnabled(self.mod)
 end
 
 function SpawnLogic:_log(fmt, ...)
@@ -217,8 +175,6 @@ function SpawnLogic:clearAll()
   self.regionQuotas = {}
   self.regionCounts = {}
   self.targetSpawnCount = 0
-  self.targetHiddenCount = 0
-  HiddenIdle.clearAll(self)
   self.surfaceInfo = nil
   if self.overlay then self.overlay:clear() end
   self:_restoreVanillaEncounters("clearAll")
@@ -234,14 +190,6 @@ function SpawnLogic:_occupiedSpawnCoords(mapId)
       out[#out + 1] = { x = r.x, y = r.y }
     end
   end
-  -- Reserved Hidden Idle cells also block visible spawn placement.
-  for key in pairs(self.hiddenReserved or {}) do
-    local sx, sy = key:match("^(%-?%d+),(%-?%d+)$")
-    sx, sy = tonumber(sx), tonumber(sy)
-    if sx and sy then
-      out[#out + 1] = { x = sx, y = sy }
-    end
-  end
   return out
 end
 
@@ -251,8 +199,7 @@ function SpawnLogic:_recountRegions()
     self.regionCounts[region.id] = 0
   end
   for _, record in pairs(self.spawns) do
-    if record.state == Config.STATE.AVAILABLE and record.homeRegionId
-       and record.behavior ~= Behavior.HIDDEN_IDLE then
+    if record.state == Config.STATE.AVAILABLE and record.homeRegionId then
       local id = record.homeRegionId
       self.regionCounts[id] = (self.regionCounts[id] or 0) + 1
     end
@@ -343,20 +290,12 @@ function SpawnLogic:_despawn(id, removeEntity)
   local record = self.spawns[id]
   if record then
     record.state = Config.STATE.REMOVED
-    if record.behavior == Behavior.HIDDEN_IDLE then
-      HiddenIdle.release(self, record.x, record.y, id)
-      HiddenIdle.releaseAllForId(self, id)
-    end
   end
   if entity then
     local bx = entity.behaviorState
     if bx then
       bx.state = Behavior.STATE.CLEANUP
       bx.battleStarted = true
-    end
-    if entity.hiddenIdle then
-      HiddenIdle.release(self, entity.cellX, entity.cellY, id)
-      HiddenIdle.releaseAllForId(self, id)
     end
     entity.state = Config.STATE.REMOVED
     entity.alertIcon = false
@@ -393,8 +332,7 @@ function SpawnLogic:countVisibleOnMap(mapId)
   local n = 0
   for _, id in ipairs(self.byMap[mapId] or {}) do
     local r = self.spawns[id]
-    if r and r.state == Config.STATE.AVAILABLE
-       and r.behavior ~= Behavior.HIDDEN_IDLE then
+    if r and r.state == Config.STATE.AVAILABLE then
       n = n + 1
     end
   end
@@ -406,7 +344,6 @@ function SpawnLogic:countLandOnMap(mapId)
   for _, id in ipairs(self.byMap[mapId] or {}) do
     local r = self.spawns[id]
     if r and r.state == Config.STATE.AVAILABLE
-       and r.behavior ~= Behavior.HIDDEN_IDLE
        and not Behavior.isWater(r.behavior) then
       n = n + 1
     end
@@ -423,10 +360,6 @@ function SpawnLogic:countWaterOnMap(mapId)
     end
   end
   return n
-end
-
-function SpawnLogic:countHiddenOnMap(mapId)
-  return select(1, HiddenIdle.countEntities(self, mapId))
 end
 
 function SpawnLogic:_computeWaterTarget(waterCells)
@@ -456,10 +389,8 @@ function SpawnLogic:_attach(entity)
 
   -- Hidden markers / unrevealed / spawn-FX-hidden bodies must NEVER join
   -- ow.entities: DramaticShapeVoxelMod poses every entry and crashes on nil.
-  local HiddenIdleMod = V.require("hidden_idle")
   local SpawnFxMod = V.require("spawn_fx")
   if entity.hiddenEncounter or entity.visibleSprite == false
-     or HiddenIdleMod.bodyHidden(entity)
      or not SpawnFxMod.bodyVisible(entity) then
     entity.registeredInWorld = false
     entity.registered2D = false
@@ -659,20 +590,6 @@ function SpawnLogic:initializeForMap(mapId, game)
     mapSpan = mapSpan,
   })
   st.targetSpawnCount = self.targetSpawnCount
-  self.targetHiddenCount = 0
-  if surfaceInfo.surface == Surface.GRASS and Config.hiddenGrassEnabled(self.mod) then
-    local eligibleHidden = 0
-    for _ in ipairs(self.grassCache or {}) do eligibleHidden = eligibleHidden + 1 end
-    self.targetHiddenCount = HiddenIdle.targetCount(
-      self.targetSpawnCount, Config.grassEncounters(self.mod))
-    if self.targetHiddenCount > 0 and eligibleHidden < 1 then
-      self.targetHiddenCount = 0
-    elseif self.targetHiddenCount > eligibleHidden then
-      self.targetHiddenCount = math.max(0, math.floor(eligibleHidden / 2))
-    end
-  end
-  self._grassEncounterMode = Config.grassEncounters(self.mod)
-  HiddenIdle.initReservations(self)
 
   -- Water layer: primary water maps + secondary water on grass/cave maps.
   self.waterCache = Grass.waterCells(ow.map)
@@ -707,19 +624,15 @@ function SpawnLogic:initializeForMap(mapId, game)
   for _, region in ipairs(self.regions) do
     self.regionCounts[region.id] = 0
   end
-  self:_log("surface=%s tiles=%d regions=%d target=%d hiddenTarget=%d waterTarget=%d density=%s grassEnc=%s",
+  self:_log("surface=%s tiles=%d regions=%d target=%d waterTarget=%d density=%s randomEnc=%s",
             tostring(surfaceInfo.surface), #self.eligibleCache,
-            #self.regions, self.targetSpawnCount, self.targetHiddenCount,
+            #self.regions, self.targetSpawnCount,
             self.targetWaterCount,
             tostring(Config.spawnDensity(self.mod)),
-            tostring(self._grassEncounterMode))
+            tostring(Config.randomEncountersEnabled(self.mod)))
   if Config.devMode(self.mod) then
-    self:_log("Grass Enc setting: %s", tostring(self._grassEncounterMode))
-    self:_log("Classic grass enabled: %s",
-              tostring(Config.classicGrassEnabled(self.mod)))
-    self:_log("Hidden idle enabled: %s",
-              tostring(Config.hiddenGrassEnabled(self.mod)))
-    self:_log("Hidden target: %d", self.targetHiddenCount or 0)
+    self:_log("Random Enc: %s",
+              tostring(Config.randomEncountersEnabled(self.mod)))
     self:_log("Water Mons: %s cells=%d target=%d",
               tostring(Config.waterMons(self.mod)),
               #(self.waterCache or {}), self.targetWaterCount or 0)
@@ -778,7 +691,6 @@ function SpawnLogic:initializeForMap(mapId, game)
   st.phase = "spawning"
   local spawned = 0
   local waterSpawned = 0
-  local hiddenSpawned = 0
 
   if surfaceInfo.surface == Surface.WATER then
     -- Primary water maps use trySpawnWater only (never land trySpawn refill).
@@ -809,20 +721,6 @@ function SpawnLogic:initializeForMap(mapId, game)
       else
         self:_log("spawn attempt rejected: %s", tostring(err))
         break
-      end
-    end
-
-    -- Hidden Idle wave (grass only; independent of visible target).
-    if self.targetHiddenCount > 0 and surfaceInfo.surface == Surface.GRASS
-       and Config.hiddenGrassEnabled(self.mod) then
-      for _ = 1, self.targetHiddenCount do
-        local record, err = self:trySpawnHidden(game, {})
-        if record then
-          hiddenSpawned = hiddenSpawned + 1
-        else
-          self:_log("hidden idle spawn rejected: %s", tostring(err))
-          break
-        end
       end
     end
 
@@ -867,15 +765,9 @@ function SpawnLogic:initializeForMap(mapId, game)
   st.phase = "idle"
   st:clearError()
   self:_logMapDiagnostics(mapId, game, encDef)
-  self:_log("Spawn system: READY target=%d active=%d hiddenTarget=%d hidden=%d water=%d",
+  self:_log("Spawn system: READY target=%d active=%d water=%d",
             self.targetSpawnCount, self:countVisibleOnMap(mapId),
-            self.targetHiddenCount, hiddenSpawned, waterSpawned)
-  if Config.devMode(self.mod) then
-    self:_log("Hidden spawned: %d", hiddenSpawned)
-    self:_log("Hidden reserved cells: %d", HiddenIdle.reservedCount(self))
-    self:_log("Rustle renderer: %s",
-              tostring(self.spawnFx and self.spawnFx.rustleRenderer or "NONE"))
-  end
+            waterSpawned)
   return true
 end
 
@@ -1079,15 +971,12 @@ function SpawnLogic:trySpawn(game, opts)
   entity.encounterKind = encounterKind
   record.facing = entity.facing
 
-  -- Visible grass/land spawn pop (not Hidden Idle, not readiness probe).
+  -- Visible grass/land spawn pop (not readiness probe).
   -- Begin FX before world attach so pose-nil entities stay logical-only.
   if not opts.readinessProbe and not Behavior.isHidden(behavior)
      and surfaceInfo.surface == Surface.GRASS then
     SpawnFx.begin(entity, SpawnFx.KIND.GRASS)
     entity.canTriggerBattle = false
-    if self.spawnFx then
-      self.spawnFx:grassRustle(ow.map, x, y, "small")
-    end
   elseif not opts.readinessProbe and Behavior.isWater(behavior) then
     SpawnFx.begin(entity, SpawnFx.KIND.WATER)
     entity.canTriggerBattle = false
@@ -1119,128 +1008,6 @@ function SpawnLogic:trySpawn(game, opts)
     self.mod.log:info("spawned wild %s Lv%d %s at %s (%d,%d)",
                       species, level, tostring(behavior), mapId, x, y)
   end
-  return record, nil, entity
-end
-
--- Spawn one HIDDEN_IDLE entity on a reserved grass cell. Species/level/sprite
--- are fully determined here — never re-rolled on reveal.
-function SpawnLogic:trySpawnHidden(game, opts)
-  opts = opts or {}
-  if not self:featureActive() then
-    return nil, "feature disabled"
-  end
-  local mode = Config.grassEncounters(self.mod)
-  if mode == "classic" then
-    return nil, "hidden idle disabled (classic)"
-  end
-
-  local world = self.mod.world
-  if not world or not world.overworld then
-    return nil, "no world"
-  end
-  local ow = world:overworld()
-  if not ow or not ow.map or not ow.player then
-    return nil, "no overworld"
-  end
-
-  local mapId = ow.map.id
-  local surfaceInfo = self.surfaceInfo or Surface.resolve(game, ow.map, self:_encDef(mapId, game))
-  if not surfaceInfo or surfaceInfo.surface ~= Surface.GRASS then
-    return nil, "hidden idle is grass-only"
-  end
-
-  local target = self.targetHiddenCount or 0
-  if not opts.force and self:countHiddenOnMap(mapId) >= target then
-    return nil, "hidden target reached"
-  end
-
-  local encDef = self:_encDef(mapId, game)
-  if not EncounterPick.hasGrassTable(encDef) then
-    return nil, "rejected: no encounter data"
-  end
-
-  self.grassCache = self.grassCache or Grass.cells(ow.map)
-  local x, y, reason = HiddenIdle.pickCell(
-    ow.map, ow.entities, ow.player, self, self.grassCache, nil,
-    function(r) self.state:noteReject(r) end)
-  if not x then
-    return nil, reason or "rejected: no eligible tiles"
-  end
-
-  local pick = EncounterPick.pick(encDef, nil, "grass")
-  if not pick then
-    return nil, "rejected: no encounter data"
-  end
-  local species, level = pick.species, pick.level
-  local region = SpawnRegions.regionForCell(self.regions, x, y)
-
-  local seq = self.nextId
-  self.nextId = self.nextId + 1
-  local id = string.format("wilds_of_kanto_entity_%d", seq)
-
-  local record = {
-    id = id,
-    mapId = mapId,
-    x = x,
-    y = y,
-    species = species,
-    level = level,
-    state = Config.STATE.AVAILABLE,
-    behavior = Behavior.HIDDEN_IDLE,
-    surface = Surface.GRASS,
-    encounterKind = "grass",
-    homeRegionId = region and region.id or nil,
-    visibleSprite = false,
-    hiddenEncounter = true,
-    prepareHiddenIdleSprite = true,
-    canTriggerBattle = false,
-  }
-
-  local ok, entityOrErr = pcall(self.render.makeEntity, self.render, game, record)
-  if not ok or not entityOrErr then
-    local msg = tostring(entityOrErr or "nil")
-    self:_warn("HIDDEN_IDLE create failed: %s", msg)
-    return nil, "ENTITY CREATE ERROR: " .. msg
-  end
-  local entity = entityOrErr
-
-  if not HiddenIdle.reserve(self, x, y, id) then
-    return nil, "rejected: reservation failed"
-  end
-
-  local attached, attachErr = self:_attach(entity)
-  if not attached then
-    HiddenIdle.release(self, x, y, id)
-    return nil, "WORLD REGISTER ERROR: " .. tostring(attachErr)
-  end
-
-  Behavior.attach(entity, Behavior.HIDDEN_IDLE, region)
-  entity.surface = Surface.GRASS
-  entity.encounterKind = "grass"
-  entity.canTriggerBattle = false
-  entity.hiddenBody = true
-  entity.moving = false
-  record.facing = entity.facing
-  -- Keep prepared sprite on the entity; body remains hidden until reveal.
-  entity.visibleSprite = false
-  entity.hiddenEncounter = true
-  if entity.hiddenIdle then
-    entity.hiddenIdle.cellX = x
-    entity.hiddenIdle.cellY = y
-  end
-
-  self.spawns[id] = record
-  self.entities[id] = entity
-  self.byMap[mapId] = self.byMap[mapId] or {}
-  self.byMap[mapId][#self.byMap[mapId] + 1] = id
-
-  -- Optional spawn rustle so the tile announces itself once.
-  if self.spawnFx then
-    self.spawnFx:grassRustle(ow.map, x, y, "small")
-  end
-
-  self.mod.log:info("spawned HIDDEN_IDLE %s Lv%d at %s (%d,%d)",
-                    species, level, mapId, x, y)
   return record, nil, entity
 end
 
@@ -1359,58 +1126,6 @@ function SpawnLogic:trySpawnWater(game, opts)
   return record, nil, entity
 end
 
-function SpawnLogic:_retargetHiddenCount()
-  local mode = Config.grassEncounters(self.mod)
-  local surface = self.surfaceInfo and self.surfaceInfo.surface
-  if surface ~= Surface.GRASS or not Config.hiddenGrassEnabled(self.mod) then
-    self.targetHiddenCount = 0
-  else
-    self.targetHiddenCount = HiddenIdle.targetCount(self.targetSpawnCount or 0, mode)
-  end
-  return self.targetHiddenCount
-end
-
-function SpawnLogic:_refillHidden(game, maxNew)
-  maxNew = maxNew or 2
-  if not game then return 0 end
-  if (self.targetHiddenCount or 0) <= 0 then return 0 end
-  local mapId = self.activeMapId
-  if not mapId then return 0 end
-  local added = 0
-  while self:countHiddenOnMap(mapId) < self.targetHiddenCount and added < maxNew do
-    local record = self:trySpawnHidden(game, {})
-    if not record then break end
-    added = added + 1
-  end
-  return added
-end
-
-function SpawnLogic:_trimHiddenToTarget()
-  local mapId = self.activeMapId
-  if not mapId then return 0 end
-  local target = self.targetHiddenCount or 0
-  local removed = 0
-  local ids = {}
-  for _, id in ipairs(self.byMap[mapId] or {}) do
-    local r = self.spawns[id]
-    local e = self.entities[id]
-    if r and r.state == Config.STATE.AVAILABLE and r.behavior == Behavior.HIDDEN_IDLE then
-      -- Never remove an in-progress reveal.
-      if e and e.hiddenIdle and e.hiddenIdle.revealStarted then
-        -- keep
-      else
-        ids[#ids + 1] = id
-      end
-    end
-  end
-  while #ids > 0 and (self:countHiddenOnMap(mapId) - removed) > target do
-    local id = table.remove(ids) -- remove from end
-    self:_despawn(id, true)
-    removed = removed + 1
-  end
-  return removed
-end
-
 function SpawnLogic:_trimVisibleToTarget()
   local mapId = self.activeMapId
   if not mapId then return 0 end
@@ -1422,7 +1137,7 @@ function SpawnLogic:_trimVisibleToTarget()
   for _, id in ipairs(self.byMap[mapId] or {}) do
     local r = self.spawns[id]
     local e = self.entities[id]
-    if r and r.state == Config.STATE.AVAILABLE and r.behavior ~= Behavior.HIDDEN_IDLE then
+    if r and r.state == Config.STATE.AVAILABLE then
       if e and e.behaviorState and e.behaviorState.chasing then
         -- keep chasing
       else
@@ -1467,9 +1182,7 @@ function SpawnLogic:applySpawnAmount(value, source)
   self.regionQuotas = select(1, SpawnRegions.allocate(
     self.regions, self.targetSpawnCount))
   self.state.targetSpawnCount = self.targetSpawnCount
-  self:_retargetHiddenCount()
   self:_trimVisibleToTarget()
-  self:_trimHiddenToTarget()
   local game = gameOf(self.mod)
   if game then
     -- Controlled refill of under-stock (no mass respawn).
@@ -1479,54 +1192,16 @@ function SpawnLogic:applySpawnAmount(value, source)
       guard = guard + 1
       if not self:trySpawn(game, {}) then break end
     end
-    self:_refillHidden(game, 3)
   end
-  self:_log("density retarget -> visible=%d hidden=%d via %s",
-            self.targetSpawnCount, self.targetHiddenCount, tostring(source))
+  self:_log("density retarget -> visible=%d via %s",
+            self.targetSpawnCount, tostring(source))
 end
 
-function SpawnLogic:applyGrassEncounters(value, source)
-  local prev = self._grassEncounterMode or Config.grassEncounters(self.mod)
-  value = tostring(value or "hidden")
-  self._grassEncounterMode = value
-  self:_retargetHiddenCount()
-
-  if not Config.hiddenGrassEnabled(self.mod) then
-    -- classic: remove unrevealed Hidden Idle; finish in-progress reveals.
-    local mapId = self.activeMapId
-    if mapId then
-      local doomed = {}
-      for _, id in ipairs(self.byMap[mapId] or {}) do
-        local r = self.spawns[id]
-        local e = self.entities[id]
-        if r and r.behavior == Behavior.HIDDEN_IDLE
-           and r.state == Config.STATE.AVAILABLE then
-          if e and e.hiddenIdle and e.hiddenIdle.revealStarted
-             and not e.hiddenIdle.battleStarted then
-            -- let reveal finish
-          else
-            doomed[#doomed + 1] = id
-          end
-        end
-      end
-      for _, id in ipairs(doomed) do
-        self:_despawn(id, true)
-      end
-    end
-    self.targetHiddenCount = 0
-    self.state.vanillaSuppressed = false
-  else
-    self.state.vanillaSuppressed = false
-    self:_trimHiddenToTarget()
-    local game = gameOf(self.mod)
-    if game then self:_refillHidden(game, 4) end
-  end
-
-  self:_log("grass_encounters %s -> %s (hiddenTarget=%d classic=%s hidden=%s) via %s",
-            tostring(prev), value, self.targetHiddenCount or 0,
-            tostring(Config.classicGrassEnabled(self.mod)),
-            tostring(Config.hiddenGrassEnabled(self.mod)),
-            tostring(source))
+function SpawnLogic:applyRandomEncounters(on, source)
+  local enabled = on == true
+  self.state.vanillaSuppressed = not enabled
+  self:_log("random_encounters -> %s (vanillaSuppressed=%s) via %s",
+            tostring(enabled), tostring(not enabled), tostring(source))
 end
 
 function SpawnLogic:applyWaterMons(on, source)
@@ -1586,55 +1261,6 @@ function SpawnLogic:applyWaterMons(on, source)
     end
   end
   self:_log("water_spawns ON target=%d via %s", self.targetWaterCount or 0, tostring(source))
-end
-
-function SpawnLogic:_beginHiddenReveal(entity, record)
-  if not entity or not record then return false end
-  if not entity.hiddenIdle then return false end
-  if entity.hiddenIdle.revealStarted or entity.hiddenIdle.battleStarted then
-    return false
-  end
-  entity.canTriggerBattle = false
-  entity.hiddenIdle.revealStarted = true
-  entity.hiddenIdle.revealElapsed = 0
-  HiddenIdle.beginReveal(entity)
-  SpawnFx.begin(entity, SpawnFx.KIND.HIDDEN_REVEAL)
-  if self.spawnFx then
-    local world = self.mod.world
-    local ow = world and world.overworld and world:overworld()
-    if ow and ow.map then
-      self.spawnFx:grassRustle(ow.map, entity.cellX, entity.cellY, "strong")
-    end
-  end
-  if Config.devMode(self.mod) then
-    self:_log("Hidden reveal triggered id=%s cell=%s,%s",
-              tostring(record.id), tostring(entity.cellX), tostring(entity.cellY))
-  end
-  return true
-end
-
-function SpawnLogic:_onHiddenRevealVisible(entity, record)
-  if not entity or not record then return end
-  entity.visibleSprite = true
-  entity.hiddenEncounter = false
-  entity.hiddenBody = false
-  entity.canTriggerBattle = false
-  -- Attach briefly so flat / Dramatic Shape can show the reveal hop.
-  local attached, err = self:_attach(entity)
-  if not attached then
-    self:_warn("HIDDEN_IDLE reveal attach failed: %s", tostring(err))
-  end
-end
-
-function SpawnLogic:_onHiddenRevealBattle(entity, record)
-  if not entity or not record then return false end
-  if not entity.hiddenIdle then return false end
-  if entity.hiddenIdle.battleStarted then return false end
-  HiddenIdle.markBattleStarted(entity)
-  if entity.behaviorState then
-    entity.behaviorState.battleStarted = true
-  end
-  return self:_startBattle(record)
 end
 
 -- Developer test spawn with explicit phase reporting. Never touches Pokédex,
@@ -1874,8 +1500,6 @@ function SpawnLogic:onMapEntered(ev)
   self.regionQuotas = {}
   self.regionCounts = {}
   self.targetSpawnCount = 0
-  self.targetHiddenCount = 0
-  HiddenIdle.clearAll(self)
   self.surfaceInfo = nil
   self.pendingBattle = nil
 
@@ -1951,9 +1575,9 @@ function SpawnLogic:onOptionsChanged(payload)
       or key == "tiles_per_additional_pokemon"
       or key == "max_spawns" then
     self:applySpawnAmount(Config.spawnDensity(self.mod), "options_changed")
-  elseif key == "grass_encounters" then
-    self:applyGrassEncounters(
-      payload.value or Config.grassEncounters(self.mod), "options_changed")
+  elseif key == "random_encounters" then
+    self:applyRandomEncounters(
+      payload.value == true, "options_changed")
   elseif key == "water_spawns" or key == "enable_water_spawns" then
     self:applyWaterMons(payload.value == true, "options_changed")
   elseif key == "dev_mode"
@@ -2097,10 +1721,8 @@ function SpawnLogic:_despawnFar(ow)
   for id, record in pairs(self.spawns) do
     if record.state == Config.STATE.AVAILABLE then
       local entity = self.entities[id]
-      -- Never despawn an aggressive chase or an in-progress Hidden reveal.
+      -- Never despawn an aggressive chase.
       if entity and entity.behaviorState and entity.behaviorState.chasing then
-        -- keep
-      elseif entity and entity.hiddenIdle and entity.hiddenIdle.revealStarted then
         -- keep
       else
         local d = Grass.chebyshev(record.x, record.y, player.cellX, player.cellY)
@@ -2156,33 +1778,9 @@ function SpawnLogic:onStepped(ev)
   end
 
   local id, record, entity = self:_spawnAt(ev.x, ev.y)
-  local hiddenOnCell = record and (record.behavior == Behavior.HIDDEN_IDLE
-    or (entity and HiddenIdle.isEntity(entity)))
-  local classicChecked = Config.classicGrassEnabled(self.mod)
-  local classicSuppressed = false
-  if hiddenOnCell then
-    classicSuppressed = true
-  elseif not Config.classicGrassEnabled(self.mod) then
-    classicSuppressed = true
-  end
-
-  if Config.devMode(self.mod) then
-    self:_log("Step cell: %s,%s", tostring(ev.x), tostring(ev.y))
-    self:_log("Hidden entity on cell: %s", tostring(hiddenOnCell == true))
-    self:_log("Classic encounter checked: %s", tostring(classicChecked))
-    self:_log("Classic encounter suppressed: %s", tostring(classicSuppressed))
-  end
 
   if record then
     entity = entity or self.entities[id]
-    if hiddenOnCell then
-      if Config.devMode(self.mod) then
-        self:_log("Hidden reveal triggered: YES")
-        self:_log("Battle source: HIDDEN_IDLE")
-      end
-      self:_beginHiddenReveal(entity, record)
-      return
-    end
     -- Block battle during spawn FX.
     if entity and not SpawnFx.canBattle(entity) then
       return
@@ -2227,7 +1825,6 @@ function SpawnLogic:onStepped(ev)
             active = active + 1
           end
         end
-        self:_refillHidden(game, 2)
       end
       if Config.waterMons(self.mod) and (self.targetWaterCount or 0) > 0 then
         local wguard = 0
@@ -2272,10 +1869,8 @@ function SpawnLogic:onCollision(allowed, ctx)
   local id, record, entity = self:_spawnAt(ctx.toX, ctx.toY)
   if record then
     entity = entity or self.entities[id]
-    if record.behavior == Behavior.HIDDEN_IDLE
-       or (entity and HiddenIdle.isEntity(entity)) then
-      -- Passable hidden cells: collision should not block; step handler reveals.
-      return true
+    if entity and not SpawnFx.canBattle(entity) then
+      return allowed
     end
     self:_startBattle(record)
     return false

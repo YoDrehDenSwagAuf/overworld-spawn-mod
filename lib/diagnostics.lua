@@ -335,12 +335,6 @@ function Diagnostics.entityDetail(logic, entity, record)
     lines[#lines + 1] = ("Grass effect: %s"):format(
       entity.grassEffectActive and "ACTIVE" or "IDLE")
   end
-  local HiddenIdle = V.require("hidden_idle")
-  if HiddenIdle.isEntity(entity) then
-    for _, line in ipairs(HiddenIdle.statusLines(entity)) do
-      lines[#lines + 1] = line
-    end
-  end
   return lines
 end
 
@@ -438,25 +432,12 @@ function Diagnostics.hudLines(logic)
   end
 
   do
-    local HiddenIdle = V.require("hidden_idle")
-    local SpawnFx = V.require("spawn_fx")
-    local hi = HiddenIdle.hudSummary(logic)
-    local modeLabel = (Config.GRASS_ENC_CONFIRM and Config.GRASS_ENC_CONFIRM[hi.mode])
-                      or tostring(hi.mode or "?"):upper()
-    lines[#lines + 1] = ("Grass Enc: %s"):format(modeLabel)
-    lines[#lines + 1] = ("Classic Grass: %s"):format(hi.classicOn and "ON" or "OFF")
-    lines[#lines + 1] = ("Hidden Target: %d"):format(hi.target or 0)
-    lines[#lines + 1] = ("Hidden Loaded: %d"):format(hi.loaded or 0)
-    lines[#lines + 1] = ("Hidden Revealed: %d"):format(hi.revealed or 0)
-    lines[#lines + 1] = ("Reserved Cells: %d"):format(hi.reserved or 0)
-    if logic.spawnFx then
-      for _, line in ipairs(logic.spawnFx:statusLines()) do
-        lines[#lines + 1] = line
-      end
-    else
-      lines[#lines + 1] = "Rustle FX: NONE"
-      lines[#lines + 1] = "Reveal FX: READY"
-    end
+    local randomOn = Config.randomEncountersEnabled(logic.mod)
+    local onOff = randomOn and "ON" or "OFF"
+    lines[#lines + 1] = ("Random Enc: %s"):format(onOff)
+    lines[#lines + 1] = ("Classic Grass: %s"):format(onOff)
+    lines[#lines + 1] = ("Classic Cave: %s"):format(onOff)
+    lines[#lines + 1] = ("Classic Water: %s"):format(onOff)
     lines[#lines + 1] = ("Water Mons: %s"):format(
       Config.waterMons(logic.mod) and "ON" or "OFF")
     lines[#lines + 1] = ("Water Cells: %d"):format(#(logic.waterCache or {}))
@@ -466,19 +447,6 @@ function Diagnostics.hudLines(logic)
       waterLoaded = logic:countWaterOnMap(logic.activeMapId)
     end
     lines[#lines + 1] = ("Water Loaded: %d"):format(waterLoaded)
-    local encReady = "NONE"
-    do
-      local world = logic.mod.world
-      local game = world and world.game
-      local mapId = logic.activeMapId or (logic.state and logic.state.mapId)
-      if mapId and game and game.data and game.data.encounters then
-        local EncounterPick = V.require("encounter_pick")
-        if EncounterPick.kindTable(game.data.encounters[mapId], "water") then
-          encReady = "READY"
-        end
-      end
-    end
-    lines[#lines + 1] = ("Water Encounter Table: %s"):format(encReady)
   end
 
   -- Detail the nearest entity when developer overlays are on.

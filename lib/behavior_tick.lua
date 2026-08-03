@@ -2,17 +2,12 @@
 -- Gen1Recomp has no world.tick mod event; NPC:update only runs for ow.npcs.
 -- A present pipeline runs every drawn frame and is an established public path
 -- (same mechanism as the debug HUD).
---
--- Hidden Idle rustle uses SpawnFx tile-capture blit (real grass art) in the
--- present pipeline with correct letterbox scale — not raw drawCellBottom in
--- window space (that was invisible).
 local V = ...
 local Config = V.require("config")
 local Behavior = V.require("behavior")
 local Movement = V.require("movement")
 local VoxelAdapter = V.require("voxel_adapter")
 local DebugLog = V.require("debug_log")
-local HiddenIdle = V.require("hidden_idle")
 local SpawnFx = V.require("spawn_fx")
 
 local BehaviorTick = {}
@@ -133,51 +128,17 @@ function BehaviorTick:step(ctx)
         map = ow.map,
         spawnFx = logic.spawnFx,
       })
-      if fxEvent == "reveal_visible" or fxEvent == "spawn_visible" then
-        if HiddenIdle.isEntity(entity) then
-          logic:_onHiddenRevealVisible(entity, record)
-        else
-          entity.hiddenBody = false
-          entity.visibleSprite = true
-          -- Attach now that the body may be posed safely.
-          pcall(function() logic:_attach(entity) end)
-        end
-      elseif fxEvent == "reveal_battle" then
-        logic:_onHiddenRevealBattle(entity, record)
+      if fxEvent == "spawn_visible" then
+        entity.hiddenBody = false
+        entity.visibleSprite = true
+        pcall(function() logic:_attach(entity) end)
       elseif fxEvent == "spawn_done" then
         entity.canTriggerBattle = true
         entity.hiddenBody = false
         pcall(function() logic:_attach(entity) end)
       end
 
-      -- Hidden Idle periodic rustle (when not revealing).
-      if HiddenIdle.isEntity(entity)
-         and entity.hiddenIdle
-         and entity.hiddenIdle.active
-         and not entity.hiddenIdle.revealStarted
-         and not entity.hiddenIdle.revealed then
-        local hi = entity.hiddenIdle
-        hi.rustleElapsed = (hi.rustleElapsed or hi.rustleTimer or 0) + dt
-        local nextR = hi.nextRustle or 2.5
-        if hi.rustleElapsed >= nextR then
-          hi.rustleElapsed = 0
-          hi.rustleTimer = 0
-          hi.nextRustle = HiddenIdle.randomRustleDelay()
-          entity.grassEffectActive = true
-          entity.grassEffectUntil = now() + 0.35
-          if logic.spawnFx then
-            logic.spawnFx:grassRustle(ow.map, entity.cellX, entity.cellY, "small")
-          end
-          if bx then
-            bx.shakePhase = (bx.shakePhase or 0) + 1
-          end
-        end
-        if entity.grassEffectUntil and now() > entity.grassEffectUntil then
-          entity.grassEffectActive = false
-        end
-      elseif HiddenIdle.isEntity(entity) then
-        -- Reveal timeline owned by SpawnFx.updateEntity above.
-      elseif not SpawnFx.canAct(entity) then
+      if not SpawnFx.canAct(entity) then
         -- Spawn pop in progress: no AI.
       elseif holdAi and not chasing then
         -- freeze
@@ -215,15 +176,10 @@ function BehaviorTick:step(ctx)
 
       if entity.cellX and entity.cellY then
         record.x, record.y = entity.cellX, entity.cellY
-        if entity.hiddenIdle then
-          entity.hiddenIdle.cellX = entity.cellX
-          entity.hiddenIdle.cellY = entity.cellY
-        end
       end
 
       if entity.registeredInWorld and entity.sprite == nil
-         and not entity.hiddenEncounter
-         and not HiddenIdle.isEntity(entity) then
+         and not entity.hiddenEncounter then
         self.voxel:markFallback(entity, "sprite became nil")
         logic:_detachFromWorld(entity)
         entity.render2DFallback = true

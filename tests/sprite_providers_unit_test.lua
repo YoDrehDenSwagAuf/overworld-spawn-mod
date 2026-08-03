@@ -462,14 +462,14 @@ V.mod.hooks = {
     local order = {}
     for _, it in ipairs(out) do
       if it.label == "SPRITE STYLE" or it.label == "SPAWN AMOUNT"
-         or it.label == "GRASS ENC" or it.label == "WATER MONS" then
+         or it.label == "RANDOM ENC" or it.label == "WATER MONS" then
         order[#order + 1] = it.label
       end
     end
     eq(#order, 4, "start menu inserts four Wilds entries")
     eq(order[1], "SPRITE STYLE", "menu order 1 SPRITE STYLE")
     eq(order[2], "SPAWN AMOUNT", "menu order 2 SPAWN AMOUNT")
-    eq(order[3], "GRASS ENC", "menu order 3 GRASS ENC")
+    eq(order[3], "RANDOM ENC", "menu order 3 RANDOM ENC")
     eq(order[4], "WATER MONS", "menu order 4 WATER MONS")
   end,
 }

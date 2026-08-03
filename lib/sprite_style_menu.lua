@@ -4,7 +4,7 @@
 -- browser). Order:
 --   1. SPRITE STYLE
 --   2. SPAWN AMOUNT
---   3. GRASS ENC
+--   3. RANDOM ENC
 --   4. WATER MONS
 --
 -- All four write the shared option keys through Config setters — the same
@@ -18,16 +18,18 @@ SpriteStyleMenu.__index = SpriteStyleMenu
 
 SpriteStyleMenu.SCREEN_STYLE = "overworld_wild_spawns:sprite_style"
 SpriteStyleMenu.SCREEN_SPAWN = "overworld_wild_spawns:spawn_amount"
-SpriteStyleMenu.SCREEN_GRASS = "overworld_wild_spawns:grass_enc"
+SpriteStyleMenu.SCREEN_RANDOM = "overworld_wild_spawns:random_enc"
 SpriteStyleMenu.SCREEN_WATER = "overworld_wild_spawns:water_mons"
--- Back-compat alias used by older tests / docs.
+-- Back-compat aliases.
 SpriteStyleMenu.SCREEN = SpriteStyleMenu.SCREEN_STYLE
+SpriteStyleMenu.SCREEN_GRASS = SpriteStyleMenu.SCREEN_RANDOM
 
 SpriteStyleMenu.LABEL_STYLE = "SPRITE STYLE" -- 12
 SpriteStyleMenu.LABEL_SPAWN = "SPAWN AMOUNT" -- 12
-SpriteStyleMenu.LABEL_GRASS = "GRASS ENC"    -- 9
+SpriteStyleMenu.LABEL_RANDOM = "RANDOM ENC"  -- 10
 SpriteStyleMenu.LABEL_WATER = "WATER MONS"   -- 10
 SpriteStyleMenu.MENU_LABEL = SpriteStyleMenu.LABEL_STYLE
+SpriteStyleMenu.LABEL_GRASS = SpriteStyleMenu.LABEL_RANDOM -- legacy alias
 
 -- Visible choice labels (all <= 14). Internal values match options / defaults.
 SpriteStyleMenu.STYLE_CHOICES = {
@@ -46,10 +48,9 @@ SpriteStyleMenu.SPAWN_CHOICES = {
   { label = "VERY HIGH", value = "very_high" },
 }
 
-SpriteStyleMenu.GRASS_CHOICES = {
-  { label = "CLASSIC", value = "classic" },
-  { label = "HIDDEN", value = "hidden" },
-  { label = "BOTH", value = "both" },
+SpriteStyleMenu.RANDOM_CHOICES = {
+  { label = "ON", value = true },
+  { label = "OFF", value = false },
 }
 
 SpriteStyleMenu.WATER_CHOICES = {
@@ -153,14 +154,14 @@ function SpriteStyleMenu:_applySpawn(game, value)
   return ok
 end
 
-function SpriteStyleMenu:_applyGrass(game, value)
-  local ok, err = Config.setGrassEncounters(self.mod, value, "start_menu", {
+function SpriteStyleMenu:_applyRandom(game, value)
+  local ok, err = Config.setRandomEncounters(self.mod, value, "start_menu", {
     game = game,
     logic = self.logic,
     confirm = true,
   })
   if not ok then
-    DebugLog.warn(self.mod, "grass enc menu apply failed: %s", tostring(err))
+    DebugLog.warn(self.mod, "random enc menu apply failed: %s", tostring(err))
   end
   return ok
 end
@@ -232,11 +233,11 @@ function SpriteStyleMenu:_openSpawnMenu(game)
   })
 end
 
-function SpriteStyleMenu:_openGrassMenu(game)
+function SpriteStyleMenu:_openRandomMenu(game)
   local mod = self.mod
-  local current = Config.grassEncounters(mod)
+  local current = Config.randomEncountersEnabled(mod)
   local items = {}
-  for _, choice in ipairs(SpriteStyleMenu.GRASS_CHOICES) do
+  for _, choice in ipairs(SpriteStyleMenu.RANDOM_CHOICES) do
     items[#items + 1] = {
       label = markCurrent(choice.label, choice.value == current),
       value = choice.value,
@@ -244,10 +245,10 @@ function SpriteStyleMenu:_openGrassMenu(game)
   end
   items[#items + 1] = { label = "CANCEL", value = nil }
 
-  return mod.ui.ListMenu.new(game, SpriteStyleMenu.LABEL_GRASS, items, {
+  return mod.ui.ListMenu.new(game, SpriteStyleMenu.LABEL_RANDOM, items, {
     onChoose = function(item, menu)
-      if item and item.value then
-        self:_applyGrass(game, item.value)
+      if item and item.value ~= nil then
+        self:_applyRandom(game, item.value)
       end
       if menu and menu.close then menu:close() end
     end,
@@ -308,8 +309,8 @@ function SpriteStyleMenu:register()
     mod.content.screens:register(SpriteStyleMenu.SCREEN_SPAWN, {
       new = function(game) return menu:_openSpawnMenu(game) end,
     })
-    mod.content.screens:register(SpriteStyleMenu.SCREEN_GRASS, {
-      new = function(game) return menu:_openGrassMenu(game) end,
+    mod.content.screens:register(SpriteStyleMenu.SCREEN_RANDOM, {
+      new = function(game) return menu:_openRandomMenu(game) end,
     })
     mod.content.screens:register(SpriteStyleMenu.SCREEN_WATER, {
       new = function(game) return menu:_openWaterMenu(game) end,
@@ -336,13 +337,13 @@ function SpriteStyleMenu:register()
       end
     end
 
-    -- Insert in order before SAVE: STYLE, SPAWN, GRASS, WATER.
+    -- Insert in order before SAVE: STYLE, SPAWN, RANDOM, WATER.
     ensure(SpriteStyleMenu.LABEL_STYLE, SpriteStyleMenu.SCREEN_STYLE,
            SpriteStyleMenu._openStyleMenu)
     ensure(SpriteStyleMenu.LABEL_SPAWN, SpriteStyleMenu.SCREEN_SPAWN,
            SpriteStyleMenu._openSpawnMenu)
-    ensure(SpriteStyleMenu.LABEL_GRASS, SpriteStyleMenu.SCREEN_GRASS,
-           SpriteStyleMenu._openGrassMenu)
+    ensure(SpriteStyleMenu.LABEL_RANDOM, SpriteStyleMenu.SCREEN_RANDOM,
+           SpriteStyleMenu._openRandomMenu)
     ensure(SpriteStyleMenu.LABEL_WATER, SpriteStyleMenu.SCREEN_WATER,
            SpriteStyleMenu._openWaterMenu)
     return out
@@ -350,7 +351,7 @@ function SpriteStyleMenu:register()
 
   self._registered = true
   if Config.debug(mod) then
-    DebugLog.info(mod, "start-menu STYLE / SPAWN / GRASS / WATER registered")
+    DebugLog.info(mod, "start-menu STYLE / SPAWN / RANDOM / WATER registered")
   end
 end
 

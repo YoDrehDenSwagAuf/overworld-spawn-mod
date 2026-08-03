@@ -1,6 +1,8 @@
-# Wilds of Kanto — User Guide (1.1.0)
+# Wilds of Kanto — User Guide (1.2.0)
 
-Visible wild Pokemon appear in the overworld. Walk into one (or into a shaking grass patch) to start that exact wild battle. Grass Enc (default Hidden) controls classic step RNG versus Hidden Idle lurkers.
+Visible wild Pokemon appear in the overworld. Walk into one to start that exact
+wild battle. **Random Enc** (default ON) controls classic step-based random
+encounters independently of visible overworld Pokémon.
 
 This mod never changes your player spawn point and never requires the Pokédex.
 Technical mod id: `overworld_wild_spawns` (stable for options/saves).
@@ -8,7 +10,7 @@ Technical mod id: `overworld_wild_spawns` (stable for options/saves).
 ## 1. What the mod does
 
 - Spawns tangible wild Pokemon (or hidden grass/cave markers) from each map’s real encounter table
-- Four behaviours: Idle Look, Grass Wander, Aggressive, Hidden (+ Hidden Idle grass lurkers)
+- Behaviours: Idle Look, Grass Wander, Aggressive, Hidden markers, Water Idle/Wander
 - Density scales with encounter-area size so long routes feel fuller than tiny patches
 - Pokemon in tall grass use the same engine feet-overdraw as the player and NPCs
 - Sprites scale for readability but never exceed one map tile (16×16); transparent
@@ -16,7 +18,7 @@ Technical mod id: `overworld_wild_spawns` (stable for options/saves).
 
 ## 2. Installation
 
-1. Build or download `wilds-of-kanto-v1.1.0.zip`
+1. Build or download `wilds-of-kanto-v1.2.0.zip`
 2. In Gen1Recomp open **Mod Manager (F10)** → Import the ZIP
 3. Enable **Wilds of Kanto**
 
@@ -118,9 +120,8 @@ Visible labels are limited to 14 characters.
 | Label | Key | Default | Values | Effect |
 |---|---|---|---|---|
 | Show Wild Mons | `enabled` | true | on/off | Master switch |
-| Hide Grass RNG | `suppress_random_grass` | true | on/off | Legacy; Grass Enc Hidden owns classic suppress |
 | Sprite Style | `sprite_style` | auto | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | Overworld sprite source |
-| Grass Enc | `grass_encounters` | hidden | Classic / Hidden / Both | Grass encounter style |
+| Random Enc | `random_encounters` | true | on/off | Classic step RNG (grass / cave / water) |
 | Water Mons | `water_spawns` | true | on/off | Visible water Pokémon from water encounter tables |
 | Grass View | `pokemon_grass_render_mode` | immersed | Above / Immersed | Tall-grass presentation |
 | Idle Mons | `enable_idle` | true | on/off | Allow Idle Look |
@@ -130,7 +131,7 @@ Visible labels are limited to 14 characters.
 | Dev Mode | `dev_mode` | false | on/off | HUD + preview browser |
 
 Start Menu only (same saved keys): **SPRITE STYLE**, **SPAWN AMOUNT**
-(`spawn_density`), **GRASS ENC**, **WATER MONS**. Spawn Amount is not in Mod
+(`spawn_density`), **RANDOM ENC**, **WATER MONS**. Spawn Amount is not in Mod
 Settings.
 
 ### Developer rows

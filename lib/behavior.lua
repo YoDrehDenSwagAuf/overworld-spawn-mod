@@ -13,7 +13,6 @@ Behavior.GRASS_WANDER = "GRASS_WANDER"
 Behavior.AGGRESSIVE = "AGGRESSIVE"
 Behavior.HIDDEN_GRASS = "HIDDEN_GRASS"
 Behavior.HIDDEN_CAVE = "HIDDEN_CAVE"
-Behavior.HIDDEN_IDLE = "HIDDEN_IDLE"
 Behavior.WATER_IDLE = "WATER_IDLE"
 Behavior.WATER_WANDER = "WATER_WANDER"
 
@@ -43,7 +42,6 @@ local DEFAULT_WEIGHTS = {
   [Behavior.HIDDEN_CAVE] = 20,
   [Behavior.WATER_IDLE] = 45,
   [Behavior.WATER_WANDER] = 55,
-  [Behavior.HIDDEN_IDLE] = 0, -- never via Behavior.pick; dedicated spawn track
 }
 
 local SPECIES_AFFINITY = {
@@ -109,8 +107,6 @@ function Behavior.weightsFor(species, surface, opts)
     weights[Behavior.WATER_WANDER] = 0
   end
 
-  weights[Behavior.HIDDEN_IDLE] = 0
-
   if opts.enable_idle == false then weights[Behavior.IDLE_LOOK] = 0 end
   if opts.enable_wander == false then weights[Behavior.GRASS_WANDER] = 0 end
   if opts.enable_aggressive == false then weights[Behavior.AGGRESSIVE] = 0 end
@@ -169,11 +165,6 @@ end
 function Behavior.isHidden(behavior)
   return behavior == Behavior.HIDDEN_GRASS
       or behavior == Behavior.HIDDEN_CAVE
-      or behavior == Behavior.HIDDEN_IDLE
-end
-
-function Behavior.isHiddenIdle(behavior)
-  return behavior == Behavior.HIDDEN_IDLE
 end
 
 function Behavior.initState(behavior, rng)
@@ -540,10 +531,6 @@ function Behavior.tick(entity, ctx)
 
   if Behavior.isHidden(bx.behavior) then
     bx.state = Behavior.STATE.HIDDEN
-    -- HIDDEN_IDLE rustle / reveal is owned by HiddenIdle.tick (behavior_tick).
-    if bx.behavior == Behavior.HIDDEN_IDLE then
-      return nil
-    end
     if t >= (bx.shakeNextAt or 0) then
       bx.shakePhase = (bx.shakePhase or 0) + 1
       bx.shakeNextAt = t + (2.5 + rng() * 3.5)
@@ -628,21 +615,11 @@ function Behavior.attach(entity, behavior, region, rng)
   entity.facing = entity.behaviorState.facing
   entity.visibleSprite = not Behavior.isHidden(behavior)
   entity.grassEffectActive = false
-  entity.canTriggerBattle = not Behavior.isHiddenIdle(behavior)
+  entity.canTriggerBattle = not Behavior.isHidden(behavior)
   entity.hiddenBody = false
   if Behavior.isHidden(behavior) then
     entity.passable = true
     entity.hiddenEncounter = true
-  end
-  if Behavior.isHiddenIdle(behavior) then
-    local HiddenIdle = V.require("hidden_idle")
-    entity.hiddenIdle = HiddenIdle.newState(rng)
-    entity.hiddenIdle.cellX = entity.cellX
-    entity.hiddenIdle.cellY = entity.cellY
-    entity.visibleSprite = false
-    entity.hiddenBody = true
-    entity.canTriggerBattle = false
-    entity.moving = false
   end
   if Behavior.isWater(behavior) then
     entity.surface = Surface.WATER
