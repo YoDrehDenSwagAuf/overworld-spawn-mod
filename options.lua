@@ -28,11 +28,17 @@ return {
     description = "Suppress vanilla random grass encounters only after visible spawns are ready.",
   },
   {
-    key = "use_animated_overworld_sprites",
-    label = "Mon Sprites",
-    type = "toggle",
-    default = true,
-    description = "Use directional idle and walking follow-sprites when available. Disable for legacy Pokedex images.",
+    key = "sprite_style",
+    label = "Sprite Style",
+    type = "choice",
+    default = "auto",
+    choices = {
+      { "Auto", "auto" },
+      { "Followers EX", "followers_ex" },
+      { "PokeMMO", "pokemmo" },
+      { "Pokedex", "pokedex" },
+    },
+    description = "Overworld Pokemon sprite source. Auto prefers Followers EX when its sprite provider is available, otherwise Wilds PokeMMO-style sheets, then Pokedex images.",
   },
   {
     key = "spawn_density",

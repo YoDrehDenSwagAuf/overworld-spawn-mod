@@ -28,6 +28,7 @@ local RuntimeSheets = V.require("runtime_sheets")
 local GrassOcclusion = V.require("grass_occlusion")
 local EnhancedWorldSprite = V.require("enhanced_world_sprite") -- deprecated body path
 local RenderDiagnostics = V.require("render_diagnostics")
+local SpriteProviders = V.require("sprite_providers")
 
 local SpawnRender = {}
 SpawnRender.__index = SpawnRender
@@ -248,6 +249,9 @@ function SpawnRender.new(mod)
   self.debugMarkers = false
   self.animated = AnimatedSprites.new(mod)
   self.runtimeSheets = RuntimeSheets.new(mod)
+  self.spriteProviders = SpriteProviders.new(mod, self)
+  self._providerMakeWrapped = false
+  self._pendingSpriteRefresh = false
   return self
 end
 
@@ -1111,8 +1115,8 @@ function Entity.new(game, mod, render, record)
           .. tostring(spriteId), 0)
   end
 
-  -- Prefer native follow-sprite runtime sheet (16×96, frames=6, walker).
-  -- Always resolve through mod.assets:path — never register a bare relative path.
+  -- Prefer sprite providers (Followers EX / PokeMMO / Pokedex). Same native
+  -- SpriteRenderer contract for every style — only the image source changes.
   local dexId = nil
   if record.dex ~= nil then
     dexId = tonumber(record.dex)
@@ -1121,51 +1125,8 @@ function Entity.new(game, mod, render, record)
     dexId = AnimatedSprites.resolveSpeciesId(record.species, game, mod)
   end
   local variant = AnimatedSprites.resolveRuntimeVariant(self)
-  local nativeLoadPath, usedVariant, nativeRel = nil, nil, nil
-  if dexId and render.runtimeSheets then
-    if not render.runtimeSheets.ready and render.runtimeSheets.load then
-      pcall(function() render.runtimeSheets:load() end)
-    end
-    nativeLoadPath, usedVariant, nativeRel =
-      render.runtimeSheets:resolveAssetPath(dexId, variant)
-    if nativeRel then
-      local viaAssets = render:_modAssetPath(nativeRel)
-      if viaAssets then
-        nativeLoadPath = viaAssets
-      end
-    end
-  end
-
-  local drawPath = spriteDef.image
-  local drawFrames = spriteDef.frames or 1
-  local drawWalker = spriteDef.walker == true
-  local nativeSheet = false
-
-  if nativeLoadPath and not isOsAbsolutePath(nativeLoadPath) then
-    drawPath = nativeLoadPath
-    drawFrames = RuntimeSheets.FRAMES
-    drawWalker = true
-    nativeSheet = true
-    self.usingFallback = false
-    self.spriteVariant = usedVariant or variant
-    self.runtimeRelativePath = nativeRel
-    self.runtimeLoadPath = nativeLoadPath
-  elseif resolved and resolved.path and not isOsAbsolutePath(resolved.path) then
-    drawPath = resolved.path
-  elseif runtime and runtime.bakedPath and not isOsAbsolutePath(runtime.bakedPath) then
-    drawPath = runtime.bakedPath
-  end
-  if isOsAbsolutePath(drawPath) then
-    drawPath = (render.fallbackPath or render:_fallbackPath())
-    self.usingFallback = true
-    self.entityPhase = "ASSET_LOAD_ERROR"
-    nativeSheet = false
-    drawFrames = 1
-    drawWalker = false
-    DebugLog.error(mod,
-      "refusing OS absolute sprite path for %s; using fallback",
-      tostring(record.species))
-  end
+  self.enhancedDexId = dexId
+  self.spriteVariant = variant
 
   local function buildDef(id, path, frames, walker)
     local def = {
@@ -1178,7 +1139,93 @@ function Entity.new(game, mod, render, record)
     return def
   end
 
-  local drawDef = buildDef(spriteId, drawPath, drawFrames, drawWalker)
+  local style = Config.spriteStyle(mod)
+  local resolvedProvider = nil
+  if render.spriteProviders then
+    resolvedProvider = render.spriteProviders:resolve(
+      style, record.species or dexId, variant, game)
+  end
+
+  local drawDef = nil
+  local nativeSheet = false
+  local drawPath = spriteDef.image
+
+  if resolvedProvider and resolvedProvider.def
+     and type(resolvedProvider.def.image) == "string"
+     and not isOsAbsolutePath(resolvedProvider.def.image) then
+    drawDef = {
+      image = resolvedProvider.def.image,
+      frames = resolvedProvider.def.frames or 1,
+      trueColor = resolvedProvider.def.trueColor ~= false,
+      id = resolvedProvider.def.id or spriteId,
+    }
+    if resolvedProvider.def.walker then
+      drawDef.walker = true
+    end
+    if resolvedProvider.def.pokepcShiny then
+      drawDef.pokepcShiny = true
+    end
+    drawPath = drawDef.image
+    nativeSheet = (drawDef.walker == true and (drawDef.frames or 1) >= 6)
+    self.usingFallback = (resolvedProvider.providerId == "black")
+    self.spriteVariant = (resolvedProvider.meta and resolvedProvider.meta.usedVariant)
+      or variant
+    self.spriteProviderId = resolvedProvider.providerId
+    self.spriteFallbackStep = resolvedProvider.fallbackStep
+    self.spriteProviderMeta = resolvedProvider.meta
+    self.requestedSpriteStyle = style
+    if resolvedProvider.meta then
+      self.runtimeLoadPath = resolvedProvider.meta.loadPath
+      self.runtimeRelativePath = resolvedProvider.meta.relativePath
+    end
+  else
+    -- Legacy path if providers unavailable (should not happen).
+    local nativeLoadPath, usedVariant, nativeRel = nil, nil, nil
+    if dexId and render.runtimeSheets and Config.useAnimatedOverworldSprites(mod) then
+      if not render.runtimeSheets.ready and render.runtimeSheets.load then
+        pcall(function() render.runtimeSheets:load() end)
+      end
+      nativeLoadPath, usedVariant, nativeRel =
+        render.runtimeSheets:resolveAssetPath(dexId, variant)
+      if nativeRel then
+        local viaAssets = render:_modAssetPath(nativeRel)
+        if viaAssets then nativeLoadPath = viaAssets end
+      end
+    end
+    local drawFrames = spriteDef.frames or 1
+    local drawWalker = spriteDef.walker == true
+    drawPath = spriteDef.image
+    if nativeLoadPath and not isOsAbsolutePath(nativeLoadPath) then
+      drawPath = nativeLoadPath
+      drawFrames = RuntimeSheets.FRAMES
+      drawWalker = true
+      nativeSheet = true
+      self.usingFallback = false
+      self.spriteVariant = usedVariant or variant
+      self.runtimeRelativePath = nativeRel
+      self.runtimeLoadPath = nativeLoadPath
+      self.spriteProviderId = "pokemmo"
+    elseif resolved and resolved.path and not isOsAbsolutePath(resolved.path) then
+      drawPath = resolved.path
+      self.spriteProviderId = "pokedex"
+    elseif runtime and runtime.bakedPath and not isOsAbsolutePath(runtime.bakedPath) then
+      drawPath = runtime.bakedPath
+      self.spriteProviderId = "pokedex"
+    end
+    drawDef = buildDef(spriteId, drawPath, drawFrames, drawWalker)
+  end
+
+  if isOsAbsolutePath(drawPath) then
+    drawPath = (render.fallbackPath or render:_fallbackPath())
+    self.usingFallback = true
+    self.entityPhase = "ASSET_LOAD_ERROR"
+    nativeSheet = false
+    drawDef = buildDef(spriteId, drawPath, 1, false)
+    self.spriteProviderId = "black"
+    DebugLog.error(mod,
+      "refusing OS absolute sprite path for %s; using fallback",
+      tostring(record.species))
+  end
 
   local SpriteRenderer, err = tryRequire("src.render.SpriteRenderer")
   if not SpriteRenderer then
@@ -1205,10 +1252,11 @@ function Entity.new(game, mod, render, record)
     self.spriteId = fbId
     self.usingFallback = true
     self.nativeSpriteRenderer = false
+    self.spriteProviderId = "black"
     self.entityPhase = "FALLBACK_LOADED"
   else
     self.sprite = spriteOrErr
-    self.spriteId = spriteId
+    self.spriteId = drawDef.id or spriteId
     self.nativeSpriteRenderer = nativeSheet
     if self.usingFallback then
       self.entityPhase = "FALLBACK_LOADED"
@@ -1229,6 +1277,7 @@ function Entity.new(game, mod, render, record)
   self.worldSpriteAdapterStatus = self.nativeSpriteRenderer and "NATIVE" or "N/A"
   self.grassRenderer = "ENGINE_2D"
   self.enhancedDexId = dexId
+  self.usingFollowerSprite = (self.spriteProviderId == "followers_ex")
 
   if self.sprite and self.sprite.image and self.sprite.image.setFilter then
     self.sprite.image:setFilter("nearest", "nearest")
@@ -1762,132 +1811,131 @@ function SpawnRender:enhancedStatusFor(speciesKey, game)
   }
 end
 
-function SpawnRender:attachEnhancedToEntity(entity, game)
-  if not entity or entity.hiddenEncounter or not entity.visibleSprite then
+
+-- Replace entity.sprite exactly once from the selected provider. Preserves
+-- facing / phase / flip / position / behaviour. No registry mutation.
+function SpawnRender:applyProviderSprite(entity, game)
+  if not entity or entity.hiddenEncounter or entity.visibleSprite == false then
     return false
   end
-  entity.animation = entity.animation or nil
-  entity.usingEnhancedSprite = false
-  entity.enhancedDexId = entity.enhancedDexId
-  entity.spriteSource = entity.usingFallback and "BLACK_FALLBACK" or "LEGACY_PNG"
-  entity.worldBillboardReady = entity.nativeSpriteRenderer == true
-  entity.worldSpriteAdapterStatus = entity.nativeSpriteRenderer and "NATIVE" or "N/A"
-  entity.renderDirty = entity.renderDirty or {
-    frame = false, direction = false, position = false,
-    visibility = false, grassState = false,
-  }
+  if not self.spriteProviders then
+    return false
+  end
 
-  -- Primary path: already-bound native runtime sheet SpriteRenderer.
-  if entity.nativeSpriteRenderer and entity.sprite and entity.sprite.def
-     and entity.sprite.def.walker then
-    entity.usingEnhancedSprite = true
-    entity.spriteSource = "FOLLOW_SPRITES"
-    entity.spriteSource2D = "FOLLOW_SPRITES"
-    entity.voxelSource = "FOLLOW_SPRITES"
-    entity.pokemonRenderer = SpawnRender.RENDERER.NATIVE_SPRITE_RENDERER
-    if not entity.animation then
-      entity.animation = self.animated:newAnimationState(entity.facing or "down")
-    end
-    entity.animation.usingEnhancedSprite = true
-    entity.animation.source = "FOLLOW_SPRITES"
-    entity.animation.variant = entity.spriteVariant or "normal"
-    entity.animation.renderRevision = entity.animation.renderRevision or 0
-    self:bindWorldBillboard(entity, true)
+  local style = Config.spriteStyle(self.mod)
+  local variant = AnimatedSprites.resolveRuntimeVariant(entity)
+  local species = entity.species or entity.enhancedDexId
+  local result = self.spriteProviders:resolve(style, species, variant, game)
+  if not (result and result.def and type(result.def.image) == "string") then
+    return false
+  end
+  if isOsAbsolutePath(result.def.image) then
+    return false
+  end
+
+  -- Skip rebuild when the same provider image is already bound.
+  local cur = entity.sprite and entity.sprite.def
+  if cur and cur.image == result.def.image
+     and (cur.frames or 1) == (result.def.frames or 1)
+     and (cur.walker == true) == (result.def.walker == true)
+     and entity.spriteProviderId == result.providerId then
+    entity.requestedSpriteStyle = style
+    entity.spriteFallbackStep = result.fallbackStep
+    entity.spriteProviderMeta = result.meta
     return true
   end
 
-  if not self:animatedEnabled() then
-    if entity.legacySprite then
-      entity.sprite = entity.legacySprite
-    end
-    entity.worldSprite = nil
-    entity.nativeSpriteRenderer = false
+  local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
+  if not SpriteRenderer then
     return false
   end
 
-  local enh = self:enhancedStatusFor(entity.species, game)
-  entity.enhancedDexId = enh.dexId or entity.enhancedDexId
-  entity.enhancedStatus = enh.status
-  if not enh.available then
-    if enh.dexId then
-      self.animated:logFallbackOnce(enh.dexId, "using legacy PNG")
-    end
-    if entity.legacySprite then
-      entity.sprite = entity.legacySprite
-    end
-    entity.worldSprite = nil
-    self:bindWorldBillboard(entity, true)
+  local def = {
+    image = result.def.image,
+    frames = result.def.frames or 1,
+    trueColor = result.def.trueColor ~= false,
+    id = result.def.id or ("SPRITE_OW_WILD_" .. tostring(species)),
+  }
+  if result.def.walker then def.walker = true end
+  if result.def.pokepcShiny then def.pokepcShiny = true end
+
+  local ok, sprite = pcall(SpriteRenderer.new, def, entity.spawnId or entity.id)
+  if not ok or not sprite then
     return false
   end
 
-  -- Try to upgrade a legacy entity to a native runtime sheet now.
-  local variant = AnimatedSprites.resolveRuntimeVariant(entity)
-  if variant == "shiny" and not self.animated:hasVariant(enh.dexId, "shiny") then
-    variant = "normal"
-  end
-  entity.spriteVariant = variant
-  local path, usedVar, rel = nil, nil, nil
-  if self.runtimeSheets then
-    path, usedVar, rel = self.runtimeSheets:resolveAssetPath(enh.dexId, variant)
-    if rel then
-      local viaAssets = self:_modAssetPath(rel)
-      if viaAssets then path = viaAssets end
-    end
-  end
-  if path then
-    local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
-    if SpriteRenderer then
-      local def = {
-        image = path,
-        frames = RuntimeSheets.FRAMES,
-        walker = true,
-        trueColor = true,
-        id = "SPRITE_OW_WILD_RT_" .. tostring(enh.dexId),
-      }
-      local okS, spr = pcall(SpriteRenderer.new, def, entity.spawnId or entity.id)
-      if okS and spr then
-        entity.sprite = spr
-        entity.legacySprite = spr
-        entity.nativeSpriteRenderer = true
-        entity.usingEnhancedSprite = true
-        entity.spriteSource = "FOLLOW_SPRITES"
-        entity.spriteSource2D = "FOLLOW_SPRITES"
-        entity.voxelSource = "FOLLOW_SPRITES"
-        entity.usingFallback = false
-        entity.runtimeRelativePath = rel
-        entity.runtimeLoadPath = path
-        entity.spriteVariant = usedVar or variant
-        self:_instrumentResolveImage(entity, spr)
-        if not entity.animation then
-          entity.animation = self.animated:newAnimationState(entity.facing or "down")
-        end
-        entity.animation.usingEnhancedSprite = true
-        entity.animation.source = "FOLLOW_SPRITES"
-        entity.animation.variant = usedVar or variant
-        entity.animation.fallbackLevel = enh.status
-        entity.scaleInfo = {
-          scale = 1, final2DScale = 1, contentW = CELL, contentH = CELL,
-          renderedW = CELL, renderedH = CELL, originalW = CELL,
-          originalH = RuntimeSheets.SHEET_H, logicalFootprintTiles = 1,
-          grassOcclusionHeight = 6,
-        }
-        entity.visualScale = 1
-        entity.final2DScale = 1
-        self:bindWorldBillboard(entity, true)
-        return true
-      end
-    end
-  end
-
-  -- No native sheet: keep legacy SpriteRenderer (still world-billboard capable).
-  entity.usingEnhancedSprite = false
-  entity.spriteSource = entity.usingFallback and "BLACK_FALLBACK" or "LEGACY_PNG"
-  entity.spriteSource2D = entity.spriteSource
-  entity.voxelSource = entity.spriteSource
+  local nativeSheet = (def.walker == true and (def.frames or 1) >= 6)
+  entity.sprite = sprite
+  entity.legacySprite = sprite
+  entity.spriteId = def.id
+  entity.nativeSpriteRenderer = nativeSheet
+  entity.usingFallback = (result.providerId == "black")
+  entity.spriteProviderId = result.providerId
+  entity.spriteFallbackStep = result.fallbackStep
+  entity.spriteProviderMeta = result.meta
+  entity.requestedSpriteStyle = style
+  entity.spriteVariant = (result.meta and result.meta.usedVariant) or variant
+  entity.usingFollowerSprite = (result.providerId == "followers_ex")
+  entity.usingEnhancedSprite = nativeSheet
   entity.worldSprite = nil
-  entity.nativeSpriteRenderer = false
+  if result.meta then
+    entity.runtimeLoadPath = result.meta.loadPath
+    entity.runtimeRelativePath = result.meta.relativePath
+  end
+
+  if nativeSheet then
+    entity.spriteSource = (result.providerId == "followers_ex")
+      and "FOLLOWERS_EX" or "FOLLOW_SPRITES"
+    entity.spriteSource2D = entity.spriteSource
+    entity.voxelSource = entity.spriteSource
+    entity.pokemonRenderer = SpawnRender.RENDERER.NATIVE_SPRITE_RENDERER
+    entity.scaleInfo = {
+      scale = 1, final2DScale = 1, contentW = CELL, contentH = CELL,
+      renderedW = CELL, renderedH = CELL, originalW = CELL,
+      originalH = RuntimeSheets.SHEET_H, logicalFootprintTiles = 1,
+      grassOcclusionHeight = entity.grassOcclusionHeight or 6,
+    }
+    entity.visualScale = 1
+    entity.final2DScale = 1
+    entity.grassOcclusionHeight = entity.grassOcclusionHeight or 6
+    if not entity.animation and self.animated then
+      entity.animation = self.animated:newAnimationState(entity.facing or "down")
+    end
+    if entity.animation then
+      entity.animation.usingEnhancedSprite = true
+      entity.animation.source = entity.spriteSource
+      entity.animation.variant = entity.spriteVariant
+    end
+    if entity.entityPhase == "FALLBACK_LOADED" or entity.entityPhase == "CREATING" then
+      entity.entityPhase = "NATIVE_SHEET_LOADED"
+    end
+  else
+    entity.spriteSource = entity.usingFallback and "BLACK_FALLBACK" or "LEGACY_PNG"
+    entity.spriteSource2D = entity.spriteSource
+    entity.voxelSource = entity.spriteSource
+    entity.pokemonRenderer = entity.usingFallback
+      and SpawnRender.RENDERER.WORLD_BILLBOARD_BLACK_FALLBACK
+      or SpawnRender.RENDERER.WORLD_BILLBOARD_LEGACY
+    local minSize = Config.get(self.mod, "min_sprite_size") or Config.DEFAULTS.min_sprite_size
+    entity.scaleInfo = SpriteScale.compute(entity.species,
+      entity.sprite and entity.sprite.image, { minSpriteSizeOption = minSize })
+    entity.visualScale = entity.scaleInfo.final2DScale or entity.scaleInfo.scale or 1
+    entity.final2DScale = entity.visualScale
+    entity.grassOcclusionHeight = entity.scaleInfo.grassOcclusionHeight
+      or entity.grassOcclusionHeight or 0
+  end
+
+  if entity.sprite and entity.sprite.image and entity.sprite.image.setFilter then
+    entity.sprite.image:setFilter("nearest", "nearest")
+  end
+  self:_instrumentResolveImage(entity, entity.sprite)
   self:bindWorldBillboard(entity, true)
-  return false
+  return true
+end
+
+function SpawnRender:attachEnhancedToEntity(entity, game)
+  -- Provider-driven bind: preserves entity identity, replaces SpriteRenderer only.
+  return self:applyProviderSprite(entity, game)
 end
 
 -- Bind native SpriteRenderer for Dramatic Shape. EnhancedWorldSprite is no
@@ -2096,11 +2144,39 @@ function SpawnRender:refreshAllEntitySprites(logic, game)
   local n = 0
   for _, entity in pairs(logic.entities) do
     if entity and not entity.hiddenEncounter and entity.visibleSprite ~= false then
-      self:attachEnhancedToEntity(entity, game)
-      n = n + 1
+      if self:applyProviderSprite(entity, game) then
+        n = n + 1
+      end
     end
   end
   return n
+end
+
+-- Followers EX (priority 160) wraps makeEntity on mods.loaded. Install our
+-- outermost wrap afterward so Sprite Style still wins without a third renderer.
+function SpawnRender:installLateMakeEntityWrap()
+  if self._providerMakeWrapped then return true end
+  local orig = self.makeEntity
+  if type(orig) ~= "function" then return false end
+  local render = self
+  function self:makeEntity(game, record)
+    local entity = orig(self, game, record)
+    if entity and not entity.hiddenEncounter and entity.visibleSprite ~= false then
+      pcall(function()
+        render:applyProviderSprite(entity, game)
+      end)
+    end
+    return entity
+  end
+  self._providerMakeWrapped = true
+  return true
+end
+
+function SpawnRender:finalizeSpriteProviders(game)
+  if self.spriteProviders then
+    self.spriteProviders:finalize(game)
+  end
+  self:installLateMakeEntityWrap()
 end
 
 function SpawnRender:countAnimatedEntities(logic)

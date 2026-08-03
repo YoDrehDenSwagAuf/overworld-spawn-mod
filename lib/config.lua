@@ -26,6 +26,8 @@ Config.DEFAULTS = {
   wander_every_steps = 0, -- legacy; behaviours own movement now
   suppress_random_grass = true,
   sprite_opacity = 1.0,
+  sprite_style = "auto",
+  -- Legacy key kept for save migration only (Mon Sprites toggle).
   use_animated_overworld_sprites = true,
   pokemon_grass_render_mode = "immersed",
   grass_tuck_px = 0, -- engine drawCellBottom provides grass feet overdraw
@@ -149,9 +151,114 @@ function Config.showBehaviorOverlays(mod)
      and Config.get(mod, "show_behavior_overlays") == true
 end
 
-function Config.useAnimatedOverworldSprites(mod)
-  return Config.get(mod, "use_animated_overworld_sprites") ~= false
+local VALID_SPRITE_STYLES = {
+  auto = true,
+  followers_ex = true,
+  pokemmo = true,
+  pokedex = true,
+}
+
+function Config.peekSavedOption(mod, key)
+  if not mod then return nil, false end
+  local buckets = {}
+  local world = mod.world
+  local game = world and world.game
+  if game and game.save and game.save.options and game.save.options.modOptions then
+    buckets[#buckets + 1] = game.save.options.modOptions[mod.id]
+  end
+  if game and game.mods then
+    if game.mods.modOptions then
+      buckets[#buckets + 1] = game.mods.modOptions[mod.id]
+    end
+    if game.mods.loader and game.mods.loader.modOptions then
+      buckets[#buckets + 1] = game.mods.loader.modOptions[mod.id]
+    end
+  end
+  -- Unit-test / harness path: options table may expose raw values via get only.
+  for i = 1, #buckets do
+    local b = buckets[i]
+    if type(b) == "table" and b[key] ~= nil then
+      return b[key], true
+    end
+  end
+  return nil, false
 end
+
+-- Preferred public style selector. Migrates legacy Mon Sprites boolean:
+--   true  -> auto
+--   false -> pokedex
+function Config.spriteStyle(mod)
+  local rawStyle, stylePresent = Config.peekSavedOption(mod, "sprite_style")
+  if stylePresent and type(rawStyle) == "string" and VALID_SPRITE_STYLES[rawStyle] then
+    return rawStyle
+  end
+
+  local v = nil
+  if mod and mod.options and type(mod.options.get) == "function" then
+    v = mod.options:get("sprite_style")
+  end
+  if type(v) == "string" and VALID_SPRITE_STYLES[v] then
+    -- Schema default is "auto". If the save never stored sprite_style but still
+    -- has legacy Mon Sprites = off, prefer pokedex once.
+    if v == "auto" and not stylePresent then
+      local legacyRaw, legacyPresent = Config.peekSavedOption(mod, "use_animated_overworld_sprites")
+      if legacyPresent and legacyRaw == false then
+        return "pokedex"
+      end
+      if not legacyPresent then
+        local legacy = mod.options:get("use_animated_overworld_sprites")
+        -- Only treat an explicit false from options storage; schema default true
+        -- must not force pokedex.
+        if legacy == false then
+          return "pokedex"
+        end
+      end
+    end
+    return v
+  end
+
+  local legacyRaw, legacyPresent = Config.peekSavedOption(mod, "use_animated_overworld_sprites")
+  if legacyPresent and legacyRaw == false then
+    return "pokedex"
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    if mod.options:get("use_animated_overworld_sprites") == false then
+      return "pokedex"
+    end
+  end
+  return "auto"
+end
+
+function Config.migrateSpriteStyleOption(mod)
+  local style = Config.spriteStyle(mod)
+  local function write(bucket)
+    if type(bucket) ~= "table" then return end
+    bucket[mod.id] = bucket[mod.id] or {}
+    if bucket[mod.id].sprite_style == nil then
+      bucket[mod.id].sprite_style = style
+    end
+  end
+  local world = mod.world
+  local game = world and world.game
+  if game and game.save and game.save.options then
+    game.save.options.modOptions = game.save.options.modOptions or {}
+    write(game.save.options.modOptions)
+  end
+  if game and game.mods then
+    if game.mods.modOptions then write(game.mods.modOptions) end
+    if game.mods.loader and game.mods.loader.modOptions then
+      write(game.mods.loader.modOptions)
+    end
+  end
+  return style
+end
+
+-- Compatibility: true when style is not the static Pokedex path.
+function Config.useAnimatedOverworldSprites(mod)
+  return Config.spriteStyle(mod) ~= "pokedex"
+end
+
+Config.VALID_SPRITE_STYLES = VALID_SPRITE_STYLES
 
 function Config.pokemonGrassRenderMode(mod)
   local GrassOcclusion = V.require("grass_occlusion")
