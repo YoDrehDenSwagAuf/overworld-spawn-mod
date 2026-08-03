@@ -2,8 +2,8 @@
 """Validate release tag / manifest / export / ZIP filename version alignment.
 
 Usage:
-  python3 tools/validate_release_version.py [v1.0.0]
-  RELEASE_TAG=v1.0.0 python3 tools/validate_release_version.py
+  python3 tools/validate_release_version.py [v1.0.2]
+  RELEASE_TAG=v1.0.2 python3 tools/validate_release_version.py
 
 When no tag is provided, only cross-file consistency is checked (no tag step).
 """

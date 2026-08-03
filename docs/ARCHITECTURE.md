@@ -1,4 +1,4 @@
-# Architecture — Wilds of Kanto 1.0.0
+# Architecture — Wilds of Kanto 1.0.2
 
 Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 

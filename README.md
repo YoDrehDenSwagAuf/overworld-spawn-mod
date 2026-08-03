@@ -399,12 +399,12 @@ Python 3.
 Output:
 
 ```text
-dist/wilds-of-kanto-v1.0.0.zip          # public release name (upload this)
-dist/overworld_wild_spawns-1.0.0.zip    # local technical-id alias
+dist/wilds-of-kanto-v1.0.2.zip          # public release name (upload this)
+dist/overworld_wild_spawns-1.0.2.zip    # local technical-id alias
 dist/overworld_wild_spawns.zip          # local unversioned alias
 ```
 
-Tag a release with `v1.0.0` to run `.github/workflows/release.yml`, which
+Tag a release with `v1.0.2` to run `.github/workflows/release.yml`, which
 publishes the public ZIP as a GitHub Release asset.
 The archive root must contain the mod files directly:
 

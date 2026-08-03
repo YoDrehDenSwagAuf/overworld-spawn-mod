@@ -1,9 +1,9 @@
-# Manual test guide — Wilds of Kanto 1.0.0
+# Manual test guide — Wilds of Kanto 1.0.2
 
-## After installing 1.0.0
+## After installing 1.0.2
 
 1. Remove any older Wilds of Kanto / `overworld_wild_spawns` copy from `mods/`.
-2. Install only `wilds-of-kanto-v1.0.0.zip`.
+2. Install only `wilds-of-kanto-v1.0.2.zip`.
 3. Fully restart the game (content registry freezes after load).
 4. Optional: delete `overworld_wild_spawns-cache/` in the save directory.
 

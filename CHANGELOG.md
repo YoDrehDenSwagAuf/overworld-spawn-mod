@@ -1,31 +1,17 @@
 # Changelog
 
-## Unreleased
+## 1.0.2
 
-### Gold Sprites + Start Menu Sprite Style
+### Sprite providers + quick picker
 
-- Added **Gold Sprites** (`gold`) provider — read-only adapter for
-  OtaconRevengeance’s `Gold_Silver_Sprites` 1.0.1 battle fronts (56×56,
-  frames=1). No asset redistribution; optional via `mod:find()`.
-- Auto order is now Gold → Followers EX → PokeMMO → Pokedex (central
-  `AUTO_PROVIDER_ORDER`).
-- Start Menu entry **SPRITE STYLE** opens a choice dialog that writes the same
-  `sprite_style` option as Mod Settings (`Config.setSpriteStyle`).
-- Developer HUD reports Gold / Followers / PokePC install status, active
-  provider, and quick-menu readiness.
-
-### Sprite Styles
-
-- New public option **Sprite Style** (`sprite_style`: Auto / Gold Sprites /
-  Followers EX / PokeMMO / Pokedex). Replaces the legacy **Mon Sprites** toggle
-  (`use_animated_overworld_sprites`; `true`→`auto`, `false`→`pokedex`).
-- Provider API: `registerSpriteProvider` / `unregisterSpriteProvider` /
-  `getSpriteProvider` / `listSpriteProviders` / `refreshAllEntitySprites` /
-  `setSpriteStyle`.
-- Built-in providers for Wilds PokeMMO runtime sheets and Pokedex images;
-  read-only Gold Sprites and Followers EX / PokePC adapters (no hard dependency).
-- Hot-switch replaces `entity.sprite` only — same native SpriteRenderer path
-  for all styles (Dramatic Shape / first-person / occlusion unchanged).
+- Added optional **Gold Sprites** provider support
+  (`Gold_Silver_Sprites` battle fronts via read-only `mod:find()` adapter).
+- Quick sprite style selection from the normal in-game Start Menu
+  (**SPRITE STYLE**), writing the same `sprite_style` option as Mod Settings.
+- Switch between **Auto**, **Gold Sprites**, **Followers EX**, **PokeMMO**,
+  and **Pokedex**; Auto prefers Gold → Followers EX → PokeMMO → Pokedex.
+- Improved provider fallbacks when optional mods are missing, plus clearer
+  HUD/status reporting and documentation for the provider matrix.
 
 ## 1.0.0
 
