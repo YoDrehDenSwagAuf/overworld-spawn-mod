@@ -1,7 +1,7 @@
-# Wilds of Kanto — Developer Guide (1.0.0)
+# Wilds of Kanto — Developer Guide (1.0.2)
 
 > Follow-sprites → native 16×96 SpriteRenderer sheets, NPC pose contract,
-> and Dramatic Shape billboards match the 1.0.0 implementation.
+> and Dramatic Shape billboards match the 1.0.2 implementation.
 
 Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
@@ -276,14 +276,14 @@ luajit mods/overworld_wild_spawns/tests/voxel_aggressive_compat_test.lua
 ./scripts/build-mod.py
 ```
 
-Produces `dist/wilds-of-kanto-v1.0.0.zip` (plus local technical-id aliases) with
+Produces `dist/wilds-of-kanto-v1.0.2.zip` (plus local technical-id aliases) with
 `manifest.json` at ZIP root.
 Includes `docs/` and `LICENSE`. Excludes `tests/`, `scripts/`, `.deps/`, root `ARCHITECTURE.md`.
 
 Tag-triggered GitHub Release (`.github/workflows/release.yml`):
 
 ```text
-git tag v1.0.0 && git push origin v1.0.0
+git tag v1.0.2 && git push origin v1.0.2
 ```
 
 Manifest field `github` = `YoDrehDenSwagAuf/overworld-spawn-mod` enables Mod Manager
