@@ -10,6 +10,8 @@
 --   lib/sprite_providers.lua - land sprite style providers (Gold / Followers / …)
 --   lib/water_sprite_registry.lua - swimming / levitates water sprite mapping
 --   lib/sprite_resolver.lua - land vs water SpriteRenderer def selection
+--   lib/cell_occupancy.lua  - atomic spawn / move cell reservations
+--   lib/followers_water_compat.lua - optional Followers EX water sprites
 --   lib/diagnostics.lua     - status derivation for HUD/logs
 --   options.lua             - Mod Manager option schema
 --
@@ -264,7 +266,7 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "1.4.1"
+  mod.exports.version = "1.5.0"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated
@@ -337,6 +339,21 @@ return function(mod)
   end
   mod.exports.refreshAllEntitySprites = function(game)
     return render:refreshAllEntitySprites(logic, game or (mod.world and mod.world.game))
+  end
+  mod.exports.refreshEntitySprite = function(entity, opts)
+    opts = opts or {}
+    opts.game = opts.game or (mod.world and mod.world.game)
+    return logic:refreshEntitySprite(entity, opts)
+  end
+  -- Stable public water-sprite API for Followers EX / companions.
+  -- Default: swimming → levitates → nil (no land sprite masquerade).
+  mod.exports.resolveWaterSprite = function(speciesId, isShiny, form, opts)
+    opts = opts or {}
+    opts.game = opts.game or (mod.world and mod.world.game)
+    return logic:resolveWaterSprite(speciesId, isShiny, form, opts)
+  end
+  mod.exports.occupancy = function()
+    return logic.occupancy
   end
 
   mod.log:info("overworld_wild_spawns ready (sprite_style=%s)",

@@ -182,6 +182,39 @@ function Diagnostics.entityDetail(logic, entity, record)
     end
   end
   do
+    lines[#lines + 1] = ("Cell: %s,%s"):format(
+      tostring(entity.cellX), tostring(entity.cellY))
+    if entity.targetX ~= nil then
+      lines[#lines + 1] = ("Reserved target: %s,%s"):format(
+        tostring(entity.targetX), tostring(entity.targetY))
+    else
+      lines[#lines + 1] = "Reserved target: none"
+    end
+    if logic and logic.occupancy and entity.cellX ~= nil then
+      local owner = logic.occupancy:ownerAt(entity.cellX, entity.cellY)
+      lines[#lines + 1] = ("Occupancy owner: %s"):format(tostring(owner or "?"))
+    end
+    lines[#lines + 1] = ("Movement blocked by: %s"):format(
+      tostring(entity.movementBlockedBy or "none"))
+    lines[#lines + 1] = ("Pending surface: %s"):format(
+      tostring(entity.pendingSurface or "none"))
+    lines[#lines + 1] = ("Sprite state: %s"):format(
+      tostring(entity.spriteState or "?"))
+    lines[#lines + 1] = ("Sprite kind: %s"):format(
+      tostring(entity.spriteKind or "?"))
+    lines[#lines + 1] = ("Last sprite refresh reason: %s"):format(
+      tostring(entity.lastSpriteRefreshReason or "n/a"))
+    if entity.waterEnteredByChase or entity.pendingSurface == "WATER"
+       or entity.waterEntryReserved then
+      lines[#lines + 1] = ("Water entry reserved: %s"):format(
+        entity.waterEntryReserved and "YES" or "NO")
+      lines[#lines + 1] = ("Water sprite prepared: %s"):format(
+        entity.waterSpritePrepared and "YES" or "NO")
+      lines[#lines + 1] = ("Water sprite applied: %s"):format(
+        entity.waterSpriteApplied and "YES" or "NO")
+    end
+  end
+  do
     local surfaceState = tostring(entity.spriteState or ""):upper()
     if surfaceState == "" then
       if entity.surface == "WATER" then
@@ -574,6 +607,25 @@ function Diagnostics.hudLines(logic)
     lines[#lines + 1] = ("Water Loaded: %d"):format(waterLoaded)
     lines[#lines + 1] = ("Aggressive water: %d"):format(aggWater)
     lines[#lines + 1] = ("Land-to-water chasers: %d"):format(landToWater)
+  end
+
+  if logic.occupancy and logic.occupancy.counts then
+    local c = logic.occupancy:counts()
+    lines[#lines + 1] = ("Occupancy cells: %d"):format(c.occupied or 0)
+    lines[#lines + 1] = ("Move reservations: %d"):format(c.moveReservations or 0)
+    lines[#lines + 1] = ("Spawn reservations: %d"):format(c.spawnReservations or 0)
+    lines[#lines + 1] = ("Collision conflicts: %d"):format(c.conflicts or 0)
+    lines[#lines + 1] = ("Swap blocks: %d"):format(c.swapBlocks or 0)
+  end
+  if logic.followersWater and logic.followersWater.hudLines then
+    for _, line in ipairs(logic.followersWater:hudLines()) do
+      lines[#lines + 1] = line
+    end
+  else
+    lines[#lines + 1] = "Follower detected: NO"
+    lines[#lines + 1] = "Follower surface: n/a"
+    lines[#lines + 1] = "Follower water sprite: n/a"
+    lines[#lines + 1] = "Follower sprite kind: n/a"
   end
 
   -- Detail the nearest entity when developer overlays are on.

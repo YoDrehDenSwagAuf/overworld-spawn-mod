@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.0
+
+### World collision + follower water sprites
+
+- Prevented overlapping wild Pokémon spawns
+- Added atomic movement target reservations
+- Prevented wild Pokémon from walking through entities
+- Added optional follower Swimming/Levitates sprite switching
+- Added immediate water sprite transition for land-to-water chase
+- Preserved native SpriteRenderer rendering
+
 ## 1.4.1
 
 ### Water spawn / aggro / sprite-style regressions
@@ -13,12 +24,6 @@
 - Added `WaterSpawn.isWaterCapable` (types → swimming/levitates → local encounters)
 - SpriteResolver cache keys include `species:variant:form:surface:style`
 - Explicit PokeMMO rejects Followers EX on land; style wrap re-asserted on spawn
-
-### Deferred (not in this release)
-
-- Followers EX water integration: Followers owns follower movement/entity;
-  Wilds would export `resolveWaterSprite(speciesId, shiny, form)` and switch
-  once on player land/water transition. Not implemented here.
 
 ## 1.4.0
 

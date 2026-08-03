@@ -88,6 +88,18 @@ function BehaviorTick:step(ctx)
     logic.spawnFx:update(dt)
   end
 
+  local occupancy = logic.rebuildOccupancy and logic:rebuildOccupancy(ow) or logic.occupancy
+
+  -- Optional Followers EX water sprite swap (once per state change).
+  if logic.followersWater and logic.resolveWaterSprite then
+    local game = world and world.game
+    pcall(function()
+      logic.followersWater:tick(game, ow, function(speciesId, shiny, form, opts)
+        return logic:resolveWaterSprite(speciesId, shiny, form, opts)
+      end)
+    end)
+  end
+
   local holdAi = false
   if ow.engaging then
     holdAi = true
@@ -102,6 +114,31 @@ function BehaviorTick:step(ctx)
   local chaseStep = Config.get(self.mod, "aggressive_step_seconds")
                     or Config.DEFAULTS.aggressive_step_seconds
 
+  local function behaviorCtx(extraDt)
+    return {
+      map = ow.map,
+      entities = ow.entities,
+      player = ow.player,
+      dt = extraDt,
+      sightRange = sight,
+      reactionDelay = react,
+      chaseStepSeconds = chaseStep,
+      waterSightRange = Config.get(self.mod, "water_aggressive_sight_range")
+        or Config.DEFAULTS.water_aggressive_sight_range,
+      waterMonsEnabled = Config.waterMons(self.mod),
+      waterRegions = logic.waterRegions,
+      shoreMap = logic.shoreDistance,
+      landWaterPlayerMax = Config.get(self.mod, "land_water_chase_player_max")
+        or Config.DEFAULTS.land_water_chase_player_max,
+      game = world and world.game,
+      logic = logic,
+      occupancy = occupancy,
+      hasWaterSprite = function(e)
+        return logic:_entityHasCompatibleWaterSprite(e)
+      end,
+    }
+  end
+
   for id, entity in pairs(logic.entities or {}) do
     local record = logic.spawns[id]
     if record and record.state == Config.STATE.AVAILABLE and entity then
@@ -113,7 +150,13 @@ function BehaviorTick:step(ctx)
       end
 
       -- Repair stuck movement before AI decides anything.
-      Movement.healBusy(entity)
+      if Movement.healBusy(entity) then
+        if occupancy then occupancy:commitMove(entity) end
+      end
+      if entity.movementReservationCancelled and occupancy then
+        occupancy:cancelMove(entity)
+        entity.movementReservationCancelled = nil
+      end
       SpawnFx.ensureProgress(entity)
 
       local bx = entity.behaviorState
@@ -127,6 +170,7 @@ function BehaviorTick:step(ctx)
         local done = Movement.update(entity, dt)
         alreadyMoved = true
         if done then
+          if occupancy then occupancy:commitMove(entity) end
           Movement.refreshGrassFlag(entity, self.mod)
         end
       end
@@ -151,26 +195,7 @@ function BehaviorTick:step(ctx)
         -- Spawn pop in progress: no wander/chase planning.
         -- Contact during an in-progress chase step still needs the busy branch.
         if bx and (bx.chasing or bx.state == Behavior.STATE.CHASING) then
-          local event = Behavior.tick(entity, {
-            map = ow.map,
-            entities = ow.entities,
-            player = ow.player,
-            dt = 0,
-            sightRange = sight,
-            reactionDelay = react,
-            chaseStepSeconds = chaseStep,
-            waterSightRange = Config.get(self.mod, "water_aggressive_sight_range")
-              or Config.DEFAULTS.water_aggressive_sight_range,
-            waterMonsEnabled = Config.waterMons(self.mod),
-            waterRegions = logic.waterRegions,
-            shoreMap = logic.shoreDistance,
-            landWaterPlayerMax = Config.get(self.mod, "land_water_chase_player_max")
-              or Config.DEFAULTS.land_water_chase_player_max,
-            game = world and world.game,
-            hasWaterSprite = function(e)
-              return logic:_entityHasCompatibleWaterSprite(e)
-            end,
-          })
+          local event = Behavior.tick(entity, behaviorCtx(0))
           if event == "contact" or event == "battle_pending" then
             if SpawnFx.canBattle(entity) then
               logic:_startBattle(record)
@@ -180,26 +205,7 @@ function BehaviorTick:step(ctx)
       elseif holdAi and not chasing then
         -- freeze
       else
-        local event = Behavior.tick(entity, {
-          map = ow.map,
-          entities = ow.entities,
-          player = ow.player,
-          dt = alreadyMoved and 0 or dt,
-          sightRange = sight,
-          reactionDelay = react,
-          chaseStepSeconds = chaseStep,
-          waterSightRange = Config.get(self.mod, "water_aggressive_sight_range")
-            or Config.DEFAULTS.water_aggressive_sight_range,
-          waterMonsEnabled = Config.waterMons(self.mod),
-          waterRegions = logic.waterRegions,
-          shoreMap = logic.shoreDistance,
-          landWaterPlayerMax = Config.get(self.mod, "land_water_chase_player_max")
-            or Config.DEFAULTS.land_water_chase_player_max,
-          game = world and world.game,
-          hasWaterSprite = function(e)
-            return logic:_entityHasCompatibleWaterSprite(e)
-          end,
-        })
+        local event = Behavior.tick(entity, behaviorCtx(alreadyMoved and 0 or dt))
         if event == "alert" then
           logic:_onAggressiveAlert(entity, record)
         elseif event == "entered_water" then
@@ -214,6 +220,15 @@ function BehaviorTick:step(ctx)
             record.waterZone = WaterSpawn.zoneForDistance(record.shoreDistance)
             entity.shoreDistance = record.shoreDistance
             entity.waterZone = record.waterZone
+          end
+          -- Sprite already prepared before beginStep; refresh once more to sync.
+          if logic.refreshEntitySprite then
+            pcall(logic.refreshEntitySprite, logic, entity, {
+              reason = "entered_water",
+              surface = Surface.WATER,
+              spriteState = "water",
+              game = world and world.game,
+            })
           end
           DebugLog.info(self.mod, "land→water chase id=%s species=%s",
                         tostring(id), tostring(record.species))

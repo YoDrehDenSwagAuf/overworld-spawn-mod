@@ -75,6 +75,29 @@ local function occupiedByWildSpawn(entities, x, y, ignore)
   return false
 end
 
+-- Followers EX trailers / Yellow Pikachu follower are passable=true but still
+-- block wild spawns and steps. Matches CellOccupancy.isFollowerEntity markers.
+local function isFollowerMarker(entity)
+  if not entity then return false end
+  if entity.pokepcTrailer == true or entity.pikachuFollower == true then
+    return true
+  end
+  if entity.isFollower == true or entity.follower == true then return true end
+  local def = entity.sprite and entity.sprite.def
+  local sid = def and def.id
+  return sid == "SPRITE_POKEPC_MON" or sid == "SPRITE_PLAYER_POKEMON"
+end
+
+local function occupiedByFollower(entities, x, y, ignore)
+  for _, e in ipairs(entities or {}) do
+    if e ~= ignore and isFollowerMarker(e) then
+      if e.cellX == x and e.cellY == y then return true end
+      if e.targetX == x and e.targetY == y then return true end
+    end
+  end
+  return false
+end
+
 local function chebyshev(ax, ay, bx, by)
   local dx = ax - bx
   if dx < 0 then dx = -dx end
@@ -115,6 +138,9 @@ function Grass.validateSpawnTile(map, entities, player, x, y, minDist, maxDist, 
   if occupiedByWildSpawn(entities, x, y, ignore) then
     return false, "rejected: occupied by NPC"
   end
+  if occupiedByFollower(entities, x, y, ignore) then
+    return false, "rejected: occupied by NPC"
+  end
   local px = player and player.cellX
   local py = player and player.cellY
   if px ~= nil and py ~= nil then
@@ -132,6 +158,18 @@ function Grass.validateSpawnTile(map, entities, player, x, y, minDist, maxDist, 
   return true, nil
 end
 
+-- Optional central occupancy rejection used by land + water pickers.
+local function occupancyBlocks(occupancy, x, y, ignore)
+  if not occupancy then return false end
+  if occupancy.isOccupied and occupancy:isOccupied(x, y, ignore) then
+    return true
+  end
+  if occupancy.isReserved and occupancy:isReserved(x, y, ignore) then
+    return true
+  end
+  return false
+end
+
 function Grass.isValidSpawnTile(map, entities, player, x, y, minDist, maxDist, ignore)
   local ok = Grass.validateSpawnTile(map, entities, player, x, y, minDist, maxDist, ignore)
   return ok
@@ -139,10 +177,13 @@ end
 
 -- Validate against an optional membership predicate (home region / surface).
 function Grass.validateEligibleTile(map, entities, player, x, y, minDist, maxDist,
-                                    ignore, membership, mode)
+                                    ignore, membership, mode, occupancy)
   mode = mode or "grass"
   if membership and not membership[x .. "," .. y] then
     return false, "rejected: outside region"
+  end
+  if occupancyBlocks(occupancy, x, y, ignore) then
+    return false, "rejected: occupied by NPC"
   end
   if mode == "grass" then
     return Grass.validateSpawnTile(map, entities, player, x, y, minDist, maxDist, ignore)
@@ -155,7 +196,8 @@ function Grass.validateEligibleTile(map, entities, player, x, y, minDist, maxDis
       return false, "rejected: warp tile"
     end
     if occupiedNonPassable(entities, x, y, ignore)
-       or occupiedByWildSpawn(entities, x, y, ignore) then
+       or occupiedByWildSpawn(entities, x, y, ignore)
+       or occupiedByFollower(entities, x, y, ignore) then
       return false, "rejected: occupied by NPC"
     end
     local px = player and player.cellX
@@ -203,13 +245,14 @@ function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist,
   local membership = opts.membership
   local occupiedSpawns = opts.occupiedSpawns
   local minSep = opts.minSeparation or 0
+  local occupancy = opts.occupancy
 
   local function collect(useMin, useMax, enforceSep)
     local candidates = {}
     for _, cell in ipairs(grassList) do
       local ok, reason = Grass.validateEligibleTile(
         map, entities, player, cell.x, cell.y, useMin, useMax, nil,
-        membership, mode)
+        membership, mode, occupancy)
       if ok and enforceSep and tooCloseToSpawns(cell.x, cell.y, occupiedSpawns, minSep) then
         ok = false
         reason = "rejected: too close to spawn"
@@ -300,6 +343,9 @@ function Grass.validateWalkableTile(map, entities, player, x, y, minDist, maxDis
     return false, "rejected: occupied by NPC"
   end
   if occupiedByWildSpawn(entities, x, y, ignore) then
+    return false, "rejected: occupied by NPC"
+  end
+  if occupiedByFollower(entities, x, y, ignore) then
     return false, "rejected: occupied by NPC"
   end
   local px = player and player.cellX
