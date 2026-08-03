@@ -198,6 +198,13 @@ function Diagnostics.entityDetail(logic, entity, record)
     tostring(entity.spriteSource2D or entity.spriteSource
       or (entity.usingEnhancedSprite and "FOLLOW_SPRITES")
       or (entity.usingFallback and "BLACK_FALLBACK") or "LEGACY_PNG"))
+  if logic and logic.render and logic.render.spriteProviders then
+    local game = logic.mod.world and logic.mod.world.game
+    local style = Config.spriteStyle(logic.mod)
+    for _, line in ipairs(logic.render.spriteProviders:diagnostics(style, game, entity)) do
+      lines[#lines + 1] = line
+    end
+  end
   -- Requested/Actual renderer lines come from VoxelAdapter.statusLines
   -- via RenderDiagnostics (honest counters).
   if entity.animation and entity.usingEnhancedSprite then
@@ -388,6 +395,21 @@ function Diagnostics.hudLines(logic)
     lines[#lines + 1] = ("Billboard frames cached: %d"):format(sum.voxelCacheEntries or 0)
     lines[#lines + 1] = ("Billboard cache hits/misses: %d/%d"):format(
       sum.voxelCacheHits or 0, sum.voxelCacheMisses or 0)
+  end
+
+  if render and render.spriteProviders then
+    local game = logic.mod.world and logic.mod.world.game
+    local style = Config.spriteStyle(logic.mod)
+    local sample = nil
+    for _, entity in pairs(logic.entities or {}) do
+      if entity and not entity.hiddenEncounter and entity.visibleSprite ~= false then
+        sample = entity
+        break
+      end
+    end
+    for _, line in ipairs(render.spriteProviders:diagnostics(style, game, sample)) do
+      lines[#lines + 1] = line
+    end
   end
 
   -- Detail the nearest entity when developer overlays are on.

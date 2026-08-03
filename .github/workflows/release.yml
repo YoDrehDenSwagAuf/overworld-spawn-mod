@@ -74,6 +74,7 @@ jobs:
           for t in \
             tests/native_sprite_sheets_unit_test.lua \
             tests/animated_sprites_unit_test.lua \
+            tests/sprite_providers_unit_test.lua \
             tests/grass_occlusion_unit_test.lua \
             tests/render_diagnostics_unit_test.lua \
             tests/voxel_overlay_unit_test.lua \

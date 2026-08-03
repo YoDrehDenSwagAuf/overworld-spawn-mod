@@ -119,7 +119,7 @@ Visible labels are limited to 14 characters.
 |---|---|---|---|---|
 | Show Wild Mons | `enabled` | true | on/off | Master switch |
 | Hide Grass RNG | `suppress_random_grass` | true | on/off | Suppress vanilla grass rolls only when ready |
-| Mon Sprites | `use_animated_overworld_sprites` | true | on/off | Follow-sprites vs legacy art |
+| Sprite Style | `sprite_style` | auto | Auto / Followers EX / PokeMMO / Pokedex | Overworld sprite source |
 | Spawn Amount | `spawn_density` | normal | low / normal / high / very_high | Scales target count |
 | Grass View | `pokemon_grass_render_mode` | immersed | Above / Immersed | Tall-grass presentation |
 | Idle Mons | `enable_idle` | true | on/off | Allow Idle Look |
@@ -187,7 +187,7 @@ Gen1 wild spawns currently always use the normal variant.
 | Only random grass | Spawn system not READY → vanilla fail-safe is working |
 | Too empty on long routes | Raise **Spawn Amount** |
 | Too crowded | Lower **Spawn Amount** |
-| Prefer classic static sprites | Turn off **Mon Sprites** |
+| Prefer classic static sprites | Set **Sprite Style** to **Pokedex** |
 | Prefer Pokemon fully above grass | Set **Grass View** to Above |
 | Want classic feel | Disable Chase / Hidden Mons, or turn Show Wild Mons off |
 

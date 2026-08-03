@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Sprite Styles
+
+- New public option **Sprite Style** (`sprite_style`: Auto / Followers EX /
+  PokeMMO / Pokedex). Replaces the legacy **Mon Sprites** toggle
+  (`use_animated_overworld_sprites`; `true`→`auto`, `false`→`pokedex`).
+- Provider API: `registerSpriteProvider` / `unregisterSpriteProvider` /
+  `getSpriteProvider` / `listSpriteProviders` / `refreshAllEntitySprites`.
+- Built-in providers for Wilds PokeMMO runtime sheets and Pokedex images;
+  read-only Followers EX / PokePC walker-sheet adapter (no hard dependency).
+- Hot-switch replaces `entity.sprite` only — same native SpriteRenderer path
+  for all styles (Dramatic Shape / first-person / occlusion unchanged).
+
 ## 1.0.0
 
 ### Stable release
@@ -28,7 +42,7 @@
 |---|---|---|
 | Show Wild Mons | Master switch for visible wilds | ON |
 | Hide Grass RNG | Suppress vanilla grass rolls when ready | ON |
-| Mon Sprites | Animated follow-sprites vs legacy art | ON |
+| Sprite Style | Auto / Followers EX / PokeMMO / Pokedex | AUTO |
 | Spawn Amount | Density preset | NORMAL |
 | Grass View | Immersed vs above tall grass | IMMERSED |
 | Idle Mons | Allow idle look behaviour | ON |

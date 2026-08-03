@@ -47,6 +47,6 @@ wilds-of-kanto-v1.0.0.zip
 2. Confirm every visible option label and choice name is fully readable
    (no truncation at 14 characters).
 3. Confirm only the simplified 1.0 public options are shown.
-4. Toggle `Mon Sprites`, `Spawn Amount`, `Grass View`, `Roam Mons`,
+4. Toggle `Sprite Style`, `Spawn Amount`, `Grass View`, `Roam Mons`,
    `Chase Mons`, `Hidden Mons`, and `Dev Mode` and verify each still affects
    runtime behaviour.

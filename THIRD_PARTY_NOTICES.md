@@ -15,7 +15,13 @@ See the asset-specific documentation and credits for details.
   covered by this project's MIT License.
 - Generated runtime sheets under `assets/generated/followsprites_runtime/`
   are derived from those third-party follow-sprites and inherit the same
-  third-party licensing constraints.
+  third-party licensing constraints. In the mod menu these are labeled
+  **PokeMMO** (Wilds of Kanto's built-in style).
+- Optional companion sprites from
+  [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
+  / PokePC Followers Voxel Merge remain owned by those projects. Wilds only
+  consumes them through a runtime provider when installed; it does not
+  redistribute those assets.
 - Legacy Pokédex / battle art references used as fallbacks are game-adjacent
   assets and are not relicensed under MIT.
 - Gen1Recomp engine APIs and Dramatic Shape Voxel Mod contracts belong to

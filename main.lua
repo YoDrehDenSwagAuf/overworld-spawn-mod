@@ -54,6 +54,7 @@ return function(mod)
   local Diagnostics = V.require("diagnostics")
 
   Config.defineOptions(mod)
+  Config.migrateSpriteStyleOption(mod)
 
   local render = SpawnRender.new(mod)
   -- LOAD PHASE: all sprite content registration must finish here, before
@@ -93,6 +94,9 @@ return function(mod)
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("map.entered error")
     end
+    -- Re-assert selected sprite style after companion mods retarget wilds
+    -- (Followers EX map.entered may run after ours depending on registration).
+    render._pendingSpriteRefresh = true
   end)
 
   mod.events:on("map.exited", function(ev)
@@ -119,6 +123,13 @@ return function(mod)
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("world.stepped error")
     end
+    if render._pendingSpriteRefresh then
+      render._pendingSpriteRefresh = false
+      local game = mod.world and mod.world.game
+      pcall(function()
+        render:refreshAllEntitySprites(logic, game)
+      end)
+    end
   end)
 
   mod.events:on("battle.ended", function()
@@ -143,6 +154,8 @@ return function(mod)
 
   mod.events:on("game.ready", function()
     hud:syncPipelineLevel()
+    Config.migrateSpriteStyleOption(mod)
+    render:finalizeSpriteProviders(mod.world and mod.world.game)
     if Config.devMode(mod) then
       render.debugMarkers = true
       local game = mod.world and mod.world.game
@@ -154,11 +167,19 @@ return function(mod)
       end
     end
     if Config.debug(mod) then
-      DebugLog.info(mod, "game.ready; feature=%s dev=%s fallback=%s",
+      DebugLog.info(mod, "game.ready; feature=%s dev=%s fallback=%s style=%s",
                     tostring(Config.isEnabled(mod)),
                     tostring(Config.devMode(mod)),
-                    tostring(render.fallbackAvailable))
+                    tostring(render.fallbackAvailable),
+                    tostring(Config.spriteStyle(mod)))
     end
+  end)
+
+  -- After Followers EX (priority 160) may wrap makeEntity / register providers.
+  mod.events:on("mods.loaded", function()
+    Config.migrateSpriteStyleOption(mod)
+    local game = mod.world and mod.world.game
+    render:finalizeSpriteProviders(game)
   end)
 
   -- ------- hooks (installed while enabled; suppress is fail-safe gated)
@@ -242,6 +263,7 @@ return function(mod)
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated
+  mod.exports.spriteProviders = render.spriteProviders
   mod.exports.hud = hud
   mod.exports.overlay = overlay
   mod.exports.browser = browser
@@ -259,5 +281,33 @@ return function(mod)
     logic:_restoreVanillaEncounters(reason or "export")
   end
 
-  mod.log:info("overworld_wild_spawns ready")
+  -- Optional companion sprite providers (Followers EX / PokePC). Runtime
+  -- resolvers only — never mutates content registries after freeze.
+  -- Load-phase note: register content SpriteDefs during your own mod entry
+  -- before mods.loaded; then call registerSpriteProvider with a resolver that
+  -- returns copies of already-registered defs or static paths.
+  mod.exports.registerSpriteProvider = function(id, provider)
+    if type(provider) ~= "table" then
+      return false, "provider table required"
+    end
+    if type(id) == "string" and provider.id == nil then
+      provider.id = id
+    end
+    return render.spriteProviders:register(provider)
+  end
+  mod.exports.unregisterSpriteProvider = function(id)
+    return render.spriteProviders:unregister(id)
+  end
+  mod.exports.getSpriteProvider = function(id)
+    return render.spriteProviders:get(id)
+  end
+  mod.exports.listSpriteProviders = function()
+    return render.spriteProviders:list()
+  end
+  mod.exports.refreshAllEntitySprites = function(game)
+    return render:refreshAllEntitySprites(logic, game or (mod.world and mod.world.game))
+  end
+
+  mod.log:info("overworld_wild_spawns ready (sprite_style=%s)",
+               tostring(Config.spriteStyle(mod)))
 end

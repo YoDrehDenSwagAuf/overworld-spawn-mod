@@ -16,10 +16,44 @@ of the overworld I used to imagine when playing these games as a child.
 
 <!-- Optional: add a screenshot or banner here -->
 
+## Sprite Styles
+
+Wilds of Kanto supports multiple overworld Pokémon sprite styles:
+
+- **Auto** — uses Followers EX sprites when its compatible sprite provider is
+  installed, otherwise uses the built-in PokeMMO-style sprites.
+- **Followers EX** — uses compatible sprites supplied by Followers EX /
+  PokePC Followers when available.
+- **PokeMMO** — uses Wilds of Kanto's built-in animated overworld sprites.
+- **Pokedex** — uses the original Pokédex-based images.
+
+All styles use the same native Gen1Recomp SpriteRenderer pipeline and remain
+compatible with Dramatic Shape, including first-person rendering and world
+occlusion.
+
+The **PokeMMO** label refers to Wilds of Kanto’s own runtime follow-sprite
+sheets (`assets/generated/followsprites_runtime/`). It does not ship or claim
+Followers EX / PokePC assets.
+
+Optional companion mods:
+
+- [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
+  (`FOLLOWERS_EX`) — control / pack integration; depends on Wilds and the
+  PokePC sprite pack.
+- PokePC Followers Voxel Merge (`PokePCFollowers_VoxelMerge`) — walker sheet
+  assets used by Followers EX.
+
+Wilds does **not** hard-depend on either mod (that would create a dependency
+cycle). Companion mods can register a provider at runtime:
+
+```lua
+wilds.exports.registerSpriteProvider("followers_ex", provider)
+```
+
 ## Animated Overworld Pokémon
 
-Wilds of Kanto now uses individual follow-sprite sheets as its preferred
-animated overworld sprite source.
+Wilds of Kanto uses individual follow-sprite sheets as its preferred
+animated overworld sprite source (the **PokeMMO** style above).
 
 Each supported Pokémon can use:
 
@@ -35,12 +69,12 @@ Normal and shiny sprite variants are supported by the asset format. Shiny
 sprites are only used during normal gameplay when the game provides a reliable
 shiny state. They remain available in the developer preview for testing.
 
-The improved sprites are enabled by default. They can be disabled in the mod
-settings to restore the previous Pokédex-based sprite appearance.
+Choose **Sprite Style** in the mod settings (Auto / Followers EX / PokeMMO /
+Pokedex). Auto is the default.
 
 If a follow sprite or mapping is missing, the mod automatically falls back to:
 
-1. the normal follow-sprite variant;
+1. the next provider in the style chain (see Sprite Styles);
 2. the previous Pokédex-based sprite;
 3. the black fallback sprite.
 
@@ -62,8 +96,8 @@ tables and places tangible wild Pokemon (or hidden markers) on eligible tiles.
 - Tall-grass presentation: option for fully above grass or partially immersed
   (engine `drawCellBottom` feet overdraw, like the player)
 - Small species get nearest-neighbor sprite scaling so they stay readable
-- Real Pokemon art is preferred; when available, directional idle/walk
-  follow-sprites are used (option on by default)
+- Real Pokemon art is preferred; **Sprite Style** selects Followers EX,
+  Wilds PokeMMO-style sheets, or legacy Pokedex images (Auto by default)
 - Otherwise legacy species / battle PNGs are used; a black fallback sprite is
   used when no image resolves (hidden behaviours draw no Pokemon sprite)
 - Vanilla random grass encounters remain as a fail-safe until the visible
@@ -175,7 +209,7 @@ Visible labels are limited to 14 characters so Gen1Recomp does not truncate them
 | --- | --- | --- |
 | Show Wild Mons | Master switch for visible spawns | ON |
 | Hide Grass RNG | Suppress vanilla grass rolls only after visible spawns are ready | ON |
-| Mon Sprites | Animated follow-sprites when available; off uses legacy art | ON |
+| Sprite Style | Auto / Followers EX / PokeMMO / Pokedex sprite source | AUTO |
 | Spawn Amount | Density preset (Low / Normal / High / Very High) | NORMAL |
 | Grass View | Immersed in tall grass, or fully Above | IMMERSED |
 | Idle Mons | Allow Idle Look behaviour | ON |

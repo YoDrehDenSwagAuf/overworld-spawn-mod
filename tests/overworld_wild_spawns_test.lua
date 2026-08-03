@@ -1600,22 +1600,33 @@ for _, rec in pairs(logic.spawns) do
 end
 T.check(anyBehavior, "spawned entities receive a behaviour type")
 
--- ------- animated overworld sprites
+-- ------- sprite style providers
 local AnimatedSprites = exports.lib.require("animated_sprites")
 local JsonDecode = exports.lib.require("json_decode")
+local SpriteProviders = exports.lib.require("sprite_providers")
 T.check(exports.animated ~= nil, "animated export present")
 T.check(exports.render.animated ~= nil, "render.animated present")
+T.check(exports.spriteProviders ~= nil, "spriteProviders export present")
+T.check(exports.render.spriteProviders ~= nil, "render.spriteProviders present")
+T.check(type(exports.registerSpriteProvider) == "function", "registerSpriteProvider export")
+T.check(type(exports.listSpriteProviders) == "function", "listSpriteProviders export")
+T.check(type(exports.refreshAllEntitySprites) == "function", "refreshAllEntitySprites export")
 
-local animOpt
+local styleOpt
+local legacyAnimOpt
 for _, row in ipairs(schema) do
-  if row.key == "use_animated_overworld_sprites" then animOpt = row end
+  if row.key == "sprite_style" then styleOpt = row end
+  if row.key == "use_animated_overworld_sprites" then legacyAnimOpt = row end
 end
-T.check(animOpt ~= nil, "use_animated_overworld_sprites option present")
-T.eq(animOpt.type, "toggle", "animated option is toggle")
-T.eq(animOpt.default, true, "animated option defaults true")
-T.eq(animOpt.label, "Mon Sprites", "animated option label")
-T.eq(Config.DEFAULTS.use_animated_overworld_sprites, true, "DEFAULTS animated true")
-T.eq(Config.useAnimatedOverworldSprites(modApi), true, "animated helper true")
+T.check(styleOpt ~= nil, "sprite_style option present")
+T.check(legacyAnimOpt == nil, "legacy Mon Sprites option removed")
+T.eq(styleOpt.type, "choice", "sprite_style is choice")
+T.eq(styleOpt.default, "auto", "sprite_style defaults auto")
+T.eq(styleOpt.label, "Sprite Style", "sprite_style label")
+T.check(#styleOpt.label <= 14, "sprite_style label <= 14 chars")
+T.eq(Config.DEFAULTS.sprite_style, "auto", "DEFAULTS sprite_style auto")
+T.eq(Config.spriteStyle(modApi), "auto", "spriteStyle helper auto")
+T.eq(Config.useAnimatedOverworldSprites(modApi), true, "animated helper true for auto")
 
 local animSys = exports.animated
 T.check(animSys.loaded == true, "animated system loaded at mod init")
@@ -1667,21 +1678,43 @@ T.check(usedAnim == "idle" or usedAnim == "walk",
 local decoded = JsonDecode.decode('{"speciesId":1,"ok":true}')
 T.check(decoded and decoded.speciesId == 1 and decoded.ok == true, "json_decode works")
 
--- Option off falls back without respawn requirement
-run.loader.modOptions["overworld_wild_spawns"].use_animated_overworld_sprites = false
-T.eq(Config.useAnimatedOverworldSprites(modApi), false, "animated option can disable")
+-- Sprite style live toggle without respawn
+run.loader.modOptions["overworld_wild_spawns"].sprite_style = "pokedex"
+T.eq(Config.spriteStyle(modApi), "pokedex", "sprite_style can select pokedex")
+T.eq(Config.useAnimatedOverworldSprites(modApi), false, "pokedex disables animated helper")
 logic:onOptionsChanged({
-  mod = modApi.id, key = "use_animated_overworld_sprites", value = false,
+  mod = modApi.id, key = "sprite_style", value = "pokedex",
 })
-run.loader.modOptions["overworld_wild_spawns"].use_animated_overworld_sprites = true
+run.loader.modOptions["overworld_wild_spawns"].sprite_style = "pokemmo"
 logic:onOptionsChanged({
-  mod = modApi.id, key = "use_animated_overworld_sprites", value = true,
+  mod = modApi.id, key = "sprite_style", value = "pokemmo",
+})
+T.eq(Config.spriteStyle(modApi), "pokemmo", "sprite_style pokemmo")
+run.loader.modOptions["overworld_wild_spawns"].sprite_style = "auto"
+logic:onOptionsChanged({
+  mod = modApi.id, key = "sprite_style", value = "auto",
 })
 
--- HUD mentions follow sprites
+-- HUD mentions sprite style / follow sprites
 local linesAnim = Diagnostics.hudLines(logic)
 local joinedAnim = table.concat(linesAnim, "\n")
 T.check(joinedAnim:find("Follow sprites", 1, true), "HUD shows follow sprite status")
+T.check(joinedAnim:find("Requested style:", 1, true), "HUD shows requested sprite style")
+T.check(joinedAnim:find("Active provider:", 1, true), "HUD shows active provider")
+T.check(joinedAnim:find("Body renderer: NATIVE_SPRITE_RENDERER", 1, true),
+        "HUD shows native body renderer")
+
+-- Provider list includes builtins
+local listed = exports.listSpriteProviders()
+local sawPokemmo, sawPokedex = false, false
+for _, row in ipairs(listed) do
+  if row.id == "pokemmo" then sawPokemmo = true end
+  if row.id == "pokedex" then sawPokedex = true end
+end
+T.check(sawPokemmo and sawPokedex, "builtin providers listed")
+T.check(exports.getSpriteProvider("pokemmo") ~= nil, "getSpriteProvider pokemmo")
+T.check(SpriteProviders.STYLE_CHAINS.auto[1] == "followers_ex", "auto chain starts followers")
+T.check(SpriteProviders.STYLE_CHAINS.auto[2] == "pokemmo", "auto chain then pokemmo")
 
 -- Mod disable clears entities.
 run.loader.modOptions["overworld_wild_spawns"].enabled = false

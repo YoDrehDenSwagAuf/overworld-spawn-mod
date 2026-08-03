@@ -1208,13 +1208,15 @@ function SpawnLogic:onOptionsChanged(payload)
     if key == "dev_mode" and payload.value == false then
       if self.overlay then self.overlay:clear() end
     end
-  elseif key == "use_animated_overworld_sprites" then
+  elseif key == "sprite_style"
+      or key == "use_animated_overworld_sprites" then
+    -- Legacy Mon Sprites toggles map onto sprite_style via Config.spriteStyle.
     local world = self.mod.world
     local game = world and world.game
     self.render:invalidateAssetCache()
     local n = self.render:refreshAllEntitySprites(self, game)
-    self:_log("use_animated_overworld_sprites -> %s; refreshed %d entities (no respawn)",
-              tostring(payload.value), n)
+    self:_log("sprite_style -> %s; refreshed %d entities (no respawn)",
+              tostring(Config.spriteStyle(self.mod)), n)
   elseif key == "pokemon_grass_render_mode"
       or key == "show_pokemon_in_grass" then
     local Movement = V.require("movement")

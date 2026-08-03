@@ -106,7 +106,9 @@ store file paths and dimensions.
 
 ## Runtime
 
-- Option `use_animated_overworld_sprites` (default on) enables follow-sprites
+- Option `sprite_style` (default `auto`) selects Followers EX / PokeMMO /
+  Pokedex providers. Legacy `use_animated_overworld_sprites` migrates to
+  `auto` / `pokedex`.
 - Cache keys: `speciesId:variant` (images), `speciesId:variant:anim:dir:frame` (quads)
 - Fallback: follow variant → follow normal → legacy Pokédex PNG → black
 - Runtime shiny support: **NOT AVAILABLE** for Gen1 wild spawns (preview may force shiny)

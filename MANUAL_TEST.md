@@ -12,11 +12,11 @@
 Confirm visible labels are not truncated (max 14 characters):
 
 ```text
-Show Wild Mons / Hide Grass RNG / Mon Sprites / Spawn Amount / Grass View
+Show Wild Mons / Hide Grass RNG / Sprite Style / Spawn Amount / Grass View
 Idle Mons / Roam Mons / Chase Mons / Hidden Mons / Dev Mode
 ```
 
-Defaults for 1.0: Mon Sprites ON, Spawn Amount NORMAL, Grass View IMMERSED,
+Defaults for 1.0: Sprite Style AUTO, Spawn Amount NORMAL, Grass View IMMERSED,
 Roam / Chase / Hidden ON, Dev Mode OFF.
 
 ## Developer HUD (nearest entity)
