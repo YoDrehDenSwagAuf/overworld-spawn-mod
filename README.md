@@ -31,6 +31,8 @@ Available styles:
   1-frame SpriteRenderer definitions (no walker sheet; no asset copy).
 - **Followers EX** — uses compatible walker sprites supplied through
   **Followers EX / PokePC Followers** when those mods are installed.
+- **Crystal** — uses the animated Crystal-style sprites with shiny visuals by
+  **distilledorion-sketch** when the corresponding mod is installed.
 - **PokeMMO** — uses the animated sprite sheets bundled with Wilds of Kanto.
 - **Pokedex** — uses the original Pokédex-based images.
 
@@ -52,6 +54,8 @@ Gen1Recomp Mod Manager or from its official GitHub release:
   (`FOLLOWERS_EX`)
 - [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
   (`PokePCFollowers_VoxelMerge`), required by Followers EX
+- [Crystal Animated Sprites with Shiny Visuals](https://github.com/distilledorion-sketch/crystal_animated_sprites_with_shiny_visuals/releases/tag/mod)
+  (`crystal_animated_sprites_with_shiny_visuals`)
 
 After installation, restart Gen1Recomp and select the style from:
 
@@ -69,9 +73,10 @@ Auto preference order when multiple packs are present:
 
 1. Gold Sprites
 2. Followers EX
-3. PokeMMO (built-in)
-4. Pokedex
-5. black fallback
+3. Crystal
+4. PokeMMO (built-in)
+5. Pokedex
+6. black fallback
 
 ## Sprite Pack Shoutouts
 
@@ -86,6 +91,8 @@ available to the community:
   [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
   (walker sheet provider used by Followers EX; overworld art credited there to
   ShockSlayer / Pokémon Crystal Clear).
+- **distilledorion-sketch** — creator of Crystal Animated Sprites with Shiny
+  Visuals.
 - **DramaticShape** — Dramatic Shape Voxel Mod compatibility work that keeps
   native SpriteRenderer sheets working in orbit / first-person views.
 
@@ -97,11 +104,15 @@ assets remain owned and licensed by their respective creators.
 Wilds of Kanto supports multiple overworld Pokémon sprite styles through a
 shared provider pipeline:
 
-- **Auto** — prefers Gold Sprites, then Followers EX, then built-in PokeMMO,
-  then Pokedex.
+- **Auto** — prefers Gold Sprites, then Followers EX, then Crystal, then
+  built-in PokeMMO, then Pokedex.
 - **Gold Sprites** — read-only adapter for `Gold_Silver_Sprites` battle fronts.
 - **Followers EX** — uses compatible sprites supplied by Followers EX /
   PokePC Followers when available.
+- **Crystal** — read-only adapter for
+  `crystal_animated_sprites_with_shiny_visuals` Crystal battle fronts (static
+  frame 001; normal + shiny). Requires the external mod; assets are not
+  redistributed.
 - **PokeMMO** — uses Wilds of Kanto's built-in animated overworld sprites.
 - **Pokedex** — uses the original Pokédex-based images.
 
@@ -111,7 +122,7 @@ occlusion.
 
 The **PokeMMO** label refers to Wilds of Kanto’s own runtime follow-sprite
 sheets (`assets/generated/followsprites_runtime/`). It does not ship or claim
-Gold Sprites / Followers EX / PokePC assets.
+Gold Sprites / Followers EX / PokePC / Crystal assets.
 
 Optional companion mods (runtime detection only — **no hard dependencies**):
 
@@ -122,6 +133,9 @@ Optional companion mods (runtime detection only — **no hard dependencies**):
   PokePC sprite pack.
 - PokePC Followers Voxel Merge (`PokePCFollowers_VoxelMerge`) — walker sheet
   assets used by Followers EX.
+- [Crystal Animated Sprites with Shiny Visuals](https://github.com/distilledorion-sketch/crystal_animated_sprites_with_shiny_visuals)
+  (`crystal_animated_sprites_with_shiny_visuals`) — Crystal battle fronts with
+  shiny variants.
 
 Companion mods can also register a provider at runtime:
 
@@ -149,8 +163,8 @@ sprites are only used during normal gameplay when the game provides a reliable
 shiny state. They remain available in the developer preview for testing.
 
 Choose **Sprite Style** from the Start Menu (**SPRITE STYLE**) or in the mod
-settings (Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex). Auto is the
-default.
+settings (Auto / Gold Sprites / Followers EX / Crystal / PokeMMO / Pokedex).
+Auto is the default.
 
 If a follow sprite or mapping is missing, the mod automatically falls back to:
 
@@ -177,8 +191,8 @@ tables and places tangible wild Pokemon (or hidden markers) on eligible tiles.
   (engine `drawCellBottom` feet overdraw, like the player)
 - Small species get nearest-neighbor sprite scaling so they stay readable
 - Real Pokemon art is preferred; **Sprite Style** selects Gold Sprites,
-  Followers EX, Wilds PokeMMO-style sheets, or legacy Pokedex images (Auto by
-  default)
+  Followers EX, Crystal, Wilds PokeMMO-style sheets, or legacy Pokedex images
+  (Auto by default)
 - Otherwise legacy species / battle PNGs are used; a black fallback sprite is
   used when no image resolves (hidden behaviours draw no Pokemon sprite)
 - Vanilla random grass encounters remain as a fail-safe until the visible
@@ -290,7 +304,7 @@ Visible labels are limited to 14 characters so Gen1Recomp does not truncate them
 | --- | --- | --- |
 | Show Wild Mons | Master switch for visible spawns | ON |
 | Hide Grass RNG | Suppress vanilla grass rolls only after visible spawns are ready | ON |
-| Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | AUTO |
+| Sprite Style | Auto / Gold Sprites / Followers EX / Crystal / PokeMMO / Pokedex | AUTO |
 | Spawn Amount | Density preset (Low / Normal / High / Very High) | NORMAL |
 | Grass View | Immersed in tall grass, or fully Above | IMMERSED |
 | Idle Mons | Allow Idle Look behaviour | ON |

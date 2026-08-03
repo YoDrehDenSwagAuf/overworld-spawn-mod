@@ -107,7 +107,8 @@ store file paths and dimensions.
 ## Runtime
 
 - Option `sprite_style` (default `auto`) selects Gold Sprites / Followers EX /
-  PokeMMO / Pokedex. Auto order: gold → followers_ex → pokemmo → pokedex.
+  Crystal / PokeMMO / Pokedex. Auto order: gold → followers_ex → crystal →
+  pokemmo → pokedex.
   Legacy `use_animated_overworld_sprites` migrates to `auto` / `pokedex`.
 - Cache keys: `speciesId:variant` (images), `speciesId:variant:anim:dir:frame` (quads)
 - Fallback: follow variant → follow normal → legacy Pokédex PNG → black

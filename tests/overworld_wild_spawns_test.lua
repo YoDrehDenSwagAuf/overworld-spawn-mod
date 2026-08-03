@@ -1716,8 +1716,11 @@ T.check(exports.getSpriteProvider("pokemmo") ~= nil, "getSpriteProvider pokemmo"
 T.check(exports.getSpriteProvider("gold") ~= nil, "getSpriteProvider gold")
 T.check(SpriteProviders.STYLE_CHAINS.auto[1] == "gold", "auto chain starts gold")
 T.check(SpriteProviders.STYLE_CHAINS.auto[2] == "followers_ex", "auto chain then followers")
-T.check(SpriteProviders.STYLE_CHAINS.auto[3] == "pokemmo", "auto chain then pokemmo")
+T.check(SpriteProviders.STYLE_CHAINS.auto[3] == "crystal", "auto chain then crystal")
+T.check(SpriteProviders.STYLE_CHAINS.auto[4] == "pokemmo", "auto chain then pokemmo")
 T.check(SpriteProviders.AUTO_PROVIDER_ORDER[1] == "gold", "AUTO_PROVIDER_ORDER gold first")
+T.check(SpriteProviders.AUTO_PROVIDER_ORDER[3] == "crystal", "AUTO_PROVIDER_ORDER crystal third")
+T.check(exports.getSpriteProvider("crystal") ~= nil, "getSpriteProvider crystal")
 T.check(type(exports.setSpriteStyle) == "function", "setSpriteStyle export")
 T.check(exports.spriteStyleMenu ~= nil, "spriteStyleMenu export")
 T.eq(exports.spriteStyleMenu._registered, true, "SPRITE STYLE menu registered once")
@@ -1728,7 +1731,9 @@ for _, choice in ipairs(styleOpt.choices) do
   T.check(#choice[1] <= 14, "style choice label <= 14: " .. tostring(choice[1]))
 end
 T.check(styleChoices.gold == "Gold Sprites", "Gold Sprites choice present")
+T.check(styleChoices.crystal == "Crystal", "Crystal choice present")
 T.eq(#("Gold Sprites"), 12, "Gold Sprites length")
+T.eq(#("Crystal"), 7, "Crystal length")
 T.eq(#("SPRITE STYLE"), 12, "SPRITE STYLE menu length")
 
 -- Shared setter writes the same sprite_style key
@@ -1738,6 +1743,9 @@ mockGame.mods = mockGame.mods or { modOptions = {} }
 local setOk = exports.setSpriteStyle("gold", "test", { confirm = false, game = mockGame })
 T.check(setOk == true, "setSpriteStyle gold ok")
 T.eq(Config.spriteStyle(modApi), "gold", "setSpriteStyle persisted gold")
+setOk = exports.setSpriteStyle("crystal", "test", { confirm = false, game = mockGame })
+T.check(setOk == true, "setSpriteStyle crystal ok")
+T.eq(Config.spriteStyle(modApi), "crystal", "setSpriteStyle persisted crystal")
 setOk = exports.setSpriteStyle("auto", "test", { confirm = false, game = mockGame })
 T.check(setOk == true, "setSpriteStyle auto ok")
 T.eq(Config.spriteStyle(modApi), "auto", "setSpriteStyle restored auto")

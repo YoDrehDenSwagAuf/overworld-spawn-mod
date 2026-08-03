@@ -3,13 +3,18 @@
 -- Architecture: swap SpriteRenderer definitions only. Rendering stays native
 -- (frames/walker/pose → Gen1Recomp / Dramatic Shape). No overlay bodies.
 --
--- Built-in IDs: gold, followers_ex, pokemmo, pokedex (+ internal black fallback).
+-- Built-in IDs: gold, followers_ex, crystal, pokemmo, pokedex (+ internal black).
 -- External mods may register via mod.exports.registerSpriteProvider after
 -- Wilds loads (Followers EX priority 160 loads after Wilds priority 80).
 --
 -- Gold Sprites (Gold_Silver_Sprites 1.0.1) ships battle front/back PNGs only
 -- (56×56 fronts). Wilds adapts them as 1-frame SpriteRenderer defs — no asset
 -- copy, no hard dependency, no content-registry mutation after freeze.
+--
+-- Crystal (crystal_animated_sprites_with_shiny_visuals 1.0.0) ships animated
+-- Crystal battle fronts as per-frame PNGs under assets/front/{normal|shiny}/
+-- {dex}/{frame:03d}.png. Wilds adapts frame 001 statically as a 1-frame
+-- SpriteRenderer def (no walker, no per-frame texture swap, no asset copy).
 local V = ...
 local Config = V.require("config")
 local RuntimeSheets = V.require("runtime_sheets")
@@ -22,6 +27,7 @@ SpriteProviders.__index = SpriteProviders
 SpriteProviders.ID = {
   GOLD = "gold",
   FOLLOWERS_EX = "followers_ex",
+  CRYSTAL = "crystal",
   POKEMMO = "pokemmo",
   POKEDEX = "pokedex",
   BLACK = "black",
@@ -31,14 +37,19 @@ SpriteProviders.STYLE = {
   AUTO = "auto",
   GOLD = "gold",
   FOLLOWERS_EX = "followers_ex",
+  CRYSTAL = "crystal",
   POKEMMO = "pokemmo",
   POKEDEX = "pokedex",
 }
 
 -- Central Auto order: prefer separately installed external packs first.
+-- Crystal sits after Followers EX: Followers supplies walker sheets that match
+-- the Gen1Recomp trainer contract directly; Crystal is static battle-front art
+-- (same class as Gold). No technical reason to rank Crystal above Followers.
 local AUTO_PROVIDER_ORDER = {
   "gold",
   "followers_ex",
+  "crystal",
   "pokemmo",
   "pokedex",
 }
@@ -48,6 +59,7 @@ local STYLE_CHAINS = {
   auto = AUTO_PROVIDER_ORDER,
   gold = { "gold", "pokemmo", "pokedex" },
   followers_ex = { "followers_ex", "pokemmo", "pokedex" },
+  crystal = { "crystal", "pokemmo", "pokedex" },
   pokemmo = { "pokemmo", "pokedex" },
   pokedex = { "pokedex" },
 }
@@ -56,6 +68,7 @@ local VALID_STYLES = {
   auto = true,
   gold = true,
   followers_ex = true,
+  crystal = true,
   pokemmo = true,
   pokedex = true,
 }
@@ -63,6 +76,7 @@ local VALID_STYLES = {
 local FOLLOWERS_MOD_ID = "FOLLOWERS_EX"
 local POKEPC_MOD_ID = "PokePCFollowers_VoxelMerge"
 local GOLD_MOD_ID = "Gold_Silver_Sprites"
+local CRYSTAL_MOD_ID = "crystal_animated_sprites_with_shiny_visuals"
 local PROBE_SPECIES = "CHARMANDER"
 local PROBE_REL = "assets/sprites/follower_" .. PROBE_SPECIES .. ".png"
 -- Availability probes: Dex 1 / 25 / 151 (release truecolor fronts).
@@ -71,6 +85,15 @@ local GOLD_ROOT_CANDIDATES = {
   "mods/Gold_Silver_Sprites",
   "mods/Pokemon Gold Silver Sprites",
 }
+-- Crystal release probes (Dex 1 / 25 / 151) + documented install folder.
+local CRYSTAL_PROBE_DEX = { 1, 25, 151 }
+local CRYSTAL_ROOT_CANDIDATES = {
+  "mods/crystal_animated_sprites_with_shiny_visuals",
+}
+-- Static normalization: Crystal battle anims are per-frame PNGs; Wilds uses
+-- frame 001 only (no dynamic texture swap). sheetFormat for diagnostics.
+local CRYSTAL_SHEET_FORMAT = "crystal_front_static_frame1"
+local CRYSTAL_STATIC_FRAME = 1
 
 local function fsExists(path)
   if type(path) ~= "string" or path == "" then return false end
@@ -159,6 +182,7 @@ function SpriteProviders:_registerBuiltins()
   -- External adapters are registered now and re-probed at finalize / resolve.
   self:register(self:_makeGoldProvider())
   self:register(self:_makeFollowersExProvider())
+  self:register(self:_makeCrystalProvider())
 end
 
 function SpriteProviders:register(provider)
@@ -207,7 +231,11 @@ end
 
 function SpriteProviders:finalize(game)
   self.finalized = true
-  for _, id in ipairs({ SpriteProviders.ID.GOLD, SpriteProviders.ID.FOLLOWERS_EX }) do
+  for _, id in ipairs({
+    SpriteProviders.ID.GOLD,
+    SpriteProviders.ID.FOLLOWERS_EX,
+    SpriteProviders.ID.CRYSTAL,
+  }) do
     local provider = self.providers[id]
     if provider and type(provider.refreshAvailability) == "function" then
       pcall(provider.refreshAvailability, provider, game)
@@ -216,13 +244,20 @@ function SpriteProviders:finalize(game)
   if Config.debug(self.mod) then
     local gold = self.providers[SpriteProviders.ID.GOLD]
     local followers = self.providers[SpriteProviders.ID.FOLLOWERS_EX]
+    local crystal = self.providers[SpriteProviders.ID.CRYSTAL]
     local gOk, gWhy = false, "missing"
     local fOk, fWhy = false, "missing"
+    local cOk, cWhy = false, "missing"
     if gold then gOk, gWhy = gold:isAvailable(game) end
     if followers then fOk, fWhy = followers:isAvailable(game) end
+    if crystal then cOk, cWhy = crystal:isAvailable(game) end
     DebugLog.info(self.mod,
-      "sprite providers finalized; gold=%s (%s) followers_ex=%s (%s)",
-      tostring(gOk), tostring(gWhy), tostring(fOk), tostring(fWhy))
+      "sprite providers finalized; gold=%s (%s) followers_ex=%s (%s) crystal=%s (%s)",
+      tostring(gOk), tostring(gWhy), tostring(fOk), tostring(fWhy),
+      tostring(cOk), tostring(cWhy))
+    if crystal and type(crystal.logProbeReport) == "function" then
+      pcall(crystal.logProbeReport, crystal, game)
+    end
   end
 end
 
@@ -905,6 +940,300 @@ function SpriteProviders:_makeFollowersExProvider()
 end
 
 ------------------------------------------------------------------------
+-- Crystal Animated Sprites read-only adapter
+-- (distilledorion-sketch / crystal_animated_sprites_with_shiny_visuals)
+--
+-- Release tag `mod` / zip crystal_animated_sprites_with_shiny_visuals_v1.0.zip
+-- (verified facts — not guessed from the repo name):
+--   * Mod ID: crystal_animated_sprites_with_shiny_visuals
+--   * Version: 1.0.0  entry: main.lua  priority: 980  profile: content
+--   * Author (mod.card): "Community mod"; GitHub owner: distilledorion-sketch
+--   * License: no LICENSE file in the release ZIP or tagged tree
+--   * ZIP root folder: crystal_animated_sprites_with_shiny_visuals/
+--   * Manifest: crystal_animated_sprites_with_shiny_visuals/manifest.json
+--   * Public exports: only isShinyRevealPlaying (no sprite resolver API)
+--   * Species map: species_map.lua SPECIES_NAME -> dex (1..151)
+--   * Front assets: assets/front/{normal|shiny}/{dex}/{frame:03d}.png
+--   * Frame counts vary (5..39); canvases 24–56 px; RGBA truecolor
+--   * Shiny fronts present for all 151 species
+--   * Battle runtime swaps textures per frame — incompatible with the
+--     Gen1Recomp trainer SpriteRenderer contract. Wilds statically
+--     normalizes to frame 001 as a 1-frame non-walker def.
+--
+-- Prefer (in order): optional future export API → documented asset paths.
+-- Never copy assets, never mutate Crystal tables, never hard-depend.
+------------------------------------------------------------------------
+
+function SpriteProviders:_crystalFrontRel(dex, variant, frame)
+  dex = tonumber(dex)
+  if not dex or dex < 1 then return nil end
+  local which = (normalizeVariant(variant) == "shiny") and "shiny" or "normal"
+  frame = tonumber(frame) or CRYSTAL_STATIC_FRAME
+  return string.format("assets/front/%s/%d/%03d.png", which, math.floor(dex), frame)
+end
+
+function SpriteProviders:_discoverCrystalRoot(game)
+  local mod = self.mod
+
+  local function probeOk(root)
+    if type(root) ~= "string" or root == "" then return false end
+    for _, dex in ipairs(CRYSTAL_PROBE_DEX) do
+      local rel = self:_crystalFrontRel(dex, "normal", CRYSTAL_STATIC_FRAME)
+      if rel and fsExists(root .. "/" .. rel) then
+        return true
+      end
+    end
+    return false
+  end
+
+  -- A) Optional future public export / mod:find path.
+  if mod and mod.find then
+    local hit = mod:find(CRYSTAL_MOD_ID)
+    local ex = hit and hit.exports
+    if ex then
+      if type(ex.resolveCrystalSprite) == "function"
+         or type(ex.getCrystalSpritePath) == "function"
+         or type(ex.resolveSprite) == "function" then
+        return "export:" .. CRYSTAL_MOD_ID, CRYSTAL_MOD_ID, ex, hit
+      end
+    end
+    if hit and type(hit.path) == "string" then
+      -- Prefer love.filesystem virtual roots (mods/...), not OS absolutes.
+      if hit.path:match("^mods/") and probeOk(hit.path) then
+        return hit.path, CRYSTAL_MOD_ID, nil, hit
+      end
+    end
+  end
+
+  -- B) Documented install location matching the release ZIP folder name.
+  for _, root in ipairs(CRYSTAL_ROOT_CANDIDATES) do
+    if probeOk(root) then
+      local hit = nil
+      if mod and mod.find then
+        hit = mod:find(CRYSTAL_MOD_ID)
+      end
+      return root, root, nil, hit
+    end
+  end
+
+  return nil, nil, nil, nil
+end
+
+function SpriteProviders:_makeCrystalProvider()
+  local mod = self.mod
+  local owners = self
+  local state = {
+    root = nil,
+    source = nil,
+    exportApi = nil,
+    hit = nil,
+    probed = false,
+    probe = nil,
+  }
+
+  local provider = {
+    id = SpriteProviders.ID.CRYSTAL,
+    builtin = true,
+    modId = CRYSTAL_MOD_ID,
+    _state = state,
+  }
+
+  local function runProbes()
+    local report = {
+      modId = CRYSTAL_MOD_ID,
+      version = state.hit and state.hit.version or nil,
+      installed = false,
+      dex = {},
+      shinyAvailable = false,
+      sheetFormat = CRYSTAL_SHEET_FORMAT,
+    }
+    local installedViaFind = mod and mod.find and mod:find(CRYSTAL_MOD_ID) ~= nil
+    report.installed = installedViaFind
+      or (state.root ~= nil)
+      or (state.exportApi ~= nil)
+    if state.root and tostring(state.root):sub(1, 7) ~= "export:" then
+      local anyShiny = false
+      for _, dex in ipairs(CRYSTAL_PROBE_DEX) do
+        local nRel = owners:_crystalFrontRel(dex, "normal", CRYSTAL_STATIC_FRAME)
+        local sRel = owners:_crystalFrontRel(dex, "shiny", CRYSTAL_STATIC_FRAME)
+        local nOk = nRel and fsExists(state.root .. "/" .. nRel)
+        local sOk = sRel and fsExists(state.root .. "/" .. sRel)
+        report.dex[dex] = nOk == true
+        if sOk then anyShiny = true end
+      end
+      report.shinyAvailable = anyShiny
+    elseif state.exportApi then
+      for _, dex in ipairs(CRYSTAL_PROBE_DEX) do
+        report.dex[dex] = true
+      end
+      report.shinyAvailable = true
+    end
+    state.probe = report
+    return report
+  end
+
+  function provider:refreshAvailability(game)
+    state.probed = true
+    local root, source, exportApi, hit = owners:_discoverCrystalRoot(game)
+    state.root, state.source, state.exportApi, state.hit = root, source, exportApi, hit
+    runProbes()
+    return state.root ~= nil or state.exportApi ~= nil
+  end
+
+  function provider:logProbeReport(_game)
+    local report = state.probe or runProbes()
+    DebugLog.info(mod, "Crystal mod ID: %s", tostring(report.modId))
+    DebugLog.info(mod, "Crystal version: %s", tostring(report.version or "?"))
+    DebugLog.info(mod, "Provider installed: %s", report.installed and "YES" or "NO")
+    for _, dex in ipairs(CRYSTAL_PROBE_DEX) do
+      DebugLog.info(mod, "Dex %d resolved: %s", dex,
+        report.dex[dex] and "YES" or "NO")
+    end
+    DebugLog.info(mod, "Shiny available: %s", report.shinyAvailable and "YES" or "NO")
+    DebugLog.info(mod, "Sheet format: %s", tostring(report.sheetFormat))
+  end
+
+  function provider:isAvailable(game)
+    if not state.probed or (state.root == nil and state.exportApi == nil) then
+      self:refreshAvailability(game)
+    end
+    if state.exportApi then
+      return true, "crystal export API (" .. tostring(state.source) .. ")"
+    end
+    if state.root then
+      for _, dex in ipairs(CRYSTAL_PROBE_DEX) do
+        local rel = owners:_crystalFrontRel(dex, "normal", CRYSTAL_STATIC_FRAME)
+        if rel and fsExists(state.root .. "/" .. rel) then
+          return true, "Crystal fronts at " .. tostring(state.root)
+        end
+      end
+    end
+    if mod and mod.find and mod:find(CRYSTAL_MOD_ID) and not state.root then
+      return false, "crystal_animated_sprites_with_shiny_visuals installed but fronts unresolved"
+    end
+    return false, "Crystal provider not available"
+  end
+
+  function provider:resolve(speciesId, variant, game)
+    local okAvail, why = self:isAvailable(game)
+    if not okAvail then
+      return nil, nil, why
+    end
+
+    local dex = resolveDexId(speciesId, game, mod)
+    if not dex then
+      return nil, nil, "dex unresolved for crystal path"
+    end
+
+    local want = normalizeVariant(variant)
+    local wantShiny = want == "shiny"
+
+    -- Optional future public export API.
+    if state.exportApi then
+      local api = state.exportApi
+      local tryFns = { "resolveCrystalSprite", "resolveSprite", "getCrystalSpritePath" }
+      for _, fname in ipairs(tryFns) do
+        local fn = api[fname]
+        if type(fn) == "function" then
+          local ok, defOrPath, meta = pcall(fn, dex, variant, game)
+          if not ok then
+            ok, defOrPath, meta = pcall(fn, speciesId, variant, game)
+          end
+          if ok and type(defOrPath) == "table" and defOrPath.image then
+            local def = copyDef(defOrPath, "SPRITE_OW_WILD_CRYSTAL_" .. tostring(dex))
+            -- Force static trainer-contract normalization.
+            def.frames = 1
+            def.walker = false
+            def.trueColor = def.trueColor ~= false
+            return def, {
+              providerId = SpriteProviders.ID.CRYSTAL,
+              usedVariant = want,
+              loadPath = def.image,
+              frames = 1,
+              walker = false,
+              bodyRenderer = "NATIVE_SPRITE_RENDERER",
+              providerMod = CRYSTAL_MOD_ID,
+              providerVersion = state.hit and state.hit.version,
+              sheetFormat = CRYSTAL_SHEET_FORMAT,
+              dex = dex,
+            }, nil
+          elseif ok and type(defOrPath) == "string" and defOrPath ~= ""
+             and fsExists(defOrPath) then
+            local def = {
+              image = defOrPath, frames = 1, walker = false, trueColor = true,
+              id = "SPRITE_OW_WILD_CRYSTAL_" .. tostring(dex),
+            }
+            return def, {
+              providerId = SpriteProviders.ID.CRYSTAL,
+              usedVariant = want,
+              loadPath = defOrPath, frames = 1, walker = false,
+              bodyRenderer = "NATIVE_SPRITE_RENDERER",
+              providerMod = CRYSTAL_MOD_ID,
+              providerVersion = state.hit and state.hit.version,
+              sheetFormat = CRYSTAL_SHEET_FORMAT,
+              dex = dex,
+            }, nil
+          end
+        end
+      end
+    end
+
+    if not state.root or tostring(state.root):sub(1, 7) == "export:" then
+      return nil, nil, "no Crystal asset root"
+    end
+
+    local function tryVariant(which)
+      local rel = owners:_crystalFrontRel(dex, which, CRYSTAL_STATIC_FRAME)
+      if not rel then return nil, nil end
+      local path = state.root .. "/" .. rel
+      if not fsExists(path) then
+        return nil, "missing crystal front: " .. tostring(rel)
+      end
+      local def = {
+        image = path,
+        frames = 1,
+        walker = false,
+        trueColor = true,
+        id = "SPRITE_OW_WILD_CRYSTAL_" .. tostring(dex),
+      }
+      local meta = {
+        providerId = SpriteProviders.ID.CRYSTAL,
+        usedVariant = which,
+        loadPath = path,
+        relativePath = rel,
+        frames = 1,
+        walker = false,
+        bodyRenderer = "NATIVE_SPRITE_RENDERER",
+        providerMod = CRYSTAL_MOD_ID,
+        providerVersion = state.hit and state.hit.version,
+        pack = "crystal",
+        sheetFormat = CRYSTAL_SHEET_FORMAT,
+        dex = dex,
+        staticFrame = CRYSTAL_STATIC_FRAME,
+      }
+      return def, meta
+    end
+
+    if wantShiny then
+      local def, metaOrErr = tryVariant("shiny")
+      if def then
+        return def, metaOrErr, nil
+      end
+      -- Signal shiny miss so resolveProviderVariant tries crystal normal next.
+      return nil, nil, metaOrErr or "crystal shiny unavailable"
+    end
+
+    local def, metaOrErr = tryVariant("normal")
+    if def then
+      return def, metaOrErr, nil
+    end
+    return nil, nil, metaOrErr or "crystal normal unavailable"
+  end
+
+  return provider
+end
+
+------------------------------------------------------------------------
 -- Resolution with style chains + shiny fallback
 ------------------------------------------------------------------------
 
@@ -1060,6 +1389,8 @@ function SpriteProviders:diagnostics(style, game, entity)
     installedStatus(GOLD_MOD_ID, SpriteProviders.ID.GOLD, "Gold Sprites")
   local followersLines, followersInstalled, followersOk =
     installedStatus(FOLLOWERS_MOD_ID, SpriteProviders.ID.FOLLOWERS_EX, "Followers EX")
+  local crystalLines, crystalInstalled, crystalOk =
+    installedStatus(CRYSTAL_MOD_ID, SpriteProviders.ID.CRYSTAL, "Crystal")
   local pokepcInstalled = false
   if self.mod and self.mod.find then
     pokepcInstalled = self.mod:find(POKEPC_MOD_ID) ~= nil
@@ -1081,6 +1412,7 @@ function SpriteProviders:diagnostics(style, game, entity)
   }
   for _, line in ipairs(goldLines) do lines[#lines + 1] = line end
   for _, line in ipairs(followersLines) do lines[#lines + 1] = line end
+  for _, line in ipairs(crystalLines) do lines[#lines + 1] = line end
   lines[#lines + 1] = ("PokePC provider: %s"):format(
     pokepcInstalled and "INSTALLED" or "NOT INSTALLED")
 
@@ -1088,6 +1420,9 @@ function SpriteProviders:diagnostics(style, game, entity)
     lines[#lines + 1] = "Gold provider: NOT INSTALLED"
     lines[#lines + 1] = "Provider unavailable: YES"
   elseif style == "followers_ex" and not followersOk then
+    lines[#lines + 1] = "Provider unavailable: YES"
+  elseif style == "crystal" and not crystalOk then
+    lines[#lines + 1] = "Crystal provider: NOT INSTALLED"
     lines[#lines + 1] = "Provider unavailable: YES"
   end
 
@@ -1105,6 +1440,22 @@ function SpriteProviders:diagnostics(style, game, entity)
   elseif style == "followers_ex" then
     lines[#lines + 1] = ("Provider installed: %s"):format(
       (followersInstalled or followersOk) and "YES" or "NO")
+  elseif style == "crystal" then
+    lines[#lines + 1] = ("Provider installed: %s"):format(
+      (crystalInstalled or crystalOk) and "YES" or "NO")
+    local crystal = self.providers[SpriteProviders.ID.CRYSTAL]
+    local probe = crystal and crystal._state and crystal._state.probe
+    if probe then
+      lines[#lines + 1] = ("Crystal mod ID: %s"):format(tostring(probe.modId))
+      lines[#lines + 1] = ("Crystal version: %s"):format(tostring(probe.version or "?"))
+      for _, dex in ipairs(CRYSTAL_PROBE_DEX) do
+        lines[#lines + 1] = ("Dex %d resolved: %s"):format(
+          dex, probe.dex[dex] and "YES" or "NO")
+      end
+      lines[#lines + 1] = ("Shiny available: %s"):format(
+        probe.shinyAvailable and "YES" or "NO")
+      lines[#lines + 1] = ("Sheet format: %s"):format(tostring(probe.sheetFormat))
+    end
   end
 
   if entity then
@@ -1127,6 +1478,8 @@ function SpriteProviders:diagnostics(style, game, entity)
     lines[#lines + 1] = "Fallback reason: provider unavailable"
   elseif style == "followers_ex" and not followersOk then
     lines[#lines + 1] = "Fallback reason: provider missing"
+  elseif style == "crystal" and not crystalOk then
+    lines[#lines + 1] = "Fallback reason: provider unavailable"
   elseif last and last.meta and last.meta.shinyFallback then
     lines[#lines + 1] = "Fallback reason: shiny unavailable"
   end
@@ -1142,5 +1495,7 @@ SpriteProviders.AUTO_PROVIDER_ORDER = AUTO_PROVIDER_ORDER
 SpriteProviders.FOLLOWERS_MOD_ID = FOLLOWERS_MOD_ID
 SpriteProviders.POKEPC_MOD_ID = POKEPC_MOD_ID
 SpriteProviders.GOLD_MOD_ID = GOLD_MOD_ID
+SpriteProviders.CRYSTAL_MOD_ID = CRYSTAL_MOD_ID
+SpriteProviders.CRYSTAL_SHEET_FORMAT = CRYSTAL_SHEET_FORMAT
 
 return SpriteProviders

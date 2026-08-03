@@ -1912,6 +1912,8 @@ function SpawnRender:applyProviderSprite(entity, game)
   else
     if result.providerId == "gold" then
       entity.spriteSource = "GOLD_SPRITES"
+    elseif result.providerId == "crystal" then
+      entity.spriteSource = "CRYSTAL_SPRITES"
     elseif entity.usingFallback then
       entity.spriteSource = "BLACK_FALLBACK"
     else

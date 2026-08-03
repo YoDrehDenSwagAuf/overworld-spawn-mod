@@ -6,10 +6,14 @@
 
 - Added optional **Gold Sprites** provider support
   (`Gold_Silver_Sprites` battle fronts via read-only `mod:find()` adapter).
+- Added optional **Crystal** provider support
+  (`crystal_animated_sprites_with_shiny_visuals` battle fronts via read-only
+  adapter; static frame 001, normal + shiny).
 - Quick sprite style selection from the normal in-game Start Menu
   (**SPRITE STYLE**), writing the same `sprite_style` option as Mod Settings.
-- Switch between **Auto**, **Gold Sprites**, **Followers EX**, **PokeMMO**,
-  and **Pokedex**; Auto prefers Gold → Followers EX → PokeMMO → Pokedex.
+- Switch between **Auto**, **Gold Sprites**, **Followers EX**, **Crystal**,
+  **PokeMMO**, and **Pokedex**; Auto prefers Gold → Followers EX → Crystal →
+  PokeMMO → Pokedex.
 - Improved provider fallbacks when optional mods are missing, plus clearer
   HUD/status reporting and documentation for the provider matrix.
 
@@ -41,7 +45,7 @@
 |---|---|---|
 | Show Wild Mons | Master switch for visible wilds | ON |
 | Hide Grass RNG | Suppress vanilla grass rolls when ready | ON |
-| Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | AUTO |
+| Sprite Style | Auto / Gold Sprites / Followers EX / Crystal / PokeMMO / Pokedex | AUTO |
 | Spawn Amount | Density preset | NORMAL |
 | Grass View | Immersed vs above tall grass | IMMERSED |
 | Idle Mons | Allow idle look behaviour | ON |

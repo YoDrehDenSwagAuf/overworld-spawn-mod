@@ -18,6 +18,7 @@ SpriteStyleMenu.CHOICES = {
   { label = "AUTO", value = "auto" },                 -- 4
   { label = "GOLD SPRITES", value = "gold" },         -- 12
   { label = "FOLLOWERS EX", value = "followers_ex" }, -- 12
+  { label = "CRYSTAL", value = "crystal" },           -- 7
   { label = "POKEMMO", value = "pokemmo" },           -- 7
   { label = "POKEDEX", value = "pokedex" },           -- 7
 }
@@ -26,6 +27,7 @@ local CONFIRM = {
   auto = "AUTO",
   gold = "GOLD",
   followers_ex = "FOLLOWERS EX",
+  crystal = "CRYSTAL",
   pokemmo = "POKEMMO",
   pokedex = "POKEDEX",
 }
@@ -57,6 +59,7 @@ local function activeFallbackLabel(menu, style, game)
   local id = select(1, providers:activeProviderForStyle(style, game))
   if id == "gold" then return "GOLD"
   elseif id == "followers_ex" then return "FOLLOWERS EX"
+  elseif id == "crystal" then return "CRYSTAL"
   elseif id == "pokedex" then return "POKEDEX"
   elseif id == "black" then return "FALLBACK"
   end
@@ -82,6 +85,9 @@ function SpriteStyleMenu:_applyChoice(game, value)
   elseif value == "followers_ex" and not avail then
     message = ("FOLLOWERS EX\nNOT INSTALLED\nUSING %s"):format(
       activeFallbackLabel(self, "followers_ex", game))
+  elseif value == "crystal" and not avail then
+    message = ("CRYSTAL\nNOT INSTALLED\nUSING %s"):format(
+      activeFallbackLabel(self, "crystal", game))
   end
 
   local ok, err = Config.setSpriteStyle(mod, value, "start_menu", {
@@ -113,7 +119,9 @@ function SpriteStyleMenu:_openMenu(game)
       if #label > 14 then label = ">" .. base end
     else
       -- Optional "*" for installed external packs (GOLD SPRITES *= 14).
-      if avail and (choice.value == "gold" or choice.value == "followers_ex") then
+      if avail and (choice.value == "gold"
+                    or choice.value == "followers_ex"
+                    or choice.value == "crystal") then
         local withStar = base .. " *"
         if #withStar <= 14 then
           label = withStar

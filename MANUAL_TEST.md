@@ -19,8 +19,8 @@ Idle Mons / Roam Mons / Chase Mons / Hidden Mons / Dev Mode
 Sprite Style choices (also Start Menu → **SPRITE STYLE**):
 
 ```text
-Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex
-SPRITE STYLE / AUTO / GOLD SPRITES / FOLLOWERS EX / POKEMMO / POKEDEX
+Auto / Gold Sprites / Followers EX / Crystal / PokeMMO / Pokedex
+SPRITE STYLE / AUTO / GOLD SPRITES / FOLLOWERS EX / CRYSTAL / POKEMMO / POKEDEX
 ```
 
 Defaults for 1.0: Sprite Style AUTO, Spawn Amount NORMAL, Grass View IMMERSED,
@@ -28,12 +28,19 @@ Roam / Chase / Hidden ON, Dev Mode OFF.
 
 ## Sprite style matrix
 
-1. Only Wilds installed → Auto uses PokeMMO; Gold / Followers EX fall back.
+1. Only Wilds installed → Auto uses PokeMMO; Gold / Followers EX / Crystal fall back.
 2. Wilds + Gold Sprites → Auto / Gold use Gold battle fronts (1-frame).
 3. Wilds + Followers EX (+ PokePC) → Auto uses Followers when Gold absent.
-4. Wilds + both external mods → Auto prefers Gold.
-5. Hot-switch via Start Menu and Mod Settings — same `sprite_style` value,
+4. Wilds + Crystal → Auto uses Crystal (static frame 001, normal/shiny) when
+   Gold / Followers absent.
+5. Wilds + multiple external mods → Auto prefers Gold → Followers EX → Crystal.
+6. Explicit Crystal without pack → falls through to PokeMMO.
+7. Hot-switch via Start Menu and Mod Settings — same `sprite_style` value,
    entities keep id/position/behaviour (sprite only).
+
+Manual Crystal checks: Flat 2D, Dramatic Shape Orbit / First Person, normal +
+shiny variants, grass/wall/object occlusion, install Crystal after Wilds,
+remove Crystal and restart.
 
 ## Developer HUD (nearest entity)
 

@@ -27,6 +27,12 @@ See the asset-specific documentation and credits for details.
   (`Gold_Silver_Sprites` by OtaconRevengeance) is likewise read-only at runtime
   and is not redistributed by Wilds. That release ships without a LICENSE file
   and asks users not to reupload the pack.
+- Optional Crystal battle-front art from
+  [Crystal Animated Sprites with Shiny Visuals](https://github.com/distilledorion-sketch/crystal_animated_sprites_with_shiny_visuals)
+  (`crystal_animated_sprites_with_shiny_visuals` by distilledorion-sketch) is
+  read-only at runtime and is not redistributed by Wilds. The `mod` release
+  ZIP (v1.0.0) ships without a LICENSE file; assets remain owned by their
+  creator.
 - Legacy Pokédex / battle art references used as fallbacks are game-adjacent
   assets and are not relicensed under MIT.
 - Gen1Recomp engine APIs and Dramatic Shape Voxel Mod contracts belong to

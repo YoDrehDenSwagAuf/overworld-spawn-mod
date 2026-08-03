@@ -155,6 +155,7 @@ local VALID_SPRITE_STYLES = {
   auto = true,
   gold = true,
   followers_ex = true,
+  crystal = true,
   pokemmo = true,
   pokedex = true,
 }
@@ -163,6 +164,7 @@ local SPRITE_STYLE_CONFIRM = {
   auto = "AUTO",
   gold = "GOLD",
   followers_ex = "FOLLOWERS EX",
+  crystal = "CRYSTAL",
   pokemmo = "POKEMMO",
   pokedex = "POKEDEX",
 }
