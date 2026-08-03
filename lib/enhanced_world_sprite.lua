@@ -1,16 +1,16 @@
--- Stable Dramatic Shape / SpriteRenderer-compatible adapter for wild Pokemon.
+-- DEPRECATED for Pokemon body rendering (0.7.0+).
+-- Kept for unit tests / emergency reference only.
+-- Primary path: native SpriteRenderer + assets/generated/followsprites_runtime.
 --
--- Dramatic Shape reads sprite.def + sprite:resolveImage() every draw.
--- Mesh UVs come from Assets.image(def.image) at a fixed 16×16 card.
--- Live pixels come from resolveImage() → cached atlas-frame billboard Image.
---
--- One instance per entity for the whole lifetime. Never mutate legacySprite.
+-- Historical note: Dramatic Shape reads sprite.def + sprite:resolveImage().
+-- This adapter swapped per-frame 16×16 card Images; that path is no longer used.
 local V = ...
 local RenderDiagnostics = V.require("render_diagnostics")
 
 local EnhancedWorldSprite = {}
 EnhancedWorldSprite.__index = EnhancedWorldSprite
 EnhancedWorldSprite.__name = "EnhancedWorldSprite"
+EnhancedWorldSprite.DEPRECATED = true
 
 -- Real UV carrier path MUST be set on def.image (Assets.image loads a file).
 -- Never leave the synthetic key in production binds.

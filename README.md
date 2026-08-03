@@ -115,7 +115,7 @@ Idle and Wander only (no aggressive chase or hidden water markers).
 - Developer mode with debug HUD, tile/behaviour overlays, and Pokemon preview
   browser (follow normal/shiny, idle/walk, encounter locations, Test spawn)
 - Optional coexistence with [Dramatic Shape Voxel Mod](https://github.com/DramaticShape/DramaticShapeVoxelMod)
-  (not required); wild Pokemon use a stable `EnhancedWorldSprite` adapter and
+  (not required); wild Pokemon use native `SpriteRenderer` sheets (trainer contract) and
   cached 16×16 billboard cards so DS depth/grass/occlusion match trainers;
   emergency 2D overlay only if the adapter bind fails
 - Vanilla grass encounter fallback when the spawn system is not ready

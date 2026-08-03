@@ -110,4 +110,6 @@ store file paths and dimensions.
 - Cache keys: `speciesId:variant` (images), `speciesId:variant:anim:dir:frame` (quads)
 - Fallback: follow variant → follow normal → legacy Pokédex PNG → black
 - Runtime shiny support: **NOT AVAILABLE** for Gen1 wild spawns (preview may force shiny)
-- Dramatic Shape still uses 16×16 billboard cards fitted from the current frame
+- Build-time conversion writes Gen1Recomp SpriteRenderer sheets
+  (`assets/generated/followsprites_runtime/`, 16×96, 6 frames, walker) used by
+  Dramatic Shape and the preferred flat draw path

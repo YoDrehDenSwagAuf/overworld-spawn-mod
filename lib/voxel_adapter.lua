@@ -2,8 +2,8 @@
 --
 -- Primary path (successful):
 --   entity stays in ow.entities → posesOf → SpriteBillboards
---   pose() returns EnhancedWorldSprite (stable adapter)
---   resolveImage() → cached 16×16 atlas frame Image (trueColor)
+--   pose() returns a native SpriteRenderer (frames=6, walker=true)
+--   def.image is a static 16×96 follow-sprite runtime sheet
 --   Same depth / object occlusion / native grass as player and trainers.
 --
 -- Emergency only:
@@ -20,7 +20,8 @@ local VoxelAdapter = {}
 VoxelAdapter.__index = VoxelAdapter
 
 VoxelAdapter.WORLD_RENDERER = "DRAMATIC_SHAPE"
-VoxelAdapter.POKEMON_WORLD_ENHANCED = "WORLD_BILLBOARD_ENHANCED"
+VoxelAdapter.POKEMON_NATIVE = "NATIVE_SPRITE_RENDERER"
+VoxelAdapter.POKEMON_WORLD_ENHANCED = "WORLD_BILLBOARD_ENHANCED" -- deprecated
 VoxelAdapter.POKEMON_WORLD_LEGACY = "WORLD_BILLBOARD_LEGACY"
 VoxelAdapter.POKEMON_WORLD_BLACK = "WORLD_BILLBOARD_BLACK_FALLBACK"
 VoxelAdapter.POKEMON_OVERLAY_EMERGENCY = "SPATIAL_OVERLAY_EMERGENCY"
@@ -80,7 +81,8 @@ function VoxelAdapter.isWildEntity(entity)
 end
 
 local function isWorldBillboard(renderer)
-  return renderer == VoxelAdapter.POKEMON_WORLD_ENHANCED
+  return renderer == VoxelAdapter.POKEMON_NATIVE
+    or renderer == VoxelAdapter.POKEMON_WORLD_ENHANCED
     or renderer == VoxelAdapter.POKEMON_WORLD_LEGACY
     or renderer == VoxelAdapter.POKEMON_WORLD_BLACK
 end
@@ -163,10 +165,13 @@ function VoxelAdapter:markFallback(entity, err)
   entity.worldBillboardReady = false
   entity.worldSpriteAdapterStatus = "EMERGENCY"
   entity.grassRenderer = "EMERGENCY_OVERLAY"
-  -- Asset source stays ENHANCED when that was the intended presentation.
-  if entity.usingEnhancedSprite then
-    entity.spriteSource2D = "FOLLOW_SPRITES"
-  end
+  -- Preserve the intended asset source label (do not invent a new one).
+  entity.spriteSource2D = entity.spriteSource2D
+    or entity.spriteSource
+    or (entity.nativeSpriteRenderer and "FOLLOW_SPRITES")
+    or (entity.usingEnhancedSprite and "FOLLOW_SPRITES")
+    or (entity.usingFallback and "BLACK_FALLBACK")
+    or "LEGACY_PNG"
   pcall(DebugLog.warn, self.mod,
     "World billboard failed for %s; spatial overlay emergency. (%s)",
     tostring(entity.id or entity.spawnId or "?"),
@@ -216,7 +221,7 @@ function VoxelAdapter:updateEntity(entity)
 
   entity.worldRenderer = VoxelAdapter.WORLD_RENDERER
 
-  -- Bind / refresh enhanced billboard adapter for DS SpriteBillboards.
+  -- Bind / refresh native SpriteRenderer for DS SpriteBillboards.
   if entity.render and entity.render.bindWorldBillboard then
     local okBind, why = pcall(entity.render.bindWorldBillboard,
                               entity.render, entity, false)
@@ -238,9 +243,10 @@ function VoxelAdapter:updateEntity(entity)
 
   if not isWorldBillboard(entity.pokemonRenderer)
      and not isEmergencyOverlay(entity.pokemonRenderer) then
-    entity.pokemonRenderer = entity.usingEnhancedSprite
-      and VoxelAdapter.POKEMON_OVERLAY_EMERGENCY
-      or VoxelAdapter.POKEMON_WORLD_LEGACY
+    entity.pokemonRenderer = entity.nativeSpriteRenderer
+      and VoxelAdapter.POKEMON_NATIVE
+      or (entity.usingFallback and VoxelAdapter.POKEMON_WORLD_BLACK
+          or VoxelAdapter.POKEMON_WORLD_LEGACY)
   end
 
   if isWorldBillboard(entity.pokemonRenderer) then
@@ -355,7 +361,7 @@ function VoxelAdapter:ensureHooks()
 
   self.hooksInstalled = true
   DebugLog.info(self.mod,
-    "Voxel hooks: WORLD_BILLBOARD in posesOf; overlay body only as emergency")
+    "Voxel hooks: NATIVE_SPRITE_RENDERER in posesOf; overlay body only as emergency")
   return true
 end
 
@@ -423,16 +429,37 @@ end
 function VoxelAdapter.statusLines(entity)
   if not entity then return {} end
   local lines = {}
+  local sprite = entity.getWorldSprite and entity:getWorldSprite() or entity.sprite
+  local def = sprite and sprite.def
+  lines[#lines + 1] = ("Body renderer: %s"):format(
+    tostring(entity.pokemonRenderer or "?"))
+  if def then
+    lines[#lines + 1] = ("Sprite sheet: %s"):format(tostring(def.image or "?"))
+    lines[#lines + 1] = ("Sprite frames: %s"):format(tostring(def.frames or "?"))
+    lines[#lines + 1] = ("Walker: %s"):format(def.walker and "true" or "false")
+  end
+  lines[#lines + 1] = ("Facing: %s"):format(tostring(entity.facing or "?"))
+  lines[#lines + 1] = ("Phase: %s"):format(tostring(entity.phase or Movement.walkPhase(entity)))
+  lines[#lines + 1] = ("Flip: %s"):format(tostring(entity.stepFlip == true))
+  lines[#lines + 1] = ("In ow.entities: %s"):format(
+    entity.registeredInWorld and "YES" or "NO")
+  lines[#lines + 1] = ("Dramatic Shape pose accepted: %s"):format(
+    entity.renderDiagnostics and entity.renderDiagnostics.lastFilterKept == true
+      and "YES"
+      or (entity.renderDiagnostics and entity.renderDiagnostics.lastFilterKept == false
+          and "NO" or "?"))
+  lines[#lines + 1] = ("Overlay body draw: %s"):format(
+    (entity.pokemonRenderer == VoxelAdapter.POKEMON_OVERLAY_EMERGENCY
+      or entity.pokemonRenderer == "SPATIAL_OVERLAY_FALLBACK") and "YES" or "NO")
+  lines[#lines + 1] = ("First person compatible: %s"):format(
+    entity.nativeSpriteRenderer and "NATIVE" or "LEGACY")
   for _, line in ipairs(RenderDiagnostics.statusLines(entity)) do
     lines[#lines + 1] = line
   end
   lines[#lines + 1] = ("World renderer: %s"):format(
     tostring(entity.worldRenderer or "GEN1_FLAT"))
   lines[#lines + 1] = ("World sprite adapter: %s"):format(
-    tostring(entity.worldSpriteAdapterStatus
-      or (entity.worldSprite and entity.worldSprite.status
-          and entity.worldSprite:status())
-      or "N/A"))
+    tostring(entity.worldSpriteAdapterStatus or "N/A"))
   lines[#lines + 1] = ("Dramatic Shape entity registered: %s"):format(
     entity.voxelRegistered and "YES" or "NO")
   lines[#lines + 1] = ("Depth integration: %s"):format(
@@ -445,19 +472,6 @@ function VoxelAdapter.statusLines(entity)
     entity.dramaticBillboardSkipped and "YES" or "NO")
   lines[#lines + 1] = ("Sprite source: %s"):format(
     tostring(entity.spriteSource2D or entity.spriteSource or "?"))
-  if entity.voxelCardSize or entity.voxelCardType then
-    lines[#lines + 1] = ("Billboard card: %s %s"):format(
-      tostring(entity.voxelCardType or "Image"),
-      tostring(entity.voxelCardSize or "16x16"))
-  end
-  if entity.voxelCardKey or entity._voxelCardKey then
-    lines[#lines + 1] = ("Card cache key: %s"):format(
-      tostring(entity.voxelCardKey or entity._voxelCardKey))
-  end
-  if entity.voxelFrameCacheStatus then
-    lines[#lines + 1] = ("Card cache: %s"):format(
-      tostring(entity.voxelFrameCacheStatus))
-  end
   if entity._lastLift ~= nil then
     lines[#lines + 1] = ("Lift: %s"):format(tostring(entity._lastLift))
   end

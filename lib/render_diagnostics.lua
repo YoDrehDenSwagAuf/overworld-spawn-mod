@@ -144,8 +144,10 @@ function RenderDiagnostics.deriveActualBodyRenderer(entity)
   local meshOk = (d.meshOkObservations or 0) > 0 and (d.lastMeshOk == true)
   local poseOk = (d.poseCalls or 0) > 0
   local kept = d.lastFilterKept == true
+  local native = entity.pokemonRenderer == "NATIVE_SPRITE_RENDERER"
+    or entity.nativeSpriteRenderer == true
 
-  if emergency or (entityDraw and not meshOk) then
+  if emergency or (entityDraw and not meshOk and not native) then
     if (entity.pokemonRenderer == "SPATIAL_OVERLAY_EMERGENCY"
         or entity.pokemonRenderer == "SPATIAL_OVERLAY_FALLBACK")
        or (d.emergencyOverlayBodyDrawCalls or 0) > 0 then
@@ -153,6 +155,12 @@ function RenderDiagnostics.deriveActualBodyRenderer(entity)
       return d.lastActualRenderer
     end
     d.lastActualRenderer = "ENTITY_DRAW_OVERLAY"
+    return d.lastActualRenderer
+  end
+
+  if poseOk and kept and not entityDraw and not emergency
+     and (native or (dsAttempt and meshOk)) then
+    d.lastActualRenderer = "DRAMATIC_SPRITE_BILLBOARD"
     return d.lastActualRenderer
   end
 
@@ -167,7 +175,7 @@ function RenderDiagnostics.deriveActualBodyRenderer(entity)
     return d.lastActualRenderer
   end
 
-  if poseOk and kept and not dsAttempt then
+  if poseOk and kept and not dsAttempt and not native then
     d.lastActualRenderer = "DRAMATIC_POSED_NOT_DRAWN"
     d.lastFailureReason = d.lastFailureReason or "pose kept but resolveImage not called"
     return d.lastActualRenderer
@@ -180,6 +188,11 @@ function RenderDiagnostics.deriveActualBodyRenderer(entity)
 
   if entity.pokemonRenderer == "WILDS_2D" or entity.worldRenderer == "GEN1_FLAT" then
     d.lastActualRenderer = "WILDS_2D"
+    return d.lastActualRenderer
+  end
+
+  if native then
+    d.lastActualRenderer = "NATIVE_SPRITE_RENDERER"
     return d.lastActualRenderer
   end
 
