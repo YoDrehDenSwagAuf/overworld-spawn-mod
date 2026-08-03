@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.4.0
+
+### Water spawn variety + chase
+
+- Added Surf and fishing encounter pools to visible water spawns
+- Added shore-distance-based water spawn zones
+- Added deep-water-only Super Rod species
+- Improved visible water Pokémon variety
+- Added aggressive water Pokémon
+- Added land-to-water chase transitions for compatible aggressive Pokémon
+- Added automatic Swimming/Levitates sprite transition during water chase
+- Prevented water Pokémon from chasing onto land
+
 ## 1.3.0
 
 ### Water Pokémon sprites (Swimming / Levitates)

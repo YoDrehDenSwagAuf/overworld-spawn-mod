@@ -139,6 +139,49 @@ function Diagnostics.entityDetail(logic, entity, record)
     ("Surface: %s"):format(tostring(entity.surface or "?")),
   }
   do
+    local WaterSpawn = V.require("water_spawn")
+    local Behavior = V.require("behavior")
+    if entity.surface == "WATER" or (record and record.surface == "WATER")
+       or Behavior.isWater(entity.behavior) then
+      local dist = entity.shoreDistance or (record and record.shoreDistance)
+      local zone = entity.waterZone or (record and record.waterZone)
+      if dist == nil and logic and logic.shoreDistance and entity.cellX then
+        dist = WaterSpawn.distanceAt(logic.shoreDistance, entity.cellX, entity.cellY)
+        zone = WaterSpawn.zoneForDistance(dist)
+      end
+      lines[#lines + 1] = ("Water distance: %s"):format(
+        dist ~= nil and tostring(dist) or "?")
+      lines[#lines + 1] = ("Water zone: %s"):format(tostring(zone or "?"))
+      lines[#lines + 1] = ("Encounter source: %s"):format(
+        tostring(entity.encounterSource or record and record.encounterSource or "?"))
+      lines[#lines + 1] = ("Spawn rule: %s"):format(
+        tostring(entity.spawnRule or record and record.spawnRule or "?"))
+      lines[#lines + 1] = ("Origin surface: %s"):format(
+        tostring(entity.originSurface or record and record.originSurface or "?"))
+      lines[#lines + 1] = ("Water entered by chase: %s"):format(
+        (entity.waterEnteredByChase or (record and record.waterEnteredByChase))
+          and "YES" or "NO")
+      local world = logic and logic.mod and logic.mod.world
+      local ow = world and world.overworld and world:overworld()
+      local player = ow and ow.player
+      lines[#lines + 1] = ("Player in water: %s"):format(
+        (player and player.surfing) and "YES" or "NO")
+      local chase = "IDLE"
+      if bx.chasing or bx.state == "CHASING" then chase = "ACTIVE"
+      elseif bx.state == "ALERT" or bx.state == "PLAYER_DETECTED" then chase = "ALERT"
+      elseif bx.battlePending or bx.battleStarted then chase = "BATTLE"
+      end
+      lines[#lines + 1] = ("Chase state: %s"):format(chase)
+      lines[#lines + 1] = ("Water path valid: %s"):format(
+        (bx.chasing and entity.surface == "WATER") and "YES"
+          or (entity.surface == "WATER" and "N/A" or "NO"))
+      if entity.spriteKind then
+        lines[#lines + 1] = ("Water sprite: %s"):format(
+          tostring(entity.spriteKind):upper())
+      end
+    end
+  end
+  do
     local surfaceState = tostring(entity.spriteState or ""):upper()
     if surfaceState == "" then
       if entity.surface == "WATER" then
@@ -482,19 +525,55 @@ function Diagnostics.hudLines(logic)
   do
     local randomOn = Config.randomEncountersEnabled(logic.mod)
     local onOff = randomOn and "ON" or "OFF"
+    local WaterSpawn = V.require("water_spawn")
+    local Behavior = V.require("behavior")
     lines[#lines + 1] = ("Random Enc: %s"):format(onOff)
     lines[#lines + 1] = ("Classic Grass: %s"):format(onOff)
     lines[#lines + 1] = ("Classic Cave: %s"):format(onOff)
     lines[#lines + 1] = ("Classic Water: %s"):format(onOff)
     lines[#lines + 1] = ("Water Mons: %s"):format(
       Config.waterMons(logic.mod) and "ON" or "OFF")
-    lines[#lines + 1] = ("Water Cells: %d"):format(#(logic.waterCache or {}))
-    lines[#lines + 1] = ("Water Target: %d"):format(logic.targetWaterCount or 0)
+    lines[#lines + 1] = ("Water target: %d"):format(logic.targetWaterCount or 0)
+    local zt = logic.waterZoneTargets or {}
+    lines[#lines + 1] = ("Near/Mid/Deep: %d/%d/%d"):format(
+      zt.near or 0, zt.mid or 0, zt.deep or 0)
+    local sum = WaterSpawn.summarize(
+      logic.waterPool, logic.shoreDistance, logic.waterZonePools, logic.waterZoneTargets)
+    lines[#lines + 1] = ("Water cells: %d"):format(sum.waterCells)
+    lines[#lines + 1] = ("Near shore: %d"):format(sum.nearShore)
+    lines[#lines + 1] = ("Mid water: %d"):format(sum.midWater)
+    lines[#lines + 1] = ("Deep water: %d"):format(sum.deepWater)
+    lines[#lines + 1] = ("Surf pool: %d"):format(sum.surfSpecies)
+    lines[#lines + 1] = ("Old Rod pool: %d"):format(sum.oldRodSpecies)
+    lines[#lines + 1] = ("Good Rod pool: %d"):format(sum.goodRodSpecies)
+    lines[#lines + 1] = ("Super Rod pool: %d"):format(sum.superRodSpecies)
+    lines[#lines + 1] = ("Near pool: %d"):format(sum.nearPool)
+    lines[#lines + 1] = ("Mid pool: %d"):format(sum.midPool)
+    lines[#lines + 1] = ("Deep pool: %d"):format(sum.deepPool)
     local waterLoaded = 0
-    if logic.activeMapId and logic.countWaterOnMap then
-      waterLoaded = logic:countWaterOnMap(logic.activeMapId)
+    local aggWater = 0
+    local landToWater = 0
+    if logic.activeMapId then
+      if logic.countWaterOnMap then
+        waterLoaded = logic:countWaterOnMap(logic.activeMapId)
+      end
+      for _, id in ipairs(logic.byMap[logic.activeMapId] or {}) do
+        local r = logic.spawns[id]
+        local e = logic.entities[id]
+        if r and r.state == Config.STATE.AVAILABLE then
+          if r.behavior == Behavior.WATER_AGGRESSIVE
+             or (e and e.behavior == Behavior.WATER_AGGRESSIVE) then
+            aggWater = aggWater + 1
+          end
+          if (e and e.waterEnteredByChase) or r.waterEnteredByChase then
+            landToWater = landToWater + 1
+          end
+        end
+      end
     end
     lines[#lines + 1] = ("Water Loaded: %d"):format(waterLoaded)
+    lines[#lines + 1] = ("Aggressive water: %d"):format(aggWater)
+    lines[#lines + 1] = ("Land-to-water chasers: %d"):format(landToWater)
   end
 
   -- Detail the nearest entity when developer overlays are on.

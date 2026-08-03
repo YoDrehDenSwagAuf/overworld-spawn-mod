@@ -9,6 +9,8 @@ local Movement = V.require("movement")
 local VoxelAdapter = V.require("voxel_adapter")
 local DebugLog = V.require("debug_log")
 local SpawnFx = V.require("spawn_fx")
+local Surface = V.require("surface")
+local WaterSpawn = V.require("water_spawn")
 
 local BehaviorTick = {}
 BehaviorTick.__index = BehaviorTick
@@ -154,9 +156,35 @@ function BehaviorTick:step(ctx)
             sightRange = sight,
             reactionDelay = react,
             chaseStepSeconds = chaseStep,
+            waterSightRange = Config.get(mod, "water_aggressive_sight_range")
+              or Config.DEFAULTS.water_aggressive_sight_range,
+            waterMonsEnabled = Config.waterMons(mod),
+            waterRegions = logic.waterRegions,
+            shoreMap = logic.shoreDistance,
+            landWaterPlayerMax = Config.get(mod, "land_water_chase_player_max")
+              or Config.DEFAULTS.land_water_chase_player_max,
+            game = world and world.game,
+            hasWaterSprite = function(e)
+              return logic:_entityHasCompatibleWaterSprite(e)
+            end,
           })
           if event == "alert" then
             logic:_onAggressiveAlert(entity, record)
+          elseif event == "entered_water" then
+            record.behavior = entity.behavior
+            record.surface = Surface.WATER
+            record.waterEnteredByChase = true
+            record.originSurface = entity.originSurface or record.originSurface
+            record.encounterKind = record.encounterKind or "water"
+            if entity.cellX and entity.cellY and logic.shoreDistance then
+              record.shoreDistance = WaterSpawn.distanceAt(
+                logic.shoreDistance, entity.cellX, entity.cellY)
+              record.waterZone = WaterSpawn.zoneForDistance(record.shoreDistance)
+              entity.shoreDistance = record.shoreDistance
+              entity.waterZone = record.waterZone
+            end
+            DebugLog.info(mod, "land→water chase id=%s species=%s",
+                          tostring(id), tostring(record.species))
           elseif event == "contact" or event == "battle_pending" then
             if SpawnFx.canBattle(entity) then
               logic:_startBattle(record)

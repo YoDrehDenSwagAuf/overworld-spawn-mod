@@ -98,10 +98,10 @@ Gen1Recomp already draws tall-grass feet overdraw over every entity on a grass c
 | Kind | Status |
 |---|---|
 | Surf / water encounter tables | **Supported** for visible water Pokemon on water tiles |
-| Old / Good / Super Rod | **Not** free-spawned; remain rod-only |
-| Land species on water | Never |
+| Old / Good / Super Rod | Used for **visible** Water Mons pools (shore-distance zones); classic rod battles stay rod-triggered |
+| Land species on water | Only aggressive land chase into water when a Swimming/Levitates sprite exists |
 
-Water Pokemon stay on connected water. Vanilla Surf random encounters remain active (the mod does not suppress water rolls).
+Water Pokemon stay on connected water. Classic Surf / fishing random encounters follow **Random Enc**. Aggressive water Pokemon never leave the water.
 
 ## 12. Cave support
 
@@ -122,7 +122,7 @@ Visible labels are limited to 14 characters.
 | Show Wild Mons | `enabled` | true | on/off | Master switch |
 | Sprite Style | `sprite_style` | auto | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | Overworld sprite source |
 | Random Enc | `random_encounters` | true | on/off | Classic step RNG (grass / cave / water) |
-| Water Mons | `water_spawns` | true | on/off | Visible water Pokémon from water encounter tables |
+| Water Mons | `water_spawns` | true | on/off | Visible water Pokémon from Surf + fishing pools |
 | Grass View | `pokemon_grass_render_mode` | immersed | Above / Immersed | Tall-grass presentation |
 | Idle Mons | `enable_idle` | true | on/off | Allow Idle Look |
 | Roam Mons | `enable_wander` | true | on/off | Allow Wander |

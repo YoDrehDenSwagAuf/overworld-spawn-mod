@@ -138,6 +138,9 @@ check(Behavior.isHidden(Behavior.HIDDEN_GRASS), "HIDDEN_GRASS still hidden marke
 check(not Surface.allowsBehavior(Surface.GRASS, "HIDDEN_IDLE"), "grass rejects HIDDEN_IDLE")
 check(Surface.allowsBehavior(Surface.WATER, Behavior.WATER_IDLE), "water allows WATER_IDLE")
 check(Surface.allowsBehavior(Surface.WATER, Behavior.WATER_WANDER), "water allows WATER_WANDER")
+check(Surface.allowsBehavior(Surface.WATER, Behavior.WATER_AGGRESSIVE),
+      "water allows WATER_AGGRESSIVE")
+check(Behavior.isWater(Behavior.WATER_AGGRESSIVE), "WATER_AGGRESSIVE is water")
 
 do
   local saw = false
@@ -223,7 +226,7 @@ check(tHigh > tLow, "high density > low density")
 local mf = io.open("manifest.json", "r")
 local mft = mf:read("*a")
 mf:close()
-check(mft:find('"version"%s*:%s*"1%.3%.0"') ~= nil, "manifest version 1.3.0")
+check(mft:find('"version"%s*:%s*"1%.4%.0"') ~= nil, "manifest version 1.4.0")
 
 print("")
 if failures > 0 then

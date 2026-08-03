@@ -25,7 +25,8 @@ function SurfaceState.isWaterEntity(entity, map)
     return true
   end
   if entity.behaviour == "WATER_IDLE" or entity.behavior == "WATER_IDLE"
-     or entity.behaviour == "WATER_WANDER" or entity.behavior == "WATER_WANDER" then
+     or entity.behaviour == "WATER_WANDER" or entity.behavior == "WATER_WANDER"
+     or entity.behaviour == "WATER_AGGRESSIVE" or entity.behavior == "WATER_AGGRESSIVE" then
     return true
   end
   if Behavior and Behavior.isWater and Behavior.isWater(entity.behavior or entity.behaviour) then

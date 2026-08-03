@@ -32,12 +32,12 @@ return {
         .. "(hidden behaviours draw no Pokemon sprite and stay out of ow.entities)",
       "sprite identity uses numeric speciesId/dex only; localized names are display-only",
       "spawns are runtime-only and reset when you leave and re-enter a map",
-      "fishing encounter tables are never used for free overworld spawns",
+      "visible Water Mons may use Surf + Old/Good/Super Rod pools with shore-distance zones",
       "Dramatic Shape overworld battles cull non-player entities from the arena shot",
       "Right-facing uses SpriteRenderer left-frame mirroring (trainer contract); "
         .. "source follow-sprites may contain artistically distinct right frames",
       "runtime Gen1 shiny selection is not available; preview may force shiny sheets",
-      "fishing, surf vanilla rolls, static, scripted, and trainer encounters stay available",
+      "classic fishing, surf vanilla rolls, static, scripted, and trainer encounters stay available",
     },
   },
   credits = {
