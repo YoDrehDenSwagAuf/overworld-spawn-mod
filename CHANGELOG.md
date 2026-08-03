@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.4.1
+
+### Water spawn / aggro / sprite-style regressions
+
+- Restored land aggressive chase as a separate state machine from water
+- Added SpawnFx fail-safe so AI/battle cannot stay blocked forever
+- Fixed movement busy invariants and alert chaseReady timeout
+- Water Behaviour empty-pool fallback is `WATER_IDLE` (not land `IDLE_LOOK`)
+- Relaxed water zone/rod filters; raised water spawn targets (`max_water_mons=12`)
+- Diversity soft-fails instead of emptying water pools
+- Added `WaterSpawn.isWaterCapable` (types → swimming/levitates → local encounters)
+- SpriteResolver cache keys include `species:variant:form:surface:style`
+- Explicit PokeMMO rejects Followers EX on land; style wrap re-asserted on spawn
+
+### Deferred (not in this release)
+
+- Followers EX water integration: Followers owns follower movement/entity;
+  Wilds would export `resolveWaterSprite(speciesId, shiny, form)` and switch
+  once on player land/water transition. Not implemented here.
+
+## 1.4.0
+
+### Water spawn variety + chase
+
+- Added Surf and fishing encounter pools to visible water spawns
+- Added shore-distance-based water spawn zones
+- Added deep-water-only Super Rod species
+- Improved visible water Pokémon variety
+- Added aggressive water Pokémon
+- Added land-to-water chase transitions for compatible aggressive Pokémon
+- Added automatic Swimming/Levitates sprite transition during water chase
+- Prevented water Pokémon from chasing onto land
+
 ## 1.3.0
 
 ### Water Pokémon sprites (Swimming / Levitates)

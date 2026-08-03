@@ -1,9 +1,9 @@
-# Manual test guide — Wilds of Kanto 1.3.0
+# Manual test guide — Wilds of Kanto 1.4.0
 
-## After installing 1.3.0
+## After installing 1.4.0
 
 1. Remove any older Wilds of Kanto / `overworld_wild_spawns` copy from `mods/`.
-2. Install only `wilds-of-kanto-v1.3.0.zip`.
+2. Install only `wilds-of-kanto-v1.4.0.zip`.
 3. Fully restart the game (content registry freezes after load).
 4. Optional: delete `overworld_wild_spawns-cache/` in the save directory.
 
@@ -12,74 +12,61 @@
 Confirm visible labels are not truncated (max 14 characters):
 
 ```text
-Show Wild Mons / Hide Grass RNG / Sprite Style / Spawn Amount / Grass View
-Idle Mons / Roam Mons / Chase Mons / Hidden Mons / Dev Mode
+Show Wild Mons / Sprite Style / Spawn Amount / Random Enc / Water Mons
+Grass View / Idle Mons / Roam Mons / Chase Mons / Hidden Mons / Dev Mode
 ```
 
-Sprite Style choices (also Start Menu → **SPRITE STYLE**):
+Start Menu quick settings:
 
 ```text
-Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex
-SPRITE STYLE / AUTO / GOLD SPRITES / FOLLOWERS EX / POKEMMO / POKEDEX
+SPRITE STYLE / SPAWN AMOUNT / RANDOM ENC / WATER MONS
 ```
 
-Defaults for 1.0: Sprite Style AUTO, Spawn Amount NORMAL, Grass View IMMERSED,
-Roam / Chase / Hidden ON, Dev Mode OFF.
+## Water spawn variety
+
+### Near shore
+
+1. Small coastal route with Water Mons ON.
+2. Confirm Old-/Good-Rod and Surf species can appear near shore.
+3. Confirm no Super-Rod-only species spawn directly at the shore.
+
+### Deep water
+
+1. Large water area (e.g. Route 19 / sea routes).
+2. Surf far from land.
+3. Super-Rod species may appear in deep water.
+4. Swimming / Levitates sprites remain correct.
+
+### Water aggression
+
+1. Spawn / find an aggressive water Pokémon (`WATER_AGGRESSIVE`).
+2. Surf nearby within sight.
+3. Alert → chase on water only → battle on contact once.
+4. Leave water: chase aborts; Pokémon stays on water.
+
+### Land → water chase
+
+1. Aggressive land Pokémon at the shore with Swimming or Levitates sprite.
+2. Surf past within a few tiles of shore.
+3. Pokémon may enter adjacent water, switch to water sprite immediately, continue chase.
+4. Return to land: Pokémon stays in water; chase ends.
+5. Species without water sprites stop at the shore (no land sprite on water).
+
+### Toggles
+
+- Water Mons OFF: no visible water entities; land Pokémon do not enter water.
+- Random Enc OFF: classic Surf/rod rolls off; visible aggressive water battles still work.
+- Spawn Amount still scales water target counts.
+
+### Dramatic Shape
+
+- Orbit / First Person during water chase and land→water transition.
+- No sprite flicker, no clipping, depth remains correct.
 
 ## Sprite style matrix
 
-1. Only Wilds installed → Auto uses PokeMMO; Gold / Followers EX fall back.
-2. Wilds + Gold Sprites → Auto / Gold use Gold battle fronts (1-frame).
-3. Wilds + Followers EX (+ PokePC) → Auto uses Followers when Gold absent.
-4. Wilds + both external mods → Auto prefers Gold.
-5. Hot-switch via Start Menu and Mod Settings — same `sprite_style` value,
-   entities keep id/position/behaviour (sprite only).
+With Gold Sprites / Followers EX / PokeMMO / Pokedex installed in turn:
 
-## Developer HUD (nearest entity)
-
-```text
-Requested style: AUTO
-Active provider: GOLD
-Provider mod: Gold_Silver_Sprites
-Provider version: 1.0.1
-Provider installed: YES
-Species ID: 25
-Variant: NORMAL
-Sprite image: .../gold/battle/front/pikachu.png
-Frames: 1
-Walker: false
-Fallback step: 1
-Quick menu: READY
-Body renderer: NATIVE_SPRITE_RENDERER
-```
-
-## Water Pokémon sprites
-
-1. Enable **Water Mons**, open a route with water (e.g. Route 12 / 19 / 20).
-2. Species with swimming art (e.g. Psyduck #54) → Swimming sheet, not land style.
-3. Species with only Levitates (e.g. Abra #63) → Levitates sheet.
-4. Species with neither → PokeMMO land sheet fallback (still visible).
-5. For each Sprite Style (Auto / Gold / Followers EX / PokeMMO / Pokedex):
-   land uses the selected style; water uses Wilds swimming/levitates override
-   unless the provider exposes `resolveWater`.
-6. Developer HUD on a water entity should show:
-   `Surface state: WATER`, `Water override: ACTIVE`,
-   `Water sprite kind: SWIMMING|LEVITATES|POKEMMO_FALLBACK`.
-
-## Flat 2D (no Dramatic Shape)
-
-1. Idle Look changes facing with phase 0.
-2. Wander / chase uses walk phase mid-step and toggles flip after each tile.
-3. Real Pokemon art (not question mark) for Bulbasaur / Pikachu / Mew.
-4. Hidden grass entities show no Pokemon body.
-
-## Dramatic Shape — orbit + First Person
-
-Same native sheet path: depth, walls, grass, shadows, upright FP billboards.
-No post-voxel Pokemon body on the success path. Gold / Pokedex 1-frame styles
-use the legacy billboard scale path (still SpriteRenderer, no overlay).
-
-## Update detection
-
-See [docs/RELEASE_TEST.md](docs/RELEASE_TEST.md) for the GitHub Release /
-Mod Manager update checklist (`github` = `YoDrehDenSwagAuf/overworld-spawn-mod`).
+1. Set Sprite Style and reload the map.
+2. Confirm land sprites follow the selected style.
+3. Confirm water entities still prefer Swimming → Levitates → fallback.

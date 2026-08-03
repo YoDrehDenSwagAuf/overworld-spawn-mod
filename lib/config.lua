@@ -57,7 +57,18 @@ Config.DEFAULTS = {
   idle_look_max_s = 10,
   enable_water_spawns = true, -- legacy internal alias
   water_spawns = true,        -- public "Water Mons" toggle
-  max_water_mons = 4,
+  max_water_mons = 12,
+  -- Water spawn zones (tile distance from walkable land). Internal only.
+  water_near_shore_max = 2,
+  water_mid_water_max = 5,
+  water_deep_min = 6,
+  -- Share of visible water spawns that may be WATER_AGGRESSIVE (0–1).
+  water_aggressive_chance = 0.15,
+  -- Land→water chase: land mon must be ≤ this many tiles from water;
+  -- player must be ≤ this many tiles from shore while surfing.
+  land_water_chase_shore_max = 1,
+  land_water_chase_player_max = 5,
+  water_aggressive_sight_range = 5,
   enable_cave_spawns = true,
   debug_logging = false,
   force_test_spawn = false,
@@ -484,7 +495,7 @@ end
 
 function Config.maxWaterMons(mod)
   return tonumber(Config.get(mod, "max_water_mons"))
-      or Config.DEFAULTS.max_water_mons or 4
+      or Config.DEFAULTS.max_water_mons or 12
 end
 
 -- Central setter for Spawn Amount (Start Menu). Same key as legacy Mod Settings.

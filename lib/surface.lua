@@ -20,7 +20,7 @@ Surface.BEHAVIORS = {
     "IDLE_LOOK", "GRASS_WANDER", "AGGRESSIVE", "HIDDEN_CAVE",
   },
   [Surface.WATER] = {
-    "WATER_IDLE", "WATER_WANDER",
+    "WATER_IDLE", "WATER_WANDER", "WATER_AGGRESSIVE",
   },
   [Surface.INTERIOR] = {
     "IDLE_LOOK", "GRASS_WANDER", "AGGRESSIVE",
@@ -112,7 +112,7 @@ function Surface.resolve(game, map, encDef)
       supported = true,
       grassTileCount = grassCount,
       reason = nil,
-      -- Fishing tables are never used for free overworld spawns.
+      -- Classic rod rolls stay separate; visible Water Mons may use rod pools.
       fishingSeparate = true,
     }
   end
@@ -157,7 +157,9 @@ function Surface.isWaterEntity(entity, map)
   if not entity then return false end
   if entity.surface == Surface.WATER then return true end
   local b = entity.behavior or entity.behaviour
-  if b == "WATER_IDLE" or b == "WATER_WANDER" then return true end
+  if b == "WATER_IDLE" or b == "WATER_WANDER" or b == "WATER_AGGRESSIVE" then
+    return true
+  end
   if map and map.isWaterCell and entity.cellX ~= nil and entity.cellY ~= nil then
     local ok, water = pcall(map.isWaterCell, map, entity.cellX, entity.cellY)
     if ok and water then return true end

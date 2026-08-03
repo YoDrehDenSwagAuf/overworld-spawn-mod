@@ -239,8 +239,20 @@ follow Random Enc.
 
 When Water Mons is enabled, suitable Pokémon from the current map's water
 encounter table can appear directly on connected water areas. They remain on
-water (`WATER_IDLE` / `WATER_WANDER`; no aggressive chase onto land). Legacy
+water (`WATER_IDLE` / `WATER_WANDER` / `WATER_AGGRESSIVE`). Legacy
 hidden grass/cave markers (no Pokémon sprite) remain optional via Hidden Mons.
+
+## Water Spawn Variety
+
+Visible water Pokémon are selected from the current area's Surf and fishing encounter tables.
+
+- Pokémon obtainable with basic fishing methods can appear closer to shore.
+- Stronger Pokémon that normally require the Super Rod only appear in deeper water farther away from land.
+- Small ponds without deep-water areas do not spawn Super-Rod-only Pokémon.
+
+Some water Pokémon can be aggressive and swim toward the player while remaining on water.
+
+Aggressive land Pokémon may also follow the player into nearby water when a compatible Swimming or Levitates sprite exists. Once in the water, they remain there and do not chase the player back onto land.
 
 ## Water Pokémon Sprites
 
@@ -272,13 +284,14 @@ supported.
 ## Features
 
 - Visible wild Pokemon in supported overworld encounter areas
-- Behaviours: Idle, Wander, Aggressive, Hidden markers, Water Idle/Wander
+- Behaviours: Idle, Wander, Aggressive, Hidden markers, Water Idle/Wander/Aggressive
 - Random Enc toggle for classic step-based encounters (default ON)
-- Visible Water Mons from map water encounter tables (toggleable)
+- Visible Water Mons from Surf + fishing encounter pools (toggleable)
+- Shore-distance water spawn zones (near / mid / deep)
 - Short spawn animations for visible grass and water Pokémon
 - Map-aware spawn density and connected spawn regions
 - Grass, cave (no grass graphics required), and Surf-water surfaces
-- Fishing stays rod-only — fishing tables never free-spawn
+- Visible water variety uses map Surf and rod tables (not a global type list)
 - Sprite scaling: legacy art is capped to one map tile; follow-sprite frames
   keep native tile size with feet anchored to the tile
 - Engine tall-grass overlay with relative occlusion; Dramatic Shape uses
@@ -310,11 +323,15 @@ screenshot and relevant debug log.
 
 ### Water
 
-Surf / water encounter tables can produce visible water Pokemon when
-**Water Mons** is ON. They stay on connected water (`WATER_IDLE` /
-`WATER_WANDER`). Vanilla Surf random encounters remain active (water rolls are
-not suppressed). Fishing encounters stay rod-only. Aggressive chase onto land
-is not used on water.
+Surf / water encounter tables and the area's Old / Good / Super Rod fishing
+pools can produce visible water Pokemon when **Water Mons** is ON. Spawns are
+placed by shore distance (near / mid / deep). Super-Rod-only species appear
+only in deep water. They stay on connected water (`WATER_IDLE` /
+`WATER_WANDER` / `WATER_AGGRESSIVE`). Vanilla Surf / fishing random encounters
+remain controlled by **Random Enc**. Aggressive water Pokémon chase only while
+the player is surfing; they never leave the water. Compatible aggressive land
+Pokémon may follow the player into nearby water when a Swimming or Levitates
+sprite exists, then stay on water.
 
 ### Caves
 
@@ -348,7 +365,7 @@ Visible labels are limited to 14 characters so Gen1Recomp does not truncate them
 | Show Wild Mons | Master switch for visible spawns | ON |
 | Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | AUTO |
 | Random Enc | Classic step-based random encounters (grass / cave / water) | ON |
-| Water Mons | Visible water Pokémon from map water encounter tables | ON |
+| Water Mons | Visible water Pokémon from Surf + fishing pools (shore zones) | ON |
 | Grass View | Immersed in tall grass, or fully Above | IMMERSED |
 | Idle Mons | Allow Idle Look behaviour | ON |
 | Roam Mons | Allow wandering inside encounter regions | ON |
