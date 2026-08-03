@@ -193,6 +193,15 @@ function Diagnostics.entityDetail(logic, entity, record)
     if logic and logic.occupancy and entity.cellX ~= nil then
       local owner = logic.occupancy:ownerAt(entity.cellX, entity.cellY)
       lines[#lines + 1] = ("Occupancy owner: %s"):format(tostring(owner or "?"))
+      local tx = entity.targetX
+      local ty = entity.targetY
+      if tx ~= nil and ty ~= nil then
+        local _, slotKind, slot = logic.occupancy:ownerAt(tx, ty)
+        if slotKind == "move" and slot and slot.kind then
+          lines[#lines + 1] = ("Reservation kind: %s"):format(
+            tostring(slot.kind):upper())
+        end
+      end
     end
     lines[#lines + 1] = ("Movement blocked by: %s"):format(
       tostring(entity.movementBlockedBy or "none"))
@@ -616,6 +625,32 @@ function Diagnostics.hudLines(logic)
     lines[#lines + 1] = ("Spawn reservations: %d"):format(c.spawnReservations or 0)
     lines[#lines + 1] = ("Collision conflicts: %d"):format(c.conflicts or 0)
     lines[#lines + 1] = ("Swap blocks: %d"):format(c.swapBlocks or 0)
+    -- Show land→water chase reservation kind when present on a live entity.
+    local kindShown = false
+    if logic.activeMapId and logic.byMap and logic.entities then
+      for _, id in ipairs(logic.byMap[logic.activeMapId] or {}) do
+        local e = logic.entities[id]
+        if e and e.cellX ~= nil then
+          local owner, slotKind, slot = logic.occupancy:ownerAt(
+            e.targetX or e.cellX, e.targetY or e.cellY)
+          if slotKind == "move" and slot and slot.kind then
+            lines[#lines + 1] = ("Reservation kind: %s"):format(
+              tostring(slot.kind):upper())
+            kindShown = true
+            break
+          end
+        end
+      end
+    end
+    if not kindShown then
+      for _, res in pairs(logic.occupancy.moveReservations or {}) do
+        if res.kind then
+          lines[#lines + 1] = ("Reservation kind: %s"):format(
+            tostring(res.kind):upper())
+          break
+        end
+      end
+    end
   end
   if logic.followersWater and logic.followersWater.hudLines then
     for _, line in ipairs(logic.followersWater:hudLines()) do
