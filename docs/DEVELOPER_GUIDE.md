@@ -237,11 +237,24 @@ Contact: `world.stepped` tile match + `movement.collision` bump.
 
 - Surf + Old/Good/Super Rod pools → visible water entities on water tiles
 - Shore-distance zones (near ≤2, mid ≤5, deep ≥6); Super-Rod-only in deep
+- Zone empty → Surf pool → full local water pool (never empty a zone for diversity)
+- `WaterSpawn.isWaterCapable`: species `types` WATER → swimming/levitates → local encounters
 - Behaviours: `WATER_IDLE` / `WATER_WANDER` / `WATER_AGGRESSIVE`
+- Land and water aggressive use separate tick paths (`tickLandAggressive` / `tickWaterAggressive`)
 - Stay on connected water; never chase onto land
 - Land→water chase only with Swimming/Levitates sprite (entity preserved)
 - Slight visual sink (`waterSink = 2`)
 - Classic Surf / fishing `encounter.roll` gated by Random Enc only
+
+### Deferred: Followers EX water integration
+
+Not in this branch. Planned later as a separate step:
+
+- Followers EX owns follower movement / entity
+- Wilds exports `resolveWaterSprite(speciesId, shiny, form)`
+- Follower switches once on player land/water transition
+
+Do not mix private Followers tables into Wilds water spawn/aggro fixes.
 
 ## 20. Cave support
 
