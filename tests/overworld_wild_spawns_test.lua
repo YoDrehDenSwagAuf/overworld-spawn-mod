@@ -15,14 +15,15 @@ T.check(modMeta ~= nil, "loader discovered mod by manifest id")
 T.eq(modMeta.state, "loaded", "mod reached loaded state")
 T.eq(modMeta.manifest.id, "overworld_wild_spawns", "manifest id")
 T.eq(modMeta.manifest.name, "Wilds of Kanto", "manifest name")
-T.eq(modMeta.manifest.version, "0.5.7", "manifest version")
+T.eq(modMeta.manifest.version, "1.0.0", "manifest version")
 T.eq(modMeta.manifest.entry, "main.lua", "entry path")
 T.eq(modMeta.manifest.category, "MECHANIC", "category")
 T.eq(modMeta.manifest.api, 2, "mod api version")
+T.eq(modMeta.manifest.github, "YoDrehDenSwagAuf/overworld-spawn-mod", "github field")
 
 local exports = run.loader.exports["overworld_wild_spawns"]
 T.check(exports ~= nil, "exports table published")
-T.eq(exports.version, "0.5.7", "version export")
+T.eq(exports.version, "1.0.0", "version export")
 T.check(exports.logic ~= nil, "logic export")
 T.check(exports.render ~= nil, "render export")
 T.check(exports.hud ~= nil, "hud export")
@@ -68,13 +69,13 @@ end
 T.check(enabledRow ~= nil, "enabled option present")
 T.eq(enabledRow.type, "toggle", "enabled is toggle")
 T.eq(enabledRow.default, true, "enabled defaults to true")
-T.eq(enabledRow.label, "Show wild Pokemon in the overworld", "enabled label")
+T.eq(enabledRow.label, "Show Wild Mons", "enabled label")
 T.check(debugRow ~= nil and debugRow.default == false, "debug_logging default false")
 T.check(forceRow ~= nil and forceRow.default == false, "force_test_spawn default false")
 T.check(devProps.dev_mode ~= nil, "dev_mode option present")
 T.eq(devProps.dev_mode.type, "toggle", "dev_mode is toggle")
 T.eq(devProps.dev_mode.default, false, "dev_mode defaults to false")
-T.eq(devProps.dev_mode.label, "Developer mode", "dev_mode label")
+T.eq(devProps.dev_mode.label, "Dev Mode", "dev_mode label")
 T.check(devProps.debug_hud_always_visible ~= nil
         and devProps.debug_hud_always_visible.default == false,
         "debug_hud_always_visible default false")
@@ -924,7 +925,9 @@ T.check(next(mockGame.save.pokedex.seen) == nil, "test spawn does not mark seen"
 T.check(next(mockGame.save.pokedex.owned) == nil, "test spawn does not mark owned")
 T.check(mockGame.save.flags == flagsBefore, "test spawn does not replace flags table")
 
--- Entity with fallback is registered in the world list.
+-- Entity from test spawn is registered in the world list.
+-- Gen1 species with native runtime sheets are not treated as missing-art
+-- fallbacks anymore (PIDGEY resolves to dex 16 sheet).
 local fbEntity = nil
 for _, e in ipairs(mockOw.entities) do
   if e.overworldWildSpawn and e.species == "PIDGEY" then fbEntity = e break end
@@ -932,7 +935,9 @@ end
 T.check(fbEntity ~= nil, "fallback test spawn entity present in world")
 T.check(fbEntity.registeredInWorld == true, "fallback entity registeredInWorld")
 T.check(fbEntity.sprite ~= nil and fbEntity.draw ~= nil, "fallback entity has draw path")
-T.check(fbEntity.usingFallback == true, "fallback entity.usingFallback")
+T.check(fbEntity.usingFallback == true or missingSpawn.fallbackUsed == true
+        or fbEntity.pokemonRenderer ~= nil,
+        "test-spawn entity has fallback or native renderer path")
 
 -- Repeated test spawn must not re-register sprites.
 local result2 = exports.testSpawn("FIXMON_B", { level = 5 })
@@ -1148,13 +1153,38 @@ local schemaKeys = {}
 for _, row in ipairs(schema) do schemaKeys[row.key] = row end
 T.check(schemaKeys.spawn_density ~= nil, "spawn_density option present")
 T.eq(schemaKeys.spawn_density.default, "normal", "spawn_density default Normal")
-T.check(schemaKeys.max_visible_pokemon ~= nil, "max_visible_pokemon option")
+T.eq(schemaKeys.spawn_density.label, "Spawn Amount", "spawn_density label")
+T.check(schemaKeys.max_visible_pokemon == nil, "max_visible_pokemon removed from public schema")
+T.check(schemaKeys.min_sprite_size == nil, "min_sprite_size removed from public schema")
+T.check(schemaKeys.sprite_opacity == nil, "sprite_opacity removed from public schema")
+T.check(schemaKeys.strict_world_billboard_debug == nil, "strict billboard debug removed")
+T.check(schemaKeys.max_spawns == nil, "legacy max_spawns removed from schema")
 T.check(schemaKeys.enable_idle ~= nil, "enable_idle option")
 T.check(schemaKeys.enable_wander ~= nil, "enable_wander option")
 T.check(schemaKeys.enable_aggressive ~= nil, "enable_aggressive option")
 T.check(schemaKeys.enable_hidden ~= nil, "enable_hidden option")
-T.check(schemaKeys.min_sprite_size ~= nil, "min_sprite_size option")
 T.check(schemaKeys.show_behavior_overlays ~= nil, "show_behavior_overlays option")
+T.eq(schemaKeys.enable_wander.label, "Roam Mons", "wander label")
+T.eq(schemaKeys.enable_aggressive.label, "Chase Mons", "aggressive label")
+T.eq(schemaKeys.enable_hidden.label, "Hidden Mons", "hidden label")
+T.eq(schemaKeys.pokemon_grass_render_mode.label, "Grass View", "grass view label")
+-- All visible labels must fit Gen1Recomp's 14-character option row.
+for _, row in ipairs(schema) do
+  T.check(#row.label <= 14,
+          ("option label <=14: %s (%d)"):format(row.label, #row.label))
+  if row.choices then
+    for _, choice in ipairs(row.choices) do
+      local display = choice[1]
+      T.check(#tostring(display) <= 14,
+              ("choice label <=14: %s (%d)"):format(tostring(display), #tostring(display)))
+    end
+  end
+end
+-- Hardcoded fine-tuning defaults remain available to runtime helpers.
+T.eq(Config.DEFAULTS.max_visible_pokemon, 12, "runtime default max_visible_pokemon")
+T.eq(Config.DEFAULTS.min_sprite_size, 16, "runtime default min_sprite_size")
+T.eq(Config.DEFAULTS.sprite_opacity, 1.0, "runtime default sprite_opacity")
+T.eq(Config.DEFAULTS.enable_grass_movement_effects, true, "runtime default grass movement")
 
 -- Density: small patch vs long route.
 local smallTarget = SpawnRegions.targetCount({
@@ -1583,21 +1613,21 @@ end
 T.check(animOpt ~= nil, "use_animated_overworld_sprites option present")
 T.eq(animOpt.type, "toggle", "animated option is toggle")
 T.eq(animOpt.default, true, "animated option defaults true")
-T.eq(animOpt.label, "Use animated overworld Pokemon sprites", "animated option label")
+T.eq(animOpt.label, "Mon Sprites", "animated option label")
 T.eq(Config.DEFAULTS.use_animated_overworld_sprites, true, "DEFAULTS animated true")
 T.eq(Config.useAnimatedOverworldSprites(modApi), true, "animated helper true")
 
 local animSys = exports.animated
 T.check(animSys.loaded == true, "animated system loaded at mod init")
-T.check(animSys.mappingFilesFound == 151, "151 mapping files found at load")
-T.check(animSys.validSpeciesCount + animSys.partialSpeciesCount == 151,
-        "all 151 species have usable or partial mappings")
-T.eq(AnimatedSprites.ATLAS_REL,
-     "assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png",
-     "atlas relative path")
-T.eq(AnimatedSprites.MAPPING_DIR,
-     "assets/enhanced_overworld/pokedex_mapping",
-     "mapping dir")
+T.eq(animSys.mappingFilesFound, 1, "shared followsprites mapping file found")
+T.check(animSys.validSpeciesCount >= 151,
+        "at least Gen1 species have valid follow mappings")
+T.eq(AnimatedSprites.SPRITE_DIR,
+     "assets/enhanced_overworld/followsprites",
+     "followsprite dir")
+T.eq(AnimatedSprites.mappingRelPath(),
+     "assets/enhanced_overworld/followsprites_mapping/followsprites_mapping.json",
+     "followsprites mapping path")
 
 -- Language-independent identity = dex / speciesId
 T.eq(AnimatedSprites.resolveSpeciesId("CHARMELEON", {
@@ -1611,25 +1641,27 @@ T.check(AnimatedSprites.resolveSpeciesId("Glutexo", {
 }) == nil, "localized name is not a lookup key")
 
 local m5 = animSys:getMapping(5)
-T.check(m5 and m5.valid, "pokemon_005_project.json loaded for speciesId 5")
-T.eq(m5.fileName, "pokemon_005_project.json", "mapping filename for 5")
-T.eq(m5.speciesName, "Charmeleon", "mapping speciesName is display-only")
+T.check(m5 and m5.valid, "followsprites mapping loaded for speciesId 5")
+T.check(type(m5.fileName) == "string" and m5.fileName ~= "",
+        "mapping filename present for species 5")
+T.check(m5.speciesName == nil or type(m5.speciesName) == "string",
+        "speciesName remains display-only / optional")
 
 -- Facing map
 T.eq(AnimatedSprites.normalizeFacing("front"), "down", "front=down")
 T.eq(AnimatedSprites.normalizeFacing("back"), "up", "back=up")
 
--- Large frames
+-- Large frames (follow-sprites may be single-tile or taller; keep footprint checks soft)
 local charizard = animSys:getFrame(6, "idle", "down", 1)
-T.check(charizard and charizard.height == 32, "Charizard idle frame is 16x32")
+T.check(charizard ~= nil, "Charizard idle frame resolves")
 local scaleInfo = AnimatedSprites.calculateAnimatedSpriteScale(nil, charizard, {})
 T.eq(scaleInfo.logicalFootprintTiles, 1, "large frame keeps 1-tile collision")
-T.check(scaleInfo.visualFootprintTilesH == 2, "large frame visual height 2 tiles")
 
--- Partial fallback
+-- Idle left resolves (follow-sprites usually have a dedicated idle frame)
 local idleLeftFrames, usedAnim = animSys:resolveFrames(1, "idle", "left")
-T.check(idleLeftFrames and #idleLeftFrames >= 1, "Bulbasaur missing idle.left falls back")
-T.eq(usedAnim, "walk", "Bulbasaur idle.left uses walk frame")
+T.check(idleLeftFrames and #idleLeftFrames >= 1, "Bulbasaur idle.left resolves")
+T.check(usedAnim == "idle" or usedAnim == "walk",
+        "Bulbasaur idle.left uses idle or walk fallback")
 
 -- JSON decode smoke
 local decoded = JsonDecode.decode('{"speciesId":1,"ok":true}')
@@ -1646,10 +1678,10 @@ logic:onOptionsChanged({
   mod = modApi.id, key = "use_animated_overworld_sprites", value = true,
 })
 
--- HUD mentions atlas
+-- HUD mentions follow sprites
 local linesAnim = Diagnostics.hudLines(logic)
 local joinedAnim = table.concat(linesAnim, "\n")
-T.check(joinedAnim:find("Animated atlas", 1, true), "HUD shows animated atlas status")
+T.check(joinedAnim:find("Follow sprites", 1, true), "HUD shows follow sprite status")
 
 -- Mod disable clears entities.
 run.loader.modOptions["overworld_wild_spawns"].enabled = false

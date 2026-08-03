@@ -56,6 +56,7 @@ if (Test-Path $Modkit) {
   New-Item -ItemType Directory -Path $stage | Out-Null
   $include = @(
     "manifest.json", "main.lua", "options.lua", "mod.card",
+    "LICENSE", "THIRD_PARTY_NOTICES.md",
     "README.md", "CHANGELOG.md"
   )
   foreach ($name in $include) {
@@ -92,6 +93,9 @@ if ($names -notcontains $entry) {
 }
 if ($names -notcontains "mod.card") {
   throw "ZIP missing mod.card at archive root"
+}
+if ($names -notcontains "LICENSE") {
+  throw "ZIP missing LICENSE at archive root"
 }
 $schema = $manifest.options_schema
 if ($schema -and ($names -notcontains $schema)) {

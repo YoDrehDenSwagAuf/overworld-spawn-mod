@@ -136,15 +136,17 @@ check(shinyLoad:find("025-shiny.png", 1, true) ~= nil, "Pikachu shiny filename")
 local miss = sheets:resolveRelativePath(99999, "shiny")
 eq(miss, nil, "missing species returns nil")
 
--- PNG dimensions
+-- PNG dimensions (LuaJIT / Lua 5.1 compatible — no string.unpack).
+local function u32be(bytes, offset)
+  local b1, b2, b3, b4 = bytes:byte(offset, offset + 3)
+  return b1 * 16777216 + b2 * 65536 + b3 * 256 + b4
+end
 local function pngSize(path)
   local fh = assert(io.open(path, "rb"))
   local hdr = fh:read(24)
   fh:close()
   assert(hdr:sub(1, 8) == "\137PNG\r\n\26\n", "bad png sig")
-  local w = string.unpack(">I4", hdr, 17)
-  local h = string.unpack(">I4", hdr, 21)
-  return w, h
+  return u32be(hdr, 17), u32be(hdr, 21)
 end
 local w, h = pngSize("assets/generated/followsprites_runtime/001-normal.png")
 eq(w, 16, "generated sheet width 16")

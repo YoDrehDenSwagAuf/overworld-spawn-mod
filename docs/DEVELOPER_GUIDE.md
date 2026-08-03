@@ -1,13 +1,13 @@
-# Wilds of Kanto — Developer Guide (0.7.1)
+# Wilds of Kanto — Developer Guide (1.0.0)
 
 > Follow-sprites → native 16×96 SpriteRenderer sheets, NPC pose contract,
-> and Dramatic Shape billboards match the 0.7.1 implementation.
+> and Dramatic Shape billboards match the 1.0.0 implementation.
 
 Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
 This document describes the **implemented** architecture. It does not invent Gen1Recomp APIs.
 
-## Dramatic Shape integration (0.7.1)
+## Dramatic Shape integration (1.0.0)
 
 Verified NPC contract: `pose()` returns
 `sprite, visualX, visualY, facing, phase, flip [, hop]`.
@@ -243,7 +243,7 @@ Contact: `world.stepped` tile match + `movement.collision` bump.
 - Walkable indoor tiles
 - Hidden uses dust/shadow, never grass shake
 
-## 21. Developer mode
+## 21. Dev Mode
 
 HUD pipeline `owwild_debug_hud`: Target / Active / Regions / Surface + nearest
 entity detail (stable id, behaviour state, source/visible/rendered size,
@@ -262,9 +262,11 @@ Global encounter index; Test spawn 7 phases; never mutates registries.
 ## 24. Tests
 
 ```sh
+python3 tools/validate_option_labels.py
+python3 tools/validate_release_version.py
 cd .deps/gen1recomp
-lua mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
-lua mods/overworld_wild_spawns/tests/voxel_aggressive_compat_test.lua
+luajit mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
+luajit mods/overworld_wild_spawns/tests/voxel_aggressive_compat_test.lua
 ```
 
 ## 25. Release build
@@ -274,9 +276,18 @@ lua mods/overworld_wild_spawns/tests/voxel_aggressive_compat_test.lua
 ./scripts/build-mod.py
 ```
 
-Produces `dist/wilds-of-kanto-v0.4.2.zip` (plus technical-id aliases) with
+Produces `dist/wilds-of-kanto-v1.0.0.zip` (plus local technical-id aliases) with
 `manifest.json` at ZIP root.
-Includes `docs/`. Excludes `tests/`, `scripts/`, `.deps/`, root `ARCHITECTURE.md`.
+Includes `docs/` and `LICENSE`. Excludes `tests/`, `scripts/`, `.deps/`, root `ARCHITECTURE.md`.
+
+Tag-triggered GitHub Release (`.github/workflows/release.yml`):
+
+```text
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+Manifest field `github` = `YoDrehDenSwagAuf/overworld-spawn-mod` enables Mod Manager
+update detection. Upload only the public `wilds-of-kanto-v*.zip` asset.
 
 ## 26. Known technical constraints / Voxel compatibility
 

@@ -1,7 +1,7 @@
 {
   "id": "overworld_wild_spawns",
   "name": "Wilds of Kanto",
-  "version": "0.7.1",
+  "version": "1.0.0",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -14,5 +14,6 @@
   "permissions": ["engine_internals"],
   "affects_link": false,
   "options_schema": "options.lua",
-  "description": "Visible and reactive wild Pokemon for the Gen 1 overworld."
+  "description": "Visible and reactive wild Pokemon for the Gen 1 overworld.",
+  "github": "YoDrehDenSwagAuf/overworld-spawn-mod"
 }

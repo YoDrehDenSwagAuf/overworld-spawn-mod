@@ -32,3 +32,6 @@ assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png
 tools/generate_followsprites_mapping.ps1
 tools/generate_runtime_sprite_sheets.ps1
 tools/generate_runtime_sprite_sheets.py
+tools/validate_option_labels.py
+tools/validate_release_version.py
+tools/validate_release_version.ps1
