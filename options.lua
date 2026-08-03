@@ -56,6 +56,13 @@ return {
     description = "Grass encounters: Classic step RNG, Hidden idle lurkers, or both. Hidden is the default. Caves and water are unchanged.",
   },
   {
+    key = "water_spawns",
+    label = "Water Mons",
+    type = "toggle",
+    default = true,
+    description = "Spawn visible wild Pokemon on water tiles from the map water encounter table. Classic surf encounters stay unchanged.",
+  },
+  {
     key = "pokemon_grass_render_mode",
     label = "Grass View",
     type = "choice",

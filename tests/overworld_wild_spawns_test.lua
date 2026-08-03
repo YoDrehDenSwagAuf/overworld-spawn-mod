@@ -1151,9 +1151,13 @@ T.check(mockGame.save.pokedex == nil
 
 local schemaKeys = {}
 for _, row in ipairs(schema) do schemaKeys[row.key] = row end
-T.check(schemaKeys.spawn_density ~= nil, "spawn_density option present")
-T.eq(schemaKeys.spawn_density.default, "normal", "spawn_density default Normal")
-T.eq(schemaKeys.spawn_density.label, "Spawn Amount", "spawn_density label")
+T.check(schemaKeys.spawn_density == nil, "spawn_density removed from Mod Settings")
+T.check(schemaKeys.grass_encounters ~= nil, "grass_encounters option present")
+T.eq(schemaKeys.grass_encounters.default, "hidden", "grass_encounters default Hidden")
+T.eq(schemaKeys.grass_encounters.label, "Grass Enc", "grass_encounters label")
+T.check(schemaKeys.water_spawns ~= nil, "water_spawns option present")
+T.eq(schemaKeys.water_spawns.default, true, "water_spawns default ON")
+T.eq(schemaKeys.water_spawns.label, "Water Mons", "water_spawns label")
 T.check(schemaKeys.max_visible_pokemon == nil, "max_visible_pokemon removed from public schema")
 T.check(schemaKeys.min_sprite_size == nil, "min_sprite_size removed from public schema")
 T.check(schemaKeys.sprite_opacity == nil, "sprite_opacity removed from public schema")

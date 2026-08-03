@@ -14,6 +14,8 @@ Behavior.AGGRESSIVE = "AGGRESSIVE"
 Behavior.HIDDEN_GRASS = "HIDDEN_GRASS"
 Behavior.HIDDEN_CAVE = "HIDDEN_CAVE"
 Behavior.HIDDEN_IDLE = "HIDDEN_IDLE"
+Behavior.WATER_IDLE = "WATER_IDLE"
+Behavior.WATER_WANDER = "WATER_WANDER"
 
 Behavior.STATE = {
   IDLE = "IDLE",
@@ -39,6 +41,9 @@ local DEFAULT_WEIGHTS = {
   [Behavior.AGGRESSIVE] = 15,
   [Behavior.HIDDEN_GRASS] = 20,
   [Behavior.HIDDEN_CAVE] = 20,
+  [Behavior.WATER_IDLE] = 45,
+  [Behavior.WATER_WANDER] = 55,
+  [Behavior.HIDDEN_IDLE] = 0, -- never via Behavior.pick; dedicated spawn track
 }
 
 local SPECIES_AFFINITY = {
@@ -88,13 +93,23 @@ function Behavior.weightsFor(species, surface, opts)
   if surface == Surface.CAVE then
     weights[Behavior.HIDDEN_GRASS] = 0
     weights[Behavior.HIDDEN_CAVE] = DEFAULT_WEIGHTS[Behavior.HIDDEN_CAVE]
+    weights[Behavior.WATER_IDLE] = 0
+    weights[Behavior.WATER_WANDER] = 0
   elseif surface == Surface.WATER then
     weights[Behavior.HIDDEN_GRASS] = 0
     weights[Behavior.HIDDEN_CAVE] = 0
-    weights[Behavior.AGGRESSIVE] = weights[Behavior.AGGRESSIVE] * 0.5
+    weights[Behavior.IDLE_LOOK] = 0
+    weights[Behavior.GRASS_WANDER] = 0
+    weights[Behavior.AGGRESSIVE] = 0
+    weights[Behavior.WATER_IDLE] = DEFAULT_WEIGHTS[Behavior.WATER_IDLE]
+    weights[Behavior.WATER_WANDER] = DEFAULT_WEIGHTS[Behavior.WATER_WANDER]
   else
     weights[Behavior.HIDDEN_CAVE] = 0
+    weights[Behavior.WATER_IDLE] = 0
+    weights[Behavior.WATER_WANDER] = 0
   end
+
+  weights[Behavior.HIDDEN_IDLE] = 0
 
   if opts.enable_idle == false then weights[Behavior.IDLE_LOOK] = 0 end
   if opts.enable_wander == false then weights[Behavior.GRASS_WANDER] = 0 end
@@ -133,6 +148,7 @@ function Behavior.pick(species, surface, opts, rng)
   local order = {
     Behavior.IDLE_LOOK, Behavior.GRASS_WANDER, Behavior.AGGRESSIVE,
     Behavior.HIDDEN_GRASS, Behavior.HIDDEN_CAVE,
+    Behavior.WATER_IDLE, Behavior.WATER_WANDER,
   }
   for _, b in ipairs(order) do
     total = total + (weights[b] or 0)
@@ -540,7 +556,7 @@ function Behavior.tick(entity, ctx)
     return nil
   end
 
-  if bx.behavior == Behavior.IDLE_LOOK then
+  if bx.behavior == Behavior.IDLE_LOOK or bx.behavior == Behavior.WATER_IDLE then
     if Movement.isBusy(entity) then
       Movement.update(entity, ctx.dt or 0.016)
       return nil
@@ -553,7 +569,7 @@ function Behavior.tick(entity, ctx)
     return nil
   end
 
-  if bx.behavior == Behavior.GRASS_WANDER then
+  if bx.behavior == Behavior.GRASS_WANDER or bx.behavior == Behavior.WATER_WANDER then
     if Movement.isBusy(entity) then
       local done = Movement.update(entity, ctx.dt or 0.016)
       if done then
@@ -600,6 +616,10 @@ function Behavior.tick(entity, ctx)
   return nil
 end
 
+function Behavior.isWater(behavior)
+  return behavior == Behavior.WATER_IDLE or behavior == Behavior.WATER_WANDER
+end
+
 function Behavior.attach(entity, behavior, region, rng)
   entity.behavior = behavior
   entity.behaviorState = Behavior.initState(behavior, rng)
@@ -609,6 +629,7 @@ function Behavior.attach(entity, behavior, region, rng)
   entity.visibleSprite = not Behavior.isHidden(behavior)
   entity.grassEffectActive = false
   entity.canTriggerBattle = not Behavior.isHiddenIdle(behavior)
+  entity.hiddenBody = false
   if Behavior.isHidden(behavior) then
     entity.passable = true
     entity.hiddenEncounter = true
@@ -616,8 +637,17 @@ function Behavior.attach(entity, behavior, region, rng)
   if Behavior.isHiddenIdle(behavior) then
     local HiddenIdle = V.require("hidden_idle")
     entity.hiddenIdle = HiddenIdle.newState(rng)
+    entity.hiddenIdle.cellX = entity.cellX
+    entity.hiddenIdle.cellY = entity.cellY
     entity.visibleSprite = false
+    entity.hiddenBody = true
     entity.canTriggerBattle = false
+    entity.moving = false
+  end
+  if Behavior.isWater(behavior) then
+    entity.surface = Surface.WATER
+    entity.surfaceVisualOffset = 2
+    entity.waterSink = 2
   end
   if entity.cellX and entity.cellY then
     Movement.init(entity, entity.cellX, entity.cellY, entity.facing)

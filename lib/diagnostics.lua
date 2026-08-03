@@ -134,11 +134,28 @@ function Diagnostics.entityDetail(logic, entity, record)
   local lines = {
     ("Entity ID: %s"):format(tostring(entity.id or entity.spawnId or "?")),
     ("Behavior: %s"):format(tostring(entity.behavior or record and record.behavior)),
+    ("Behaviour: %s"):format(tostring(entity.behavior or record and record.behavior)),
     ("Behavior state: %s"):format(tostring(bx.state or "?")),
     ("Surface: %s"):format(tostring(entity.surface or "?")),
     ("Home region: %s"):format(tostring(entity.homeRegionId or "?")),
     ("Facing: %s"):format(tostring(entity.facing or bx.facing or "?")),
   }
+  do
+    local SpawnFx = V.require("spawn_fx")
+    local fx = entity.spawnFx
+    local kind = (fx and fx.kind) or "NONE"
+    lines[#lines + 1] = ("Spawn FX: %s"):format(tostring(kind):upper())
+    if fx and not fx.done then
+      lines[#lines + 1] = ("Spawn FX Phase: %.2fs / %.2fs"):format(
+        fx.elapsed or 0, fx.duration or 0)
+    else
+      lines[#lines + 1] = ("Spawn FX Phase: %s"):format(fx and fx.done and "DONE" or "NONE")
+    end
+    lines[#lines + 1] = ("Body Visible: %s"):format(
+      SpawnFx.bodyVisible(entity) and "YES" or "NO")
+    lines[#lines + 1] = ("Can Act: %s"):format(SpawnFx.canAct(entity) and "YES" or "NO")
+    lines[#lines + 1] = ("Can Battle: %s"):format(SpawnFx.canBattle(entity) and "YES" or "NO")
+  end
   if entity.species then
     lines[#lines + 1] = ("Species key: %s"):format(tostring(entity.species))
     lines[#lines + 1] = ("Species ID: %s"):format(tostring(entity.species))
@@ -422,15 +439,46 @@ function Diagnostics.hudLines(logic)
 
   do
     local HiddenIdle = V.require("hidden_idle")
+    local SpawnFx = V.require("spawn_fx")
     local hi = HiddenIdle.hudSummary(logic)
     local modeLabel = (Config.GRASS_ENC_CONFIRM and Config.GRASS_ENC_CONFIRM[hi.mode])
                       or tostring(hi.mode or "?"):upper()
-    lines[#lines + 1] = ("Grass encounters: %s"):format(modeLabel)
-    lines[#lines + 1] = ("Classic grass: %s"):format(hi.classicOn and "ON" or "OFF")
-    lines[#lines + 1] = ("Hidden target: %d"):format(hi.target or 0)
-    lines[#lines + 1] = ("Hidden loaded: %d"):format(hi.loaded or 0)
-    lines[#lines + 1] = ("Hidden revealed: %d"):format(hi.revealed or 0)
-    lines[#lines + 1] = ("Reserved cells: %d"):format(hi.reserved or 0)
+    lines[#lines + 1] = ("Grass Enc: %s"):format(modeLabel)
+    lines[#lines + 1] = ("Classic Grass: %s"):format(hi.classicOn and "ON" or "OFF")
+    lines[#lines + 1] = ("Hidden Target: %d"):format(hi.target or 0)
+    lines[#lines + 1] = ("Hidden Loaded: %d"):format(hi.loaded or 0)
+    lines[#lines + 1] = ("Hidden Revealed: %d"):format(hi.revealed or 0)
+    lines[#lines + 1] = ("Reserved Cells: %d"):format(hi.reserved or 0)
+    if logic.spawnFx then
+      for _, line in ipairs(logic.spawnFx:statusLines()) do
+        lines[#lines + 1] = line
+      end
+    else
+      lines[#lines + 1] = "Rustle FX: NONE"
+      lines[#lines + 1] = "Reveal FX: READY"
+    end
+    lines[#lines + 1] = ("Water Mons: %s"):format(
+      Config.waterMons(logic.mod) and "ON" or "OFF")
+    lines[#lines + 1] = ("Water Cells: %d"):format(#(logic.waterCache or {}))
+    lines[#lines + 1] = ("Water Target: %d"):format(logic.targetWaterCount or 0)
+    local waterLoaded = 0
+    if logic.activeMapId and logic.countWaterOnMap then
+      waterLoaded = logic:countWaterOnMap(logic.activeMapId)
+    end
+    lines[#lines + 1] = ("Water Loaded: %d"):format(waterLoaded)
+    local encReady = "NONE"
+    do
+      local world = logic.mod.world
+      local game = world and world.game
+      local mapId = logic.activeMapId or (logic.state and logic.state.mapId)
+      if mapId and game and game.data and game.data.encounters then
+        local EncounterPick = V.require("encounter_pick")
+        if EncounterPick.kindTable(game.data.encounters[mapId], "water") then
+          encReady = "READY"
+        end
+      end
+    end
+    lines[#lines + 1] = ("Water Encounter Table: %s"):format(encReady)
   end
 
   -- Detail the nearest entity when developer overlays are on.

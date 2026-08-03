@@ -9,8 +9,8 @@ local Grass = V.require("grass")
 local HiddenIdle = {}
 
 -- Midpoints of the recommended density bands (no public fine-tune).
-HiddenIdle.RATIO_HIDDEN = 0.28 -- 20–35 %
-HiddenIdle.RATIO_BOTH = 0.15   -- 10–20 %
+HiddenIdle.RATIO_HIDDEN = 0.30 -- ~30 %
+HiddenIdle.RATIO_BOTH = 0.15   -- ~15 %
 HiddenIdle.MIN_SEPARATION = 4  -- Chebyshev tiles between reserved cells
 HiddenIdle.RUSTLE_MIN = 1.5
 HiddenIdle.RUSTLE_MAX = 4.0
@@ -352,15 +352,24 @@ function HiddenIdle.statusLines(entity)
   local lines = {}
   if not HiddenIdle.isEntity(entity) then return lines end
   local hi = entity.hiddenIdle or {}
+  local SpawnFx = V.require("spawn_fx")
   lines[#lines + 1] = ("Behaviour: %s"):format(Behavior.HIDDEN_IDLE)
+  lines[#lines + 1] = ("Surface: GRASS")
   lines[#lines + 1] = ("Hidden: %s"):format(hi.active and "YES" or "NO")
   lines[#lines + 1] = ("Revealed: %s"):format(hi.revealed and "YES" or "NO")
   lines[#lines + 1] = ("Reveal started: %s"):format(
     hi.revealStarted and "YES" or "NO")
   lines[#lines + 1] = ("Battle started: %s"):format(
     hi.battleStarted and "YES" or "NO")
+  lines[#lines + 1] = ("Body Visible: %s"):format(
+    SpawnFx.bodyVisible(entity) and "YES" or "NO")
+  lines[#lines + 1] = ("Can Act: %s"):format(SpawnFx.canAct(entity) and "YES" or "NO")
+  lines[#lines + 1] = ("Can Battle: %s"):format(SpawnFx.canBattle(entity) and "YES" or "NO")
+  local fx = entity.spawnFx
+  lines[#lines + 1] = ("Spawn FX: %s"):format(
+    fx and tostring(fx.kind or "?"):upper() or "NONE")
   if not hi.revealStarted then
-    local remaining = (hi.nextRustle or 0) - (hi.rustleTimer or 0)
+    local remaining = (hi.nextRustle or 0) - (hi.rustleElapsed or hi.rustleTimer or 0)
     if remaining < 0 then remaining = 0 end
     lines[#lines + 1] = ("Next rustle: %.1fs"):format(remaining)
   else

@@ -3,17 +3,17 @@
 -- A present pipeline runs every drawn frame and is an established public path
 -- (same mechanism as the debug HUD).
 --
--- Also draws hidden-encounter effects (legacy markers + native Hidden Idle
--- grass rustle). Hidden entities stay out of ow.entities so Dramatic Shape
--- never poses a nil sprite.
+-- Hidden Idle rustle uses SpawnFx tile-capture blit (real grass art) in the
+-- present pipeline with correct letterbox scale — not raw drawCellBottom in
+-- window space (that was invisible).
 local V = ...
 local Config = V.require("config")
 local Behavior = V.require("behavior")
 local Movement = V.require("movement")
 local VoxelAdapter = V.require("voxel_adapter")
-local Tile = V.require("tile")
 local DebugLog = V.require("debug_log")
 local HiddenIdle = V.require("hidden_idle")
+local SpawnFx = V.require("spawn_fx")
 
 local BehaviorTick = {}
 BehaviorTick.__index = BehaviorTick
@@ -51,7 +51,7 @@ function BehaviorTick:register()
     end,
     present = function(canvas, ctx)
       tick:step(ctx)
-      tick:drawHiddenEffects(ctx)
+      tick:drawFx(canvas, ctx)
       return canvas
     end,
   })
@@ -68,16 +68,6 @@ function BehaviorTick:syncPipelineLevel()
   else
     Pipelines.setLevel(BehaviorTick.PIPELINE_ID, 0)
   end
-end
-
-local function emoteBelongsToWild(ow, logic)
-  if not ow or not ow.emote or not ow.emote.npc then return false end
-  local npc = ow.emote.npc
-  if npc.overworldWildSpawn then return true end
-  for _, entity in pairs(logic.entities or {}) do
-    if entity == npc then return true end
-  end
-  return false
 end
 
 function BehaviorTick:step(ctx)
@@ -97,12 +87,14 @@ function BehaviorTick:step(ctx)
 
   self.voxel:refreshPresence()
 
+  if logic.spawnFx then
+    logic.spawnFx:update(dt)
+  end
+
   local holdAi = false
   if ow.engaging then
     holdAi = true
   elseif ow.emote then
-    -- Hold decision AI while any emotion bubble owns the world. Our own
-    -- aggressive alert uses ow.emote; chase starts only via emote onDone.
     holdAi = true
   end
 
@@ -116,7 +108,6 @@ function BehaviorTick:step(ctx)
   for id, entity in pairs(logic.entities or {}) do
     local record = logic.spawns[id]
     if record and record.state == Config.STATE.AVAILABLE and entity then
-      -- Keep entity presentation flags synced for Voxel overlay / HUD.
       local okVoxel, voxelErr = pcall(function()
         self.voxel:updateEntity(entity)
       end)
@@ -128,9 +119,6 @@ function BehaviorTick:step(ctx)
       local chasing = bx and (bx.chasing or bx.state == Behavior.STATE.CHASING
                               or bx.state == Behavior.STATE.CHASE_START)
 
-      -- Mid-step interpolation always advances (NPC-compatible), even during
-      -- a foreign emote, so renderers never see a torn movement state.
-      -- During OUR alert emote, movement is stopped by the ALERT state.
       if Movement.isBusy(entity) and not (holdAi and bx
          and (bx.state == Behavior.STATE.ALERT
               or bx.state == Behavior.STATE.PLAYER_DETECTED)) then
@@ -140,20 +128,62 @@ function BehaviorTick:step(ctx)
         end
       end
 
-      -- Hidden Idle: rustle / reveal timeline (independent of holdAi).
-      if HiddenIdle.isEntity(entity) then
-        local event = HiddenIdle.tick(entity, dt)
-        if event == "reveal_visible" then
+      -- Per-entity spawn / reveal FX.
+      local fxEvent = SpawnFx.updateEntity(entity, dt, {
+        map = ow.map,
+        spawnFx = logic.spawnFx,
+      })
+      if fxEvent == "reveal_visible" or fxEvent == "spawn_visible" then
+        if HiddenIdle.isEntity(entity) then
           logic:_onHiddenRevealVisible(entity, record)
-        elseif event == "reveal_battle" then
-          logic:_onHiddenRevealBattle(entity, record)
+        else
+          entity.hiddenBody = false
+          entity.visibleSprite = true
+          -- Attach now that the body may be posed safely.
+          pcall(function() logic:_attach(entity) end)
         end
+      elseif fxEvent == "reveal_battle" then
+        logic:_onHiddenRevealBattle(entity, record)
+      elseif fxEvent == "spawn_done" then
+        entity.canTriggerBattle = true
+        entity.hiddenBody = false
+        pcall(function() logic:_attach(entity) end)
+      end
+
+      -- Hidden Idle periodic rustle (when not revealing).
+      if HiddenIdle.isEntity(entity)
+         and entity.hiddenIdle
+         and entity.hiddenIdle.active
+         and not entity.hiddenIdle.revealStarted
+         and not entity.hiddenIdle.revealed then
+        local hi = entity.hiddenIdle
+        hi.rustleElapsed = (hi.rustleElapsed or hi.rustleTimer or 0) + dt
+        local nextR = hi.nextRustle or 2.5
+        if hi.rustleElapsed >= nextR then
+          hi.rustleElapsed = 0
+          hi.rustleTimer = 0
+          hi.nextRustle = HiddenIdle.randomRustleDelay()
+          entity.grassEffectActive = true
+          entity.grassEffectUntil = now() + 0.35
+          if logic.spawnFx then
+            logic.spawnFx:grassRustle(ow.map, entity.cellX, entity.cellY, "small")
+          end
+          if bx then
+            bx.shakePhase = (bx.shakePhase or 0) + 1
+          end
+        end
+        if entity.grassEffectUntil and now() > entity.grassEffectUntil then
+          entity.grassEffectActive = false
+        end
+      elseif HiddenIdle.isEntity(entity) then
+        -- Reveal timeline owned by SpawnFx.updateEntity above.
+      elseif not SpawnFx.canAct(entity) then
+        -- Spawn pop in progress: no AI.
       elseif holdAi and not chasing then
-        -- Freeze new decisions / sight while a bubble or trainer approach owns
-        -- the world. Chase already in progress continues after our emote ends.
+        -- freeze
       else
         if bx and bx.chasing and Movement.isBusy(entity) then
-          -- Wait for the current chase step to finish.
+          -- wait
         else
           local event = Behavior.tick(entity, {
             map = ow.map,
@@ -167,12 +197,13 @@ function BehaviorTick:step(ctx)
           if event == "alert" then
             logic:_onAggressiveAlert(entity, record)
           elseif event == "contact" or event == "battle_pending" then
-            logic:_startBattle(record)
+            if SpawnFx.canBattle(entity) then
+              logic:_startBattle(record)
+            end
           end
         end
       end
 
-      -- Shared animation state for flat 2D and post-voxel 2D overlay.
       if logic.render and logic.render.syncEntityAnimation then
         local okAnim, animErr = pcall(logic.render.syncEntityAnimation,
                                       logic.render, entity, dt)
@@ -182,13 +213,14 @@ function BehaviorTick:step(ctx)
         end
       end
 
-      -- Keep record coords in sync after movement (committed tile only).
       if entity.cellX and entity.cellY then
         record.x, record.y = entity.cellX, entity.cellY
+        if entity.hiddenIdle then
+          entity.hiddenIdle.cellX = entity.cellX
+          entity.hiddenIdle.cellY = entity.cellY
+        end
       end
 
-      -- Hidden markers must stay out of ow.entities; visible wilds stay in
-      -- for simulation and are filtered only from DS billboard posing.
       if entity.registeredInWorld and entity.sprite == nil
          and not entity.hiddenEncounter
          and not HiddenIdle.isEntity(entity) then
@@ -200,68 +232,17 @@ function BehaviorTick:step(ctx)
   end
 end
 
-local function drawNativeGrassRustle(map, entity, camX, camY)
-  if not map then return false end
-  local renderer = map.renderer
-  if not renderer or type(renderer.drawCellBottom) ~= "function" then
-    return false
-  end
-  if not (love and love.graphics) then return false end
-  local hi = entity.hiddenIdle or {}
-  local active = entity.grassEffectActive == true
-  if not active then return true end -- still "handled" (no custom art)
-  local amp = hi.strongRustle and 2 or 1
-  local phase = (entity.behaviorState and entity.behaviorState.shakePhase) or 0
-  local ox = (phase % 2 == 0) and amp or -amp
-  love.graphics.setColor(1, 1, 1, 1)
-  pcall(renderer.drawCellBottom, renderer,
-        entity.cellX, entity.cellY, (camX or 0) - ox, camY or 0)
-  return true
-end
-
-function BehaviorTick:drawHiddenEffects(ctx)
+function BehaviorTick:drawFx(canvas, ctx)
   if not (love and love.graphics) then return end
   if Config.get(self.mod, "enable_grass_movement_effects") == false then return end
   local logic = self.logic
   local world = self.mod.world
   local ow = world and world.overworld and world:overworld()
   if not ow or not ow.map then return end
-  local cam = ow.camera
-  local camX = cam and cam.x or 0
-  local camY = cam and cam.y or 0
-  for id, entity in pairs(logic.entities or {}) do
-    local record = logic.spawns[id]
-    if record and record.state == Config.STATE.AVAILABLE
-       and entity and (entity.hiddenEncounter or not entity.visibleSprite
-                      or HiddenIdle.isEntity(entity)) then
-      if HiddenIdle.isEntity(entity) then
-        -- Prefer native tall-grass redraw with a slight offset (no custom colour).
-        drawNativeGrassRustle(ow.map, entity, camX, camY)
-      elseif entity.behavior == Behavior.HIDDEN_GRASS
-         or entity.surface == "GRASS" then
-        local cell = Tile.CELL
-        local x = math.floor((entity.px or (entity.cellX * cell)) - camX)
-        local y = math.floor((entity.py or (entity.cellY * cell)) - camY)
-        local active = entity.grassEffectActive == true
-        local amp = active and 2 or 0
-        local phase = (entity.behaviorState and entity.behaviorState.shakePhase) or 0
-        local ox = (phase % 2 == 0) and amp or -amp
-        love.graphics.setColor(0.25, 0.65, 0.28, active and 0.55 or 0.22)
-        love.graphics.rectangle("fill", x + 3 + ox, y + 10, 10, 5)
-        love.graphics.setColor(0.18, 0.5, 0.2, active and 0.7 or 0.3)
-        love.graphics.rectangle("fill", x + 5 + ox, y + 8, 6, 3)
-        love.graphics.setColor(1, 1, 1, 1)
-      else
-        local cell = Tile.CELL
-        local x = math.floor((entity.px or (entity.cellX * cell)) - camX)
-        local y = math.floor((entity.py or (entity.cellY * cell)) - camY)
-        local active = entity.grassEffectActive == true
-        local a = active and 0.45 or 0.18
-        love.graphics.setColor(0.15, 0.12, 0.1, a)
-        love.graphics.ellipse("fill", x + 8, y + 12, active and 6 or 4, active and 3 or 2)
-        love.graphics.setColor(1, 1, 1, 1)
-      end
-    end
+
+  if logic.spawnFx then
+    logic.spawnFx:drawPresent(canvas, ctx, ow)
+    logic.spawnFx:drawWaterSplashes(canvas, ctx, ow, logic.entities)
   end
 end
 

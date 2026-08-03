@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.2.0
+
+### Hidden Idle fix + Water Mons + Spawn FX
+
+- **Fixed** Hidden / Both still behaving like classic grass RNG: classic grass
+  rolls are suppressed from `grass_encounters` itself (not only the legacy
+  Hide Grass RNG toggle).
+- **Fixed** invisible grass rustle: rustle now captures real tall-grass tiles
+  via `drawCellBottom` and blit-shakes them in the present pipeline with
+  correct letterbox scale (`lib/spawn_fx.lua`).
+- Hidden Idle remains a separate spawn track with reserved cells, periodic
+  rustle, reveal timeline (rustle → body → hop → battle once).
+- Visible grass spawns play a short spawn FX (rustle → body → hop) before AI
+  and battle unlock.
+- Added **Water Mons** (`water_spawns`, default ON): visible Pokémon from the
+  map water encounter table on connected water (`WATER_IDLE` / `WATER_WANDER`).
+  Classic surf / fishing unchanged. Live toggle from Mod Settings and Start Menu.
+- Start Menu order: **SPRITE STYLE**, **SPAWN AMOUNT**, **GRASS ENC**,
+  **WATER MONS**.
+- Developer HUD reports Grass Enc / Rustle FX / Water Mons / Spawn FX state.
+
 ## 1.1.0
 
 ### Grass Enc + Hidden Idle

@@ -20,7 +20,7 @@ Surface.BEHAVIORS = {
     "IDLE_LOOK", "GRASS_WANDER", "AGGRESSIVE", "HIDDEN_CAVE",
   },
   [Surface.WATER] = {
-    "IDLE_LOOK", "GRASS_WANDER", -- water wander reuses wander FSM on water tiles
+    "WATER_IDLE", "WATER_WANDER",
   },
   [Surface.INTERIOR] = {
     "IDLE_LOOK", "GRASS_WANDER", "AGGRESSIVE",

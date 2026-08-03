@@ -118,9 +118,10 @@ Visible labels are limited to 14 characters.
 | Label | Key | Default | Values | Effect |
 |---|---|---|---|---|
 | Show Wild Mons | `enabled` | true | on/off | Master switch |
-| Hide Grass RNG | `suppress_random_grass` | true | on/off | Used when Grass Enc is Hidden |
+| Hide Grass RNG | `suppress_random_grass` | true | on/off | Legacy; Grass Enc Hidden owns classic suppress |
 | Sprite Style | `sprite_style` | auto | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | Overworld sprite source |
 | Grass Enc | `grass_encounters` | hidden | Classic / Hidden / Both | Grass encounter style |
+| Water Mons | `water_spawns` | true | on/off | Visible water Pokémon from water encounter tables |
 | Grass View | `pokemon_grass_render_mode` | immersed | Above / Immersed | Tall-grass presentation |
 | Idle Mons | `enable_idle` | true | on/off | Allow Idle Look |
 | Roam Mons | `enable_wander` | true | on/off | Allow Wander |
@@ -129,7 +130,8 @@ Visible labels are limited to 14 characters.
 | Dev Mode | `dev_mode` | false | on/off | HUD + preview browser |
 
 Start Menu only (same saved keys): **SPRITE STYLE**, **SPAWN AMOUNT**
-(`spawn_density`), **GRASS ENC**. Spawn Amount is not in Mod Settings.
+(`spawn_density`), **GRASS ENC**, **WATER MONS**. Spawn Amount is not in Mod
+Settings.
 
 ### Developer rows
 

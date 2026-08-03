@@ -5,8 +5,9 @@
 --   1. SPRITE STYLE
 --   2. SPAWN AMOUNT
 --   3. GRASS ENC
+--   4. WATER MONS
 --
--- All three write the shared option keys through Config setters — the same
+-- All four write the shared option keys through Config setters — the same
 -- persistence used by Mod Settings (Spawn Amount is Start-Menu only).
 local V = ...
 local Config = V.require("config")
@@ -18,12 +19,14 @@ SpriteStyleMenu.__index = SpriteStyleMenu
 SpriteStyleMenu.SCREEN_STYLE = "overworld_wild_spawns:sprite_style"
 SpriteStyleMenu.SCREEN_SPAWN = "overworld_wild_spawns:spawn_amount"
 SpriteStyleMenu.SCREEN_GRASS = "overworld_wild_spawns:grass_enc"
+SpriteStyleMenu.SCREEN_WATER = "overworld_wild_spawns:water_mons"
 -- Back-compat alias used by older tests / docs.
 SpriteStyleMenu.SCREEN = SpriteStyleMenu.SCREEN_STYLE
 
 SpriteStyleMenu.LABEL_STYLE = "SPRITE STYLE" -- 12
 SpriteStyleMenu.LABEL_SPAWN = "SPAWN AMOUNT" -- 12
 SpriteStyleMenu.LABEL_GRASS = "GRASS ENC"    -- 9
+SpriteStyleMenu.LABEL_WATER = "WATER MONS"   -- 10
 SpriteStyleMenu.MENU_LABEL = SpriteStyleMenu.LABEL_STYLE
 
 -- Visible choice labels (all <= 14). Internal values match options / defaults.
@@ -47,6 +50,11 @@ SpriteStyleMenu.GRASS_CHOICES = {
   { label = "CLASSIC", value = "classic" },
   { label = "HIDDEN", value = "hidden" },
   { label = "BOTH", value = "both" },
+}
+
+SpriteStyleMenu.WATER_CHOICES = {
+  { label = "ON", value = true },
+  { label = "OFF", value = false },
 }
 
 local STYLE_CONFIRM = {
@@ -157,6 +165,18 @@ function SpriteStyleMenu:_applyGrass(game, value)
   return ok
 end
 
+function SpriteStyleMenu:_applyWater(game, value)
+  local ok, err = Config.setWaterMons(self.mod, value, "start_menu", {
+    game = game,
+    logic = self.logic,
+    confirm = true,
+  })
+  if not ok then
+    DebugLog.warn(self.mod, "water mons menu apply failed: %s", tostring(err))
+  end
+  return ok
+end
+
 function SpriteStyleMenu:_openStyleMenu(game)
   local mod = self.mod
   local current = Config.spriteStyle(mod)
@@ -234,6 +254,28 @@ function SpriteStyleMenu:_openGrassMenu(game)
   })
 end
 
+function SpriteStyleMenu:_openWaterMenu(game)
+  local mod = self.mod
+  local current = Config.waterMons(mod)
+  local items = {}
+  for _, choice in ipairs(SpriteStyleMenu.WATER_CHOICES) do
+    items[#items + 1] = {
+      label = markCurrent(choice.label, choice.value == current),
+      value = choice.value,
+    }
+  end
+  items[#items + 1] = { label = "CANCEL", value = nil }
+
+  return mod.ui.ListMenu.new(game, SpriteStyleMenu.LABEL_WATER, items, {
+    onChoose = function(item, menu)
+      if item and item.value ~= nil then
+        self:_applyWater(game, item.value)
+      end
+      if menu and menu.close then menu:close() end
+    end,
+  })
+end
+
 -- Back-compat for tests that call _openMenu / _applyChoice.
 function SpriteStyleMenu:_openMenu(game)
   return self:_openStyleMenu(game)
@@ -269,6 +311,9 @@ function SpriteStyleMenu:register()
     mod.content.screens:register(SpriteStyleMenu.SCREEN_GRASS, {
       new = function(game) return menu:_openGrassMenu(game) end,
     })
+    mod.content.screens:register(SpriteStyleMenu.SCREEN_WATER, {
+      new = function(game) return menu:_openWaterMenu(game) end,
+    })
   end
 
   -- Always visible in the normal Start menu (not gated on Dev Mode).
@@ -291,19 +336,21 @@ function SpriteStyleMenu:register()
       end
     end
 
-    -- Insert in order before SAVE so final order is STYLE, SPAWN, GRASS.
+    -- Insert in order before SAVE: STYLE, SPAWN, GRASS, WATER.
     ensure(SpriteStyleMenu.LABEL_STYLE, SpriteStyleMenu.SCREEN_STYLE,
            SpriteStyleMenu._openStyleMenu)
     ensure(SpriteStyleMenu.LABEL_SPAWN, SpriteStyleMenu.SCREEN_SPAWN,
            SpriteStyleMenu._openSpawnMenu)
     ensure(SpriteStyleMenu.LABEL_GRASS, SpriteStyleMenu.SCREEN_GRASS,
            SpriteStyleMenu._openGrassMenu)
+    ensure(SpriteStyleMenu.LABEL_WATER, SpriteStyleMenu.SCREEN_WATER,
+           SpriteStyleMenu._openWaterMenu)
     return out
   end)
 
   self._registered = true
   if Config.debug(mod) then
-    DebugLog.info(mod, "start-menu SPRITE STYLE / SPAWN AMOUNT / GRASS ENC registered")
+    DebugLog.info(mod, "start-menu STYLE / SPAWN / GRASS / WATER registered")
   end
 end
 

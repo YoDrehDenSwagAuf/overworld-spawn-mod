@@ -1382,19 +1382,38 @@ end
 function Entity:calculateVisualY()
   Movement.syncLegacyFields(self)
   local tuck = self:_grassTuck()
-  local hopPx = tonumber(self._revealHopPx) or 0
-  return (self.py or 0) + tuck + (self.waterSink or 0) - hopPx
+  local SpawnFx = V.require("spawn_fx")
+  local hopPx = SpawnFx.visualLift(self)
+  local water = tonumber(self.surfaceVisualOffset) or (self.waterSink or 0)
+  if self.surface == Surface.WATER and (not self.spawnFx or self.spawnFx.done) then
+    -- Settled water sit offset.
+    hopPx = hopPx
+  end
+  return (self.py or 0) + tuck + water - hopPx
 end
 
 -- Native SpriteRenderer first (trainer contract). EnhancedWorldSprite is unused
 -- for body presentation after the 0.7.0 migration.
+function SpawnRender:isBodyVisible(entity)
+  if not entity then return false end
+  local SpawnFx = V.require("spawn_fx")
+  return SpawnFx.bodyVisible(entity)
+end
+
 function Entity:getWorldSprite()
-  local HiddenIdle = V.require("hidden_idle")
-  if HiddenIdle.bodyHidden(self) then
+  local render = self.render
+  if render and render.isBodyVisible and not render:isBodyVisible(self) then
+    return nil
+  end
+  local SpawnFx = V.require("spawn_fx")
+  if not SpawnFx.bodyVisible(self) then
     return nil
   end
   if self.hiddenEncounter or self.visibleSprite == false then
-    return nil
+    local hi = self.hiddenIdle
+    if not (hi and hi.revealed) then
+      return nil
+    end
   end
   if self.sprite and self.sprite.def then
     return self.sprite
@@ -1411,12 +1430,12 @@ end
 function Entity:pose()
   -- Same contract as Gen1Recomp NPC:pose / Player:pose:
   --   sprite, visualX, visualY, facing, phase, flip [, hop]
-  local HiddenIdle = V.require("hidden_idle")
+  local SpawnFx = V.require("spawn_fx")
   Movement.syncLegacyFields(self)
-  if HiddenIdle.bodyHidden(self) then
+  if not SpawnFx.bodyVisible(self) then
     local d = RenderDiagnostics.ensure(self)
     d.poseCalls = (d.poseCalls or 0) + 1
-    d.lastFailureReason = "pose() skipped (HIDDEN_IDLE unrevealed)"
+    d.lastFailureReason = "pose() skipped (body hidden / spawn FX)"
     d.lastPoseSpriteType = "nil"
     self.hopping = false
     return nil, self.px or 0, self.py or 0, self.facing or "down", 0, false, false
@@ -1605,11 +1624,10 @@ end
 
 function Entity:draw(camX, camY)
   -- 2D renderer: read-only with respect to world simulation state.
-  local HiddenIdle = V.require("hidden_idle")
+  local SpawnFx = V.require("spawn_fx")
   local d = RenderDiagnostics.ensure(self)
   local skipBody = false
-  if HiddenIdle.bodyHidden(self) then
-    -- Unrevealed HIDDEN_IDLE: no body in any 2D path (no overlay / fallback).
+  if not SpawnFx.bodyVisible(self) then
     return
   end
   if self:_voxelBillboardOwnsBody() then
@@ -1623,7 +1641,8 @@ function Entity:draw(camX, camY)
     d.lastFailureReason = "strict_world_billboard_debug: Entity:draw body suppressed"
   end
 
-  if self.hiddenEncounter or not self.visibleSprite then
+  if (self.hiddenEncounter or not self.visibleSprite)
+     and not (self.hiddenIdle and self.hiddenIdle.revealed) then
     self:_drawHiddenEffect(camX, camY)
   elseif not skipBody then
     d.entityDrawBodyDrawCalls = (d.entityDrawBodyDrawCalls or 0) + 1

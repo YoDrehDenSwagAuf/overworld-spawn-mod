@@ -57,6 +57,7 @@ return function(mod)
 
   Config.defineOptions(mod)
   Config.migrateSpriteStyleOption(mod)
+  Config.migrateGrassEncountersOption(mod)
 
   local render = SpawnRender.new(mod)
   -- LOAD PHASE: all sprite content registration must finish here, before
@@ -159,6 +160,7 @@ return function(mod)
   mod.events:on("game.ready", function()
     hud:syncPipelineLevel()
     Config.migrateSpriteStyleOption(mod)
+    Config.migrateGrassEncountersOption(mod)
     render:finalizeSpriteProviders(mod.world and mod.world.game)
     if Config.devMode(mod) then
       render.debugMarkers = true
@@ -263,7 +265,7 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "1.1.0"
+  mod.exports.version = "1.2.0"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated
@@ -303,6 +305,12 @@ return function(mod)
     opts.game = opts.game or (mod.world and mod.world.game)
     opts.logic = opts.logic or logic
     return Config.setGrassEncounters(mod, value, source or "export", opts)
+  end
+  mod.exports.setWaterMons = function(value, source, opts)
+    opts = opts or {}
+    opts.game = opts.game or (mod.world and mod.world.game)
+    opts.logic = opts.logic or logic
+    return Config.setWaterMons(mod, value, source or "export", opts)
   end
 
   -- Optional companion sprite providers (Followers EX / PokePC). Runtime

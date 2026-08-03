@@ -38,10 +38,10 @@ You can switch styles at any time from the normal in-game menu or from the
 Wilds of Kanto mod settings. Existing wild Pokémon update immediately without
 being respawned.
 
-**Spawn Amount** and **Grass Enc** are also available from the normal in-game
-Start Menu (directly under Sprite Style). Spawn Amount was removed from Mod
-Settings so density is adjusted from the quick menu only; the saved
-`spawn_density` value is unchanged.
+**Spawn Amount**, **Grass Enc**, and **Water Mons** are also available from the
+normal in-game Start Menu (directly under Sprite Style). Spawn Amount was
+removed from Mod Settings so density is adjusted from the quick menu only; the
+saved `spawn_density` value is unchanged.
 
 External sprite styles require their corresponding mods to be installed
 separately. Wilds of Kanto does not redistribute their assets.
@@ -64,13 +64,15 @@ After installation, restart Gen1Recomp and select the style from:
 START MENU -> SPRITE STYLE
 START MENU -> SPAWN AMOUNT
 START MENU -> GRASS ENC
+START MENU -> WATER MONS
 ```
 
-or (Sprite Style / Grass Enc only):
+or (Sprite Style / Grass Enc / Water Mons):
 
 ```text
 MOD SETTINGS -> WILDS OF KANTO -> SPRITE STYLE
 MOD SETTINGS -> WILDS OF KANTO -> GRASS ENC
+MOD SETTINGS -> WILDS OF KANTO -> WATER MONS
 ```
 
 Auto preference order when multiple packs are present:
@@ -230,19 +232,40 @@ Wilds of Kanto offers three grass encounter styles:
 
 Hidden is the default.
 
-Hidden Idle only affects grass. Caves and water stay on their existing spawn
-and encounter rules for now. Choose **Grass Enc** from the Start Menu or Mod
-Settings; **Spawn Amount** is Start-Menu only (removed from Mod Settings).
+## Hidden Grass Encounters
 
-**Surface notes:** Idle and Wander are available on grass, cave, and water.
-Aggressive and Hidden are used on grass and caves. Water currently supports
-Idle and Wander only (no aggressive chase or hidden water markers).
+In Hidden mode, wild Pokémon occupy real grass tiles instead of triggering as
+ordinary random encounters. Occupied grass rustles occasionally. Stepping onto
+that tile reveals the Pokémon before the battle begins.
+
+Visible grass spawns (Idle / Wander / Aggressive) also play a short spawn FX
+(rustle → body → hop) when they appear. Hidden Idle stays body-hidden until
+stepped on.
+
+Hidden Idle only affects grass. Caves stay on their existing spawn rules.
+Choose **Grass Enc** from the Start Menu or Mod Settings; **Spawn Amount** is
+Start-Menu only (removed from Mod Settings).
+
+## Visible Water Pokémon
+
+When Water Mons is enabled, suitable Pokémon from the current map's water
+encounter table can appear directly on connected water areas. They remain on
+water and use the same selected sprite style as land Pokémon.
+
+Classic surf / fishing encounters stay unchanged whether Water Mons is on or
+off. Toggle **Water Mons** from the Start Menu or Mod Settings.
+
+**Surface notes:** Idle and Wander are available on grass and caves. Water uses
+`WATER_IDLE` / `WATER_WANDER` only (no aggressive chase onto land). Hidden Idle
+is grass-only.
 
 ## Features
 
 - Visible wild Pokemon in supported overworld encounter areas
-- Four behaviours: Idle, Wander, Aggressive, Hidden
-- Hidden Idle grass lurkers (Grass Enc: Classic / Hidden / Both)
+- Behaviours: Idle, Wander, Aggressive, Hidden markers, Hidden Idle, Water Idle/Wander
+- Hidden Idle grass lurkers (Grass Enc: Classic / Hidden / Both; default Hidden)
+- Visible Water Mons from map water encounter tables (toggleable)
+- Spawn FX for visible grass/water pops and Hidden Idle reveal
 - Map-aware spawn density and connected spawn regions
 - Grass, cave (no grass graphics required), and Surf-water surfaces
 - Fishing stays rod-only — fishing tables never free-spawn
@@ -277,11 +300,11 @@ screenshot and relevant debug log.
 
 ### Water
 
-Surf / water encounter tables can produce visible water Pokemon on water tiles.
-They stay on connected water for wander. Vanilla Surf random encounters remain
-active (water rolls are not suppressed). Fishing encounters stay rod-only.
-Aggressive and Hidden behaviours are not used on water. Bridges and unusual
-water layouts may still need more testing.
+Surf / water encounter tables can produce visible water Pokemon when
+**Water Mons** is ON. They stay on connected water (`WATER_IDLE` /
+`WATER_WANDER`). Vanilla Surf random encounters remain active (water rolls are
+not suppressed). Fishing encounters stay rod-only. Aggressive chase onto land
+is not used on water.
 
 ### Caves
 
@@ -313,9 +336,10 @@ Visible labels are limited to 14 characters so Gen1Recomp does not truncate them
 | Label | Purpose | Default |
 | --- | --- | --- |
 | Show Wild Mons | Master switch for visible spawns | ON |
-| Hide Grass RNG | Suppress vanilla grass rolls when Grass Enc is Hidden (and system ready) | ON |
+| Hide Grass RNG | Legacy toggle; Grass Enc Hidden owns classic suppress | ON |
 | Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | AUTO |
 | Grass Enc | Classic / Hidden / Both grass encounter style | HIDDEN |
+| Water Mons | Visible water Pokémon from map water encounter tables | ON |
 | Grass View | Immersed in tall grass, or fully Above | IMMERSED |
 | Idle Mons | Allow Idle Look behaviour | ON |
 | Roam Mons | Allow wandering inside encounter regions | ON |
@@ -330,6 +354,7 @@ Start Menu quick settings (same saved values as Mod Settings where overlapping):
 | SPRITE STYLE | Same as Sprite Style above | AUTO |
 | SPAWN AMOUNT | Density preset (Low / Normal / High / Very High) | NORMAL |
 | GRASS ENC | Same as Grass Enc above | HIDDEN |
+| WATER MONS | Same as Water Mons above | ON |
 
 Spawn Amount is **not** listed in Mod Settings anymore (internal key
 `spawn_density` is unchanged).
