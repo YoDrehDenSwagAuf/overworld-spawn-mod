@@ -1910,7 +1910,13 @@ function SpawnRender:applyProviderSprite(entity, game)
       entity.entityPhase = "NATIVE_SHEET_LOADED"
     end
   else
-    entity.spriteSource = entity.usingFallback and "BLACK_FALLBACK" or "LEGACY_PNG"
+    if result.providerId == "gold" then
+      entity.spriteSource = "GOLD_SPRITES"
+    elseif entity.usingFallback then
+      entity.spriteSource = "BLACK_FALLBACK"
+    else
+      entity.spriteSource = "LEGACY_PNG"
+    end
     entity.spriteSource2D = entity.spriteSource
     entity.voxelSource = entity.spriteSource
     entity.pokemonRenderer = entity.usingFallback

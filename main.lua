@@ -7,6 +7,7 @@
 --   lib/debug_hud.lua       - present-only render pipeline HUD (dev mode)
 --   lib/debug_overlay.lua   - passable tile marker entities (dev mode)
 --   lib/preview_browser.lua - OPTIONS/Start-menu Pokemon preview (dev mode)
+--   lib/sprite_style_menu.lua - Start-menu Sprite Style picker (all players)
 --   lib/diagnostics.lua     - status derivation for HUD/logs
 --   options.lua             - Mod Manager option schema
 --
@@ -49,6 +50,7 @@ return function(mod)
   local DebugHud = V.require("debug_hud")
   local DebugOverlay = V.require("debug_overlay")
   local PreviewBrowser = V.require("preview_browser")
+  local SpriteStyleMenu = V.require("sprite_style_menu")
   local BehaviorTick = V.require("behavior_tick")
   local DebugLog = V.require("debug_log")
   local Diagnostics = V.require("diagnostics")
@@ -69,6 +71,7 @@ return function(mod)
   local hud = DebugHud.new(mod, logic)
   local overlay = DebugOverlay.new(mod, logic)
   local browser = PreviewBrowser.new(mod, logic)
+  local spriteStyleMenu = SpriteStyleMenu.new(mod, logic)
   local behaviorTick = BehaviorTick.new(mod, logic)
   logic:attachDevTools(hud, overlay, browser, behaviorTick)
 
@@ -76,6 +79,7 @@ return function(mod)
   -- availability / menu rows gate on the live option). Still LOAD PHASE.
   hud:register()
   browser:register()
+  spriteStyleMenu:register()
   behaviorTick:register()
 
   mod.log:info("overworld_wild_spawns loaded (enabled=%s dev=%s debug=%s sprites=%d missing=%d)",
@@ -267,6 +271,7 @@ return function(mod)
   mod.exports.hud = hud
   mod.exports.overlay = overlay
   mod.exports.browser = browser
+  mod.exports.spriteStyleMenu = spriteStyleMenu
   mod.exports.behaviorTick = behaviorTick
   mod.exports.lib = V
   mod.exports.clearAll = function() logic:clearAll() end
@@ -279,6 +284,13 @@ return function(mod)
   mod.exports.testSpawn = function(species, opts) return logic:testSpawn(species, opts) end
   mod.exports.restoreVanillaEncounters = function(reason)
     logic:_restoreVanillaEncounters(reason or "export")
+  end
+  mod.exports.setSpriteStyle = function(value, source, opts)
+    opts = opts or {}
+    opts.game = opts.game or (mod.world and mod.world.game)
+    opts.logic = opts.logic or logic
+    opts.render = opts.render or render
+    return Config.setSpriteStyle(mod, value, source or "export", opts)
   end
 
   -- Optional companion sprite providers (Followers EX / PokePC). Runtime

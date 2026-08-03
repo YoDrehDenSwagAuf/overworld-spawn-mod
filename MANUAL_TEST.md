@@ -16,26 +16,41 @@ Show Wild Mons / Hide Grass RNG / Sprite Style / Spawn Amount / Grass View
 Idle Mons / Roam Mons / Chase Mons / Hidden Mons / Dev Mode
 ```
 
+Sprite Style choices (also Start Menu → **SPRITE STYLE**):
+
+```text
+Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex
+SPRITE STYLE / AUTO / GOLD SPRITES / FOLLOWERS EX / POKEMMO / POKEDEX
+```
+
 Defaults for 1.0: Sprite Style AUTO, Spawn Amount NORMAL, Grass View IMMERSED,
 Roam / Chase / Hidden ON, Dev Mode OFF.
+
+## Sprite style matrix
+
+1. Only Wilds installed → Auto uses PokeMMO; Gold / Followers EX fall back.
+2. Wilds + Gold Sprites → Auto / Gold use Gold battle fronts (1-frame).
+3. Wilds + Followers EX (+ PokePC) → Auto uses Followers when Gold absent.
+4. Wilds + both external mods → Auto prefers Gold.
+5. Hot-switch via Start Menu and Mod Settings — same `sprite_style` value,
+   entities keep id/position/behaviour (sprite only).
 
 ## Developer HUD (nearest entity)
 
 ```text
-Species key: PIKACHU
-Dex ID: 25
-Runtime manifest key: 25:normal
-Runtime relative path: assets/generated/followsprites_runtime/025-normal.png
-Runtime resolved path: mods/overworld_wild_spawns/assets/generated/followsprites_runtime/025-normal.png
-Runtime sheet load: READY
-Runtime image dimensions: 16x96
-Registration kind: native_runtime_sheet
-Fallback used: NO
+Requested style: AUTO
+Active provider: GOLD
+Provider mod: Gold_Silver_Sprites
+Provider version: 1.0.1
+Provider installed: YES
+Species ID: 25
+Variant: NORMAL
+Sprite image: .../gold/battle/front/pikachu.png
+Frames: 1
+Walker: false
+Fallback step: 1
+Quick menu: READY
 Body renderer: NATIVE_SPRITE_RENDERER
-Sprite frames: 6
-Walker: true
-Overlay body draw: NO
-First person compatible: NATIVE
 ```
 
 ## Flat 2D (no Dramatic Shape)
@@ -48,7 +63,8 @@ First person compatible: NATIVE
 ## Dramatic Shape — orbit + First Person
 
 Same native sheet path: depth, walls, grass, shadows, upright FP billboards.
-No post-voxel Pokemon body on the success path.
+No post-voxel Pokemon body on the success path. Gold / Pokedex 1-frame styles
+use the legacy billboard scale path (still SpriteRenderer, no overlay).
 
 ## Update detection
 

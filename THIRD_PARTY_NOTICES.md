@@ -19,9 +19,14 @@ See the asset-specific documentation and credits for details.
   **PokeMMO** (Wilds of Kanto's built-in style).
 - Optional companion sprites from
   [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
-  / PokePC Followers Voxel Merge remain owned by those projects. Wilds only
-  consumes them through a runtime provider when installed; it does not
-  redistribute those assets.
+  / [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
+  remain owned by those projects. Wilds only consumes them through a runtime
+  provider when installed; it does not redistribute those assets.
+- Optional battle-front art from
+  [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites)
+  (`Gold_Silver_Sprites` by OtaconRevengeance) is likewise read-only at runtime
+  and is not redistributed by Wilds. That release ships without a LICENSE file
+  and asks users not to reupload the pack.
 - Legacy Pokédex / battle art references used as fallbacks are game-adjacent
   assets and are not relicensed under MIT.
 - Gen1Recomp engine APIs and Dramatic Shape Voxel Mod contracts belong to

@@ -2,15 +2,28 @@
 
 ## Unreleased
 
+### Gold Sprites + Start Menu Sprite Style
+
+- Added **Gold Sprites** (`gold`) provider — read-only adapter for
+  OtaconRevengeance’s `Gold_Silver_Sprites` 1.0.1 battle fronts (56×56,
+  frames=1). No asset redistribution; optional via `mod:find()`.
+- Auto order is now Gold → Followers EX → PokeMMO → Pokedex (central
+  `AUTO_PROVIDER_ORDER`).
+- Start Menu entry **SPRITE STYLE** opens a choice dialog that writes the same
+  `sprite_style` option as Mod Settings (`Config.setSpriteStyle`).
+- Developer HUD reports Gold / Followers / PokePC install status, active
+  provider, and quick-menu readiness.
+
 ### Sprite Styles
 
-- New public option **Sprite Style** (`sprite_style`: Auto / Followers EX /
-  PokeMMO / Pokedex). Replaces the legacy **Mon Sprites** toggle
+- New public option **Sprite Style** (`sprite_style`: Auto / Gold Sprites /
+  Followers EX / PokeMMO / Pokedex). Replaces the legacy **Mon Sprites** toggle
   (`use_animated_overworld_sprites`; `true`→`auto`, `false`→`pokedex`).
 - Provider API: `registerSpriteProvider` / `unregisterSpriteProvider` /
-  `getSpriteProvider` / `listSpriteProviders` / `refreshAllEntitySprites`.
+  `getSpriteProvider` / `listSpriteProviders` / `refreshAllEntitySprites` /
+  `setSpriteStyle`.
 - Built-in providers for Wilds PokeMMO runtime sheets and Pokedex images;
-  read-only Followers EX / PokePC walker-sheet adapter (no hard dependency).
+  read-only Gold Sprites and Followers EX / PokePC adapters (no hard dependency).
 - Hot-switch replaces `entity.sprite` only — same native SpriteRenderer path
   for all styles (Dramatic Shape / first-person / occlusion unchanged).
 
@@ -42,7 +55,7 @@
 |---|---|---|
 | Show Wild Mons | Master switch for visible wilds | ON |
 | Hide Grass RNG | Suppress vanilla grass rolls when ready | ON |
-| Sprite Style | Auto / Followers EX / PokeMMO / Pokedex | AUTO |
+| Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | AUTO |
 | Spawn Amount | Density preset | NORMAL |
 | Grass View | Immersed vs above tall grass | IMMERSED |
 | Idle Mons | Allow idle look behaviour | ON |
