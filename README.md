@@ -38,6 +38,11 @@ You can switch styles at any time from the normal in-game menu or from the
 Wilds of Kanto mod settings. Existing wild Pokémon update immediately without
 being respawned.
 
+**Spawn Amount** and **Grass Enc** are also available from the normal in-game
+Start Menu (directly under Sprite Style). Spawn Amount was removed from Mod
+Settings so density is adjusted from the quick menu only; the saved
+`spawn_density` value is unchanged.
+
 External sprite styles require their corresponding mods to be installed
 separately. Wilds of Kanto does not redistribute their assets.
 
@@ -57,12 +62,15 @@ After installation, restart Gen1Recomp and select the style from:
 
 ```text
 START MENU -> SPRITE STYLE
+START MENU -> SPAWN AMOUNT
+START MENU -> GRASS ENC
 ```
 
-or:
+or (Sprite Style / Grass Enc only):
 
 ```text
 MOD SETTINGS -> WILDS OF KANTO -> SPRITE STYLE
+MOD SETTINGS -> WILDS OF KANTO -> GRASS ENC
 ```
 
 Auto preference order when multiple packs are present:
@@ -211,6 +219,21 @@ second Pokemon entity).
 Shows no Pokemon sprite. On grass, the tile shakes; in caves, a dust/shadow
 marker is used instead. Stepping onto the tile starts the encounter.
 
+## Grass Encounters
+
+Wilds of Kanto offers three grass encounter styles:
+
+- **Classic** — uses the original step-based random encounters.
+- **Hidden** — wild Pokémon wait on hidden grass tiles. The grass rustles
+  occasionally, and the Pokémon is revealed when the player steps onto it.
+- **Both** — enables both classic random encounters and hidden grass Pokémon.
+
+Hidden is the default.
+
+Hidden Idle only affects grass. Caves and water stay on their existing spawn
+and encounter rules for now. Choose **Grass Enc** from the Start Menu or Mod
+Settings; **Spawn Amount** is Start-Menu only (removed from Mod Settings).
+
 **Surface notes:** Idle and Wander are available on grass, cave, and water.
 Aggressive and Hidden are used on grass and caves. Water currently supports
 Idle and Wander only (no aggressive chase or hidden water markers).
@@ -219,6 +242,7 @@ Idle and Wander only (no aggressive chase or hidden water markers).
 
 - Visible wild Pokemon in supported overworld encounter areas
 - Four behaviours: Idle, Wander, Aggressive, Hidden
+- Hidden Idle grass lurkers (Grass Enc: Classic / Hidden / Both)
 - Map-aware spawn density and connected spawn regions
 - Grass, cave (no grass graphics required), and Surf-water surfaces
 - Fishing stays rod-only — fishing tables never free-spawn
@@ -289,15 +313,26 @@ Visible labels are limited to 14 characters so Gen1Recomp does not truncate them
 | Label | Purpose | Default |
 | --- | --- | --- |
 | Show Wild Mons | Master switch for visible spawns | ON |
-| Hide Grass RNG | Suppress vanilla grass rolls only after visible spawns are ready | ON |
+| Hide Grass RNG | Suppress vanilla grass rolls when Grass Enc is Hidden (and system ready) | ON |
 | Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | AUTO |
-| Spawn Amount | Density preset (Low / Normal / High / Very High) | NORMAL |
+| Grass Enc | Classic / Hidden / Both grass encounter style | HIDDEN |
 | Grass View | Immersed in tall grass, or fully Above | IMMERSED |
 | Idle Mons | Allow Idle Look behaviour | ON |
 | Roam Mons | Allow wandering inside encounter regions | ON |
 | Chase Mons | Allow aggressive spot / chase behaviour | ON |
 | Hidden Mons | Allow hidden grass / cave markers | ON |
 | Dev Mode | Debug HUD + Pokemon preview browser | OFF |
+
+Start Menu quick settings (same saved values as Mod Settings where overlapping):
+
+| Label | Purpose | Default |
+| --- | --- | --- |
+| SPRITE STYLE | Same as Sprite Style above | AUTO |
+| SPAWN AMOUNT | Density preset (Low / Normal / High / Very High) | NORMAL |
+| GRASS ENC | Same as Grass Enc above | HIDDEN |
+
+Spawn Amount is **not** listed in Mod Settings anymore (internal key
+`spawn_density` is unchanged).
 
 Developer-only rows (shown in the same panel, intended for diagnosis):
 Debug HUD, Spawn Tiles, Behavior View, Outside Spawn, Debug Log, Force Spawn,

@@ -41,18 +41,19 @@ return {
     },
     description = "Overworld Pokemon sprite source. Auto prefers Gold Sprites, then Followers EX, then Wilds PokeMMO-style sheets, then Pokedex images.",
   },
+  -- Spawn Amount (key: spawn_density) is Start-Menu only — not listed here.
+  -- Internal key / saved value / density math are unchanged.
   {
-    key = "spawn_density",
-    label = "Spawn Amount",
+    key = "grass_encounters",
+    label = "Grass Enc",
     type = "choice",
-    default = "normal",
+    default = "hidden",
     choices = {
-      { "Low", "low" },
-      { "Normal", "normal" },
-      { "High", "high" },
-      { "Very High", "very_high" },
+      { "Classic", "classic" },
+      { "Hidden", "hidden" },
+      { "Both", "both" },
     },
-    description = "Target visible Pokemon count relative to encounter area size. Applies on the next map enter or refill.",
+    description = "Grass encounters: Classic step RNG, Hidden idle lurkers, or both. Hidden is the default. Caves and water are unchanged.",
   },
   {
     key = "pokemon_grass_render_mode",

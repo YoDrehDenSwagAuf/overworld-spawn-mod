@@ -13,6 +13,7 @@ Behavior.GRASS_WANDER = "GRASS_WANDER"
 Behavior.AGGRESSIVE = "AGGRESSIVE"
 Behavior.HIDDEN_GRASS = "HIDDEN_GRASS"
 Behavior.HIDDEN_CAVE = "HIDDEN_CAVE"
+Behavior.HIDDEN_IDLE = "HIDDEN_IDLE"
 
 Behavior.STATE = {
   IDLE = "IDLE",
@@ -150,7 +151,13 @@ function Behavior.pick(species, surface, opts, rng)
 end
 
 function Behavior.isHidden(behavior)
-  return behavior == Behavior.HIDDEN_GRASS or behavior == Behavior.HIDDEN_CAVE
+  return behavior == Behavior.HIDDEN_GRASS
+      or behavior == Behavior.HIDDEN_CAVE
+      or behavior == Behavior.HIDDEN_IDLE
+end
+
+function Behavior.isHiddenIdle(behavior)
+  return behavior == Behavior.HIDDEN_IDLE
 end
 
 function Behavior.initState(behavior, rng)
@@ -162,6 +169,12 @@ function Behavior.initState(behavior, rng)
     interval = lookMin + ((rng(100) - 1) / 100) * (lookMax - lookMin)
   end
   local facing = FACINGS[rng(#FACINGS)]
+  local rustleMin = 1.5
+  local rustleMax = 4.0
+  local rustleInterval = rustleMin + (rng() * (rustleMax - rustleMin))
+  if type(rustleInterval) ~= "number" or rustleInterval ~= rustleInterval then
+    rustleInterval = rustleMin + ((rng(100) - 1) / 100) * (rustleMax - rustleMin)
+  end
   local st = {
     behavior = behavior,
     state = Behavior.isHidden(behavior) and Behavior.STATE.HIDDEN or Behavior.STATE.IDLE,
@@ -177,12 +190,15 @@ function Behavior.initState(behavior, rng)
     chaseFailCount = 0,
     path = nil,
     shakePhase = 0,
-    shakeNextAt = now() + (2.0 + rng() * 3.0),
+    shakeNextAt = now() + rustleInterval,
     leftHome = false,
     battleStarted = false,
     battlePending = false,
-    sightDisabled = false,
+    sightDisabled = true,
   }
+  if not Behavior.isHidden(behavior) then
+    st.sightDisabled = false
+  end
   return st
 end
 
@@ -508,6 +524,10 @@ function Behavior.tick(entity, ctx)
 
   if Behavior.isHidden(bx.behavior) then
     bx.state = Behavior.STATE.HIDDEN
+    -- HIDDEN_IDLE rustle / reveal is owned by HiddenIdle.tick (behavior_tick).
+    if bx.behavior == Behavior.HIDDEN_IDLE then
+      return nil
+    end
     if t >= (bx.shakeNextAt or 0) then
       bx.shakePhase = (bx.shakePhase or 0) + 1
       bx.shakeNextAt = t + (2.5 + rng() * 3.5)
@@ -588,9 +608,16 @@ function Behavior.attach(entity, behavior, region, rng)
   entity.facing = entity.behaviorState.facing
   entity.visibleSprite = not Behavior.isHidden(behavior)
   entity.grassEffectActive = false
+  entity.canTriggerBattle = not Behavior.isHiddenIdle(behavior)
   if Behavior.isHidden(behavior) then
     entity.passable = true
     entity.hiddenEncounter = true
+  end
+  if Behavior.isHiddenIdle(behavior) then
+    local HiddenIdle = V.require("hidden_idle")
+    entity.hiddenIdle = HiddenIdle.newState(rng)
+    entity.visibleSprite = false
+    entity.canTriggerBattle = false
   end
   if entity.cellX and entity.cellY then
     Movement.init(entity, entity.cellX, entity.cellY, entity.facing)

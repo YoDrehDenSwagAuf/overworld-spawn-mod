@@ -45,6 +45,9 @@ Config.DEFAULTS = {
   enable_wander = true,
   enable_aggressive = true,
   enable_hidden = true,
+  -- Grass encounter style: classic step RNG / hidden idle / both.
+  -- Public label "Grass Enc"; Spawn Amount lives in the Start Menu only.
+  grass_encounters = "hidden",
   aggressive_frequency = 1.0,
   aggressive_sight_range = 4,
   aggressive_reaction_delay = 0.55,
@@ -339,6 +342,175 @@ end
 Config.VALID_SPRITE_STYLES = VALID_SPRITE_STYLES
 Config.SPRITE_STYLE_CONFIRM = SPRITE_STYLE_CONFIRM
 
+local VALID_SPAWN_AMOUNTS = {
+  low = true,
+  normal = true,
+  high = true,
+  very_high = true,
+}
+
+local SPAWN_AMOUNT_CONFIRM = {
+  low = "LOW",
+  normal = "NORMAL",
+  high = "HIGH",
+  very_high = "VERY HIGH",
+}
+
+local VALID_GRASS_ENCOUNTERS = {
+  classic = true,
+  hidden = true,
+  both = true,
+}
+
+local GRASS_ENC_CONFIRM = {
+  classic = "CLASSIC",
+  hidden = "HIDDEN",
+  both = "BOTH",
+}
+
+Config.VALID_SPAWN_AMOUNTS = VALID_SPAWN_AMOUNTS
+Config.SPAWN_AMOUNT_CONFIRM = SPAWN_AMOUNT_CONFIRM
+Config.VALID_GRASS_ENCOUNTERS = VALID_GRASS_ENCOUNTERS
+Config.GRASS_ENC_CONFIRM = GRASS_ENC_CONFIRM
+
+local function writeOptionBucket(mod, game, key, value)
+  local function write(bucket)
+    if type(bucket) ~= "table" then return end
+    bucket[mod.id] = bucket[mod.id] or {}
+    bucket[mod.id][key] = value
+  end
+  if game and game.save and game.save.options then
+    game.save.options.modOptions = game.save.options.modOptions or {}
+    write(game.save.options.modOptions)
+  end
+  if game and game.mods then
+    if game.mods.modOptions then write(game.mods.modOptions) end
+    if game.mods.loader and game.mods.loader.modOptions then
+      write(game.mods.loader.modOptions)
+    end
+  end
+  if game and type(game.writeOptions) == "function" then
+    pcall(game.writeOptions, game)
+  end
+end
+
+local function resolveGame(mod, opts)
+  opts = opts or {}
+  if opts.game then return opts.game end
+  if mod and mod.world then return mod.world.game end
+  return nil
+end
+
+local function confirmText(game, mod, message)
+  if not message or not game or not mod then return end
+  if mod.ui and mod.ui.TextBox and game.stack then
+    pcall(function()
+      game.stack:push(mod.ui.TextBox.new(game, message))
+    end)
+  end
+end
+
+function Config.spawnAmount(mod)
+  local raw, present = Config.peekSavedOption(mod, "spawn_density")
+  if present and type(raw) == "string" and VALID_SPAWN_AMOUNTS[raw] then
+    return raw
+  end
+  local v = Config.get(mod, "spawn_density")
+  if type(v) == "string" and VALID_SPAWN_AMOUNTS[v] then
+    return v
+  end
+  return "normal"
+end
+
+function Config.grassEncounters(mod)
+  local raw, present = Config.peekSavedOption(mod, "grass_encounters")
+  if present and type(raw) == "string" and VALID_GRASS_ENCOUNTERS[raw] then
+    return raw
+  end
+  local v = nil
+  if mod and mod.options and type(mod.options.get) == "function" then
+    v = mod.options:get("grass_encounters")
+  end
+  if type(v) == "string" and VALID_GRASS_ENCOUNTERS[v] then
+    return v
+  end
+  return Config.DEFAULTS.grass_encounters or "hidden"
+end
+
+-- Central setter for Spawn Amount (Start Menu). Same key as legacy Mod Settings.
+-- opts: { game=, logic=, confirm=, message= }
+function Config.setSpawnAmount(mod, value, source, opts)
+  opts = opts or {}
+  value = tostring(value or "")
+  if not VALID_SPAWN_AMOUNTS[value] then
+    return false, "invalid spawn_density: " .. value
+  end
+
+  local game = resolveGame(mod, opts)
+  writeOptionBucket(mod, game, "spawn_density", value)
+
+  local logic = opts.logic
+  if not logic and mod and mod.exports then
+    logic = mod.exports.logic
+  end
+  if logic and type(logic.applySpawnAmount) == "function" then
+    pcall(logic.applySpawnAmount, logic, value, source)
+  elseif logic and type(logic.onOptionsChanged) == "function" then
+    pcall(logic.onOptionsChanged, logic, {
+      mod = mod.id, key = "spawn_density", value = value, source = source,
+    })
+  end
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "SPAWN: " .. (SPAWN_AMOUNT_CONFIRM[value] or value:upper())
+  end
+  confirmText(game, mod, confirmMsg)
+
+  if source and mod and mod.log and type(mod.log.info) == "function" then
+    pcall(mod.log.info, mod.log,
+      "spawn_density set to %s via %s", value, tostring(source))
+  end
+  return true, value
+end
+
+-- Central setter for Grass Enc (Start Menu + Mod Settings).
+-- opts: { game=, logic=, confirm=, message= }
+function Config.setGrassEncounters(mod, value, source, opts)
+  opts = opts or {}
+  value = tostring(value or "")
+  if not VALID_GRASS_ENCOUNTERS[value] then
+    return false, "invalid grass_encounters: " .. value
+  end
+
+  local game = resolveGame(mod, opts)
+  writeOptionBucket(mod, game, "grass_encounters", value)
+
+  local logic = opts.logic
+  if not logic and mod and mod.exports then
+    logic = mod.exports.logic
+  end
+  if logic and type(logic.applyGrassEncounters) == "function" then
+    pcall(logic.applyGrassEncounters, logic, value, source)
+  elseif logic and type(logic.onOptionsChanged) == "function" then
+    pcall(logic.onOptionsChanged, logic, {
+      mod = mod.id, key = "grass_encounters", value = value, source = source,
+    })
+  end
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "GRASS: " .. (GRASS_ENC_CONFIRM[value] or value:upper())
+  end
+  confirmText(game, mod, confirmMsg)
+
+  if source and mod and mod.log and type(mod.log.info) == "function" then
+    pcall(mod.log.info, mod.log,
+      "grass_encounters set to %s via %s", value, tostring(source))
+  end
+  return true, value
+end
+
 function Config.pokemonGrassRenderMode(mod)
   local GrassOcclusion = V.require("grass_occlusion")
   return GrassOcclusion.mode(mod)
@@ -361,7 +533,7 @@ function Config.tilesPerAdditional(mod)
 end
 
 function Config.spawnDensity(mod)
-  return Config.get(mod, "spawn_density") or "normal"
+  return Config.spawnAmount(mod)
 end
 
 function Config.refillSteps(mod)

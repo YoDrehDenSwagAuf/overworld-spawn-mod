@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.1.0
+
+### Grass Enc + Hidden Idle
+
+- Added **Grass Enc** (`grass_encounters`): Classic / Hidden / Both.
+  **Hidden** is the default.
+- **Hidden Idle** lurkers reserve grass tiles, rustle with native tall-grass
+  redraws, reveal on step (rustle → body → short hop → battle once).
+- Classic grass RNG follows the selected mode; in **Both**, Hidden Idle wins
+  on a reserved cell (no double encounter). Caves and water are unchanged.
+- Start Menu quick settings order: **SPRITE STYLE**, **SPAWN AMOUNT**,
+  **GRASS ENC**.
+- **Spawn Amount** removed from Mod Settings (internal `spawn_density` key
+  and density math unchanged); still adjustable from the Start Menu.
+- Developer HUD reports grass-encounter mode, hidden targets, and per-entity
+  Hidden Idle state.
+
 ## 1.0.2
 
 ### Sprite providers + quick picker

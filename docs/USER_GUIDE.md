@@ -1,6 +1,6 @@
-# Wilds of Kanto — User Guide (1.0.2)
+# Wilds of Kanto — User Guide (1.1.0)
 
-Visible wild Pokemon appear in the overworld. Walk into one (or into a shaking grass patch) to start that exact wild battle. Classic random grass encounters stay available until the visible spawn system is ready on the current map.
+Visible wild Pokemon appear in the overworld. Walk into one (or into a shaking grass patch) to start that exact wild battle. Grass Enc (default Hidden) controls classic step RNG versus Hidden Idle lurkers.
 
 This mod never changes your player spawn point and never requires the Pokédex.
 Technical mod id: `overworld_wild_spawns` (stable for options/saves).
@@ -8,7 +8,7 @@ Technical mod id: `overworld_wild_spawns` (stable for options/saves).
 ## 1. What the mod does
 
 - Spawns tangible wild Pokemon (or hidden grass/cave markers) from each map’s real encounter table
-- Four behaviours: Idle Look, Grass Wander, Aggressive, Hidden
+- Four behaviours: Idle Look, Grass Wander, Aggressive, Hidden (+ Hidden Idle grass lurkers)
 - Density scales with encounter-area size so long routes feel fuller than tiny patches
 - Pokemon in tall grass use the same engine feet-overdraw as the player and NPCs
 - Sprites scale for readability but never exceed one map tile (16×16); transparent
@@ -16,7 +16,7 @@ Technical mod id: `overworld_wild_spawns` (stable for options/saves).
 
 ## 2. Installation
 
-1. Build or download `wilds-of-kanto-v1.0.2.zip`
+1. Build or download `wilds-of-kanto-v1.1.0.zip`
 2. In Gen1Recomp open **Mod Manager (F10)** → Import the ZIP
 3. Enable **Wilds of Kanto**
 
@@ -118,15 +118,18 @@ Visible labels are limited to 14 characters.
 | Label | Key | Default | Values | Effect |
 |---|---|---|---|---|
 | Show Wild Mons | `enabled` | true | on/off | Master switch |
-| Hide Grass RNG | `suppress_random_grass` | true | on/off | Suppress vanilla grass rolls only when ready |
-| Sprite Style | `sprite_style` | auto | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | Overworld sprite source (Start Menu → SPRITE STYLE or Mod Settings) |
-| Spawn Amount | `spawn_density` | normal | low / normal / high / very_high | Scales target count |
+| Hide Grass RNG | `suppress_random_grass` | true | on/off | Used when Grass Enc is Hidden |
+| Sprite Style | `sprite_style` | auto | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | Overworld sprite source |
+| Grass Enc | `grass_encounters` | hidden | Classic / Hidden / Both | Grass encounter style |
 | Grass View | `pokemon_grass_render_mode` | immersed | Above / Immersed | Tall-grass presentation |
 | Idle Mons | `enable_idle` | true | on/off | Allow Idle Look |
 | Roam Mons | `enable_wander` | true | on/off | Allow Wander |
 | Chase Mons | `enable_aggressive` | true | on/off | Allow Aggressive |
 | Hidden Mons | `enable_hidden` | true | on/off | Allow Hidden markers |
 | Dev Mode | `dev_mode` | false | on/off | HUD + preview browser |
+
+Start Menu only (same saved keys): **SPRITE STYLE**, **SPAWN AMOUNT**
+(`spawn_density`), **GRASS ENC**. Spawn Amount is not in Mod Settings.
 
 ### Developer rows
 

@@ -3,8 +3,9 @@
 -- A present pipeline runs every drawn frame and is an established public path
 -- (same mechanism as the debug HUD).
 --
--- Also draws hidden-encounter shake/dust overlays (those entities stay out of
--- ow.entities so the Dramatic Shape Voxel Mod never poses a nil sprite).
+-- Also draws hidden-encounter effects (legacy markers + native Hidden Idle
+-- grass rustle). Hidden entities stay out of ow.entities so Dramatic Shape
+-- never poses a nil sprite.
 local V = ...
 local Config = V.require("config")
 local Behavior = V.require("behavior")
@@ -12,6 +13,7 @@ local Movement = V.require("movement")
 local VoxelAdapter = V.require("voxel_adapter")
 local Tile = V.require("tile")
 local DebugLog = V.require("debug_log")
+local HiddenIdle = V.require("hidden_idle")
 
 local BehaviorTick = {}
 BehaviorTick.__index = BehaviorTick
@@ -138,7 +140,15 @@ function BehaviorTick:step(ctx)
         end
       end
 
-      if holdAi and not chasing then
+      -- Hidden Idle: rustle / reveal timeline (independent of holdAi).
+      if HiddenIdle.isEntity(entity) then
+        local event = HiddenIdle.tick(entity, dt)
+        if event == "reveal_visible" then
+          logic:_onHiddenRevealVisible(entity, record)
+        elseif event == "reveal_battle" then
+          logic:_onHiddenRevealBattle(entity, record)
+        end
+      elseif holdAi and not chasing then
         -- Freeze new decisions / sight while a bubble or trainer approach owns
         -- the world. Chase already in progress continues after our emote ends.
       else
@@ -180,13 +190,33 @@ function BehaviorTick:step(ctx)
       -- Hidden markers must stay out of ow.entities; visible wilds stay in
       -- for simulation and are filtered only from DS billboard posing.
       if entity.registeredInWorld and entity.sprite == nil
-         and not entity.hiddenEncounter then
+         and not entity.hiddenEncounter
+         and not HiddenIdle.isEntity(entity) then
         self.voxel:markFallback(entity, "sprite became nil")
         logic:_detachFromWorld(entity)
         entity.render2DFallback = true
       end
     end
   end
+end
+
+local function drawNativeGrassRustle(map, entity, camX, camY)
+  if not map then return false end
+  local renderer = map.renderer
+  if not renderer or type(renderer.drawCellBottom) ~= "function" then
+    return false
+  end
+  if not (love and love.graphics) then return false end
+  local hi = entity.hiddenIdle or {}
+  local active = entity.grassEffectActive == true
+  if not active then return true end -- still "handled" (no custom art)
+  local amp = hi.strongRustle and 2 or 1
+  local phase = (entity.behaviorState and entity.behaviorState.shakePhase) or 0
+  local ox = (phase % 2 == 0) and amp or -amp
+  love.graphics.setColor(1, 1, 1, 1)
+  pcall(renderer.drawCellBottom, renderer,
+        entity.cellX, entity.cellY, (camX or 0) - ox, camY or 0)
+  return true
 end
 
 function BehaviorTick:drawHiddenEffects(ctx)
@@ -196,21 +226,23 @@ function BehaviorTick:drawHiddenEffects(ctx)
   local world = self.mod.world
   local ow = world and world.overworld and world:overworld()
   if not ow or not ow.map then return end
-  -- When Voxel owns the world, field FX stay on the overlay; hidden markers
-  -- are logical-only and draw a light 2D pulse here for both paths.
   local cam = ow.camera
   local camX = cam and cam.x or 0
   local camY = cam and cam.y or 0
   for id, entity in pairs(logic.entities or {}) do
     local record = logic.spawns[id]
     if record and record.state == Config.STATE.AVAILABLE
-       and entity and (entity.hiddenEncounter or not entity.visibleSprite) then
-      local cell = Tile.CELL
-      local x = math.floor((entity.px or (entity.cellX * cell)) - camX)
-      local y = math.floor((entity.py or (entity.cellY * cell)) - camY)
-      local active = entity.grassEffectActive == true
-      if entity.behavior == Behavior.HIDDEN_GRASS
+       and entity and (entity.hiddenEncounter or not entity.visibleSprite
+                      or HiddenIdle.isEntity(entity)) then
+      if HiddenIdle.isEntity(entity) then
+        -- Prefer native tall-grass redraw with a slight offset (no custom colour).
+        drawNativeGrassRustle(ow.map, entity, camX, camY)
+      elseif entity.behavior == Behavior.HIDDEN_GRASS
          or entity.surface == "GRASS" then
+        local cell = Tile.CELL
+        local x = math.floor((entity.px or (entity.cellX * cell)) - camX)
+        local y = math.floor((entity.py or (entity.cellY * cell)) - camY)
+        local active = entity.grassEffectActive == true
         local amp = active and 2 or 0
         local phase = (entity.behaviorState and entity.behaviorState.shakePhase) or 0
         local ox = (phase % 2 == 0) and amp or -amp
@@ -218,12 +250,17 @@ function BehaviorTick:drawHiddenEffects(ctx)
         love.graphics.rectangle("fill", x + 3 + ox, y + 10, 10, 5)
         love.graphics.setColor(0.18, 0.5, 0.2, active and 0.7 or 0.3)
         love.graphics.rectangle("fill", x + 5 + ox, y + 8, 6, 3)
+        love.graphics.setColor(1, 1, 1, 1)
       else
+        local cell = Tile.CELL
+        local x = math.floor((entity.px or (entity.cellX * cell)) - camX)
+        local y = math.floor((entity.py or (entity.cellY * cell)) - camY)
+        local active = entity.grassEffectActive == true
         local a = active and 0.45 or 0.18
         love.graphics.setColor(0.15, 0.12, 0.1, a)
         love.graphics.ellipse("fill", x + 8, y + 12, active and 6 or 4, active and 3 or 2)
+        love.graphics.setColor(1, 1, 1, 1)
       end
-      love.graphics.setColor(1, 1, 1, 1)
     end
   end
 end

@@ -7,13 +7,13 @@
 --   lib/debug_hud.lua       - present-only render pipeline HUD (dev mode)
 --   lib/debug_overlay.lua   - passable tile marker entities (dev mode)
 --   lib/preview_browser.lua - OPTIONS/Start-menu Pokemon preview (dev mode)
---   lib/sprite_style_menu.lua - Start-menu Sprite Style picker (all players)
+--   lib/sprite_style_menu.lua - Start-menu Sprite Style / Spawn Amount / Grass Enc
+--   lib/hidden_idle.lua       - Hidden Idle grass lurkers + cell reservations
 --   lib/diagnostics.lua     - status derivation for HUD/logs
 --   options.lua             - Mod Manager option schema
 --
--- Fail-safe: encounter.roll grass suppression runs ONLY when
--- SpawnLogic:canSuppressVanilla() is true (initialized + map supported +
--- encounter data + eligible tiles + renderer + verified pipeline).
+-- Fail-safe: encounter.roll grass suppression follows grass_encounters
+-- (classic / hidden / both) and only when the spawn system is ready.
 -- Otherwise vanilla wild grass encounters remain active.
 --
 -- The Pokédex is never a spawn condition. The player is never teleported.
@@ -211,8 +211,8 @@ return function(mod)
     if unwraps.encounter or unwraps.collision then return end
 
     unwraps.encounter = mod.hooks:wrap("encounter.roll", function(next, encDef, ctx)
-      if logic:canSuppressVanilla()
-         and ctx and ctx.terrain == "grass" then
+      if ctx and ctx.terrain == "grass"
+         and logic:shouldSuppressClassicGrass(ctx) then
         return nil
       end
       return next(encDef, ctx)
@@ -263,7 +263,7 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "1.0.2"
+  mod.exports.version = "1.1.0"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated
@@ -291,6 +291,18 @@ return function(mod)
     opts.logic = opts.logic or logic
     opts.render = opts.render or render
     return Config.setSpriteStyle(mod, value, source or "export", opts)
+  end
+  mod.exports.setSpawnAmount = function(value, source, opts)
+    opts = opts or {}
+    opts.game = opts.game or (mod.world and mod.world.game)
+    opts.logic = opts.logic or logic
+    return Config.setSpawnAmount(mod, value, source or "export", opts)
+  end
+  mod.exports.setGrassEncounters = function(value, source, opts)
+    opts = opts or {}
+    opts.game = opts.game or (mod.world and mod.world.game)
+    opts.logic = opts.logic or logic
+    return Config.setGrassEncounters(mod, value, source or "export", opts)
   end
 
   -- Optional companion sprite providers (Followers EX / PokePC). Runtime

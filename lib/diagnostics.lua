@@ -119,7 +119,9 @@ function Diagnostics.visibilityCounts(logic)
     registered = registered,
     rendered = rendered,
     visible = visible,
-    active = logic:countOnMap(logic.activeMapId),
+    active = logic.countVisibleOnMap
+      and logic:countVisibleOnMap(logic.activeMapId)
+      or logic:countOnMap(logic.activeMapId),
   }
 end
 
@@ -316,6 +318,12 @@ function Diagnostics.entityDetail(logic, entity, record)
     lines[#lines + 1] = ("Grass effect: %s"):format(
       entity.grassEffectActive and "ACTIVE" or "IDLE")
   end
+  local HiddenIdle = V.require("hidden_idle")
+  if HiddenIdle.isEntity(entity) then
+    for _, line in ipairs(HiddenIdle.statusLines(entity)) do
+      lines[#lines + 1] = line
+    end
+  end
   return lines
 end
 
@@ -410,6 +418,19 @@ function Diagnostics.hudLines(logic)
     for _, line in ipairs(render.spriteProviders:diagnostics(style, game, sample)) do
       lines[#lines + 1] = line
     end
+  end
+
+  do
+    local HiddenIdle = V.require("hidden_idle")
+    local hi = HiddenIdle.hudSummary(logic)
+    local modeLabel = (Config.GRASS_ENC_CONFIRM and Config.GRASS_ENC_CONFIRM[hi.mode])
+                      or tostring(hi.mode or "?"):upper()
+    lines[#lines + 1] = ("Grass encounters: %s"):format(modeLabel)
+    lines[#lines + 1] = ("Classic grass: %s"):format(hi.classicOn and "ON" or "OFF")
+    lines[#lines + 1] = ("Hidden target: %d"):format(hi.target or 0)
+    lines[#lines + 1] = ("Hidden loaded: %d"):format(hi.loaded or 0)
+    lines[#lines + 1] = ("Hidden revealed: %d"):format(hi.revealed or 0)
+    lines[#lines + 1] = ("Reserved cells: %d"):format(hi.reserved or 0)
   end
 
   -- Detail the nearest entity when developer overlays are on.
