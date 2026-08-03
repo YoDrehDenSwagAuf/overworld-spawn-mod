@@ -34,11 +34,12 @@ return {
     default = "auto",
     choices = {
       { "Auto", "auto" },
+      { "Gold Sprites", "gold" },
       { "Followers EX", "followers_ex" },
       { "PokeMMO", "pokemmo" },
       { "Pokedex", "pokedex" },
     },
-    description = "Overworld Pokemon sprite source. Auto prefers Followers EX when its sprite provider is available, otherwise Wilds PokeMMO-style sheets, then Pokedex images.",
+    description = "Overworld Pokemon sprite source. Auto prefers Gold Sprites, then Followers EX, then Wilds PokeMMO-style sheets, then Pokedex images.",
   },
   {
     key = "spawn_density",

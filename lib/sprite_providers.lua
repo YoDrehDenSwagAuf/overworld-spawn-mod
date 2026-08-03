@@ -3,9 +3,13 @@
 -- Architecture: swap SpriteRenderer definitions only. Rendering stays native
 -- (frames/walker/pose → Gen1Recomp / Dramatic Shape). No overlay bodies.
 --
--- Built-in IDs: followers_ex, pokemmo, pokedex (+ internal black fallback).
+-- Built-in IDs: gold, followers_ex, pokemmo, pokedex (+ internal black fallback).
 -- External mods may register via mod.exports.registerSpriteProvider after
 -- Wilds loads (Followers EX priority 160 loads after Wilds priority 80).
+--
+-- Gold Sprites (Gold_Silver_Sprites 1.0.1) ships battle front/back PNGs only
+-- (56×56 fronts). Wilds adapts them as 1-frame SpriteRenderer defs — no asset
+-- copy, no hard dependency, no content-registry mutation after freeze.
 local V = ...
 local Config = V.require("config")
 local RuntimeSheets = V.require("runtime_sheets")
@@ -16,6 +20,7 @@ local SpriteProviders = {}
 SpriteProviders.__index = SpriteProviders
 
 SpriteProviders.ID = {
+  GOLD = "gold",
   FOLLOWERS_EX = "followers_ex",
   POKEMMO = "pokemmo",
   POKEDEX = "pokedex",
@@ -24,14 +29,24 @@ SpriteProviders.ID = {
 
 SpriteProviders.STYLE = {
   AUTO = "auto",
+  GOLD = "gold",
   FOLLOWERS_EX = "followers_ex",
   POKEMMO = "pokemmo",
   POKEDEX = "pokedex",
 }
 
--- Explicit style → try order (before black). Auto matches followers→pokemmo→pokedex.
+-- Central Auto order: prefer separately installed external packs first.
+local AUTO_PROVIDER_ORDER = {
+  "gold",
+  "followers_ex",
+  "pokemmo",
+  "pokedex",
+}
+
+-- Explicit style → try order (before black). Auto uses AUTO_PROVIDER_ORDER.
 local STYLE_CHAINS = {
-  auto = { "followers_ex", "pokemmo", "pokedex" },
+  auto = AUTO_PROVIDER_ORDER,
+  gold = { "gold", "pokemmo", "pokedex" },
   followers_ex = { "followers_ex", "pokemmo", "pokedex" },
   pokemmo = { "pokemmo", "pokedex" },
   pokedex = { "pokedex" },
@@ -39,6 +54,7 @@ local STYLE_CHAINS = {
 
 local VALID_STYLES = {
   auto = true,
+  gold = true,
   followers_ex = true,
   pokemmo = true,
   pokedex = true,
@@ -46,8 +62,15 @@ local VALID_STYLES = {
 
 local FOLLOWERS_MOD_ID = "FOLLOWERS_EX"
 local POKEPC_MOD_ID = "PokePCFollowers_VoxelMerge"
+local GOLD_MOD_ID = "Gold_Silver_Sprites"
 local PROBE_SPECIES = "CHARMANDER"
 local PROBE_REL = "assets/sprites/follower_" .. PROBE_SPECIES .. ".png"
+-- Availability probes: Dex 1 / 25 / 151 (release truecolor fronts).
+local GOLD_PROBE_SPECIES = { "BULBASAUR", "PIKACHU", "MEW" }
+local GOLD_ROOT_CANDIDATES = {
+  "mods/Gold_Silver_Sprites",
+  "mods/Pokemon Gold Silver Sprites",
+}
 
 local function fsExists(path)
   if type(path) ~= "string" or path == "" then return false end
@@ -133,7 +156,8 @@ function SpriteProviders:_registerBuiltins()
   self:register(self:_makePokemmoProvider())
   self:register(self:_makePokedexProvider())
   self:register(self:_makeBlackProvider())
-  -- Followers adapter is registered now and re-probed at finalize / resolve.
+  -- External adapters are registered now and re-probed at finalize / resolve.
+  self:register(self:_makeGoldProvider())
   self:register(self:_makeFollowersExProvider())
 end
 
@@ -183,18 +207,22 @@ end
 
 function SpriteProviders:finalize(game)
   self.finalized = true
-  local followers = self.providers[SpriteProviders.ID.FOLLOWERS_EX]
-  if followers and type(followers.refreshAvailability) == "function" then
-    pcall(followers.refreshAvailability, followers, game)
+  for _, id in ipairs({ SpriteProviders.ID.GOLD, SpriteProviders.ID.FOLLOWERS_EX }) do
+    local provider = self.providers[id]
+    if provider and type(provider.refreshAvailability) == "function" then
+      pcall(provider.refreshAvailability, provider, game)
+    end
   end
   if Config.debug(self.mod) then
-    local ok, reason = false, "missing"
-    if followers then
-      ok, reason = followers:isAvailable(game)
-    end
+    local gold = self.providers[SpriteProviders.ID.GOLD]
+    local followers = self.providers[SpriteProviders.ID.FOLLOWERS_EX]
+    local gOk, gWhy = false, "missing"
+    local fOk, fWhy = false, "missing"
+    if gold then gOk, gWhy = gold:isAvailable(game) end
+    if followers then fOk, fWhy = followers:isAvailable(game) end
     DebugLog.info(self.mod,
-      "sprite providers finalized; followers_ex available=%s (%s)",
-      tostring(ok), tostring(reason))
+      "sprite providers finalized; gold=%s (%s) followers_ex=%s (%s)",
+      tostring(gOk), tostring(gWhy), tostring(fOk), tostring(fWhy))
   end
 end
 
@@ -374,6 +402,245 @@ function SpriteProviders:_makeBlackProvider()
       return def, meta, nil
     end,
   }
+end
+
+------------------------------------------------------------------------
+-- Gold Sprites read-only adapter (OtaconRevengeance / Gold_Silver_Sprites)
+--
+-- Release 1.0.1 facts (verified from Pokemon.Gold.Silver.Sprites.1.0.1.zip):
+--   * Mod ID: Gold_Silver_Sprites  version: 1.0.1  entry: main.lua
+--   * No public exports; hooks pokemon.sprite for battle art only
+--   * Truecolor fronts: <pack>/battle/front/<species_lower>.png (56×56)
+--   * No shiny variants, no walker sheets (frames=1, walker=false)
+--   * Pack choice gold|silver via Gold's spritePack option (default gold)
+--
+-- We never copy assets, never mutate Gold's tables, never hard-depend.
+------------------------------------------------------------------------
+
+function SpriteProviders:_goldFrontRel(speciesKey, pack)
+  pack = (pack == "silver") and "silver" or "gold"
+  if type(speciesKey) ~= "string" or speciesKey == "" then return nil end
+  return pack .. "/battle/front/" .. string.lower(speciesKey) .. ".png"
+end
+
+function SpriteProviders:_goldPackChoice(game)
+  local buckets = {}
+  if game and game.save and game.save.options and game.save.options.modOptions then
+    buckets[#buckets + 1] = game.save.options.modOptions[GOLD_MOD_ID]
+  end
+  if game and game.mods and game.mods.modOptions then
+    buckets[#buckets + 1] = game.mods.modOptions[GOLD_MOD_ID]
+  end
+  if game and game.mods and game.mods.loader and game.mods.loader.modOptions then
+    buckets[#buckets + 1] = game.mods.loader.modOptions[GOLD_MOD_ID]
+  end
+  for i = 1, #buckets do
+    local b = buckets[i]
+    if type(b) == "table" and (b.spritePack == "gold" or b.spritePack == "silver") then
+      return b.spritePack
+    end
+  end
+  return "gold"
+end
+
+function SpriteProviders:_discoverGoldRoot(game)
+  local mod = self.mod
+
+  local function probeOk(root, pack)
+    if type(root) ~= "string" or root == "" then return false end
+    for _, species in ipairs(GOLD_PROBE_SPECIES) do
+      local rel = self:_goldFrontRel(species, pack)
+      if rel and fsExists(root .. "/" .. rel) then
+        return true
+      end
+    end
+    return false
+  end
+
+  -- A) Optional future public export.
+  if mod and mod.find then
+    local hit = mod:find(GOLD_MOD_ID)
+    local ex = hit and hit.exports
+    if ex then
+      if type(ex.resolveGoldSprite) == "function"
+         or type(ex.getGoldSpritePath) == "function"
+         or type(ex.resolveSprite) == "function" then
+        return "export:" .. GOLD_MOD_ID, GOLD_MOD_ID, ex, hit
+      end
+    end
+    if hit and type(hit.path) == "string" then
+      local pack = self:_goldPackChoice(game)
+      if probeOk(hit.path, pack) or probeOk(hit.path, "gold") or probeOk(hit.path, "silver") then
+        return hit.path, GOLD_MOD_ID, nil, hit
+      end
+    end
+  end
+
+  -- B) Documented install locations matching the release ZIP folder name.
+  local pack = self:_goldPackChoice(game)
+  for _, root in ipairs(GOLD_ROOT_CANDIDATES) do
+    if probeOk(root, pack) or probeOk(root, "gold") or probeOk(root, "silver") then
+      return root, root, nil, nil
+    end
+  end
+
+  return nil, nil, nil, nil
+end
+
+function SpriteProviders:_makeGoldProvider()
+  local mod = self.mod
+  local owners = self
+  local state = {
+    root = nil,
+    source = nil,
+    exportApi = nil,
+    hit = nil,
+    probed = false,
+  }
+
+  local provider = {
+    id = SpriteProviders.ID.GOLD,
+    builtin = true,
+    modId = GOLD_MOD_ID,
+    _state = state,
+  }
+
+  function provider:refreshAvailability(game)
+    state.probed = true
+    local root, source, exportApi, hit = owners:_discoverGoldRoot(game)
+    state.root, state.source, state.exportApi, state.hit = root, source, exportApi, hit
+    return state.root ~= nil or state.exportApi ~= nil
+  end
+
+  function provider:isAvailable(game)
+    if not state.probed or (state.root == nil and state.exportApi == nil) then
+      self:refreshAvailability(game)
+    end
+    if state.exportApi then
+      return true, "gold export API (" .. tostring(state.source) .. ")"
+    end
+    if state.root then
+      local pack = owners:_goldPackChoice(game)
+      for _, species in ipairs(GOLD_PROBE_SPECIES) do
+        local rel = owners:_goldFrontRel(species, pack)
+        if rel and fsExists(state.root .. "/" .. rel) then
+          return true, "Gold Sprites fronts at " .. tostring(state.root)
+        end
+      end
+      -- Root found for other pack; still usable.
+      for _, species in ipairs(GOLD_PROBE_SPECIES) do
+        local rel = owners:_goldFrontRel(species, "gold")
+        if rel and fsExists(state.root .. "/" .. rel) then
+          return true, "Gold Sprites fronts at " .. tostring(state.root)
+        end
+      end
+    end
+    if mod and mod.find and mod:find(GOLD_MOD_ID) and not state.root then
+      return false, "Gold_Silver_Sprites installed but sprite fronts unresolved"
+    end
+    return false, "Gold Sprites provider not available"
+  end
+
+  function provider:resolve(speciesId, variant, game)
+    local okAvail, why = self:isAvailable(game)
+    if not okAvail then
+      return nil, nil, why
+    end
+
+    local speciesKey = speciesKeyFromId(speciesId, game, mod)
+    if not speciesKey and type(speciesId) == "string" and not tonumber(speciesId) then
+      speciesKey = speciesId
+    end
+    if not speciesKey then
+      return nil, nil, "species key unresolved for gold path"
+    end
+
+    local wantShiny = normalizeVariant(variant) == "shiny"
+    -- Gold_Silver_Sprites has no shiny art. Signal shiny miss so the chain
+    -- tries gold normal next (resolveProviderVariant), then later providers.
+    if wantShiny then
+      return nil, nil, "gold shiny unavailable"
+    end
+
+    -- Future / optional public export API.
+    if state.exportApi then
+      local api = state.exportApi
+      local tryFns = { "resolveGoldSprite", "resolveSprite", "getGoldSpritePath" }
+      for _, fname in ipairs(tryFns) do
+        local fn = api[fname]
+        if type(fn) == "function" then
+          local ok, defOrPath, meta = pcall(fn, speciesKey, variant, game)
+          if ok and type(defOrPath) == "table" and defOrPath.image then
+            local def = copyDef(defOrPath, "SPRITE_OW_WILD_" .. tostring(speciesKey))
+            def.frames = tonumber(def.frames) or 1
+            def.trueColor = def.trueColor ~= false
+            if def.walker == nil then def.walker = false end
+            return def, {
+              providerId = SpriteProviders.ID.GOLD,
+              usedVariant = "normal",
+              loadPath = def.image,
+              frames = def.frames,
+              walker = def.walker == true,
+              bodyRenderer = "NATIVE_SPRITE_RENDERER",
+              providerMod = GOLD_MOD_ID,
+              providerVersion = state.hit and state.hit.version,
+            }, nil
+          elseif ok and type(defOrPath) == "string" and defOrPath ~= "" and fsExists(defOrPath) then
+            local def = {
+              image = defOrPath, frames = 1, trueColor = true,
+              id = "SPRITE_OW_WILD_" .. tostring(speciesKey),
+            }
+            return def, {
+              providerId = SpriteProviders.ID.GOLD,
+              usedVariant = "normal",
+              loadPath = defOrPath, frames = 1, walker = false,
+              bodyRenderer = "NATIVE_SPRITE_RENDERER",
+              providerMod = GOLD_MOD_ID,
+              providerVersion = state.hit and state.hit.version,
+            }, nil
+          end
+        end
+      end
+    end
+
+    if not state.root or tostring(state.root):sub(1, 7) == "export:" then
+      return nil, nil, "no Gold Sprites asset root"
+    end
+
+    local pack = owners:_goldPackChoice(game)
+    local rel = owners:_goldFrontRel(speciesKey, pack)
+    local path = state.root .. "/" .. rel
+    if not fsExists(path) and pack ~= "gold" then
+      rel = owners:_goldFrontRel(speciesKey, "gold")
+      path = state.root .. "/" .. rel
+    end
+    if not fsExists(path) then
+      return nil, nil, "missing gold front: " .. tostring(rel)
+    end
+
+    local def = {
+      image = path,
+      frames = 1,
+      trueColor = true,
+      id = "SPRITE_OW_WILD_" .. tostring(speciesKey),
+    }
+    local meta = {
+      providerId = SpriteProviders.ID.GOLD,
+      usedVariant = "normal",
+      loadPath = path,
+      relativePath = rel,
+      frames = 1,
+      walker = false,
+      bodyRenderer = "NATIVE_SPRITE_RENDERER",
+      providerMod = GOLD_MOD_ID,
+      providerVersion = state.hit and state.hit.version,
+      pack = pack,
+      sheetFormat = "battle_front_56x56",
+    }
+    return def, meta, nil
+  end
+
+  return provider
 end
 
 ------------------------------------------------------------------------
@@ -762,14 +1029,40 @@ end
 
 function SpriteProviders:diagnostics(style, game, entity)
   style = style or Config.spriteStyle(self.mod)
-  local followers = self.providers[SpriteProviders.ID.FOLLOWERS_EX]
-  local followersOk, followersReason = false, "NOT INSTALLED"
-  if followers then
-    followersOk, followersReason = followers:isAvailable(game)
+
+  local function installedStatus(modId, providerId, label)
+    local installed = false
+    if self.mod and self.mod.find then
+      installed = self.mod:find(modId) ~= nil
+    end
+    local provider = self.providers[providerId]
+    local ok, reason = false, "NOT INSTALLED"
+    if provider then
+      ok, reason = provider:isAvailable(game)
+    end
+    local lines = {}
+    if not installed and not ok then
+      lines[#lines + 1] = label .. ": NOT INSTALLED"
+    elseif not ok then
+      lines[#lines + 1] = ("%s: UNAVAILABLE (%s)"):format(label, tostring(reason))
+    else
+      lines[#lines + 1] = label .. ": AVAILABLE"
+      local ver = provider and provider._state and provider._state.hit
+        and provider._state.hit.version
+      if ver then
+        lines[#lines + 1] = ("Provider version: %s"):format(tostring(ver))
+      end
+    end
+    return lines, installed, ok, reason
   end
-  local installed = false
+
+  local goldLines, goldInstalled, goldOk =
+    installedStatus(GOLD_MOD_ID, SpriteProviders.ID.GOLD, "Gold Sprites")
+  local followersLines, followersInstalled, followersOk =
+    installedStatus(FOLLOWERS_MOD_ID, SpriteProviders.ID.FOLLOWERS_EX, "Followers EX")
+  local pokepcInstalled = false
   if self.mod and self.mod.find then
-    installed = self.mod:find(FOLLOWERS_MOD_ID) ~= nil
+    pokepcInstalled = self.mod:find(POKEPC_MOD_ID) ~= nil
   end
 
   local activeId = entity and entity.spriteProviderId
@@ -786,15 +1079,15 @@ function SpriteProviders:diagnostics(style, game, entity)
   local lines = {
     ("Requested style: %s"):format(tostring(style):upper()),
   }
-  if not installed then
-    lines[#lines + 1] = "Followers EX: NOT INSTALLED"
-  elseif not followersOk then
-    lines[#lines + 1] = ("Followers EX: UNAVAILABLE (%s)"):format(tostring(followersReason))
-  else
-    lines[#lines + 1] = "Followers EX: AVAILABLE"
-  end
+  for _, line in ipairs(goldLines) do lines[#lines + 1] = line end
+  for _, line in ipairs(followersLines) do lines[#lines + 1] = line end
+  lines[#lines + 1] = ("PokePC provider: %s"):format(
+    pokepcInstalled and "INSTALLED" or "NOT INSTALLED")
 
-  if style == "followers_ex" and not followersOk then
+  if style == "gold" and not goldOk then
+    lines[#lines + 1] = "Gold provider: NOT INSTALLED"
+    lines[#lines + 1] = "Provider unavailable: YES"
+  elseif style == "followers_ex" and not followersOk then
     lines[#lines + 1] = "Provider unavailable: YES"
   end
 
@@ -802,6 +1095,17 @@ function SpriteProviders:diagnostics(style, game, entity)
   local modId = (last and last.meta and last.meta.providerMod)
     or (active and active.modId) or "?"
   lines[#lines + 1] = ("Provider mod: %s"):format(tostring(modId))
+  local ver = last and last.meta and last.meta.providerVersion
+  if ver then
+    lines[#lines + 1] = ("Provider version: %s"):format(tostring(ver))
+  end
+  if style == "gold" then
+    lines[#lines + 1] = ("Provider installed: %s"):format(
+      (goldInstalled or goldOk) and "YES" or "NO")
+  elseif style == "followers_ex" then
+    lines[#lines + 1] = ("Provider installed: %s"):format(
+      (followersInstalled or followersOk) and "YES" or "NO")
+  end
 
   if entity then
     local dex = entity.enhancedDexId
@@ -819,19 +1123,24 @@ function SpriteProviders:diagnostics(style, game, entity)
       tostring(entity.spriteFallbackStep or (last and last.fallbackStep) or "?"))
   end
 
-  if style == "followers_ex" and not followersOk then
+  if style == "gold" and not goldOk then
+    lines[#lines + 1] = "Fallback reason: provider unavailable"
+  elseif style == "followers_ex" and not followersOk then
     lines[#lines + 1] = "Fallback reason: provider missing"
   elseif last and last.meta and last.meta.shinyFallback then
     lines[#lines + 1] = "Fallback reason: shiny unavailable"
   end
 
+  lines[#lines + 1] = "Quick menu: READY"
   lines[#lines + 1] = "Body renderer: NATIVE_SPRITE_RENDERER"
   return lines
 end
 
 SpriteProviders.VALID_STYLES = VALID_STYLES
 SpriteProviders.STYLE_CHAINS = STYLE_CHAINS
+SpriteProviders.AUTO_PROVIDER_ORDER = AUTO_PROVIDER_ORDER
 SpriteProviders.FOLLOWERS_MOD_ID = FOLLOWERS_MOD_ID
 SpriteProviders.POKEPC_MOD_ID = POKEPC_MOD_ID
+SpriteProviders.GOLD_MOD_ID = GOLD_MOD_ID
 
 return SpriteProviders

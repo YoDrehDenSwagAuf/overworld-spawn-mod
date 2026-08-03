@@ -16,12 +16,95 @@ of the overworld I used to imagine when playing these games as a child.
 
 <!-- Optional: add a screenshot or banner here -->
 
-## Sprite Styles
+## Choose Your Overworld Sprite Style
 
-Wilds of Kanto supports multiple overworld Pokémon sprite styles:
+Wilds of Kanto lets you choose which overworld Pokémon sprites you prefer
+without changing the spawn or encounter system.
 
-- **Auto** — uses Followers EX sprites when its compatible sprite provider is
-  installed, otherwise uses the built-in PokeMMO-style sprites.
+Available styles:
+
+- **Auto** — automatically uses an installed compatible sprite pack and falls
+  back to the built-in sprites.
+- **Gold Sprites** — uses the Gold/Silver battle-front art from
+  **OtaconRevengeance**’s [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites)
+  mod (`Gold_Silver_Sprites`) when that mod is installed. Adapted as native
+  1-frame SpriteRenderer definitions (no walker sheet; no asset copy).
+- **Followers EX** — uses compatible walker sprites supplied through
+  **Followers EX / PokePC Followers** when those mods are installed.
+- **PokeMMO** — uses the animated sprite sheets bundled with Wilds of Kanto.
+- **Pokedex** — uses the original Pokédex-based images.
+
+You can switch styles at any time from the normal in-game menu or from the
+Wilds of Kanto mod settings. Existing wild Pokémon update immediately without
+being respawned.
+
+External sprite styles require their corresponding mods to be installed
+separately. Wilds of Kanto does not redistribute their assets.
+
+### Optional Sprite Mods
+
+To use an external sprite style, install the corresponding mod through the
+Gen1Recomp Mod Manager or from its official GitHub release:
+
+- [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites/releases)
+  (`Gold_Silver_Sprites`)
+- [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
+  (`FOLLOWERS_EX`)
+- [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
+  (`PokePCFollowers_VoxelMerge`), required by Followers EX
+
+After installation, restart Gen1Recomp and select the style from:
+
+```text
+START MENU -> SPRITE STYLE
+```
+
+or:
+
+```text
+MOD SETTINGS -> WILDS OF KANTO -> SPRITE STYLE
+```
+
+Auto preference order when multiple packs are present:
+
+1. Gold Sprites
+2. Followers EX
+3. PokeMMO (built-in)
+4. Pokedex
+5. black fallback
+
+## Sprite Pack Shoutouts
+
+A big shoutout to the creators who made the different overworld styles
+available to the community:
+
+- **OtaconRevengeance** — creator of the
+  [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites) mod.
+- **masterwebx** — creator of
+  [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex).
+- **gamecorner-033** — creator/maintainer of
+  [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
+  (walker sheet provider used by Followers EX; overworld art credited there to
+  ShockSlayer / Pokémon Crystal Clear).
+- **Anima** — source of the earlier GBC Pokémon art pack that informed Wilds’
+  animated overworld work
+  ([anima-nel.itch.io/gbc-pokemon](https://anima-nel.itch.io/gbc-pokemon));
+  current built-in **PokeMMO** sheets are Wilds’ own runtime follow-sprite
+  derivatives (see `THIRD_PARTY_NOTICES.md`).
+- **DramaticShape** — Dramatic Shape Voxel Mod compatibility work that keeps
+  native SpriteRenderer sheets working in orbit / first-person views.
+
+Wilds of Kanto only integrates with externally installed sprite mods. Their
+assets remain owned and licensed by their respective creators.
+
+## Sprite Styles (technical)
+
+Wilds of Kanto supports multiple overworld Pokémon sprite styles through a
+shared provider pipeline:
+
+- **Auto** — prefers Gold Sprites, then Followers EX, then built-in PokeMMO,
+  then Pokedex.
+- **Gold Sprites** — read-only adapter for `Gold_Silver_Sprites` battle fronts.
 - **Followers EX** — uses compatible sprites supplied by Followers EX /
   PokePC Followers when available.
 - **PokeMMO** — uses Wilds of Kanto's built-in animated overworld sprites.
@@ -33,18 +116,19 @@ occlusion.
 
 The **PokeMMO** label refers to Wilds of Kanto’s own runtime follow-sprite
 sheets (`assets/generated/followsprites_runtime/`). It does not ship or claim
-Followers EX / PokePC assets.
+Gold Sprites / Followers EX / PokePC assets.
 
-Optional companion mods:
+Optional companion mods (runtime detection only — **no hard dependencies**):
 
+- [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites)
+  (`Gold_Silver_Sprites`)
 - [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
   (`FOLLOWERS_EX`) — control / pack integration; depends on Wilds and the
   PokePC sprite pack.
 - PokePC Followers Voxel Merge (`PokePCFollowers_VoxelMerge`) — walker sheet
   assets used by Followers EX.
 
-Wilds does **not** hard-depend on either mod (that would create a dependency
-cycle). Companion mods can register a provider at runtime:
+Companion mods can also register a provider at runtime:
 
 ```lua
 wilds.exports.registerSpriteProvider("followers_ex", provider)
@@ -69,8 +153,9 @@ Normal and shiny sprite variants are supported by the asset format. Shiny
 sprites are only used during normal gameplay when the game provides a reliable
 shiny state. They remain available in the developer preview for testing.
 
-Choose **Sprite Style** in the mod settings (Auto / Followers EX / PokeMMO /
-Pokedex). Auto is the default.
+Choose **Sprite Style** from the Start Menu (**SPRITE STYLE**) or in the mod
+settings (Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex). Auto is the
+default.
 
 If a follow sprite or mapping is missing, the mod automatically falls back to:
 
@@ -96,8 +181,9 @@ tables and places tangible wild Pokemon (or hidden markers) on eligible tiles.
 - Tall-grass presentation: option for fully above grass or partially immersed
   (engine `drawCellBottom` feet overdraw, like the player)
 - Small species get nearest-neighbor sprite scaling so they stay readable
-- Real Pokemon art is preferred; **Sprite Style** selects Followers EX,
-  Wilds PokeMMO-style sheets, or legacy Pokedex images (Auto by default)
+- Real Pokemon art is preferred; **Sprite Style** selects Gold Sprites,
+  Followers EX, Wilds PokeMMO-style sheets, or legacy Pokedex images (Auto by
+  default)
 - Otherwise legacy species / battle PNGs are used; a black fallback sprite is
   used when no image resolves (hidden behaviours draw no Pokemon sprite)
 - Vanilla random grass encounters remain as a fail-safe until the visible
@@ -209,7 +295,7 @@ Visible labels are limited to 14 characters so Gen1Recomp does not truncate them
 | --- | --- | --- |
 | Show Wild Mons | Master switch for visible spawns | ON |
 | Hide Grass RNG | Suppress vanilla grass rolls only after visible spawns are ready | ON |
-| Sprite Style | Auto / Followers EX / PokeMMO / Pokedex sprite source | AUTO |
+| Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | AUTO |
 | Spawn Amount | Density preset (Low / Normal / High / Very High) | NORMAL |
 | Grass View | Immersed in tall grass, or fully Above | IMMERSED |
 | Idle Mons | Allow Idle Look behaviour | ON |

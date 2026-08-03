@@ -119,7 +119,7 @@ Visible labels are limited to 14 characters.
 |---|---|---|---|---|
 | Show Wild Mons | `enabled` | true | on/off | Master switch |
 | Hide Grass RNG | `suppress_random_grass` | true | on/off | Suppress vanilla grass rolls only when ready |
-| Sprite Style | `sprite_style` | auto | Auto / Followers EX / PokeMMO / Pokedex | Overworld sprite source |
+| Sprite Style | `sprite_style` | auto | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | Overworld sprite source (Start Menu → SPRITE STYLE or Mod Settings) |
 | Spawn Amount | `spawn_density` | normal | low / normal / high / very_high | Scales target count |
 | Grass View | `pokemon_grass_render_mode` | immersed | Above / Immersed | Tall-grass presentation |
 | Idle Mons | `enable_idle` | true | on/off | Allow Idle Look |

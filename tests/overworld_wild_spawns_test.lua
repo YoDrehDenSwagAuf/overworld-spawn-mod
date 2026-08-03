@@ -1713,8 +1713,34 @@ for _, row in ipairs(listed) do
 end
 T.check(sawPokemmo and sawPokedex, "builtin providers listed")
 T.check(exports.getSpriteProvider("pokemmo") ~= nil, "getSpriteProvider pokemmo")
-T.check(SpriteProviders.STYLE_CHAINS.auto[1] == "followers_ex", "auto chain starts followers")
-T.check(SpriteProviders.STYLE_CHAINS.auto[2] == "pokemmo", "auto chain then pokemmo")
+T.check(exports.getSpriteProvider("gold") ~= nil, "getSpriteProvider gold")
+T.check(SpriteProviders.STYLE_CHAINS.auto[1] == "gold", "auto chain starts gold")
+T.check(SpriteProviders.STYLE_CHAINS.auto[2] == "followers_ex", "auto chain then followers")
+T.check(SpriteProviders.STYLE_CHAINS.auto[3] == "pokemmo", "auto chain then pokemmo")
+T.check(SpriteProviders.AUTO_PROVIDER_ORDER[1] == "gold", "AUTO_PROVIDER_ORDER gold first")
+T.check(type(exports.setSpriteStyle) == "function", "setSpriteStyle export")
+T.check(exports.spriteStyleMenu ~= nil, "spriteStyleMenu export")
+T.eq(exports.spriteStyleMenu._registered, true, "SPRITE STYLE menu registered once")
+
+local styleChoices = {}
+for _, choice in ipairs(styleOpt.choices) do
+  styleChoices[choice[2]] = choice[1]
+  T.check(#choice[1] <= 14, "style choice label <= 14: " .. tostring(choice[1]))
+end
+T.check(styleChoices.gold == "Gold Sprites", "Gold Sprites choice present")
+T.eq(#("Gold Sprites"), 12, "Gold Sprites length")
+T.eq(#("SPRITE STYLE"), 12, "SPRITE STYLE menu length")
+
+-- Shared setter writes the same sprite_style key
+mockGame.save.options = mockGame.save.options or {}
+mockGame.save.options.modOptions = mockGame.save.options.modOptions or {}
+mockGame.mods = mockGame.mods or { modOptions = {} }
+local setOk = exports.setSpriteStyle("gold", "test", { confirm = false, game = mockGame })
+T.check(setOk == true, "setSpriteStyle gold ok")
+T.eq(Config.spriteStyle(modApi), "gold", "setSpriteStyle persisted gold")
+setOk = exports.setSpriteStyle("auto", "test", { confirm = false, game = mockGame })
+T.check(setOk == true, "setSpriteStyle auto ok")
+T.eq(Config.spriteStyle(modApi), "auto", "setSpriteStyle restored auto")
 
 -- Mod disable clears entities.
 run.loader.modOptions["overworld_wild_spawns"].enabled = false

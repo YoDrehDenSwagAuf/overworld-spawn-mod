@@ -153,9 +153,18 @@ end
 
 local VALID_SPRITE_STYLES = {
   auto = true,
+  gold = true,
   followers_ex = true,
   pokemmo = true,
   pokedex = true,
+}
+
+local SPRITE_STYLE_CONFIRM = {
+  auto = "AUTO",
+  gold = "GOLD",
+  followers_ex = "FOLLOWERS EX",
+  pokemmo = "POKEMMO",
+  pokedex = "POKEDEX",
 }
 
 function Config.peekSavedOption(mod, key)
@@ -258,7 +267,77 @@ function Config.useAnimatedOverworldSprites(mod)
   return Config.spriteStyle(mod) ~= "pokedex"
 end
 
+-- Central setter used by Start Menu and any non-Mod-Manager UI path.
+-- Mod Settings already persist sprite_style via the engine; both share this key.
+-- opts: { game=, logic=, render=, confirm=, message= }
+function Config.setSpriteStyle(mod, value, source, opts)
+  opts = opts or {}
+  value = tostring(value or "")
+  if not VALID_SPRITE_STYLES[value] then
+    return false, "invalid sprite_style: " .. value
+  end
+
+  local game = opts.game
+  if not game and mod and mod.world then
+    game = mod.world.game
+  end
+
+  local function write(bucket)
+    if type(bucket) ~= "table" then return end
+    bucket[mod.id] = bucket[mod.id] or {}
+    bucket[mod.id].sprite_style = value
+  end
+
+  if game and game.save and game.save.options then
+    game.save.options.modOptions = game.save.options.modOptions or {}
+    write(game.save.options.modOptions)
+  end
+  if game and game.mods then
+    if game.mods.modOptions then write(game.mods.modOptions) end
+    if game.mods.loader and game.mods.loader.modOptions then
+      write(game.mods.loader.modOptions)
+    end
+  end
+  if game and type(game.writeOptions) == "function" then
+    pcall(game.writeOptions, game)
+  end
+
+  local render = opts.render
+  local logic = opts.logic
+  if (not render or not logic) and mod and mod.exports then
+    render = render or mod.exports.render
+    logic = logic or mod.exports.logic
+  end
+  local refreshed = 0
+  if render and logic and type(render.refreshAllEntitySprites) == "function" then
+    if type(render.invalidateAssetCache) == "function" then
+      pcall(render.invalidateAssetCache, render)
+    end
+    local ok, n = pcall(render.refreshAllEntitySprites, render, logic, game)
+    if ok and type(n) == "number" then refreshed = n end
+  end
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "SPRITES: " .. (SPRITE_STYLE_CONFIRM[value] or value:upper())
+  end
+  if confirmMsg and game and mod and mod.ui and mod.ui.TextBox and game.stack then
+    pcall(function()
+      game.stack:push(mod.ui.TextBox.new(game, confirmMsg))
+    end)
+  end
+
+  if source and mod and mod.log and type(mod.log.info) == "function" then
+    pcall(mod.log.info, mod.log,
+      "sprite_style set to %s via %s (refreshed=%d)",
+      value, tostring(source), refreshed)
+  end
+
+  return true, value, refreshed
+end
+
 Config.VALID_SPRITE_STYLES = VALID_SPRITE_STYLES
+Config.SPRITE_STYLE_CONFIRM = SPRITE_STYLE_CONFIRM
 
 function Config.pokemonGrassRenderMode(mod)
   local GrassOcclusion = V.require("grass_occlusion")
