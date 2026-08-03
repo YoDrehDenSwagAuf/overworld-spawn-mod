@@ -86,11 +86,6 @@ available to the community:
   [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
   (walker sheet provider used by Followers EX; overworld art credited there to
   ShockSlayer / Pokémon Crystal Clear).
-- **Anima** — source of the earlier GBC Pokémon art pack that informed Wilds’
-  animated overworld work
-  ([anima-nel.itch.io/gbc-pokemon](https://anima-nel.itch.io/gbc-pokemon));
-  current built-in **PokeMMO** sheets are Wilds’ own runtime follow-sprite
-  derivatives (see `THIRD_PARTY_NOTICES.md`).
 - **DramaticShape** — Dramatic Shape Voxel Mod compatibility work that keeps
   native SpriteRenderer sheets working in orbit / first-person views.
 
