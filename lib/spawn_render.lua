@@ -29,6 +29,8 @@ local GrassOcclusion = V.require("grass_occlusion")
 local EnhancedWorldSprite = V.require("enhanced_world_sprite") -- deprecated body path
 local RenderDiagnostics = V.require("render_diagnostics")
 local SpriteProviders = V.require("sprite_providers")
+local WaterSpriteRegistry = V.require("water_sprite_registry")
+local SpriteResolver = V.require("sprite_resolver")
 
 local SpawnRender = {}
 SpawnRender.__index = SpawnRender
@@ -250,6 +252,8 @@ function SpawnRender.new(mod)
   self.animated = AnimatedSprites.new(mod)
   self.runtimeSheets = RuntimeSheets.new(mod)
   self.spriteProviders = SpriteProviders.new(mod, self)
+  self.waterSpriteRegistry = WaterSpriteRegistry.new(mod)
+  self.spriteResolver = SpriteResolver.new(mod, self.spriteProviders, self.waterSpriteRegistry)
   self._providerMakeWrapped = false
   self._pendingSpriteRefresh = false
   return self
@@ -685,6 +689,24 @@ function SpawnRender:registerContent()
   end)
   if not okAnim then
     DebugLog.warn(self.mod, "follow sprite load failed: %s", tostring(animErr))
+  end
+
+  local okWater, waterErr = pcall(function()
+    return self.waterSpriteRegistry:load()
+  end)
+  if not okWater then
+    DebugLog.warn(self.mod, "water sprite registry failed: %s", tostring(waterErr))
+  elseif self.waterSpriteRegistry:isReady() then
+    local ws = self.waterSpriteRegistry:summary()
+    local st = ws.stats or {}
+    self:_notice(
+      "Water sprites: READY (swim=%s lev=%s unique=%s)",
+      tostring(st.swimmingMapped or 0),
+      tostring(st.levitatesMapped or 0),
+      tostring(st.uniqueSpecies or 0))
+  else
+    self:_warn("Water sprites: UNAVAILABLE (%s)",
+      tostring(self.waterSpriteRegistry.loadError or waterErr or "?"))
   end
 
   self:_notice("Registered sprites: %d", registered)
@@ -1142,7 +1164,15 @@ function Entity.new(game, mod, render, record)
 
   local style = Config.spriteStyle(mod)
   local resolvedProvider = nil
-  if render.spriteProviders then
+  if render.spriteResolver then
+    resolvedProvider = render.spriteResolver:resolveForEntity(self, {
+      style = style,
+      game = game,
+      surface = self.surface,
+      speciesId = dexId or record.species,
+      variant = variant,
+    })
+  elseif render.spriteProviders then
     resolvedProvider = render.spriteProviders:resolve(
       style, record.species or dexId, variant, game)
   end
@@ -1175,6 +1205,9 @@ function Entity.new(game, mod, render, record)
     self.spriteFallbackStep = resolvedProvider.fallbackStep
     self.spriteProviderMeta = resolvedProvider.meta
     self.requestedSpriteStyle = style
+    if render.spriteResolver then
+      render.spriteResolver:applyEntityMeta(self, resolvedProvider)
+    end
     if resolvedProvider.meta then
       self.runtimeLoadPath = resolvedProvider.meta.loadPath
       self.runtimeRelativePath = resolvedProvider.meta.relativePath
@@ -1279,6 +1312,11 @@ function Entity.new(game, mod, render, record)
   self.grassRenderer = "ENGINE_2D"
   self.enhancedDexId = dexId
   self.usingFollowerSprite = (self.spriteProviderId == "followers_ex")
+  if self.spriteKind == "swimming" or self.spriteKind == "levitates" then
+    self.spriteSource = "WATER_" .. string.upper(self.spriteKind)
+    self.spriteSource2D = self.spriteSource
+    self.voxelSource = self.spriteSource
+  end
 
   if self.sprite and self.sprite.image and self.sprite.image.setFilter then
     self.sprite.image:setFilter("nearest", "nearest")
@@ -1851,19 +1889,36 @@ end
 
 -- Replace entity.sprite exactly once from the selected provider. Preserves
 -- facing / phase / flip / position / behaviour. No registry mutation.
+-- Land vs water sprite source is selected via SpriteResolver (same native
+-- SpriteRenderer contract either way).
 function SpawnRender:applyProviderSprite(entity, game)
   if not entity then return false end
   if entity.hiddenEncounter or entity.visibleSprite == false then
     return false
   end
-  if not self.spriteProviders then
+  if not self.spriteProviders and not self.spriteResolver then
     return false
   end
 
+  -- Always read the live option — never trust a stale entity field alone.
   local style = Config.spriteStyle(self.mod)
+  entity.requestedSpriteStyle = style
   local variant = AnimatedSprites.resolveRuntimeVariant(entity)
   local species = entity.species or entity.enhancedDexId
-  local result = self.spriteProviders:resolve(style, species, variant, game)
+  local map = game and game.overworld and game.overworld.map
+  local result
+  if self.spriteResolver then
+    result = self.spriteResolver:resolveForEntity(entity, {
+      style = style,
+      game = game,
+      map = map,
+      surface = entity.surface,
+      speciesId = entity.enhancedDexId or species,
+      variant = variant,
+    })
+  else
+    result = self.spriteProviders:resolve(style, species, variant, game)
+  end
   if not (result and result.def and type(result.def.image) == "string") then
     return false
   end
@@ -1871,15 +1926,30 @@ function SpawnRender:applyProviderSprite(entity, game)
     return false
   end
 
-  -- Skip rebuild when the same provider image is already bound.
+  -- Hard rule: explicit PokeMMO land must never keep a Followers sheet.
+  if style == "pokemmo" and (result.spriteState == "land" or not result.waterOverride)
+     and result.providerId == "followers_ex" then
+    result = self.spriteProviders:resolve("pokemmo", species, variant, game)
+    if not (result and result.def and type(result.def.image) == "string") then
+      return false
+    end
+    result.spriteState = result.spriteState or "land"
+  end
+
+  -- Skip rebuild when the same provider image / surface state is already bound.
   local cur = entity.sprite and entity.sprite.def
   if cur and cur.image == result.def.image
      and (cur.frames or 1) == (result.def.frames or 1)
      and (cur.walker == true) == (result.def.walker == true)
-     and entity.spriteProviderId == result.providerId then
+     and entity.spriteProviderId == result.providerId
+     and entity.spriteState == result.spriteState
+     and entity.requestedSpriteStyle == style then
     entity.requestedSpriteStyle = style
     entity.spriteFallbackStep = result.fallbackStep
     entity.spriteProviderMeta = result.meta
+    if self.spriteResolver then
+      self.spriteResolver:applyEntityMeta(entity, result)
+    end
     return true
   end
 
@@ -1916,14 +1986,22 @@ function SpawnRender:applyProviderSprite(entity, game)
   entity.usingFollowerSprite = (result.providerId == "followers_ex")
   entity.usingEnhancedSprite = nativeSheet
   entity.worldSprite = nil
+  if self.spriteResolver then
+    self.spriteResolver:applyEntityMeta(entity, result)
+  end
   if result.meta then
     entity.runtimeLoadPath = result.meta.loadPath
     entity.runtimeRelativePath = result.meta.relativePath
   end
 
   if nativeSheet then
-    entity.spriteSource = (result.providerId == "followers_ex")
-      and "FOLLOWERS_EX" or "FOLLOW_SPRITES"
+    if result.spriteKind == "swimming" or result.spriteKind == "levitates" then
+      entity.spriteSource = "WATER_" .. string.upper(result.spriteKind)
+    elseif result.providerId == "followers_ex" then
+      entity.spriteSource = "FOLLOWERS_EX"
+    else
+      entity.spriteSource = "FOLLOW_SPRITES"
+    end
     entity.spriteSource2D = entity.spriteSource
     entity.voxelSource = entity.spriteSource
     entity.pokemonRenderer = SpawnRender.RENDERER.NATIVE_SPRITE_RENDERER
@@ -2185,6 +2263,10 @@ end
 -- Live option toggle: re-bind presentation without respawning entities.
 function SpawnRender:refreshAllEntitySprites(logic, game)
   if not logic or not logic.entities then return 0 end
+  self:ensureStyleOwnedMakeEntity(game)
+  if self.spriteResolver and self.spriteResolver.invalidateCache then
+    self.spriteResolver:invalidateCache()
+  end
   local n = 0
   for _, entity in pairs(logic.entities) do
     if entity then
@@ -2197,24 +2279,32 @@ function SpawnRender:refreshAllEntitySprites(logic, game)
   return n
 end
 
--- Followers EX (priority 160) wraps makeEntity on mods.loaded. Install our
--- outermost wrap afterward so Sprite Style still wins without a third renderer.
+-- Followers EX (priority 160) may wrap makeEntity on mods.loaded. Always
+-- re-assert an outermost wrap so explicit Sprite Style wins on every spawn.
 function SpawnRender:installLateMakeEntityWrap()
-  if self._providerMakeWrapped then return true end
-  local orig = self.makeEntity
-  if type(orig) ~= "function" then return false end
   local render = self
-  function self:makeEntity(game, record)
-    local entity = orig(self, game, record)
-    if entity then
-      if not entity.hiddenEncounter and entity.visibleSprite ~= false then
-        pcall(function()
-          render:applyProviderSprite(entity, game)
-        end)
-      end
+  local inner = self.makeEntity
+  -- Avoid infinite self-wrap if we are already outermost with same inner.
+  if self._styleWrapFn and self.makeEntity == self._styleWrapFn
+     and self._styleWrapInner == inner then
+    return true
+  end
+  -- If makeEntity is already our wrap, peel to the previous inner.
+  if self._styleWrapFn and self.makeEntity == self._styleWrapFn then
+    inner = self._styleWrapInner or inner
+  end
+  local function styleWrap(selfRef, game, record)
+    local entity = inner(selfRef, game, record)
+    if entity and not entity.hiddenEncounter and entity.visibleSprite ~= false then
+      pcall(function()
+        render:applyProviderSprite(entity, game)
+      end)
     end
     return entity
   end
+  self._styleWrapInner = inner
+  self._styleWrapFn = styleWrap
+  self.makeEntity = styleWrap
   self._providerMakeWrapped = true
   return true
 end
@@ -2222,6 +2312,14 @@ end
 function SpawnRender:finalizeSpriteProviders(game)
   if self.spriteProviders then
     self.spriteProviders:finalize(game)
+  end
+  self:installLateMakeEntityWrap()
+end
+
+-- Call before spawning so a late Followers wrap cannot stay outermost.
+function SpawnRender:ensureStyleOwnedMakeEntity(game)
+  if self.spriteProviders and game then
+    pcall(function() self.spriteProviders:finalize(game) end)
   end
   self:installLateMakeEntityWrap()
 end

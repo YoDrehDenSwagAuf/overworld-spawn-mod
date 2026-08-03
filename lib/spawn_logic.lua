@@ -19,6 +19,8 @@ local Behavior = V.require("behavior")
 local Movement = V.require("movement")
 local VoxelAdapter = V.require("voxel_adapter")
 local SpawnFx = V.require("spawn_fx")
+local WaterSpawn = V.require("water_spawn")
+local AnimatedSprites = V.require("animated_sprites")
 
 local SpawnLogic = {}
 SpawnLogic.__index = SpawnLogic
@@ -83,6 +85,12 @@ function SpawnLogic.new(mod, render)
   self.waterCache = nil
   self.waterRegions = {}
   self.targetWaterCount = 0
+  self.waterPool = nil
+  self.waterZonePools = nil
+  self.shoreDistance = nil
+  self.waterZoneTargets = nil
+  self.waterZoneCounts = { near = 0, mid = 0, deep = 0 }
+  self.recentWaterSpecies = {}
   self._lastStepDiag = nil
   return self
 end
@@ -238,13 +246,19 @@ function SpawnLogic:_onAggressiveAlert(entity, record)
   if not bx then return end
   -- Exactly one alert / emote per detection.
   if bx.alertEmoteSpawned then return end
-  if ow.emote or ow.engaging then return end
 
   -- Stop movement and disable sight for the reaction pause.
   Movement.stop(entity, "ALERT")
   bx.sightDisabled = true
-  bx.alertEmoteSpawned = true
+  bx.alertAt = bx.alertAt or (love and love.timer and love.timer.getTime and love.timer.getTime()) or os.clock()
   bx.state = Behavior.STATE.ALERT
+
+  if ow.emote or ow.engaging then
+    -- Emote slot busy: Behaviour.healAggroFlags will markChaseReady after timeout.
+    return
+  end
+
+  bx.alertEmoteSpawned = true
 
   -- Engine emotion bubble (same path as trainers). NOT a wild/Voxel entity.
   -- No species, no collision, no spawn slot — only npc.px/py for anchoring.
@@ -362,21 +376,135 @@ function SpawnLogic:countWaterOnMap(mapId)
   return n
 end
 
+function SpawnLogic:countWaterZone(mapId, zone)
+  local n = 0
+  for _, id in ipairs(self.byMap[mapId] or {}) do
+    local r = self.spawns[id]
+    if r and r.state == Config.STATE.AVAILABLE and Behavior.isWater(r.behavior)
+       and r.waterZone == zone then
+      n = n + 1
+    end
+  end
+  return n
+end
+
+function SpawnLogic:_recountWaterZones()
+  local mapId = self.activeMapId
+  self.waterZoneCounts = { near = 0, mid = 0, deep = 0 }
+  if not mapId then return end
+  for _, id in ipairs(self.byMap[mapId] or {}) do
+    local r = self.spawns[id]
+    if r and r.state == Config.STATE.AVAILABLE and Behavior.isWater(r.behavior) then
+      local z = r.waterZone
+      if z == WaterSpawn.ZONE.NEAR then
+        self.waterZoneCounts.near = self.waterZoneCounts.near + 1
+      elseif z == WaterSpawn.ZONE.MID then
+        self.waterZoneCounts.mid = self.waterZoneCounts.mid + 1
+      elseif z == WaterSpawn.ZONE.DEEP then
+        self.waterZoneCounts.deep = self.waterZoneCounts.deep + 1
+      end
+    end
+  end
+end
+
+function SpawnLogic:_speciesCountsOnMap(mapId, waterOnly)
+  local counts = {}
+  for _, id in ipairs(self.byMap[mapId] or {}) do
+    local r = self.spawns[id]
+    if r and r.state == Config.STATE.AVAILABLE then
+      if (not waterOnly) or Behavior.isWater(r.behavior) then
+        counts[r.species] = (counts[r.species] or 0) + 1
+      end
+    end
+  end
+  return counts
+end
+
+function SpawnLogic:_noteRecentWaterSpecies(species)
+  local list = self.recentWaterSpecies or {}
+  list[#list + 1] = species
+  while #list > WaterSpawn.ANTI_STREAK_LEN do
+    table.remove(list, 1)
+  end
+  self.recentWaterSpecies = list
+end
+
+function SpawnLogic:_entityHasCompatibleWaterSprite(entity)
+  if not entity then return false end
+  if entity.hasWaterSprite ~= nil then return entity.hasWaterSprite == true end
+  local render = self.render
+  local reg = render and render.waterSpriteRegistry
+  if not (reg and reg:isReady()) then
+    entity.hasWaterSprite = false
+    return false
+  end
+  local dexId = entity.enhancedDexId
+  if not dexId and entity.species then
+    local game = gameOf(self.mod)
+    dexId = AnimatedSprites.resolveSpeciesId(entity.species, game, self.mod)
+  end
+  if not dexId then
+    entity.hasWaterSprite = false
+    return false
+  end
+  local has = reg:hasKind(dexId, "swimming", "normal")
+           or reg:hasKind(dexId, "levitates", "normal")
+  entity.hasWaterSprite = has == true
+  return entity.hasWaterSprite
+end
+
+function SpawnLogic:_rebuildWaterSpawnData(game, mapId, encDef)
+  encDef = encDef or self:_encDef(mapId, game)
+  self.waterPool = WaterSpawn.buildPool(game, mapId, encDef)
+  self.shoreDistance = WaterSpawn.buildShoreDistance(
+    (self.mod.world and self.mod.world.overworld and self.mod.world:overworld()
+     and self.mod.world:overworld().map),
+    self.waterCache)
+  -- Prefer map from overworld when available.
+  local world = self.mod.world
+  local ow = world and world.overworld and world:overworld()
+  if ow and ow.map then
+    self.shoreDistance = WaterSpawn.buildShoreDistance(ow.map, self.waterCache)
+  end
+  local hasDeep = self.shoreDistance and self.shoreDistance.hasDeep == true
+  self.waterZonePools = WaterSpawn.buildZonePools(self.waterPool, hasDeep)
+  self.waterZoneTargets = WaterSpawn.zoneTargets(
+    self.targetWaterCount or 0, self.shoreDistance, self.waterZonePools)
+  self:_recountWaterZones()
+  return self.waterPool
+end
+
 function SpawnLogic:_computeWaterTarget(waterCells)
   waterCells = tonumber(waterCells) or 0
   if waterCells <= 0 then return 0 end
   if not Config.waterMons(self.mod) then return 0 end
-  local raw = math.floor(waterCells / 24)
+  -- Scale by visible water cells so Spawn Amount is clearly visible.
+  -- small ≈1, medium 2–4, large 4–8+ (capped by max_water_mons / regions).
+  local raw = math.floor(waterCells / 12)
   local density = Config.spawnDensity(self.mod)
   local factor = SpawnRegions.densityFactor(density)
   raw = math.floor(raw * factor + 0.5)
-  if waterCells >= 8 and raw < 1 then raw = 1 end
-  if waterCells < 8 then raw = math.min(raw, 1) end
-  if waterCells < 4 then raw = 0 end
+  if waterCells >= 6 and raw < 1 then raw = 1 end
+  if waterCells < 6 then raw = math.min(raw, 1) end
+  if waterCells < 3 then raw = 0 end
+
+  -- Prefer at least one spawn per sufficiently large connected water region.
+  local regionBonus = 0
+  for _, region in ipairs(self.waterRegions or {}) do
+    local tiles = tonumber(region.tileCount) or 0
+    if tiles >= 6 then
+      regionBonus = regionBonus + 1
+    elseif tiles >= 3 then
+      regionBonus = regionBonus + 0 -- still covered by global floor above
+    end
+  end
+  if regionBonus > raw then raw = regionBonus end
+
   local maxW = Config.maxWaterMons(self.mod)
   if raw > maxW then raw = maxW end
-  if raw > math.floor(waterCells / 6) then
-    raw = math.max(0, math.floor(waterCells / 6))
+  -- Soft cell density cap: allow denser water than land grass.
+  if raw > math.floor(waterCells / 4) then
+    raw = math.max(0, math.floor(waterCells / 4))
   end
   return raw
 end
@@ -595,6 +723,13 @@ function SpawnLogic:initializeForMap(mapId, game)
   self.waterCache = Grass.waterCells(ow.map)
   self.waterRegions = {}
   self.targetWaterCount = 0
+  self.waterPool = nil
+  self.waterZonePools = nil
+  self.shoreDistance = nil
+  self.waterZoneTargets = nil
+  self.recentWaterSpecies = {}
+  local waterPoolPreview = WaterSpawn.buildPool(game, mapId, encDef)
+  local hasWaterPool = WaterSpawn.hasPool(waterPoolPreview)
   if surfaceInfo.surface == Surface.WATER then
     -- Primary water map: sparse water density; gated by Water Mons.
     if Config.waterMons(self.mod) then
@@ -605,17 +740,18 @@ function SpawnLogic:initializeForMap(mapId, game)
       if #self.waterCache > 0 then
         self.waterRegions = SpawnRegions.build(self.waterCache)
       end
+      self:_rebuildWaterSpawnData(game, mapId, encDef)
     else
       self.targetSpawnCount = 0
       st.targetSpawnCount = 0
       self.targetWaterCount = 0
     end
-  elseif Config.waterMons(self.mod)
-     and EncounterPick.kindTable(encDef, "water") then
+  elseif Config.waterMons(self.mod) and hasWaterPool and #(self.waterCache) > 0 then
     self.targetWaterCount = self:_computeWaterTarget(#self.waterCache)
     if #self.waterCache > 0 then
       self.waterRegions = SpawnRegions.build(self.waterCache)
     end
+    self:_rebuildWaterSpawnData(game, mapId, encDef)
   end
 
   self.regionQuotas, st.allocatedSpawns = SpawnRegions.allocate(
@@ -636,6 +772,15 @@ function SpawnLogic:initializeForMap(mapId, game)
     self:_log("Water Mons: %s cells=%d target=%d",
               tostring(Config.waterMons(self.mod)),
               #(self.waterCache or {}), self.targetWaterCount or 0)
+    if self.shoreDistance then
+      local s = WaterSpawn.summarize(
+        self.waterPool, self.shoreDistance, self.waterZonePools, self.waterZoneTargets)
+      self:_log(
+        "Water zones near/mid/deep=%d/%d/%d pools=%d/%d/%d surf/old/good/super=%d/%d/%d/%d",
+        s.nearShore, s.midWater, s.deepWater,
+        s.nearPool, s.midPool, s.deepPool,
+        s.surfSpecies, s.oldRodSpecies, s.goodRodSpecies, s.superRodSpecies)
+    end
   end
 
   local minDist = Config.DEFAULTS.min_player_distance
@@ -775,6 +920,10 @@ function SpawnLogic:trySpawn(game, opts)
   opts = opts or {}
   if not self:featureActive() then
     return nil, "feature disabled"
+  end
+
+  if self.render and self.render.ensureStyleOwnedMakeEntity then
+    pcall(function() self.render:ensureStyleOwnedMakeEntity(game) end)
   end
 
   local st = self.state
@@ -968,8 +1117,12 @@ function SpawnLogic:trySpawn(game, opts)
 
   Behavior.attach(entity, behavior, region)
   entity.surface = surfaceInfo.surface
+  entity.originSurface = surfaceInfo.surface
+  entity.waterEnteredByChase = false
+  entity.hasWaterSprite = self:_entityHasCompatibleWaterSprite(entity)
   entity.encounterKind = encounterKind
   record.facing = entity.facing
+  record.originSurface = surfaceInfo.surface
 
   -- Visible grass/land spawn pop (not readiness probe).
   -- Begin FX before world attach so pose-nil entities stay logical-only.
@@ -1020,6 +1173,10 @@ function SpawnLogic:trySpawnWater(game, opts)
     return nil, "water mons disabled"
   end
 
+  if self.render and self.render.ensureStyleOwnedMakeEntity then
+    pcall(function() self.render:ensureStyleOwnedMakeEntity(game) end)
+  end
+
   local world = self.mod.world
   if not world or not world.overworld then
     return nil, "no world"
@@ -1031,7 +1188,11 @@ function SpawnLogic:trySpawnWater(game, opts)
 
   local mapId = ow.map.id
   local encDef = self:_encDef(mapId, game)
-  if not EncounterPick.kindTable(encDef, "water") then
+
+  if not self.waterPool or not WaterSpawn.hasPool(self.waterPool) then
+    self:_rebuildWaterSpawnData(game, mapId, encDef)
+  end
+  if not WaterSpawn.hasPool(self.waterPool) then
     return nil, "rejected: no water encounter data"
   end
 
@@ -1045,9 +1206,36 @@ function SpawnLogic:trySpawnWater(game, opts)
     return nil, "rejected: no water tiles"
   end
 
+  if not self.shoreDistance then
+    self.shoreDistance = WaterSpawn.buildShoreDistance(ow.map, self.waterCache)
+    self.waterZonePools = WaterSpawn.buildZonePools(
+      self.waterPool, self.shoreDistance.hasDeep)
+    self.waterZoneTargets = WaterSpawn.zoneTargets(
+      target, self.shoreDistance, self.waterZonePools)
+  end
+
+  self:_recountWaterZones()
+  local zone, zoneCells = WaterSpawn.pickSpawnZone(
+    self.waterZoneCounts, self.waterZoneTargets, self.shoreDistance)
+  if not zone or not zoneCells or #zoneCells == 0 then
+    -- Soft fallback: any water cell.
+    zoneCells = self.waterCache
+    if self.shoreDistance then
+      local sample = zoneCells[1]
+      if sample then
+        local d = WaterSpawn.distanceAt(self.shoreDistance, sample.x, sample.y)
+        zone = WaterSpawn.zoneForDistance(d or 0) or WaterSpawn.ZONE.MID
+      else
+        zone = WaterSpawn.ZONE.MID
+      end
+    else
+      zone = WaterSpawn.ZONE.MID
+    end
+  end
+
   local x, y, reason = Grass.pickFree(
     ow.map, ow.entities, ow.player,
-    Config.DEFAULTS.min_player_distance, nil, self.waterCache,
+    Config.DEFAULTS.min_player_distance, nil, zoneCells,
     Config.DEFAULTS.max_player_distance,
     function(r) self.state:noteReject(r) end,
     {
@@ -1057,20 +1245,68 @@ function SpawnLogic:trySpawnWater(game, opts)
       preferFar = true,
     })
   if not x then
-    return nil, reason or "rejected: no eligible tiles"
+    -- Retry against full water cache once.
+    x, y, reason = Grass.pickFree(
+      ow.map, ow.entities, ow.player,
+      Config.DEFAULTS.min_player_distance, nil, self.waterCache,
+      Config.DEFAULTS.max_player_distance,
+      function(r) self.state:noteReject(r) end,
+      {
+        mode = "water",
+        occupiedSpawns = self:_occupiedSpawnCoords(mapId),
+        minSeparation = 3,
+        preferFar = true,
+      })
+    if not x then
+      return nil, reason or "rejected: no eligible tiles"
+    end
+    local d = WaterSpawn.distanceAt(self.shoreDistance, x, y)
+    zone = WaterSpawn.zoneForDistance(d or 0) or zone
+  else
+    local d = WaterSpawn.distanceAt(self.shoreDistance, x, y)
+    if d ~= nil then
+      zone = WaterSpawn.zoneForDistance(d) or zone
+    end
   end
 
-  local pick = EncounterPick.pick(encDef, nil, "water")
+  local maxSame = WaterSpawn.maxSameSpecies(target)
+  local pick = WaterSpawn.pickForZone(self.waterZonePools, zone, {
+    recentSpecies = self.recentWaterSpecies,
+    speciesCounts = self:_speciesCountsOnMap(mapId, true),
+    maxSameSpecies = maxSame,
+    fallbackEntries = self.waterPool and self.waterPool.entries,
+  })
+  if not pick then
+    -- Fallback: any zone pool that is non-empty.
+    for _, z in ipairs({ WaterSpawn.ZONE.MID, WaterSpawn.ZONE.NEAR, WaterSpawn.ZONE.DEEP }) do
+      pick = WaterSpawn.pickForZone(self.waterZonePools, z, {
+        recentSpecies = self.recentWaterSpecies,
+        speciesCounts = self:_speciesCountsOnMap(mapId, true),
+        maxSameSpecies = maxSame,
+        fallbackEntries = self.waterPool and self.waterPool.entries,
+      })
+      if pick then
+        zone = z
+        break
+      end
+    end
+  end
   if not pick then
     return nil, "rejected: no encounter data"
   end
+
   local species, level = pick.species, pick.level
   local region = SpawnRegions.regionForCell(self.waterRegions, x, y)
+  local waterAggChance = Config.get(self.mod, "water_aggressive_chance")
+                      or Config.DEFAULTS.water_aggressive_chance or 0.15
   local behavior = Behavior.pick(species, Surface.WATER, {
     enable_idle = true,
     enable_wander = true,
-    enable_aggressive = false,
+    enable_aggressive = Config.get(self.mod, "enable_aggressive") ~= false,
+    enable_water_aggressive = Config.get(self.mod, "enable_aggressive") ~= false,
     enable_hidden = false,
+    water_aggressive_chance = waterAggChance,
+    aggressive_frequency = Config.get(self.mod, "aggressive_frequency") or 1,
   })
   if not Behavior.isWater(behavior) then
     behavior = (math.random() < 0.45) and Behavior.WATER_IDLE or Behavior.WATER_WANDER
@@ -1080,6 +1316,7 @@ function SpawnLogic:trySpawnWater(game, opts)
   self.nextId = self.nextId + 1
   local id = string.format("wilds_of_kanto_entity_%d", seq)
 
+  local shoreDist = WaterSpawn.distanceAt(self.shoreDistance, x, y)
   local record = {
     id = id,
     mapId = mapId,
@@ -1089,11 +1326,17 @@ function SpawnLogic:trySpawnWater(game, opts)
     state = Config.STATE.AVAILABLE,
     behavior = behavior,
     surface = Surface.WATER,
-    encounterKind = "water",
+    encounterKind = pick.source or "water",
+    encounterSource = pick.encounterSource or "SURF",
+    rodTier = pick.rodTier,
+    waterZone = zone,
+    shoreDistance = shoreDist,
+    spawnRule = pick.spawnRule,
     homeRegionId = region and region.id or nil,
     visibleSprite = true,
     hiddenEncounter = false,
     canTriggerBattle = false,
+    originSurface = Surface.WATER,
   }
 
   local ok, entityOrErr = pcall(self.render.makeEntity, self.render, game, record)
@@ -1104,12 +1347,22 @@ function SpawnLogic:trySpawnWater(game, opts)
 
   Behavior.attach(entity, behavior, region)
   entity.surface = Surface.WATER
-  entity.encounterKind = "water"
+  entity.spriteState = "water"
+  entity.encounterKind = record.encounterKind
+  entity.encounterSource = record.encounterSource
+  entity.rodTier = record.rodTier
+  entity.waterZone = zone
+  entity.shoreDistance = shoreDist
+  entity.spawnRule = record.spawnRule
+  entity.originSurface = Surface.WATER
+  entity.waterEnteredByChase = false
   entity.surfaceVisualOffset = 2
   entity.waterSink = 2
+  entity.hasWaterSprite = self:_entityHasCompatibleWaterSprite(entity)
   SpawnFx.begin(entity, SpawnFx.KIND.WATER)
-  entity.canTriggerBattle = false
+  entity.canTriggerBattle = true
   record.facing = entity.facing
+  record.canTriggerBattle = true
 
   local attached, attachErr = self:_attach(entity)
   if not attached then
@@ -1120,9 +1373,13 @@ function SpawnLogic:trySpawnWater(game, opts)
   self.entities[id] = entity
   self.byMap[mapId] = self.byMap[mapId] or {}
   self.byMap[mapId][#self.byMap[mapId] + 1] = id
+  self:_noteRecentWaterSpecies(species)
+  self:_recountWaterZones()
 
-  self.mod.log:info("spawned water %s Lv%d %s at %s (%d,%d)",
-                    species, level, tostring(behavior), mapId, x, y)
+  self.mod.log:info(
+    "spawned water %s Lv%d %s zone=%s src=%s at %s (%d,%d)",
+    species, level, tostring(behavior), tostring(zone),
+    tostring(record.encounterSource), mapId, x, y)
   return record, nil, entity
 end
 
@@ -1220,6 +1477,11 @@ function SpawnLogic:applyWaterMons(on, source)
           else
             doomed[#doomed + 1] = id
           end
+        elseif r and e and e.waterEnteredByChase then
+          -- Land-origin chasers that entered water: remove when Water Mons off.
+          if e.state ~= Config.STATE.ENCOUNTER_STARTING then
+            doomed[#doomed + 1] = id
+          end
         end
       end
       for _, id in ipairs(doomed) do
@@ -1227,6 +1489,7 @@ function SpawnLogic:applyWaterMons(on, source)
       end
     end
     self.targetWaterCount = 0
+    self.waterZoneTargets = { near = 0, mid = 0, deep = 0, total = 0 }
     self:_log("water_spawns OFF via %s; removed water mons", tostring(source))
     return
   end
@@ -1246,12 +1509,16 @@ function SpawnLogic:applyWaterMons(on, source)
     self.targetSpawnCount = self.targetWaterCount
     if self.state then self.state.targetSpawnCount = self.targetSpawnCount end
     self.waterRegions = SpawnRegions.build(self.waterCache)
-  elseif EncounterPick.kindTable(encDef, "water") then
-    self.targetWaterCount = self:_computeWaterTarget(#self.waterCache)
-    self.waterRegions = SpawnRegions.build(self.waterCache)
   else
-    self.targetWaterCount = 0
+    local pool = WaterSpawn.buildPool(game, self.activeMapId, encDef)
+    if WaterSpawn.hasPool(pool) and #(self.waterCache) > 0 then
+      self.targetWaterCount = self:_computeWaterTarget(#self.waterCache)
+      self.waterRegions = SpawnRegions.build(self.waterCache)
+    else
+      self.targetWaterCount = 0
+    end
   end
+  self:_rebuildWaterSpawnData(game, self.activeMapId, encDef)
   if game then
     local guard = 0
     while self:countWaterOnMap(self.activeMapId) < (self.targetWaterCount or 0)
@@ -1506,6 +1773,15 @@ function SpawnLogic:onMapEntered(ev)
   self:_clearMap(mapId)
   if self.overlay then self.overlay:clear() end
   self:_restoreVanillaEncounters("map enter before init")
+
+  -- Re-assert style-owned makeEntity wrap before any spawn (Followers may wrap later).
+  if self.render and self.render.ensureStyleOwnedMakeEntity then
+    local world = self.mod.world
+    local game = world and world.game
+    pcall(function() self.render:ensureStyleOwnedMakeEntity(game) end)
+    local style = Config.spriteStyle(self.mod)
+    self:_log("sprite_style mapenter saved/config/resolver=%s", tostring(style))
+  end
 
   if not self:featureActive() then
     self.state:reset("disabled")

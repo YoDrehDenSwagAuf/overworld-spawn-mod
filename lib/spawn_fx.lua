@@ -69,6 +69,7 @@ end
 
 function SpawnFx.bodyVisible(entity)
   if not entity then return true end
+  SpawnFx.ensureProgress(entity)
   if entity.hiddenBody == true then
     return false
   end
@@ -88,21 +89,76 @@ function SpawnFx.visualLift(entity)
   return tonumber(entity._spawnLiftPx or entity._revealHopPx) or 0
 end
 
+-- Fail-safe: never leave an entity frozen because FX stalled.
+function SpawnFx.ensureProgress(entity)
+  if not entity then return end
+  local fx = entity.spawnFx
+  if not fx then
+    if entity.canTriggerBattle == nil then
+      entity.canTriggerBattle = true
+    end
+    return
+  end
+  if fx.done then return end
+  local dur = tonumber(fx.duration) or 0.6
+  local actAt = tonumber(fx.actAt) or dur
+  local elapsed = tonumber(fx.elapsed) or 0
+  local tolerance = 0.35
+  -- Unlock as soon as actAt is reached, or after duration+tolerance.
+  if elapsed >= actAt or elapsed >= dur + tolerance or dur <= 0 then
+    fx.done = true
+    fx.bodyShown = true
+    entity.hiddenBody = false
+    entity.canTriggerBattle = true
+    entity.hopping = false
+    if fx.kind == SpawnFx.KIND.WATER then
+      entity._spawnLiftPx = tonumber(entity.surfaceVisualOffset) or 2
+    else
+      entity._spawnLiftPx = 0
+      entity._revealHopPx = 0
+    end
+  end
+end
+
 function SpawnFx.canAct(entity)
   if not entity then return true end
+  SpawnFx.ensureProgress(entity)
   local fx = entity.spawnFx
-  if fx and not fx.done then
-    return false
-  end
-  return true
+  if not fx then return true end
+  if fx.done then return true end
+  return false
 end
 
 function SpawnFx.canBattle(entity)
   if not entity then return false end
+  SpawnFx.ensureProgress(entity)
   if entity.canTriggerBattle == false then return false end
   local fx = entity.spawnFx
   if fx and not fx.done then return false end
   return true
+end
+
+function SpawnFx.debugState(entity)
+  local fx = entity and entity.spawnFx
+  if not fx then
+    return {
+      id = entity and entity.id,
+      spawnFx = "none",
+      canAct = true,
+      canBattle = entity and entity.canTriggerBattle ~= false,
+      bodyVisible = true,
+    }
+  end
+  return {
+    id = entity and entity.id,
+    kind = fx.kind,
+    phase = fx.done and "done" or "active",
+    elapsed = fx.elapsed,
+    duration = fx.duration,
+    bodyVisible = SpawnFx.bodyVisible(entity),
+    canAct = SpawnFx.canAct(entity),
+    canBattle = SpawnFx.canBattle(entity),
+  }
 end
 
 function SpawnFx.updateEntity(entity, dt, ctx)

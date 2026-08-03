@@ -325,6 +325,42 @@ def verify_zip(out_zip: Path, manifest: dict) -> None:
     if sample not in names:
         fail(f"ZIP missing sample runtime sheet: {sample}")
 
+    water_map_swim = (
+        "assets/enhanced_overworld/water_sprites/swimming/swimming_sprite_mapping.json"
+    )
+    water_map_lev = (
+        "assets/enhanced_overworld/water_sprites/levitates/levitates_sprite_mapping.json"
+    )
+    if water_map_swim not in names:
+        fail(f"ZIP missing water swimming mapping: {water_map_swim}")
+    if water_map_lev not in names:
+        fail(f"ZIP missing water levitates mapping: {water_map_lev}")
+    water_src = [
+        n for n in names
+        if n.startswith("assets/enhanced_overworld/water_sprites/")
+        and n.lower().endswith(".png")
+    ]
+    if len(water_src) < 100:
+        fail(f"ZIP water source PNGs too few ({len(water_src)})")
+    print(f"  water source PNGs: {len(water_src)}")
+    water_runtime_manifest = "assets/generated/water_runtime/manifest.json"
+    if water_runtime_manifest not in names:
+        fail(f"ZIP missing water runtime manifest: {water_runtime_manifest}")
+    water_runtime = [
+        n for n in names
+        if n.startswith("assets/generated/water_runtime/")
+        and n.lower().endswith(".png")
+    ]
+    if len(water_runtime) < 100:
+        fail(f"ZIP water runtime sheets too few ({len(water_runtime)})")
+    print(f"  water runtime sheets: {len(water_runtime)}")
+    for sample_water in (
+        "assets/generated/water_runtime/swimming/001-normal.png",
+        "assets/generated/water_runtime/levitates/063-normal.png",
+    ):
+        if sample_water not in names:
+            fail(f"ZIP missing sample water runtime sheet: {sample_water}")
+
     try:
         parsed = json.loads(raw_manifest.decode("utf-8"))
     except json.JSONDecodeError as err:
@@ -443,6 +479,26 @@ def ensure_runtime_sheets() -> None:
         fail(f"runtime sheet sample missing: {sample}")
 
 
+def ensure_water_runtime_sheets() -> None:
+    """Build water swimming/levitates 16×96 SpriteRenderer sheets."""
+    script = ROOT / "tools" / "generate_water_runtime_sheets.py"
+    validate = ROOT / "tools" / "validate_water_sprites.py"
+    out_dir = ROOT / "assets" / "generated" / "water_runtime"
+    manifest = out_dir / "manifest.json"
+    if not script.is_file():
+        fail(f"missing water sheet generator: {script}")
+    print("==> generating water runtime sprite sheets")
+    subprocess.check_call([sys.executable, str(script)], cwd=str(ROOT))
+    if not manifest.is_file():
+        fail(f"water runtime manifest missing after generate: {manifest}")
+    sample = out_dir / "swimming" / "001-normal.png"
+    if not sample.is_file():
+        fail(f"water runtime sample missing: {sample}")
+    if validate.is_file():
+        print("==> validating water sprites")
+        subprocess.check_call([sys.executable, str(validate)], cwd=str(ROOT))
+
+
 def main() -> int:
     if not (MOD_DIR / "manifest.json").is_file():
         fail(f"missing mod manifest at repo root: {MOD_DIR / 'manifest.json'}")
@@ -452,6 +508,7 @@ def main() -> int:
     run_ascii_guard()
     verify_follow_sprite_assets()
     ensure_runtime_sheets()
+    ensure_water_runtime_sheets()
 
     if DIST.exists():
         shutil.rmtree(DIST)

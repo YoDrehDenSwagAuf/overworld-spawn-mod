@@ -1,9 +1,10 @@
 -- Weighted species/level picks from a map's encounter tables.
 -- Defensive: nil / empty tables are never treated as a valid spawn source.
 --
--- Grass and cave (indoor) spawns use the grass table. Water spawns use the
--- water (Surf) table only. Fishing tables are never used for free overworld
--- spawns — they remain rod-bound and are indexed for the preview browser.
+-- Grass and cave (indoor) spawns use the grass table. Classic Surf rolls use
+-- the water table. Visible Water Mons build a separate zone-aware pool from
+-- Surf + fishing (Old/Good/Super Rod) via water_spawn.lua — not this pick().
+-- EncounterPick.pick("fishing") still returns nil (rod rolls stay engine-side).
 local V = ...
 local Config = V.require("config")
 
