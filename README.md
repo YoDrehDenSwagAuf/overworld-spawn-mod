@@ -254,6 +254,25 @@ Some water Pokémon can be aggressive and swim toward the player while remaining
 
 Aggressive land Pokémon may also follow the player into nearby water when a compatible Swimming or Levitates sprite exists. Once in the water, they remain there and do not chase the player back onto land.
 
+## World Collision
+
+Visible wild Pokémon reserve both their current tile and movement target.
+They cannot spawn on top of another entity, walk through Pokémon, trainers,
+NPCs, or an active follower, or swap tiles during simultaneous movement.
+
+## Follower Water Sprites
+
+When a compatible follower mod is active, a follower can use Wilds of Kanto's
+Swimming or Levitates sprite while the player is surfing. Wilds only supplies
+the sprite definition; follower ownership and movement remain with the follower
+mod.
+
+## Land-to-Water Chase
+
+Aggressive land Pokémon with a compatible Swimming or Levitates sprite can
+follow the player into an unoccupied water tile. The same entity switches to
+its water sprite without respawning.
+
 ## Water Pokémon Sprites
 
 Visible Pokémon on water use dedicated animated water sprites whenever
@@ -455,10 +474,12 @@ not part of the Dramatic Shape Voxel Mod. It does not require the voxel mod.
 - Unusual maps may still have odd encounter-area edge cases
 - Sprite sizes are not always perfect because source art varies
 - Some species may use the fallback sprite when no image resolves
-- Water support is real but narrower than land (Idle / Wander only; Surf rolls
-  stay vanilla)
+- Water Idle / Wander / Aggressive are supported; classic Surf rolls follow Random Enc
 - Cave maps may still need additional verification
 - Aggressive chase uses tile steps and can struggle on complex layouts
+- Followers EX has no public API for Wilds to inject blockers into follower
+  pathfinding; Wilds still treats follower cells as occupied for its own spawns
+  and steps
 - Compatibility with other mods is not fully guaranteed
 - Temporary overworld presentation often uses battle-front art scaled to 16×16
 - Voxel billboards may not mirror custom 2D scale exactly

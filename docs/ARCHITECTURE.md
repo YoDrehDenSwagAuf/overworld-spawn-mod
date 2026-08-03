@@ -17,6 +17,8 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `lib/enhanced_world_sprite.lua` | Deprecated dynamic-card adapter (unused for body) |
 | `lib/tile.lua` | Gen1Recomp tile size (16x16) |
 | `lib/movement.lua` | Tile-step movement + NPC walkPhase/stepFlip |
+| `lib/cell_occupancy.lua` | Atomic spawn / move cell reservations |
+| `lib/followers_water_compat.lua` | Optional Followers EX water sprite swaps |
 | `lib/grass_occlusion.lua` | Flat feet-overdraw + above-lift helpers |
 | `lib/voxel_adapter.lua` | DS hooks; emergency overlay filter |
 | `lib/surface.lua` | GRASS / CAVE / WATER surface resolve |

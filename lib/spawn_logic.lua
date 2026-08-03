@@ -21,6 +21,8 @@ local VoxelAdapter = V.require("voxel_adapter")
 local SpawnFx = V.require("spawn_fx")
 local WaterSpawn = V.require("water_spawn")
 local AnimatedSprites = V.require("animated_sprites")
+local CellOccupancy = V.require("cell_occupancy")
+local FollowersWaterCompat = V.require("followers_water_compat")
 
 local SpawnLogic = {}
 SpawnLogic.__index = SpawnLogic
@@ -92,7 +94,208 @@ function SpawnLogic.new(mod, render)
   self.waterZoneCounts = { near = 0, mid = 0, deep = 0 }
   self.recentWaterSpecies = {}
   self._lastStepDiag = nil
+  self.occupancy = CellOccupancy.new()
+  self.followersWater = FollowersWaterCompat.new(mod)
   return self
+end
+
+function SpawnLogic:rebuildOccupancy(ow)
+  local occupancy = self.occupancy or CellOccupancy.new()
+  self.occupancy = occupancy
+  ow = ow or (self.mod.world and self.mod.world.overworld
+              and self.mod.world:overworld())
+  occupancy:rebuild({
+    player = ow and ow.player,
+    entities = ow and ow.entities,
+    npcs = ow and ow.npcs,
+    logicEntities = self.entities,
+    trailers = ow and ow.pokepcTrailers,
+  })
+  return occupancy
+end
+
+function SpawnLogic:occupancyContext(ow)
+  ow = ow or (self.mod.world and self.mod.world.overworld
+              and self.mod.world:overworld())
+  return {
+    player = ow and ow.player,
+    entities = ow and ow.entities,
+    npcs = ow and ow.npcs,
+    logicEntities = self.entities,
+    trailers = ow and ow.pokepcTrailers,
+  }
+end
+
+-- Central per-entity sprite refresh. Replaces SpriteDef / native SpriteRenderer
+-- only; never mutates position, movement, behaviour, battle payload, or voxels.
+function SpawnLogic:refreshEntitySprite(entity, opts)
+  opts = opts or {}
+  if not entity then return false, "no_entity" end
+  local reason = opts.reason or "refresh"
+  entity.lastSpriteRefreshReason = reason
+  if opts.surface ~= nil then
+    entity.surface = opts.surface
+  end
+  if opts.spriteState ~= nil then
+    entity.spriteState = opts.spriteState
+  elseif entity.surface == Surface.WATER then
+    entity.spriteState = "water"
+  end
+  if opts.pendingSpriteDef then
+    entity.pendingSpriteDef = opts.pendingSpriteDef
+  end
+  if opts.pendingSurface ~= nil then
+    entity.pendingSurface = opts.pendingSurface
+  end
+  local game = opts.game or gameOf(self.mod)
+  local render = self.render
+  if not (render and render.applyProviderSprite) then
+    return false, "no_render"
+  end
+  local ok, applied = pcall(render.applyProviderSprite, render, entity, game)
+  if not ok then
+    self:_warn("refreshEntitySprite failed (%s): %s", tostring(reason), tostring(applied))
+    return false, applied
+  end
+  if applied and entity.pendingSpriteDef and opts.clearPending ~= false then
+    -- Applied via resolver path; drop pending payload.
+    if entity.spriteState == "water" or entity.surface == Surface.WATER then
+      entity.pendingSpriteDef = nil
+      entity.waterSpritePrepared = true
+      entity.waterSpriteApplied = true
+    end
+  end
+  entity.spriteRefreshAt = (love and love.timer and love.timer.getTime and love.timer.getTime())
+    or os.clock()
+  return applied == true, nil
+end
+
+-- Public water-sprite resolution used by Wilds entities and Followers EX compat.
+-- Default follower-safe rule: swimming → levitates → nil (no land masquerade).
+function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
+  opts = opts or {}
+  local variant
+  if type(isShiny) == "string" then
+    variant = isShiny
+  else
+    variant = (isShiny == true) and "shiny" or "normal"
+  end
+  local allowLandFallback = opts.allowLandFallback == true
+  if opts.follower == true then
+    allowLandFallback = false
+  end
+  local render = self.render
+  local reg = render and render.waterSpriteRegistry
+  local game = opts.game or gameOf(self.mod)
+
+  -- Prefer registry path for a stable, style-independent water result.
+  if reg and reg.isReady and reg:isReady() then
+    local dexId = speciesId
+    if type(dexId) ~= "number" then
+      dexId = AnimatedSprites.resolveSpeciesId(speciesId, game, self.mod)
+    end
+    if dexId then
+      local preferred = reg:preferredKindFor(dexId)
+      local waterDef, waterErr = reg:resolve(dexId, variant, preferred, form)
+      if waterDef then
+        local spriteDef = {
+          image = waterDef.image,
+          frames = waterDef.frames or 6,
+          walker = true,
+          trueColor = true,
+          id = waterDef.id,
+          kind = waterDef.kind,
+        }
+        local meta = {
+          kind = waterDef.kind,
+          speciesId = waterDef.speciesId or dexId,
+          variant = waterDef.variant or variant,
+          form = waterDef.formKey or form,
+          image = waterDef.image,
+          frames = waterDef.frames or 6,
+          walker = true,
+        }
+        return spriteDef, meta
+      end
+      if not allowLandFallback then
+        return nil, { error = waterErr or "no swimming or levitates asset" }
+      end
+    end
+  end
+
+  if not allowLandFallback then
+    return nil, { error = "no swimming or levitates asset" }
+  end
+
+  -- Optional land-style fallback for Wilds water entities only.
+  local resolver = render and render.spriteResolver
+  if resolver and resolver.resolveWaterSprite then
+    local entity = opts.entity or {
+      species = speciesId,
+      enhancedDexId = type(speciesId) == "number" and speciesId or nil,
+      shiny = variant == "shiny",
+      surface = Surface.WATER,
+      form = form,
+    }
+    local result = resolver:resolveWaterSprite(entity, {
+      style = opts.style or Config.spriteStyle(self.mod),
+      game = game,
+      speciesId = type(speciesId) == "number" and speciesId or nil,
+      variant = variant,
+      form = form,
+    })
+    if result and result.def and result.def.image
+       and (result.spriteKind == "swimming" or result.spriteKind == "levitates") then
+      return result.def, {
+        kind = result.spriteKind,
+        speciesId = speciesId,
+        variant = variant,
+        form = form,
+        image = result.def.image,
+        frames = result.def.frames or 6,
+        walker = result.def.walker == true,
+      }
+    end
+    if result and result.def and allowLandFallback then
+      return result.def, {
+        kind = result.spriteKind or result.providerId,
+        speciesId = speciesId,
+        variant = variant,
+        form = form,
+        image = result.def.image,
+        frames = result.def.frames or 1,
+        walker = result.def.walker == true,
+        fallback = true,
+      }
+    end
+  end
+  return nil, { error = "all water resolvers failed" }
+end
+
+function SpawnLogic:_validateNoCellOverlap(ow)
+  local occupancy = self.occupancy
+  if not occupancy then return end
+  local conflicts = occupancy:assertOnlyOneBlockingEntityPerCell(
+    self:occupancyContext(ow),
+    function(c)
+      self:_warn("occupancy conflict at %s,%s owners=%s/%s",
+                 tostring(c.x), tostring(c.y), tostring(c.a), tostring(c.b))
+      -- Prefer removing the younger Wilds spawn (higher numeric suffix).
+      local function wildId(owner)
+        if type(owner) ~= "string" then return nil end
+        if owner:find("wilds_of_kanto_entity_", 1, true) then return owner end
+        return nil
+      end
+      local a, b = wildId(c.a), wildId(c.b)
+      local removeId = b or a
+      if removeId and self.entities[removeId] then
+        DebugLog.warn(self.mod,
+          "removing overlapping spawn %s at %s,%s", removeId, tostring(c.x), tostring(c.y))
+        self:_despawn(removeId, true)
+        occupancy:releaseEntity(removeId)
+      end
+    end)
+  return conflicts
 end
 
 function SpawnLogic:setRestoreVanilla(fn)
@@ -168,6 +371,7 @@ function SpawnLogic:_clearMap(mapId)
     self:_despawn(id, true)
   end
   self.byMap[mapId] = {}
+  if self.occupancy then self.occupancy:clear() end
 end
 
 function SpawnLogic:clearAll()
@@ -184,6 +388,7 @@ function SpawnLogic:clearAll()
   self.regionCounts = {}
   self.targetSpawnCount = 0
   self.surfaceInfo = nil
+  if self.occupancy then self.occupancy:clear() end
   if self.overlay then self.overlay:clear() end
   self:_restoreVanillaEncounters("clearAll")
   self.state:reset("clearAll")
@@ -314,6 +519,9 @@ function SpawnLogic:_despawn(id, removeEntity)
     entity.state = Config.STATE.REMOVED
     entity.alertIcon = false
     entity.registeredInWorld = false
+    if self.occupancy then
+      self.occupancy:releaseEntity(entity)
+    end
     if self.voxel then self.voxel:unregister(entity) end
     -- Clear emote if we own it (exactly once).
     local world = self.mod.world
@@ -324,6 +532,8 @@ function SpawnLogic:_despawn(id, removeEntity)
     if removeEntity ~= false then
       self:_removeEntity(entity)
     end
+  elseif self.occupancy then
+    self.occupancy:releaseEntity(id)
   end
   self.entities[id] = nil
   self.spawns[id] = nil
@@ -993,9 +1203,15 @@ function SpawnLogic:trySpawn(game, opts)
     self.eligibleCache = tileList
   end
 
+  local occupancy = self:rebuildOccupancy(ow)
+
   local x, y, reason
   if opts.x and opts.y then
     x, y = opts.x, opts.y
+    if occupancy:isOccupied(x, y) or occupancy:isReserved(x, y) then
+      st:noteReject("rejected: occupied by NPC")
+      return nil, "rejected: occupied by NPC"
+    end
   elseif opts.allowOutside then
     x, y, reason = Grass.pickFreeWalkable(
       ow.map, ow.entities, ow.player,
@@ -1019,10 +1235,18 @@ function SpawnLogic:trySpawn(game, opts)
         occupiedSpawns = self:_occupiedSpawnCoords(mapId),
         minSeparation = SpawnRegions.minSeparation(),
         preferFar = not opts.force,
+        occupancy = occupancy,
       })
   end
   if not x then
     return nil, reason or "rejected: no eligible tiles"
+  end
+
+  -- Atomic spawn reservation before species/entity creation.
+  local spawnToken, reserveErr = occupancy:reserveSpawn(nil, x, y)
+  if not spawnToken then
+    st:noteReject("rejected: occupied by NPC")
+    return nil, reserveErr or "rejected: occupied by NPC"
   end
 
   if not region then
@@ -1036,6 +1260,7 @@ function SpawnLogic:trySpawn(game, opts)
   else
     local pick = EncounterPick.pick(encDef, nil, encounterKind)
     if not pick then
+      occupancy:releaseSpawn(spawnToken)
       st:noteReject("rejected: no encounter data")
       return nil, "rejected: no encounter data"
     end
@@ -1088,6 +1313,7 @@ function SpawnLogic:trySpawn(game, opts)
 
   local ok, entityOrErr = pcall(self.render.makeEntity, self.render, game, record)
   if not ok then
+    occupancy:releaseSpawn(spawnToken)
     local phase = "ENTITY CREATE ERROR"
     local msg = tostring(entityOrErr)
     if msg:find("ASSET LOAD", 1, true) then phase = "ASSET LOAD ERROR"
@@ -1105,6 +1331,7 @@ function SpawnLogic:trySpawn(game, opts)
   end
   local entity = entityOrErr
   if not entity then
+    occupancy:releaseSpawn(spawnToken)
     st:markError("ENTITY CREATE ERROR: makeEntity returned nil")
     st.lastSpawnError = "ENTITY CREATE ERROR: makeEntity returned nil"
     if not opts.testSpawn then
@@ -1137,6 +1364,7 @@ function SpawnLogic:trySpawn(game, opts)
 
   local attached, attachErr = self:_attach(entity)
   if not attached then
+    occupancy:releaseSpawn(spawnToken)
     self:_warn("WORLD REGISTER ERROR: %s", tostring(attachErr))
     DebugLog.error(self.mod, "WORLD REGISTER ERROR: %s", tostring(attachErr))
     st:markError("WORLD REGISTER ERROR: " .. tostring(attachErr))
@@ -1151,11 +1379,19 @@ function SpawnLogic:trySpawn(game, opts)
   self:_debug("Entity registered")
   self:_debug("Renderer registered")
 
+  occupancy:commitSpawn(spawnToken, entity)
+  self:refreshEntitySprite(entity, {
+    reason = "spawn",
+    surface = entity.surface,
+    game = game,
+  })
+
   self.spawns[id] = record
   self.entities[id] = entity
   self.byMap[mapId] = self.byMap[mapId] or {}
   self.byMap[mapId][#self.byMap[mapId] + 1] = id
   self:_recountRegions()
+  self:_validateNoCellOverlap(ow)
 
   if not opts.readinessProbe then
     self.mod.log:info("spawned wild %s Lv%d %s at %s (%d,%d)",
@@ -1233,6 +1469,8 @@ function SpawnLogic:trySpawnWater(game, opts)
     end
   end
 
+  local occupancy = self:rebuildOccupancy(ow)
+
   local x, y, reason = Grass.pickFree(
     ow.map, ow.entities, ow.player,
     Config.DEFAULTS.min_player_distance, nil, zoneCells,
@@ -1243,6 +1481,7 @@ function SpawnLogic:trySpawnWater(game, opts)
       occupiedSpawns = self:_occupiedSpawnCoords(mapId),
       minSeparation = 3,
       preferFar = true,
+      occupancy = occupancy,
     })
   if not x then
     -- Retry against full water cache once.
@@ -1256,6 +1495,7 @@ function SpawnLogic:trySpawnWater(game, opts)
         occupiedSpawns = self:_occupiedSpawnCoords(mapId),
         minSeparation = 3,
         preferFar = true,
+        occupancy = occupancy,
       })
     if not x then
       return nil, reason or "rejected: no eligible tiles"
@@ -1267,6 +1507,11 @@ function SpawnLogic:trySpawnWater(game, opts)
     if d ~= nil then
       zone = WaterSpawn.zoneForDistance(d) or zone
     end
+  end
+
+  local spawnToken, reserveErr = occupancy:reserveSpawn(nil, x, y)
+  if not spawnToken then
+    return nil, reserveErr or "rejected: occupied by NPC"
   end
 
   local maxSame = WaterSpawn.maxSameSpecies(target)
@@ -1292,6 +1537,7 @@ function SpawnLogic:trySpawnWater(game, opts)
     end
   end
   if not pick then
+    occupancy:releaseSpawn(spawnToken)
     return nil, "rejected: no encounter data"
   end
 
@@ -1341,6 +1587,7 @@ function SpawnLogic:trySpawnWater(game, opts)
 
   local ok, entityOrErr = pcall(self.render.makeEntity, self.render, game, record)
   if not ok or not entityOrErr then
+    occupancy:releaseSpawn(spawnToken)
     return nil, "ENTITY CREATE ERROR: " .. tostring(entityOrErr or "nil")
   end
   local entity = entityOrErr
@@ -1366,8 +1613,17 @@ function SpawnLogic:trySpawnWater(game, opts)
 
   local attached, attachErr = self:_attach(entity)
   if not attached then
+    occupancy:releaseSpawn(spawnToken)
     return nil, "WORLD REGISTER ERROR: " .. tostring(attachErr)
   end
+
+  occupancy:commitSpawn(spawnToken, entity)
+  self:refreshEntitySprite(entity, {
+    reason = "spawn",
+    surface = Surface.WATER,
+    spriteState = "water",
+    game = game,
+  })
 
   self.spawns[id] = record
   self.entities[id] = entity
@@ -1375,6 +1631,7 @@ function SpawnLogic:trySpawnWater(game, opts)
   self.byMap[mapId][#self.byMap[mapId] + 1] = id
   self:_noteRecentWaterSpecies(species)
   self:_recountWaterZones()
+  self:_validateNoCellOverlap(ow)
 
   self.mod.log:info(
     "spawned water %s Lv%d %s zone=%s src=%s at %s (%d,%d)",
@@ -1939,6 +2196,10 @@ function SpawnLogic:_startBattle(record)
       entity.behaviorState.battlePending = true
       entity.behaviorState.sightDisabled = true
       entity.behaviorState.state = Behavior.STATE.BATTLE_PENDING
+    end
+    if self.occupancy then
+      self.occupancy:cancelMove(entity)
+      self.occupancy:releaseEntity(entity)
     end
     Movement.stop(entity, "BATTLE_PENDING")
     -- Hide from both render paths before battle (exactly once).

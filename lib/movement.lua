@@ -292,6 +292,8 @@ function Movement.stop(entity, state)
   m.progress = 0
   m.state = state or Movement.STATE.IDLE
   Movement.syncLegacyFields(entity)
+  -- Caller / BehaviorTick owns CellOccupancy:cancelMove; mark for clarity.
+  entity.movementReservationCancelled = true
 end
 
 function Movement.refreshGrassFlag(entity, mod)

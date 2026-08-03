@@ -226,7 +226,7 @@ check(tHigh > tLow, "high density > low density")
 local mf = io.open("manifest.json", "r")
 local mft = mf:read("*a")
 mf:close()
-check(mft:find('"version"%s*:%s*"1%.4%.1"') ~= nil, "manifest version 1.4.1")
+check(mft:find('"version"%s*:%s*"1%.5%.0"') ~= nil, "manifest version 1.5.0")
 
 print("")
 if failures > 0 then

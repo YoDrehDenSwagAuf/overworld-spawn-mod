@@ -1,9 +1,9 @@
-# Manual test guide — Wilds of Kanto 1.4.0
+# Manual test guide — Wilds of Kanto 1.5.0
 
-## After installing 1.4.0
+## After installing 1.5.0
 
 1. Remove any older Wilds of Kanto / `overworld_wild_spawns` copy from `mods/`.
-2. Install only `wilds-of-kanto-v1.4.0.zip`.
+2. Install only `wilds-of-kanto-v1.5.0.zip`.
 3. Fully restart the game (content registry freezes after load).
 4. Optional: delete `overworld_wild_spawns-cache/` in the save directory.
 
@@ -21,6 +21,35 @@ Start Menu quick settings:
 ```text
 SPRITE STYLE / SPAWN AMOUNT / RANDOM ENC / WATER MONS
 ```
+
+## World collision
+
+1. Set Spawn Amount high and enter a small route.
+2. Observe for several minutes.
+3. No two wild Pokémon share a cell.
+4. Wanderers do not walk through each other.
+5. Two chasers block like NPCs (wait / alternate paths; no tile swap).
+6. Wilds do not spawn on or walk through trainers, NPCs, or an active follower.
+
+## Follower water sprites
+
+1. Enable Followers EX with an active follower.
+2. Confirm land follower sprite on foot.
+3. Start surfing.
+4. Follower switches to Swimming or Levitates when available (same entity).
+5. Move in water; follow queue / ownership stay with Followers EX.
+6. Exit water; correct land sprite returns.
+7. Without a water sprite: no crash; land art kept (`Follower water sprite: unavailable`).
+
+## Land → water chase
+
+1. Aggressive land Pokémon at the shore with Swimming or Levitates sprite.
+2. Surf past within a few tiles of shore.
+3. Pokémon may enter an unoccupied adjacent water tile.
+4. Water sprite is visible immediately (no land-sprite flicker).
+5. Entity id / shiny / chase / battle payload unchanged.
+6. Species without water sprites stop at the shore.
+7. Occupied water cells block entry.
 
 ## Water spawn variety
 
@@ -44,29 +73,14 @@ SPRITE STYLE / SPAWN AMOUNT / RANDOM ENC / WATER MONS
 3. Alert → chase on water only → battle on contact once.
 4. Leave water: chase aborts; Pokémon stays on water.
 
-### Land → water chase
-
-1. Aggressive land Pokémon at the shore with Swimming or Levitates sprite.
-2. Surf past within a few tiles of shore.
-3. Pokémon may enter adjacent water, switch to water sprite immediately, continue chase.
-4. Return to land: Pokémon stays in water; chase ends.
-5. Species without water sprites stop at the shore (no land sprite on water).
-
 ### Toggles
 
 - Water Mons OFF: no visible water entities; land Pokémon do not enter water.
 - Random Enc OFF: classic Surf/rod rolls off; visible aggressive water battles still work.
 - Spawn Amount still scales water target counts.
 
-### Dramatic Shape
+### Dramatic Shape / rendering regression
 
-- Orbit / First Person during water chase and land→water transition.
-- No sprite flicker, no clipping, depth remains correct.
-
-## Sprite style matrix
-
-With Gold Sprites / Followers EX / PokeMMO / Pokedex installed in turn:
-
-1. Set Sprite Style and reload the map.
-2. Confirm land sprites follow the selected style.
-3. Confirm water entities still prefer Swimming → Levitates → fallback.
+- Flat 2D, Dramatic Shape Orbit, First Person unchanged.
+- No depth/occlusion changes, no double bodies, no new overlays.
+- No sprite flicker during land→water transition.
