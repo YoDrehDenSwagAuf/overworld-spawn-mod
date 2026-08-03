@@ -45,6 +45,9 @@ Config.DEFAULTS = {
   enable_wander = true,
   enable_aggressive = true,
   enable_hidden = true,
+  -- Classic step-based random encounters (grass / cave / water).
+  -- Public label "Random Enc"; independent of visible overworld spawns.
+  random_encounters = true,
   aggressive_frequency = 1.0,
   aggressive_sight_range = 4,
   aggressive_reaction_delay = 0.55,
@@ -52,7 +55,20 @@ Config.DEFAULTS = {
   wild_step_seconds = 0.28,
   idle_look_min_s = 5,
   idle_look_max_s = 10,
-  enable_water_spawns = true,
+  enable_water_spawns = true, -- legacy internal alias
+  water_spawns = true,        -- public "Water Mons" toggle
+  max_water_mons = 12,
+  -- Water spawn zones (tile distance from walkable land). Internal only.
+  water_near_shore_max = 2,
+  water_mid_water_max = 5,
+  water_deep_min = 6,
+  -- Share of visible water spawns that may be WATER_AGGRESSIVE (0–1).
+  water_aggressive_chance = 0.15,
+  -- Land→water chase: land mon must be ≤ this many tiles from water;
+  -- player must be ≤ this many tiles from shore while surfing.
+  land_water_chase_shore_max = 1,
+  land_water_chase_player_max = 5,
+  water_aggressive_sight_range = 5,
   enable_cave_spawns = true,
   debug_logging = false,
   force_test_spawn = false,
@@ -339,6 +355,269 @@ end
 Config.VALID_SPRITE_STYLES = VALID_SPRITE_STYLES
 Config.SPRITE_STYLE_CONFIRM = SPRITE_STYLE_CONFIRM
 
+local VALID_SPAWN_AMOUNTS = {
+  low = true,
+  normal = true,
+  high = true,
+  very_high = true,
+}
+
+local SPAWN_AMOUNT_CONFIRM = {
+  low = "LOW",
+  normal = "NORMAL",
+  high = "HIGH",
+  very_high = "VERY HIGH",
+}
+
+Config.VALID_SPAWN_AMOUNTS = VALID_SPAWN_AMOUNTS
+Config.SPAWN_AMOUNT_CONFIRM = SPAWN_AMOUNT_CONFIRM
+
+local function writeOptionBucket(mod, game, key, value)
+  local function write(bucket)
+    if type(bucket) ~= "table" then return end
+    bucket[mod.id] = bucket[mod.id] or {}
+    bucket[mod.id][key] = value
+  end
+  if game and game.save and game.save.options then
+    game.save.options.modOptions = game.save.options.modOptions or {}
+    write(game.save.options.modOptions)
+  end
+  if game and game.mods then
+    if game.mods.modOptions then write(game.mods.modOptions) end
+    if game.mods.loader and game.mods.loader.modOptions then
+      write(game.mods.loader.modOptions)
+    end
+  end
+  if game and type(game.writeOptions) == "function" then
+    pcall(game.writeOptions, game)
+  end
+end
+
+local function resolveGame(mod, opts)
+  opts = opts or {}
+  if opts.game then return opts.game end
+  if mod and mod.world then return mod.world.game end
+  return nil
+end
+
+local function confirmText(game, mod, message)
+  if not message or not game or not mod then return end
+  if mod.ui and mod.ui.TextBox and game.stack then
+    pcall(function()
+      game.stack:push(mod.ui.TextBox.new(game, message))
+    end)
+  end
+end
+
+function Config.spawnAmount(mod)
+  local raw, present = Config.peekSavedOption(mod, "spawn_density")
+  if present and type(raw) == "string" and VALID_SPAWN_AMOUNTS[raw] then
+    return raw
+  end
+  local v = Config.get(mod, "spawn_density")
+  if type(v) == "string" and VALID_SPAWN_AMOUNTS[v] then
+    return v
+  end
+  return "normal"
+end
+
+-- Classic step-based random encounters (grass / cave / water / indoor).
+-- Independent of visible overworld Pokémon and Water Mons.
+function Config.randomEncountersEnabled(mod)
+  local raw, present = Config.peekSavedOption(mod, "random_encounters")
+  if present then
+    return raw == true
+  end
+  -- One-shot migration from grass_encounters choice.
+  local legacy, legPresent = Config.peekSavedOption(mod, "grass_encounters")
+  if legPresent and type(legacy) == "string" then
+    if legacy == "hidden" then return false end
+    if legacy == "classic" or legacy == "both" then return true end
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local v = mod.options:get("random_encounters")
+    if v ~= nil then return v == true end
+    local g = mod.options:get("grass_encounters")
+    if type(g) == "string" then
+      if g == "hidden" then return false end
+      if g == "classic" or g == "both" then return true end
+    end
+  end
+  if Config.DEFAULTS.random_encounters == false then return false end
+  return true
+end
+
+function Config.migrateRandomEncountersOption(mod)
+  local on = Config.randomEncountersEnabled(mod)
+  local function write(bucket)
+    if type(bucket) ~= "table" then return end
+    bucket[mod.id] = bucket[mod.id] or {}
+    if bucket[mod.id].random_encounters == nil then
+      bucket[mod.id].random_encounters = on
+    end
+    -- Drop obsolete choice key once migrated.
+    bucket[mod.id].grass_encounters = nil
+    if bucket[mod.id].water_spawns == nil then
+      bucket[mod.id].water_spawns = Config.waterMons(mod)
+    end
+  end
+  local world = mod.world
+  local game = world and world.game
+  if game and game.save and game.save.options then
+    game.save.options.modOptions = game.save.options.modOptions or {}
+    write(game.save.options.modOptions)
+  end
+  if game and game.mods then
+    if game.mods.modOptions then write(game.mods.modOptions) end
+    if game.mods.loader and game.mods.loader.modOptions then
+      write(game.mods.loader.modOptions)
+    end
+  end
+  return on
+end
+
+-- Back-compat alias used during transition.
+Config.migrateGrassEncountersOption = Config.migrateRandomEncountersOption
+
+function Config.waterMons(mod)
+  local raw, present = Config.peekSavedOption(mod, "water_spawns")
+  if present then
+    return raw == true
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local v = mod.options:get("water_spawns")
+    if v ~= nil then return v == true end
+    local legacy = mod.options:get("enable_water_spawns")
+    if legacy ~= nil then return legacy == true end
+  end
+  return Config.DEFAULTS.water_spawns ~= false
+end
+
+function Config.maxWaterMons(mod)
+  return tonumber(Config.get(mod, "max_water_mons"))
+      or Config.DEFAULTS.max_water_mons or 12
+end
+
+-- Central setter for Spawn Amount (Start Menu). Same key as legacy Mod Settings.
+-- opts: { game=, logic=, confirm=, message= }
+function Config.setSpawnAmount(mod, value, source, opts)
+  opts = opts or {}
+  value = tostring(value or "")
+  if not VALID_SPAWN_AMOUNTS[value] then
+    return false, "invalid spawn_density: " .. value
+  end
+
+  local game = resolveGame(mod, opts)
+  writeOptionBucket(mod, game, "spawn_density", value)
+
+  local logic = opts.logic
+  if not logic and mod and mod.exports then
+    logic = mod.exports.logic
+  end
+  if logic and type(logic.applySpawnAmount) == "function" then
+    pcall(logic.applySpawnAmount, logic, value, source)
+  elseif logic and type(logic.onOptionsChanged) == "function" then
+    pcall(logic.onOptionsChanged, logic, {
+      mod = mod.id, key = "spawn_density", value = value, source = source,
+    })
+  end
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "SPAWN: " .. (SPAWN_AMOUNT_CONFIRM[value] or value:upper())
+  end
+  confirmText(game, mod, confirmMsg)
+
+  if source and mod and mod.log and type(mod.log.info) == "function" then
+    pcall(mod.log.info, mod.log,
+      "spawn_density set to %s via %s", value, tostring(source))
+  end
+  return true, value
+end
+
+-- Central setter for Random Enc (Start Menu + Mod Settings).
+-- opts: { game=, logic=, confirm=, message= }
+function Config.setRandomEncounters(mod, value, source, opts)
+  opts = opts or {}
+  local on = (value == true or value == "on" or value == "ON" or value == "true")
+  if value == false or value == "off" or value == "OFF" or value == "false" then
+    on = false
+  elseif value ~= true and value ~= "on" and value ~= "ON" and value ~= "true" then
+    if type(value) ~= "boolean" then
+      return false, "invalid random_encounters: " .. tostring(value)
+    end
+  end
+
+  local game = resolveGame(mod, opts)
+  writeOptionBucket(mod, game, "random_encounters", on)
+  -- Clear obsolete choice so readers never prefer it over the toggle.
+  writeOptionBucket(mod, game, "grass_encounters", nil)
+
+  local logic = opts.logic
+  if not logic and mod and mod.exports then
+    logic = mod.exports.logic
+  end
+  if logic and type(logic.applyRandomEncounters) == "function" then
+    pcall(logic.applyRandomEncounters, logic, on, source)
+  elseif logic and type(logic.onOptionsChanged) == "function" then
+    pcall(logic.onOptionsChanged, logic, {
+      mod = mod.id, key = "random_encounters", value = on, source = source,
+    })
+  end
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "RANDOM: " .. (on and "ON" or "OFF")
+  end
+  confirmText(game, mod, confirmMsg)
+
+  if source and mod and mod.log and type(mod.log.info) == "function" then
+    pcall(mod.log.info, mod.log,
+      "random_encounters set to %s via %s", tostring(on), tostring(source))
+  end
+  return true, on
+end
+
+function Config.setWaterMons(mod, value, source, opts)
+  opts = opts or {}
+  local on = (value == true or value == "on" or value == "ON" or value == "true")
+  if value == false or value == "off" or value == "OFF" or value == "false" then
+    on = false
+  elseif value ~= true and value ~= "on" and value ~= "ON" and value ~= "true" then
+    if type(value) ~= "boolean" then
+      return false, "invalid water_spawns: " .. tostring(value)
+    end
+  end
+
+  local game = resolveGame(mod, opts)
+  writeOptionBucket(mod, game, "water_spawns", on)
+  writeOptionBucket(mod, game, "enable_water_spawns", on)
+
+  local logic = opts.logic
+  if not logic and mod and mod.exports then
+    logic = mod.exports.logic
+  end
+  if logic and type(logic.applyWaterMons) == "function" then
+    pcall(logic.applyWaterMons, logic, on, source)
+  elseif logic and type(logic.onOptionsChanged) == "function" then
+    pcall(logic.onOptionsChanged, logic, {
+      mod = mod.id, key = "water_spawns", value = on, source = source,
+    })
+  end
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "WATER: " .. (on and "ON" or "OFF")
+  end
+  confirmText(game, mod, confirmMsg)
+
+  if source and mod and mod.log and type(mod.log.info) == "function" then
+    pcall(mod.log.info, mod.log,
+      "water_spawns set to %s via %s", tostring(on), tostring(source))
+  end
+  return true, on
+end
+
 function Config.pokemonGrassRenderMode(mod)
   local GrassOcclusion = V.require("grass_occlusion")
   return GrassOcclusion.mode(mod)
@@ -361,7 +640,7 @@ function Config.tilesPerAdditional(mod)
 end
 
 function Config.spawnDensity(mod)
-  return Config.get(mod, "spawn_density") or "normal"
+  return Config.spawnAmount(mod)
 end
 
 function Config.refillSteps(mod)

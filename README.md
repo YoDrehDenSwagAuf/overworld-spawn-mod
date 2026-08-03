@@ -38,6 +38,11 @@ You can switch styles at any time from the normal in-game menu or from the
 Wilds of Kanto mod settings. Existing wild Pokémon update immediately without
 being respawned.
 
+**Spawn Amount**, **Random Enc**, and **Water Mons** are also available from the
+normal in-game Start Menu (directly under Sprite Style). Spawn Amount was
+removed from Mod Settings so density is adjusted from the quick menu only; the
+saved `spawn_density` value is unchanged.
+
 External sprite styles require their corresponding mods to be installed
 separately. Wilds of Kanto does not redistribute their assets.
 
@@ -57,12 +62,17 @@ After installation, restart Gen1Recomp and select the style from:
 
 ```text
 START MENU -> SPRITE STYLE
+START MENU -> SPAWN AMOUNT
+START MENU -> RANDOM ENC
+START MENU -> WATER MONS
 ```
 
-or:
+or (Sprite Style / Random Enc / Water Mons):
 
 ```text
 MOD SETTINGS -> WILDS OF KANTO -> SPRITE STYLE
+MOD SETTINGS -> WILDS OF KANTO -> RANDOM ENC
+MOD SETTINGS -> WILDS OF KANTO -> WATER MONS
 ```
 
 Auto preference order when multiple packs are present:
@@ -211,17 +221,77 @@ second Pokemon entity).
 Shows no Pokemon sprite. On grass, the tile shakes; in caves, a dust/shadow
 marker is used instead. Stepping onto the tile starts the encounter.
 
-**Surface notes:** Idle and Wander are available on grass, cave, and water.
-Aggressive and Hidden are used on grass and caves. Water currently supports
-Idle and Wander only (no aggressive chase or hidden water markers).
+## Random Encounters
+
+Classic step-based random encounters can be enabled or disabled from the
+in-game menu or the Wilds of Kanto mod settings.
+
+Disabling random encounters does not remove visible overworld Pokémon. Wild
+Pokémon can still appear in the world and start battles through direct
+interaction or their normal behaviour.
+
+**Random Enc** is available from the Start Menu and Mod Settings. **Spawn Amount**
+is Start-Menu only. **Water Mons** stays separately toggleable — visible water
+Pokémon remain active even when Random Enc is off. Classic surf / fishing rolls
+follow Random Enc.
+
+## Visible Water Pokémon
+
+When Water Mons is enabled, suitable Pokémon from the current map's water
+encounter table can appear directly on connected water areas. They remain on
+water (`WATER_IDLE` / `WATER_WANDER` / `WATER_AGGRESSIVE`). Legacy
+hidden grass/cave markers (no Pokémon sprite) remain optional via Hidden Mons.
+
+## Water Spawn Variety
+
+Visible water Pokémon are selected from the current area's Surf and fishing encounter tables.
+
+- Pokémon obtainable with basic fishing methods can appear closer to shore.
+- Stronger Pokémon that normally require the Super Rod only appear in deeper water farther away from land.
+- Small ponds without deep-water areas do not spawn Super-Rod-only Pokémon.
+
+Some water Pokémon can be aggressive and swim toward the player while remaining on water.
+
+Aggressive land Pokémon may also follow the player into nearby water when a compatible Swimming or Levitates sprite exists. Once in the water, they remain there and do not chase the player back onto land.
+
+## Water Pokémon Sprites
+
+Visible Pokémon on water use dedicated animated water sprites whenever
+available.
+
+Wilds of Kanto supports two built-in water sprite types:
+
+- **Swimming** — used when a dedicated swimming animation exists.
+- **Levitates** — used when a Pokémon has a levitating or flying water
+  animation.
+
+Water sprites use the same directional idle and movement animation system as
+the normal PokeMMO-style overworld sprites.
+
+If the currently selected external sprite style does not provide a compatible
+water sprite, Wilds of Kanto automatically uses its built-in Swimming or
+Levitates sprite. If neither exists for that species, the normal built-in
+PokeMMO sprite is used as a fallback.
+
+Normal and shiny variants are selected from the actual Pokémon state.
+
+Water sprites are matched by Pokédex / species ID (never localized names).
+Changing Sprite Style does not replace land art with water art — only the water
+surface state uses the water override. Rendering stays on the native
+`SpriteRenderer` path, so Dramatic Shape orbit and first-person views remain
+supported.
 
 ## Features
 
 - Visible wild Pokemon in supported overworld encounter areas
-- Four behaviours: Idle, Wander, Aggressive, Hidden
+- Behaviours: Idle, Wander, Aggressive, Hidden markers, Water Idle/Wander/Aggressive
+- Random Enc toggle for classic step-based encounters (default ON)
+- Visible Water Mons from Surf + fishing encounter pools (toggleable)
+- Shore-distance water spawn zones (near / mid / deep)
+- Short spawn animations for visible grass and water Pokémon
 - Map-aware spawn density and connected spawn regions
 - Grass, cave (no grass graphics required), and Surf-water surfaces
-- Fishing stays rod-only — fishing tables never free-spawn
+- Visible water variety uses map Surf and rod tables (not a global type list)
 - Sprite scaling: legacy art is capped to one map tile; follow-sprite frames
   keep native tile size with feet anchored to the tile
 - Engine tall-grass overlay with relative occlusion; Dramatic Shape uses
@@ -253,11 +323,15 @@ screenshot and relevant debug log.
 
 ### Water
 
-Surf / water encounter tables can produce visible water Pokemon on water tiles.
-They stay on connected water for wander. Vanilla Surf random encounters remain
-active (water rolls are not suppressed). Fishing encounters stay rod-only.
-Aggressive and Hidden behaviours are not used on water. Bridges and unusual
-water layouts may still need more testing.
+Surf / water encounter tables and the area's Old / Good / Super Rod fishing
+pools can produce visible water Pokemon when **Water Mons** is ON. Spawns are
+placed by shore distance (near / mid / deep). Super-Rod-only species appear
+only in deep water. They stay on connected water (`WATER_IDLE` /
+`WATER_WANDER` / `WATER_AGGRESSIVE`). Vanilla Surf / fishing random encounters
+remain controlled by **Random Enc**. Aggressive water Pokémon chase only while
+the player is surfing; they never leave the water. Compatible aggressive land
+Pokémon may follow the player into nearby water when a Swimming or Levitates
+sprite exists, then stay on water.
 
 ### Caves
 
@@ -289,15 +363,27 @@ Visible labels are limited to 14 characters so Gen1Recomp does not truncate them
 | Label | Purpose | Default |
 | --- | --- | --- |
 | Show Wild Mons | Master switch for visible spawns | ON |
-| Hide Grass RNG | Suppress vanilla grass rolls only after visible spawns are ready | ON |
 | Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | AUTO |
-| Spawn Amount | Density preset (Low / Normal / High / Very High) | NORMAL |
+| Random Enc | Classic step-based random encounters (grass / cave / water) | ON |
+| Water Mons | Visible water Pokémon from Surf + fishing pools (shore zones) | ON |
 | Grass View | Immersed in tall grass, or fully Above | IMMERSED |
 | Idle Mons | Allow Idle Look behaviour | ON |
 | Roam Mons | Allow wandering inside encounter regions | ON |
 | Chase Mons | Allow aggressive spot / chase behaviour | ON |
 | Hidden Mons | Allow hidden grass / cave markers | ON |
 | Dev Mode | Debug HUD + Pokemon preview browser | OFF |
+
+Start Menu quick settings (same saved values as Mod Settings where overlapping):
+
+| Label | Purpose | Default |
+| --- | --- | --- |
+| SPRITE STYLE | Same as Sprite Style above | AUTO |
+| SPAWN AMOUNT | Density preset (Low / Normal / High / Very High) | NORMAL |
+| RANDOM ENC | Same as Random Enc above | ON |
+| WATER MONS | Same as Water Mons above | ON |
+
+Spawn Amount is **not** listed in Mod Settings anymore (internal key
+`spawn_density` is unchanged).
 
 Developer-only rows (shown in the same panel, intended for diagnosis):
 Debug HUD, Spawn Tiles, Behavior View, Outside Spawn, Debug Log, Force Spawn,

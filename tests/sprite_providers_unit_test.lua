@@ -459,11 +459,18 @@ V.mod.hooks = {
     -- Immediately exercise uniqueness: call twice through register.
     local items = { { label = "POKeDEX" }, { label = "SAVE" } }
     local out = fn(function(_, items2) return items2 end, nil, items)
-    local count = 0
+    local order = {}
     for _, it in ipairs(out) do
-      if it.label == "SPRITE STYLE" then count = count + 1 end
+      if it.label == "SPRITE STYLE" or it.label == "SPAWN AMOUNT"
+         or it.label == "RANDOM ENC" or it.label == "WATER MONS" then
+        order[#order + 1] = it.label
+      end
     end
-    eq(count, 1, "start menu inserts SPRITE STYLE once")
+    eq(#order, 4, "start menu inserts four Wilds entries")
+    eq(order[1], "SPRITE STYLE", "menu order 1 SPRITE STYLE")
+    eq(order[2], "SPAWN AMOUNT", "menu order 2 SPAWN AMOUNT")
+    eq(order[3], "RANDOM ENC", "menu order 3 RANDOM ENC")
+    eq(order[4], "WATER MONS", "menu order 4 WATER MONS")
   end,
 }
 V.mod.content = {

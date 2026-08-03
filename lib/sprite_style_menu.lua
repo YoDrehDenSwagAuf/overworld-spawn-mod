@@ -1,8 +1,14 @@
--- Start-menu Sprite Style picker for Wilds of Kanto.
+-- Start-menu quick settings for Wilds of Kanto.
 --
--- Registers once via ui.start_menu.items (same hook as Followers EX / preview
--- browser). Both this menu and Mod Settings write the shared sprite_style key
--- through Config.setSpriteStyle — no second persistence store.
+-- Registers via ui.start_menu.items (same hook as Followers EX / preview
+-- browser). Order:
+--   1. SPRITE STYLE
+--   2. SPAWN AMOUNT
+--   3. RANDOM ENC
+--   4. WATER MONS
+--
+-- All four write the shared option keys through Config setters — the same
+-- persistence used by Mod Settings (Spawn Amount is Start-Menu only).
 local V = ...
 local Config = V.require("config")
 local DebugLog = V.require("debug_log")
@@ -10,19 +16,49 @@ local DebugLog = V.require("debug_log")
 local SpriteStyleMenu = {}
 SpriteStyleMenu.__index = SpriteStyleMenu
 
-SpriteStyleMenu.SCREEN = "overworld_wild_spawns:sprite_style"
-SpriteStyleMenu.MENU_LABEL = "SPRITE STYLE" -- 12 chars (<= 14)
+SpriteStyleMenu.SCREEN_STYLE = "overworld_wild_spawns:sprite_style"
+SpriteStyleMenu.SCREEN_SPAWN = "overworld_wild_spawns:spawn_amount"
+SpriteStyleMenu.SCREEN_RANDOM = "overworld_wild_spawns:random_enc"
+SpriteStyleMenu.SCREEN_WATER = "overworld_wild_spawns:water_mons"
+-- Back-compat aliases.
+SpriteStyleMenu.SCREEN = SpriteStyleMenu.SCREEN_STYLE
+SpriteStyleMenu.SCREEN_GRASS = SpriteStyleMenu.SCREEN_RANDOM
 
--- Visible choice labels (all <= 14). Internal values match options.lua.
-SpriteStyleMenu.CHOICES = {
-  { label = "AUTO", value = "auto" },                 -- 4
-  { label = "GOLD SPRITES", value = "gold" },         -- 12
-  { label = "FOLLOWERS EX", value = "followers_ex" }, -- 12
-  { label = "POKEMMO", value = "pokemmo" },           -- 7
-  { label = "POKEDEX", value = "pokedex" },           -- 7
+SpriteStyleMenu.LABEL_STYLE = "SPRITE STYLE" -- 12
+SpriteStyleMenu.LABEL_SPAWN = "SPAWN AMOUNT" -- 12
+SpriteStyleMenu.LABEL_RANDOM = "RANDOM ENC"  -- 10
+SpriteStyleMenu.LABEL_WATER = "WATER MONS"   -- 10
+SpriteStyleMenu.MENU_LABEL = SpriteStyleMenu.LABEL_STYLE
+SpriteStyleMenu.LABEL_GRASS = SpriteStyleMenu.LABEL_RANDOM -- legacy alias
+
+-- Visible choice labels (all <= 14). Internal values match options / defaults.
+SpriteStyleMenu.STYLE_CHOICES = {
+  { label = "AUTO", value = "auto" },
+  { label = "GOLD SPRITES", value = "gold" },
+  { label = "FOLLOWERS EX", value = "followers_ex" },
+  { label = "POKEMMO", value = "pokemmo" },
+  { label = "POKEDEX", value = "pokedex" },
+}
+SpriteStyleMenu.CHOICES = SpriteStyleMenu.STYLE_CHOICES
+
+SpriteStyleMenu.SPAWN_CHOICES = {
+  { label = "LOW", value = "low" },
+  { label = "NORMAL", value = "normal" },
+  { label = "HIGH", value = "high" },
+  { label = "VERY HIGH", value = "very_high" },
 }
 
-local CONFIRM = {
+SpriteStyleMenu.RANDOM_CHOICES = {
+  { label = "ON", value = true },
+  { label = "OFF", value = false },
+}
+
+SpriteStyleMenu.WATER_CHOICES = {
+  { label = "ON", value = true },
+  { label = "OFF", value = false },
+}
+
+local STYLE_CONFIRM = {
   auto = "AUTO",
   gold = "GOLD",
   followers_ex = "FOLLOWERS EX",
@@ -63,6 +99,14 @@ local function activeFallbackLabel(menu, style, game)
   return "POKEMMO"
 end
 
+local function markCurrent(label, isCurrent)
+  if not isCurrent then return label end
+  local marked = "> " .. label
+  if #marked > 14 then marked = ">" .. label end
+  if #marked > 14 then return label end
+  return marked
+end
+
 function SpriteStyleMenu.new(mod, logic)
   local self = setmetatable({}, SpriteStyleMenu)
   self.mod = mod
@@ -71,10 +115,10 @@ function SpriteStyleMenu.new(mod, logic)
   return self
 end
 
-function SpriteStyleMenu:_applyChoice(game, value)
+function SpriteStyleMenu:_applyStyle(game, value)
   local mod = self.mod
   local avail, reason = providerAvailable(self, value, game)
-  local message = "SPRITES: " .. (CONFIRM[value] or tostring(value):upper())
+  local message = "SPRITES: " .. (STYLE_CONFIRM[value] or tostring(value):upper())
 
   if value == "gold" and not avail then
     message = ("GOLD SPRITES\nNOT INSTALLED\nUSING %s"):format(
@@ -98,49 +142,159 @@ function SpriteStyleMenu:_applyChoice(game, value)
   return ok
 end
 
-function SpriteStyleMenu:_openMenu(game)
+function SpriteStyleMenu:_applySpawn(game, value)
+  local ok, err = Config.setSpawnAmount(self.mod, value, "start_menu", {
+    game = game,
+    logic = self.logic,
+    confirm = true,
+  })
+  if not ok then
+    DebugLog.warn(self.mod, "spawn amount menu apply failed: %s", tostring(err))
+  end
+  return ok
+end
+
+function SpriteStyleMenu:_applyRandom(game, value)
+  local ok, err = Config.setRandomEncounters(self.mod, value, "start_menu", {
+    game = game,
+    logic = self.logic,
+    confirm = true,
+  })
+  if not ok then
+    DebugLog.warn(self.mod, "random enc menu apply failed: %s", tostring(err))
+  end
+  return ok
+end
+
+function SpriteStyleMenu:_applyWater(game, value)
+  local ok, err = Config.setWaterMons(self.mod, value, "start_menu", {
+    game = game,
+    logic = self.logic,
+    confirm = true,
+  })
+  if not ok then
+    DebugLog.warn(self.mod, "water mons menu apply failed: %s", tostring(err))
+  end
+  return ok
+end
+
+function SpriteStyleMenu:_openStyleMenu(game)
   local mod = self.mod
   local current = Config.spriteStyle(mod)
   local items = {}
 
-  for _, choice in ipairs(SpriteStyleMenu.CHOICES) do
+  for _, choice in ipairs(SpriteStyleMenu.STYLE_CHOICES) do
     local avail = select(1, providerAvailable(self, choice.value, game))
     local base = choice.label
     local label
     if choice.value == current then
-      -- Mark current selection; keep within 14 chars when possible.
-      label = "> " .. base
-      if #label > 14 then label = ">" .. base end
+      label = markCurrent(base, true)
     else
-      -- Optional "*" for installed external packs (GOLD SPRITES *= 14).
       if avail and (choice.value == "gold" or choice.value == "followers_ex") then
         local withStar = base .. " *"
-        if #withStar <= 14 then
-          label = withStar
-        else
-          label = base
-        end
+        label = (#withStar <= 14) and withStar or base
       else
         label = base
       end
     end
-
-    items[#items + 1] = {
-      label = label,
-      value = choice.value,
-    }
+    items[#items + 1] = { label = label, value = choice.value }
   end
-
   items[#items + 1] = { label = "CANCEL", value = nil }
 
-  return mod.ui.ListMenu.new(game, SpriteStyleMenu.MENU_LABEL, items, {
+  return mod.ui.ListMenu.new(game, SpriteStyleMenu.LABEL_STYLE, items, {
     onChoose = function(item, menu)
       if item and item.value then
-        self:_applyChoice(game, item.value)
+        self:_applyStyle(game, item.value)
       end
       if menu and menu.close then menu:close() end
     end,
   })
+end
+
+function SpriteStyleMenu:_openSpawnMenu(game)
+  local mod = self.mod
+  local current = Config.spawnAmount(mod)
+  local items = {}
+  for _, choice in ipairs(SpriteStyleMenu.SPAWN_CHOICES) do
+    items[#items + 1] = {
+      label = markCurrent(choice.label, choice.value == current),
+      value = choice.value,
+    }
+  end
+  items[#items + 1] = { label = "CANCEL", value = nil }
+
+  return mod.ui.ListMenu.new(game, SpriteStyleMenu.LABEL_SPAWN, items, {
+    onChoose = function(item, menu)
+      if item and item.value then
+        self:_applySpawn(game, item.value)
+      end
+      if menu and menu.close then menu:close() end
+    end,
+  })
+end
+
+function SpriteStyleMenu:_openRandomMenu(game)
+  local mod = self.mod
+  local current = Config.randomEncountersEnabled(mod)
+  local items = {}
+  for _, choice in ipairs(SpriteStyleMenu.RANDOM_CHOICES) do
+    items[#items + 1] = {
+      label = markCurrent(choice.label, choice.value == current),
+      value = choice.value,
+    }
+  end
+  items[#items + 1] = { label = "CANCEL", value = nil }
+
+  return mod.ui.ListMenu.new(game, SpriteStyleMenu.LABEL_RANDOM, items, {
+    onChoose = function(item, menu)
+      if item and item.value ~= nil then
+        self:_applyRandom(game, item.value)
+      end
+      if menu and menu.close then menu:close() end
+    end,
+  })
+end
+
+function SpriteStyleMenu:_openWaterMenu(game)
+  local mod = self.mod
+  local current = Config.waterMons(mod)
+  local items = {}
+  for _, choice in ipairs(SpriteStyleMenu.WATER_CHOICES) do
+    items[#items + 1] = {
+      label = markCurrent(choice.label, choice.value == current),
+      value = choice.value,
+    }
+  end
+  items[#items + 1] = { label = "CANCEL", value = nil }
+
+  return mod.ui.ListMenu.new(game, SpriteStyleMenu.LABEL_WATER, items, {
+    onChoose = function(item, menu)
+      if item and item.value ~= nil then
+        self:_applyWater(game, item.value)
+      end
+      if menu and menu.close then menu:close() end
+    end,
+  })
+end
+
+-- Back-compat for tests that call _openMenu / _applyChoice.
+function SpriteStyleMenu:_openMenu(game)
+  return self:_openStyleMenu(game)
+end
+
+function SpriteStyleMenu:_applyChoice(game, value)
+  return self:_applyStyle(game, value)
+end
+
+local function pushScreen(mod, menu, game, screenId, opener)
+  if mod.ui and type(mod.ui.push) == "function" then
+    mod.ui.push(game, screenId)
+  else
+    local screen = opener(menu, game)
+    if game and game.stack and screen then
+      game.stack:push(screen)
+    end
+  end
 end
 
 function SpriteStyleMenu:register()
@@ -149,10 +303,17 @@ function SpriteStyleMenu:register()
   local menu = self
 
   if mod.content and mod.content.screens and mod.content.screens.register then
-    mod.content.screens:register(SpriteStyleMenu.SCREEN, {
-      new = function(game)
-        return menu:_openMenu(game)
-      end,
+    mod.content.screens:register(SpriteStyleMenu.SCREEN_STYLE, {
+      new = function(game) return menu:_openStyleMenu(game) end,
+    })
+    mod.content.screens:register(SpriteStyleMenu.SCREEN_SPAWN, {
+      new = function(game) return menu:_openSpawnMenu(game) end,
+    })
+    mod.content.screens:register(SpriteStyleMenu.SCREEN_RANDOM, {
+      new = function(game) return menu:_openRandomMenu(game) end,
+    })
+    mod.content.screens:register(SpriteStyleMenu.SCREEN_WATER, {
+      new = function(game) return menu:_openWaterMenu(game) end,
     })
   end
 
@@ -160,32 +321,37 @@ function SpriteStyleMenu:register()
   mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
     local out = next(game, items)
     if type(out) ~= "table" then return out end
-    if hasLabel(out, SpriteStyleMenu.MENU_LABEL) then return out end
 
-    local entry = {
-      label = SpriteStyleMenu.MENU_LABEL,
-      onSelect = function()
-        if mod.ui and type(mod.ui.push) == "function" then
-          mod.ui.push(game, SpriteStyleMenu.SCREEN)
-        else
-          local screen = menu:_openMenu(game)
-          if game and game.stack and screen then
-            game.stack:push(screen)
-          end
-        end
-      end,
-    }
-
-    if mod.ui and type(mod.ui.insertBefore) == "function" then
-      return mod.ui.insertBefore(out, "SAVE", entry)
+    local function ensure(label, screenId, opener)
+      if hasLabel(out, label) then return end
+      local entry = {
+        label = label,
+        onSelect = function()
+          pushScreen(mod, menu, game, screenId, opener)
+        end,
+      }
+      if mod.ui and type(mod.ui.insertBefore) == "function" then
+        out = mod.ui.insertBefore(out, "SAVE", entry)
+      else
+        out[#out + 1] = entry
+      end
     end
-    out[#out + 1] = entry
+
+    -- Insert in order before SAVE: STYLE, SPAWN, RANDOM, WATER.
+    ensure(SpriteStyleMenu.LABEL_STYLE, SpriteStyleMenu.SCREEN_STYLE,
+           SpriteStyleMenu._openStyleMenu)
+    ensure(SpriteStyleMenu.LABEL_SPAWN, SpriteStyleMenu.SCREEN_SPAWN,
+           SpriteStyleMenu._openSpawnMenu)
+    ensure(SpriteStyleMenu.LABEL_RANDOM, SpriteStyleMenu.SCREEN_RANDOM,
+           SpriteStyleMenu._openRandomMenu)
+    ensure(SpriteStyleMenu.LABEL_WATER, SpriteStyleMenu.SCREEN_WATER,
+           SpriteStyleMenu._openWaterMenu)
     return out
   end)
 
   self._registered = true
   if Config.debug(mod) then
-    DebugLog.info(mod, "SPRITE STYLE start-menu entry registered")
+    DebugLog.info(mod, "start-menu STYLE / SPAWN / RANDOM / WATER registered")
   end
 end
 

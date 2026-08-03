@@ -1,6 +1,8 @@
-# Wilds of Kanto — User Guide (1.0.2)
+# Wilds of Kanto — User Guide (1.3.0)
 
-Visible wild Pokemon appear in the overworld. Walk into one (or into a shaking grass patch) to start that exact wild battle. Classic random grass encounters stay available until the visible spawn system is ready on the current map.
+Visible wild Pokemon appear in the overworld. Walk into one to start that exact
+wild battle. **Random Enc** (default ON) controls classic step-based random
+encounters independently of visible overworld Pokémon.
 
 This mod never changes your player spawn point and never requires the Pokédex.
 Technical mod id: `overworld_wild_spawns` (stable for options/saves).
@@ -8,7 +10,7 @@ Technical mod id: `overworld_wild_spawns` (stable for options/saves).
 ## 1. What the mod does
 
 - Spawns tangible wild Pokemon (or hidden grass/cave markers) from each map’s real encounter table
-- Four behaviours: Idle Look, Grass Wander, Aggressive, Hidden
+- Behaviours: Idle Look, Grass Wander, Aggressive, Hidden markers, Water Idle/Wander
 - Density scales with encounter-area size so long routes feel fuller than tiny patches
 - Pokemon in tall grass use the same engine feet-overdraw as the player and NPCs
 - Sprites scale for readability but never exceed one map tile (16×16); transparent
@@ -16,7 +18,7 @@ Technical mod id: `overworld_wild_spawns` (stable for options/saves).
 
 ## 2. Installation
 
-1. Build or download `wilds-of-kanto-v1.0.2.zip`
+1. Build or download `wilds-of-kanto-v1.3.0.zip`
 2. In Gen1Recomp open **Mod Manager (F10)** → Import the ZIP
 3. Enable **Wilds of Kanto**
 
@@ -96,10 +98,10 @@ Gen1Recomp already draws tall-grass feet overdraw over every entity on a grass c
 | Kind | Status |
 |---|---|
 | Surf / water encounter tables | **Supported** for visible water Pokemon on water tiles |
-| Old / Good / Super Rod | **Not** free-spawned; remain rod-only |
-| Land species on water | Never |
+| Old / Good / Super Rod | Used for **visible** Water Mons pools (shore-distance zones); classic rod battles stay rod-triggered |
+| Land species on water | Only aggressive land chase into water when a Swimming/Levitates sprite exists |
 
-Water Pokemon stay on connected water. Vanilla Surf random encounters remain active (the mod does not suppress water rolls).
+Water Pokemon stay on connected water. Classic Surf / fishing random encounters follow **Random Enc**. Aggressive water Pokemon never leave the water.
 
 ## 12. Cave support
 
@@ -118,15 +120,19 @@ Visible labels are limited to 14 characters.
 | Label | Key | Default | Values | Effect |
 |---|---|---|---|---|
 | Show Wild Mons | `enabled` | true | on/off | Master switch |
-| Hide Grass RNG | `suppress_random_grass` | true | on/off | Suppress vanilla grass rolls only when ready |
-| Sprite Style | `sprite_style` | auto | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | Overworld sprite source (Start Menu → SPRITE STYLE or Mod Settings) |
-| Spawn Amount | `spawn_density` | normal | low / normal / high / very_high | Scales target count |
+| Sprite Style | `sprite_style` | auto | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | Overworld sprite source |
+| Random Enc | `random_encounters` | true | on/off | Classic step RNG (grass / cave / water) |
+| Water Mons | `water_spawns` | true | on/off | Visible water Pokémon from Surf + fishing pools |
 | Grass View | `pokemon_grass_render_mode` | immersed | Above / Immersed | Tall-grass presentation |
 | Idle Mons | `enable_idle` | true | on/off | Allow Idle Look |
 | Roam Mons | `enable_wander` | true | on/off | Allow Wander |
 | Chase Mons | `enable_aggressive` | true | on/off | Allow Aggressive |
 | Hidden Mons | `enable_hidden` | true | on/off | Allow Hidden markers |
 | Dev Mode | `dev_mode` | false | on/off | HUD + preview browser |
+
+Start Menu only (same saved keys): **SPRITE STYLE**, **SPAWN AMOUNT**
+(`spawn_density`), **RANDOM ENC**, **WATER MONS**. Spawn Amount is not in Mod
+Settings.
 
 ### Developer rows
 

@@ -1,0 +1,4196 @@
+{
+  "schemaVersion": 1,
+  "prefix": "levitates_",
+  "filenamePattern": "levitates_{pokedexId:03d}-b-{n|s}[_form].png",
+  "normalFolder": "normal",
+  "shinyFolder": "shiny",
+  "mappedCount": 523,
+  "unmatchedCount": 0,
+  "files": [
+    {
+      "source": "Levitates/ABRA.png",
+      "speciesId": 63,
+      "speciesName": "abra",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_063-b-n.png"
+    },
+    {
+      "source": "Levitates/AEGISLASH.png",
+      "speciesId": 681,
+      "speciesName": "aegislash",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_681-b-n.png"
+    },
+    {
+      "source": "Levitates/AEGISLASH_1.png",
+      "speciesId": 681,
+      "speciesName": "aegislash",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_681-b-n_1.png"
+    },
+    {
+      "source": "Levitates/AERODACTYL.png",
+      "speciesId": 142,
+      "speciesName": "aerodactyl",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_142-b-n.png"
+    },
+    {
+      "source": "Levitates/ALTARIA.png",
+      "speciesId": 334,
+      "speciesName": "altaria",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_334-b-n.png"
+    },
+    {
+      "source": "Levitates/ARCHEOPS.png",
+      "speciesId": 567,
+      "speciesName": "archeops",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_567-b-n.png"
+    },
+    {
+      "source": "Levitates/ARTICUNO.png",
+      "speciesId": 144,
+      "speciesName": "articuno",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_144-b-n.png"
+    },
+    {
+      "source": "Levitates/ARTICUNO_1.png",
+      "speciesId": 144,
+      "speciesName": "articuno",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_144-b-n_1.png"
+    },
+    {
+      "source": "Levitates/AZELF.png",
+      "speciesId": 482,
+      "speciesName": "azelf",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_482-b-n.png"
+    },
+    {
+      "source": "Levitates/BALTOY.png",
+      "speciesId": 343,
+      "speciesName": "baltoy",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_343-b-n.png"
+    },
+    {
+      "source": "Levitates/BEAUTIFLY.png",
+      "speciesId": 267,
+      "speciesName": "beautifly",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_267-b-n.png"
+    },
+    {
+      "source": "Levitates/BEEDRILL.png",
+      "speciesId": 15,
+      "speciesName": "beedrill",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_015-b-n.png"
+    },
+    {
+      "source": "Levitates/BEHEEYEM.png",
+      "speciesId": 606,
+      "speciesName": "beheeyem",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_606-b-n.png"
+    },
+    {
+      "source": "Levitates/BELDUM.png",
+      "speciesId": 374,
+      "speciesName": "beldum",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_374-b-n.png"
+    },
+    {
+      "source": "Levitates/BOMBIRDIER.png",
+      "speciesId": 962,
+      "speciesName": "bombirdier",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_962-b-n.png"
+    },
+    {
+      "source": "Levitates/BOMBIRDIERs.png",
+      "speciesId": 962,
+      "speciesName": "bombirdier",
+      "variant": "normal",
+      "suffix": "s",
+      "target": "normal/levitates_962-b-n_s.png"
+    },
+    {
+      "source": "Levitates/BRAVIARY.png",
+      "speciesId": 628,
+      "speciesName": "braviary",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_628-b-n.png"
+    },
+    {
+      "source": "Levitates/BRAVIARY_1.png",
+      "speciesId": 628,
+      "speciesName": "braviary",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_628-b-n_1.png"
+    },
+    {
+      "source": "Levitates/BRONZONG.png",
+      "speciesId": 437,
+      "speciesName": "bronzong",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_437-b-n.png"
+    },
+    {
+      "source": "Levitates/BRONZOR.png",
+      "speciesId": 436,
+      "speciesName": "bronzor",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_436-b-n.png"
+    },
+    {
+      "source": "Levitates/BUTTERFREE.png",
+      "speciesId": 12,
+      "speciesName": "butterfree",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_012-b-n.png"
+    },
+    {
+      "source": "Levitates/CALYREX.png",
+      "speciesId": 898,
+      "speciesName": "calyrex",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_898-b-n.png"
+    },
+    {
+      "source": "Levitates/CASTFORM.png",
+      "speciesId": 351,
+      "speciesName": "castform",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_351-b-n.png"
+    },
+    {
+      "source": "Levitates/CELEBI.png",
+      "speciesId": 251,
+      "speciesName": "celebi",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_251-b-n.png"
+    },
+    {
+      "source": "Levitates/CELESTEELA.png",
+      "speciesId": 797,
+      "speciesName": "celesteela",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_797-b-n.png"
+    },
+    {
+      "source": "Levitates/CHANDELURE.png",
+      "speciesId": 609,
+      "speciesName": "chandelure",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_609-b-n.png"
+    },
+    {
+      "source": "Levitates/CHARIZARD.png",
+      "speciesId": 6,
+      "speciesName": "charizard",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_006-b-n.png"
+    },
+    {
+      "source": "Levitates/CHIMECHO.png",
+      "speciesId": 358,
+      "speciesName": "chimecho",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_358-b-n.png"
+    },
+    {
+      "source": "Levitates/CHINGLING.png",
+      "speciesId": 433,
+      "speciesName": "chingling",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_433-b-n.png"
+    },
+    {
+      "source": "Levitates/CLAYDOL.png",
+      "speciesId": 344,
+      "speciesName": "claydol",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_344-b-n.png"
+    },
+    {
+      "source": "Levitates/COFAGRIGUS.png",
+      "speciesId": 563,
+      "speciesName": "cofagrigus",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_563-b-n.png"
+    },
+    {
+      "source": "Levitates/COMBEE.png",
+      "speciesId": 415,
+      "speciesName": "combee",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_415-b-n.png"
+    },
+    {
+      "source": "Levitates/COMBEE_1.png",
+      "speciesId": 415,
+      "speciesName": "combee",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_415-b-n_1.png"
+    },
+    {
+      "source": "Levitates/COMFEY.png",
+      "speciesId": 764,
+      "speciesName": "comfey",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_764-b-n.png"
+    },
+    {
+      "source": "Levitates/CORVIKNIGHT.png",
+      "speciesId": 823,
+      "speciesName": "corviknight",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_823-b-n.png"
+    },
+    {
+      "source": "Levitates/CORVISQUIRE.png",
+      "speciesId": 822,
+      "speciesName": "corvisquire",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_822-b-n.png"
+    },
+    {
+      "source": "Levitates/COSMOEM.png",
+      "speciesId": 790,
+      "speciesName": "cosmoem",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_790-b-n.png"
+    },
+    {
+      "source": "Levitates/COSMOG.png",
+      "speciesId": 789,
+      "speciesName": "cosmog",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_789-b-n.png"
+    },
+    {
+      "source": "Levitates/CRESSELIA.png",
+      "speciesId": 488,
+      "speciesName": "cresselia",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_488-b-n.png"
+    },
+    {
+      "source": "Levitates/CROBAT.png",
+      "speciesId": 169,
+      "speciesName": "crobat",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_169-b-n.png"
+    },
+    {
+      "source": "Levitates/CRYOGONAL.png",
+      "speciesId": 615,
+      "speciesName": "cryogonal",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_615-b-n.png"
+    },
+    {
+      "source": "Levitates/CUTIEFLY.png",
+      "speciesId": 742,
+      "speciesName": "cutiefly",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_742-b-n.png"
+    },
+    {
+      "source": "Levitates/DARKRAI.png",
+      "speciesId": 491,
+      "speciesName": "darkrai",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_491-b-n.png"
+    },
+    {
+      "source": "Levitates/DIGLETT.png",
+      "speciesId": 50,
+      "speciesName": "diglett",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_050-b-n.png"
+    },
+    {
+      "source": "Levitates/DIGLETT_1.png",
+      "speciesId": 50,
+      "speciesName": "diglett",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_050-b-n_1.png"
+    },
+    {
+      "source": "Levitates/DOUBLADE.png",
+      "speciesId": 680,
+      "speciesName": "doublade",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_680-b-n.png"
+    },
+    {
+      "source": "Levitates/DRAGAPULT.png",
+      "speciesId": 887,
+      "speciesName": "dragapult",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_887-b-n.png"
+    },
+    {
+      "source": "Levitates/DRAGONITE.png",
+      "speciesId": 149,
+      "speciesName": "dragonite",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_149-b-n.png"
+    },
+    {
+      "source": "Levitates/DRAKLOAK.png",
+      "speciesId": 886,
+      "speciesName": "drakloak",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_886-b-n.png"
+    },
+    {
+      "source": "Levitates/DREEPY.png",
+      "speciesId": 885,
+      "speciesName": "dreepy",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_885-b-n.png"
+    },
+    {
+      "source": "Levitates/DRIFBLIM.png",
+      "speciesId": 426,
+      "speciesName": "drifblim",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_426-b-n.png"
+    },
+    {
+      "source": "Levitates/DRIFLOON.png",
+      "speciesId": 425,
+      "speciesName": "drifloon",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_425-b-n.png"
+    },
+    {
+      "source": "Levitates/DUGTRIO.png",
+      "speciesId": 51,
+      "speciesName": "dugtrio",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_051-b-n.png"
+    },
+    {
+      "source": "Levitates/DUGTRIO_1.png",
+      "speciesId": 51,
+      "speciesName": "dugtrio",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_051-b-n_1.png"
+    },
+    {
+      "source": "Levitates/DUOSION.png",
+      "speciesId": 578,
+      "speciesName": "duosion",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_578-b-n.png"
+    },
+    {
+      "source": "Levitates/DUSKULL.png",
+      "speciesId": 355,
+      "speciesName": "duskull",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_355-b-n.png"
+    },
+    {
+      "source": "Levitates/DUSTOX.png",
+      "speciesId": 269,
+      "speciesName": "dustox",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_269-b-n.png"
+    },
+    {
+      "source": "Levitates/EELEKTRIK.png",
+      "speciesId": 603,
+      "speciesName": "eelektrik",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_603-b-n.png"
+    },
+    {
+      "source": "Levitates/ELDEGOSS.png",
+      "speciesId": 830,
+      "speciesName": "eldegoss",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_830-b-n.png"
+    },
+    {
+      "source": "Levitates/ELGYEM.png",
+      "speciesId": 605,
+      "speciesName": "elgyem",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_605-b-n.png"
+    },
+    {
+      "source": "Levitates/EMOLGA.png",
+      "speciesId": 587,
+      "speciesName": "emolga",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_587-b-n.png"
+    },
+    {
+      "source": "Levitates/ENAMORUS.png",
+      "speciesId": 905,
+      "speciesName": "enamorus",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_905-b-n.png"
+    },
+    {
+      "source": "Levitates/ENAMORUS_1.png",
+      "speciesId": 905,
+      "speciesName": "enamorus",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_905-b-n_1.png"
+    },
+    {
+      "source": "Levitates/ETERNATUS.png",
+      "speciesId": 890,
+      "speciesName": "eternatus",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_890-b-n.png"
+    },
+    {
+      "source": "Levitates/FEAROW.png",
+      "speciesId": 22,
+      "speciesName": "fearow",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_022-b-n.png"
+    },
+    {
+      "source": "Levitates/FLAPPLE.png",
+      "speciesId": 841,
+      "speciesName": "flapple",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_841-b-n.png"
+    },
+    {
+      "source": "Levitates/FLETCHINDER.png",
+      "speciesId": 662,
+      "speciesName": "fletchinder",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_662-b-n.png"
+    },
+    {
+      "source": "Levitates/FLUTTERMANE.png",
+      "speciesId": 987,
+      "speciesName": "fluttermane",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_987-b-n.png"
+    },
+    {
+      "source": "Levitates/FLYGON.png",
+      "speciesId": 330,
+      "speciesName": "flygon",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_330-b-n.png"
+    },
+    {
+      "source": "Levitates/FROSLASS.png",
+      "speciesId": 478,
+      "speciesName": "froslass",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_478-b-n.png"
+    },
+    {
+      "source": "Levitates/FROSMOTH.png",
+      "speciesId": 873,
+      "speciesName": "frosmoth",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_873-b-n.png"
+    },
+    {
+      "source": "Levitates/GASTLY.png",
+      "speciesId": 92,
+      "speciesName": "gastly",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_092-b-n.png"
+    },
+    {
+      "source": "Levitates/GIRATINA_1.png",
+      "speciesId": 487,
+      "speciesName": "giratina",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_487-b-n_1.png"
+    },
+    {
+      "source": "Levitates/GLALIE.png",
+      "speciesId": 362,
+      "speciesName": "glalie",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_362-b-n.png"
+    },
+    {
+      "source": "Levitates/GLIGAR.png",
+      "speciesId": 207,
+      "speciesName": "gligar",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_207-b-n.png"
+    },
+    {
+      "source": "Levitates/GLISCOR.png",
+      "speciesId": 472,
+      "speciesName": "gliscor",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_472-b-n.png"
+    },
+    {
+      "source": "Levitates/GOLBAT.png",
+      "speciesId": 42,
+      "speciesName": "golbat",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_042-b-n.png"
+    },
+    {
+      "source": "Levitates/GOSSIFLEUR.png",
+      "speciesId": 829,
+      "speciesName": "gossifleur",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_829-b-n.png"
+    },
+    {
+      "source": "Levitates/GOURGEIST.png",
+      "speciesId": 711,
+      "speciesName": "gourgeist",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_711-b-n.png"
+    },
+    {
+      "source": "Levitates/HAUNTER.png",
+      "speciesId": 93,
+      "speciesName": "haunter",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_093-b-n.png"
+    },
+    {
+      "source": "Levitates/HONEDGE.png",
+      "speciesId": 679,
+      "speciesName": "honedge",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_679-b-n.png"
+    },
+    {
+      "source": "Levitates/HOOH.png",
+      "speciesId": 250,
+      "speciesName": "hooh",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_250-b-n.png"
+    },
+    {
+      "source": "Levitates/HOOPA.png",
+      "speciesId": 720,
+      "speciesName": "hoopa",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_720-b-n.png"
+    },
+    {
+      "source": "Levitates/HOOPA_1.png",
+      "speciesId": 720,
+      "speciesName": "hoopa",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_720-b-n_1.png"
+    },
+    {
+      "source": "Levitates/HOPPIP.png",
+      "speciesId": 187,
+      "speciesName": "hoppip",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_187-b-n.png"
+    },
+    {
+      "source": "Levitates/HYDREIGON.png",
+      "speciesId": 635,
+      "speciesName": "hydreigon",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_635-b-n.png"
+    },
+    {
+      "source": "Levitates/ILLUMISE.png",
+      "speciesId": 314,
+      "speciesName": "illumise",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_314-b-n.png"
+    },
+    {
+      "source": "Levitates/IRONJUGULIS.png",
+      "speciesId": 993,
+      "speciesName": "ironjugulis",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_993-b-n.png"
+    },
+    {
+      "source": "Levitates/IRONMOTH.png",
+      "speciesId": 994,
+      "speciesName": "ironmoth",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_994-b-n.png"
+    },
+    {
+      "source": "Levitates/JIRACHI.png",
+      "speciesId": 385,
+      "speciesName": "jirachi",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_385-b-n.png"
+    },
+    {
+      "source": "Levitates/JUMPLUFF.png",
+      "speciesId": 189,
+      "speciesName": "jumpluff",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_189-b-n.png"
+    },
+    {
+      "source": "Levitates/KARTANA.png",
+      "speciesId": 798,
+      "speciesName": "kartana",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_798-b-n.png"
+    },
+    {
+      "source": "Levitates/KILOWATTREL.png",
+      "speciesId": 941,
+      "speciesName": "kilowattrel",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_941-b-n.png"
+    },
+    {
+      "source": "Levitates/KLANG.png",
+      "speciesId": 600,
+      "speciesName": "klang",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_600-b-n.png"
+    },
+    {
+      "source": "Levitates/KLEFKI.png",
+      "speciesId": 707,
+      "speciesName": "klefki",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_707-b-n.png"
+    },
+    {
+      "source": "Levitates/KLINK.png",
+      "speciesId": 599,
+      "speciesName": "klink",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_599-b-n.png"
+    },
+    {
+      "source": "Levitates/KLINKLANG.png",
+      "speciesId": 601,
+      "speciesName": "klinklang",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_601-b-n.png"
+    },
+    {
+      "source": "Levitates/KOFFING.png",
+      "speciesId": 109,
+      "speciesName": "koffing",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_109-b-n.png"
+    },
+    {
+      "source": "Levitates/LAMPENT.png",
+      "speciesId": 608,
+      "speciesName": "lampent",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_608-b-n.png"
+    },
+    {
+      "source": "Levitates/LANDORUS.png",
+      "speciesId": 645,
+      "speciesName": "landorus",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_645-b-n.png"
+    },
+    {
+      "source": "Levitates/LANDORUS_1.png",
+      "speciesId": 645,
+      "speciesName": "landorus",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_645-b-n_1.png"
+    },
+    {
+      "source": "Levitates/LATIAS.png",
+      "speciesId": 380,
+      "speciesName": "latias",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_380-b-n.png"
+    },
+    {
+      "source": "Levitates/LATIOS.png",
+      "speciesId": 381,
+      "speciesName": "latios",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_381-b-n.png"
+    },
+    {
+      "source": "Levitates/LEDIAN.png",
+      "speciesId": 166,
+      "speciesName": "ledian",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_166-b-n.png"
+    },
+    {
+      "source": "Levitates/LEDYBA.png",
+      "speciesId": 165,
+      "speciesName": "ledyba",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_165-b-n.png"
+    },
+    {
+      "source": "Levitates/LUGIA.png",
+      "speciesId": 249,
+      "speciesName": "lugia",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_249-b-n.png"
+    },
+    {
+      "source": "Levitates/LUNALA.png",
+      "speciesId": 792,
+      "speciesName": "lunala",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_792-b-n.png"
+    },
+    {
+      "source": "Levitates/LUNATONE.png",
+      "speciesId": 337,
+      "speciesName": "lunatone",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_337-b-n.png"
+    },
+    {
+      "source": "Levitates/MAGNEZONE.png",
+      "speciesId": 462,
+      "speciesName": "magnezone",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_462-b-n.png"
+    },
+    {
+      "source": "Levitates/MANDIBUZZ.png",
+      "speciesId": 630,
+      "speciesName": "mandibuzz",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_630-b-n.png"
+    },
+    {
+      "source": "Levitates/MASQUERAIN.png",
+      "speciesId": 284,
+      "speciesName": "masquerain",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_284-b-n.png"
+    },
+    {
+      "source": "Levitates/MESPRIT.png",
+      "speciesId": 481,
+      "speciesName": "mesprit",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_481-b-n.png"
+    },
+    {
+      "source": "Levitates/METANG.png",
+      "speciesId": 375,
+      "speciesName": "metang",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_375-b-n.png"
+    },
+    {
+      "source": "Levitates/MILCERY.png",
+      "speciesId": 868,
+      "speciesName": "milcery",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_868-b-n.png"
+    },
+    {
+      "source": "Levitates/MINIOR.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_774-b-n.png"
+    },
+    {
+      "source": "Levitates/MINIOR_1.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_774-b-n_1.png"
+    },
+    {
+      "source": "Levitates/MINIOR_2.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "normal",
+      "suffix": "2",
+      "target": "normal/levitates_774-b-n_2.png"
+    },
+    {
+      "source": "Levitates/MINIOR_3.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "normal",
+      "suffix": "3",
+      "target": "normal/levitates_774-b-n_3.png"
+    },
+    {
+      "source": "Levitates/MINIOR_4.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "normal",
+      "suffix": "4",
+      "target": "normal/levitates_774-b-n_4.png"
+    },
+    {
+      "source": "Levitates/MINIOR_5.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "normal",
+      "suffix": "5",
+      "target": "normal/levitates_774-b-n_5.png"
+    },
+    {
+      "source": "Levitates/MINIOR_6.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "normal",
+      "suffix": "6",
+      "target": "normal/levitates_774-b-n_6.png"
+    },
+    {
+      "source": "Levitates/MINIOR_7.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "normal",
+      "suffix": "7",
+      "target": "normal/levitates_774-b-n_7.png"
+    },
+    {
+      "source": "Levitates/MISDREAVUS.png",
+      "speciesId": 200,
+      "speciesName": "misdreavus",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_200-b-n.png"
+    },
+    {
+      "source": "Levitates/MISMAGIUS.png",
+      "speciesId": 429,
+      "speciesName": "mismagius",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_429-b-n.png"
+    },
+    {
+      "source": "Levitates/MOLTRES.png",
+      "speciesId": 146,
+      "speciesName": "moltres",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_146-b-n.png"
+    },
+    {
+      "source": "Levitates/MOLTRES_1.png",
+      "speciesId": 146,
+      "speciesName": "moltres",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_146-b-n_1.png"
+    },
+    {
+      "source": "Levitates/MOTHIM.png",
+      "speciesId": 414,
+      "speciesName": "mothim",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_414-b-n.png"
+    },
+    {
+      "source": "Levitates/MUNNA.png",
+      "speciesId": 517,
+      "speciesName": "munna",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_517-b-n.png"
+    },
+    {
+      "source": "Levitates/MURKROW.png",
+      "speciesId": 198,
+      "speciesName": "murkrow",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_198-b-n.png"
+    },
+    {
+      "source": "Levitates/MUSHARNA.png",
+      "speciesId": 518,
+      "speciesName": "musharna",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_518-b-n.png"
+    },
+    {
+      "source": "Levitates/NAGANADEL.png",
+      "speciesId": 804,
+      "speciesName": "naganadel",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_804-b-n.png"
+    },
+    {
+      "source": "Levitates/NECROZMA.png",
+      "speciesId": 800,
+      "speciesName": "necrozma",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_800-b-n.png"
+    },
+    {
+      "source": "Levitates/NECROZMA_1.png",
+      "speciesId": 800,
+      "speciesName": "necrozma",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_800-b-n_1.png"
+    },
+    {
+      "source": "Levitates/NECROZMA_2.png",
+      "speciesId": 800,
+      "speciesName": "necrozma",
+      "variant": "normal",
+      "suffix": "2",
+      "target": "normal/levitates_800-b-n_2.png"
+    },
+    {
+      "source": "Levitates/NECROZMA_3.png",
+      "speciesId": 800,
+      "speciesName": "necrozma",
+      "variant": "normal",
+      "suffix": "3",
+      "target": "normal/levitates_800-b-n_3.png"
+    },
+    {
+      "source": "Levitates/NIHILEGO.png",
+      "speciesId": 793,
+      "speciesName": "nihilego",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_793-b-n.png"
+    },
+    {
+      "source": "Levitates/NINJASK.png",
+      "speciesId": 291,
+      "speciesName": "ninjask",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_291-b-n.png"
+    },
+    {
+      "source": "Levitates/NOCTOWL.png",
+      "speciesId": 164,
+      "speciesName": "noctowl",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_164-b-n.png"
+    },
+    {
+      "source": "Levitates/NOIBAT.png",
+      "speciesId": 714,
+      "speciesName": "noibat",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_714-b-n.png"
+    },
+    {
+      "source": "Levitates/NOIVERN.png",
+      "speciesId": 715,
+      "speciesName": "noivern",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_715-b-n.png"
+    },
+    {
+      "source": "Levitates/ORBEETLE.png",
+      "speciesId": 826,
+      "speciesName": "orbeetle",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_826-b-n.png"
+    },
+    {
+      "source": "Levitates/PELIPPER.png",
+      "speciesId": 279,
+      "speciesName": "pelipper",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_279-b-n.png"
+    },
+    {
+      "source": "Levitates/PHANTUMP.png",
+      "speciesId": 708,
+      "speciesName": "phantump",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_708-b-n.png"
+    },
+    {
+      "source": "Levitates/PIDGEOT.png",
+      "speciesId": 18,
+      "speciesName": "pidgeot",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_018-b-n.png"
+    },
+    {
+      "source": "Levitates/PIDGEOTTO.png",
+      "speciesId": 17,
+      "speciesName": "pidgeotto",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_017-b-n.png"
+    },
+    {
+      "source": "Levitates/PIDOVE.png",
+      "speciesId": 519,
+      "speciesName": "pidove",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_519-b-n.png"
+    },
+    {
+      "source": "Levitates/POLTEAGEIST.png",
+      "speciesId": 855,
+      "speciesName": "polteageist",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_855-b-n.png"
+    },
+    {
+      "source": "Levitates/PUMPKABOO.png",
+      "speciesId": 710,
+      "speciesName": "pumpkaboo",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_710-b-n.png"
+    },
+    {
+      "source": "Levitates/RABSCA.png",
+      "speciesId": 954,
+      "speciesName": "rabsca",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_954-b-n.png"
+    },
+    {
+      "source": "Levitates/RAYQUAZA.png",
+      "speciesId": 384,
+      "speciesName": "rayquaza",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_384-b-n.png"
+    },
+    {
+      "source": "Levitates/REGIELEKI.png",
+      "speciesId": 894,
+      "speciesName": "regieleki",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_894-b-n.png"
+    },
+    {
+      "source": "Levitates/REUNICLUS.png",
+      "speciesId": 579,
+      "speciesName": "reuniclus",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_579-b-n.png"
+    },
+    {
+      "source": "Levitates/REVAVROOM.png",
+      "speciesId": 966,
+      "speciesName": "revavroom",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_966-b-n.png"
+    },
+    {
+      "source": "Levitates/RIBOMBEE.png",
+      "speciesId": 743,
+      "speciesName": "ribombee",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_743-b-n.png"
+    },
+    {
+      "source": "Levitates/ROARINGMOON.png",
+      "speciesId": 1005,
+      "speciesName": "roaringmoon",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_1005-b-n.png"
+    },
+    {
+      "source": "Levitates/ROTOM.png",
+      "speciesId": 479,
+      "speciesName": "rotom",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_479-b-n.png"
+    },
+    {
+      "source": "Levitates/ROTOM_1.png",
+      "speciesId": 479,
+      "speciesName": "rotom",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_479-b-n_1.png"
+    },
+    {
+      "source": "Levitates/ROTOM_2.png",
+      "speciesId": 479,
+      "speciesName": "rotom",
+      "variant": "normal",
+      "suffix": "2",
+      "target": "normal/levitates_479-b-n_2.png"
+    },
+    {
+      "source": "Levitates/ROTOM_3.png",
+      "speciesId": 479,
+      "speciesName": "rotom",
+      "variant": "normal",
+      "suffix": "3",
+      "target": "normal/levitates_479-b-n_3.png"
+    },
+    {
+      "source": "Levitates/ROTOM_4.png",
+      "speciesId": 479,
+      "speciesName": "rotom",
+      "variant": "normal",
+      "suffix": "4",
+      "target": "normal/levitates_479-b-n_4.png"
+    },
+    {
+      "source": "Levitates/ROTOM_5.png",
+      "speciesId": 479,
+      "speciesName": "rotom",
+      "variant": "normal",
+      "suffix": "5",
+      "target": "normal/levitates_479-b-n_5.png"
+    },
+    {
+      "source": "Levitates/RUNERIGUS.png",
+      "speciesId": 867,
+      "speciesName": "runerigus",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_867-b-n.png"
+    },
+    {
+      "source": "Levitates/SALAMENCE.png",
+      "speciesId": 373,
+      "speciesName": "salamence",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_373-b-n.png"
+    },
+    {
+      "source": "Levitates/SHEDINJA.png",
+      "speciesId": 292,
+      "speciesName": "shedinja",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_292-b-n.png"
+    },
+    {
+      "source": "Levitates/SHUPPET.png",
+      "speciesId": 353,
+      "speciesName": "shuppet",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_353-b-n.png"
+    },
+    {
+      "source": "Levitates/SIGILYPH.png",
+      "speciesId": 561,
+      "speciesName": "sigilyph",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_561-b-n.png"
+    },
+    {
+      "source": "Levitates/SINISTEA.png",
+      "speciesId": 854,
+      "speciesName": "sinistea",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_854-b-n.png"
+    },
+    {
+      "source": "Levitates/SKARMORY.png",
+      "speciesId": 227,
+      "speciesName": "skarmory",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_227-b-n.png"
+    },
+    {
+      "source": "Levitates/SOLOSIS.png",
+      "speciesId": 577,
+      "speciesName": "solosis",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_577-b-n.png"
+    },
+    {
+      "source": "Levitates/SOLROCK.png",
+      "speciesId": 338,
+      "speciesName": "solrock",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_338-b-n.png"
+    },
+    {
+      "source": "Levitates/SPIRITOMB.png",
+      "speciesId": 442,
+      "speciesName": "spiritomb",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_442-b-n.png"
+    },
+    {
+      "source": "Levitates/STARAPTOR.png",
+      "speciesId": 398,
+      "speciesName": "staraptor",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_398-b-n.png"
+    },
+    {
+      "source": "Levitates/STARAVIA.png",
+      "speciesId": 397,
+      "speciesName": "staravia",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_397-b-n.png"
+    },
+    {
+      "source": "Levitates/SURSKIT.png",
+      "speciesId": 283,
+      "speciesName": "surskit",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_283-b-n.png"
+    },
+    {
+      "source": "Levitates/SWABLU.png",
+      "speciesId": 333,
+      "speciesName": "swablu",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_333-b-n.png"
+    },
+    {
+      "source": "Levitates/SWANNA.png",
+      "speciesId": 581,
+      "speciesName": "swanna",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_581-b-n.png"
+    },
+    {
+      "source": "Levitates/SWELLOW.png",
+      "speciesId": 277,
+      "speciesName": "swellow",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_277-b-n.png"
+    },
+    {
+      "source": "Levitates/SWOOBAT.png",
+      "speciesId": 528,
+      "speciesName": "swoobat",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_528-b-n.png"
+    },
+    {
+      "source": "Levitates/TALONFLAME.png",
+      "speciesId": 663,
+      "speciesName": "talonflame",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_663-b-n.png"
+    },
+    {
+      "source": "Levitates/TAPUBULU.png",
+      "speciesId": 787,
+      "speciesName": "tapubulu",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_787-b-n.png"
+    },
+    {
+      "source": "Levitates/TAPUFINI.png",
+      "speciesId": 788,
+      "speciesName": "tapufini",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_788-b-n.png"
+    },
+    {
+      "source": "Levitates/TAPUKOKO.png",
+      "speciesId": 785,
+      "speciesName": "tapukoko",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_785-b-n.png"
+    },
+    {
+      "source": "Levitates/TAPULELE.png",
+      "speciesId": 786,
+      "speciesName": "tapulele",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_786-b-n.png"
+    },
+    {
+      "source": "Levitates/THUNDURUS.png",
+      "speciesId": 642,
+      "speciesName": "thundurus",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_642-b-n.png"
+    },
+    {
+      "source": "Levitates/THUNDURUS_1.png",
+      "speciesId": 642,
+      "speciesName": "thundurus",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_642-b-n_1.png"
+    },
+    {
+      "source": "Levitates/TOGEKISS.png",
+      "speciesId": 468,
+      "speciesName": "togekiss",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_468-b-n.png"
+    },
+    {
+      "source": "Levitates/TORNADUS.png",
+      "speciesId": 641,
+      "speciesName": "tornadus",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_641-b-n.png"
+    },
+    {
+      "source": "Levitates/TORNADUS_1.png",
+      "speciesId": 641,
+      "speciesName": "tornadus",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_641-b-n_1.png"
+    },
+    {
+      "source": "Levitates/TOUCANNON.png",
+      "speciesId": 733,
+      "speciesName": "toucannon",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_733-b-n.png"
+    },
+    {
+      "source": "Levitates/TRANQUILL.png",
+      "speciesId": 520,
+      "speciesName": "tranquill",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_520-b-n.png"
+    },
+    {
+      "source": "Levitates/TRUMBEAK.png",
+      "speciesId": 732,
+      "speciesName": "trumbeak",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_732-b-n.png"
+    },
+    {
+      "source": "Levitates/TYNAMO.png",
+      "speciesId": 602,
+      "speciesName": "tynamo",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_602-b-n.png"
+    },
+    {
+      "source": "Levitates/UNFEZANT.png",
+      "speciesId": 521,
+      "speciesName": "unfezant",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_521-b-n.png"
+    },
+    {
+      "source": "Levitates/UNFEZANT_female.png",
+      "speciesId": 521,
+      "speciesName": "unfezant",
+      "variant": "normal",
+      "suffix": "female",
+      "target": "normal/levitates_521-b-n_female.png"
+    },
+    {
+      "source": "Levitates/UNOWN.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_201-b-n.png"
+    },
+    {
+      "source": "Levitates/UNOWN_1.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_201-b-n_1.png"
+    },
+    {
+      "source": "Levitates/UNOWN_10.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "10",
+      "target": "normal/levitates_201-b-n_10.png"
+    },
+    {
+      "source": "Levitates/UNOWN_11.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "11",
+      "target": "normal/levitates_201-b-n_11.png"
+    },
+    {
+      "source": "Levitates/UNOWN_12.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "12",
+      "target": "normal/levitates_201-b-n_12.png"
+    },
+    {
+      "source": "Levitates/UNOWN_13.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "13",
+      "target": "normal/levitates_201-b-n_13.png"
+    },
+    {
+      "source": "Levitates/UNOWN_14.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "14",
+      "target": "normal/levitates_201-b-n_14.png"
+    },
+    {
+      "source": "Levitates/UNOWN_15.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "15",
+      "target": "normal/levitates_201-b-n_15.png"
+    },
+    {
+      "source": "Levitates/UNOWN_16.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "16",
+      "target": "normal/levitates_201-b-n_16.png"
+    },
+    {
+      "source": "Levitates/UNOWN_17.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "17",
+      "target": "normal/levitates_201-b-n_17.png"
+    },
+    {
+      "source": "Levitates/UNOWN_18.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "18",
+      "target": "normal/levitates_201-b-n_18.png"
+    },
+    {
+      "source": "Levitates/UNOWN_19.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "19",
+      "target": "normal/levitates_201-b-n_19.png"
+    },
+    {
+      "source": "Levitates/UNOWN_2.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "2",
+      "target": "normal/levitates_201-b-n_2.png"
+    },
+    {
+      "source": "Levitates/UNOWN_20.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "20",
+      "target": "normal/levitates_201-b-n_20.png"
+    },
+    {
+      "source": "Levitates/UNOWN_21.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "21",
+      "target": "normal/levitates_201-b-n_21.png"
+    },
+    {
+      "source": "Levitates/UNOWN_22.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "22",
+      "target": "normal/levitates_201-b-n_22.png"
+    },
+    {
+      "source": "Levitates/UNOWN_23.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "23",
+      "target": "normal/levitates_201-b-n_23.png"
+    },
+    {
+      "source": "Levitates/UNOWN_24.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "24",
+      "target": "normal/levitates_201-b-n_24.png"
+    },
+    {
+      "source": "Levitates/UNOWN_25.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "25",
+      "target": "normal/levitates_201-b-n_25.png"
+    },
+    {
+      "source": "Levitates/UNOWN_26.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "26",
+      "target": "normal/levitates_201-b-n_26.png"
+    },
+    {
+      "source": "Levitates/UNOWN_27.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "27",
+      "target": "normal/levitates_201-b-n_27.png"
+    },
+    {
+      "source": "Levitates/UNOWN_3.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "3",
+      "target": "normal/levitates_201-b-n_3.png"
+    },
+    {
+      "source": "Levitates/UNOWN_4.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "4",
+      "target": "normal/levitates_201-b-n_4.png"
+    },
+    {
+      "source": "Levitates/UNOWN_5.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "5",
+      "target": "normal/levitates_201-b-n_5.png"
+    },
+    {
+      "source": "Levitates/UNOWN_6.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "6",
+      "target": "normal/levitates_201-b-n_6.png"
+    },
+    {
+      "source": "Levitates/UNOWN_7.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "7",
+      "target": "normal/levitates_201-b-n_7.png"
+    },
+    {
+      "source": "Levitates/UNOWN_8.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "8",
+      "target": "normal/levitates_201-b-n_8.png"
+    },
+    {
+      "source": "Levitates/UNOWN_9.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "normal",
+      "suffix": "9",
+      "target": "normal/levitates_201-b-n_9.png"
+    },
+    {
+      "source": "Levitates/UXIE.png",
+      "speciesId": 480,
+      "speciesName": "uxie",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_480-b-n.png"
+    },
+    {
+      "source": "Levitates/VAROOM.png",
+      "speciesId": 965,
+      "speciesName": "varoom",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_965-b-n.png"
+    },
+    {
+      "source": "Levitates/VENOMOTH.png",
+      "speciesId": 49,
+      "speciesName": "venomoth",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_049-b-n.png"
+    },
+    {
+      "source": "Levitates/VESPIQUEN.png",
+      "speciesId": 416,
+      "speciesName": "vespiquen",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_416-b-n.png"
+    },
+    {
+      "source": "Levitates/VIKAVOLT.png",
+      "speciesId": 738,
+      "speciesName": "vikavolt",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_738-b-n.png"
+    },
+    {
+      "source": "Levitates/VIVILLON.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_666-b-n.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_1.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_666-b-n_1.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_10.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "10",
+      "target": "normal/levitates_666-b-n_10.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_11.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "11",
+      "target": "normal/levitates_666-b-n_11.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_12.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "12",
+      "target": "normal/levitates_666-b-n_12.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_13.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "13",
+      "target": "normal/levitates_666-b-n_13.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_14.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "14",
+      "target": "normal/levitates_666-b-n_14.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_15.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "15",
+      "target": "normal/levitates_666-b-n_15.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_16.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "16",
+      "target": "normal/levitates_666-b-n_16.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_17.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "17",
+      "target": "normal/levitates_666-b-n_17.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_18.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "18",
+      "target": "normal/levitates_666-b-n_18.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_19.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "19",
+      "target": "normal/levitates_666-b-n_19.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_2.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "2",
+      "target": "normal/levitates_666-b-n_2.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_3.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "3",
+      "target": "normal/levitates_666-b-n_3.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_4.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "4",
+      "target": "normal/levitates_666-b-n_4.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_5.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "5",
+      "target": "normal/levitates_666-b-n_5.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_6.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "6",
+      "target": "normal/levitates_666-b-n_6.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_7.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "7",
+      "target": "normal/levitates_666-b-n_7.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_8.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "8",
+      "target": "normal/levitates_666-b-n_8.png"
+    },
+    {
+      "source": "Levitates/VIVILLON_9.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "normal",
+      "suffix": "9",
+      "target": "normal/levitates_666-b-n_9.png"
+    },
+    {
+      "source": "Levitates/VOLBEAT.png",
+      "speciesId": 313,
+      "speciesName": "volbeat",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_313-b-n.png"
+    },
+    {
+      "source": "Levitates/VOLCARONA.png",
+      "speciesId": 637,
+      "speciesName": "volcarona",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_637-b-n.png"
+    },
+    {
+      "source": "Levitates/WEEZING.png",
+      "speciesId": 110,
+      "speciesName": "weezing",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_110-b-n.png"
+    },
+    {
+      "source": "Levitates/WEEZING_1.png",
+      "speciesId": 110,
+      "speciesName": "weezing",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_110-b-n_1.png"
+    },
+    {
+      "source": "Levitates/WIGLETT.png",
+      "speciesId": 960,
+      "speciesName": "wiglett",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_960-b-n.png"
+    },
+    {
+      "source": "Levitates/WINGULL.png",
+      "speciesId": 278,
+      "speciesName": "wingull",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_278-b-n.png"
+    },
+    {
+      "source": "Levitates/WOOBAT.png",
+      "speciesId": 527,
+      "speciesName": "woobat",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_527-b-n.png"
+    },
+    {
+      "source": "Levitates/WUGTRIO.png",
+      "speciesId": 961,
+      "speciesName": "wugtrio",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_961-b-n.png"
+    },
+    {
+      "source": "Levitates/YAMASK.png",
+      "speciesId": 562,
+      "speciesName": "yamask",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_562-b-n.png"
+    },
+    {
+      "source": "Levitates/YAMASK_1.png",
+      "speciesId": 562,
+      "speciesName": "yamask",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_562-b-n_1.png"
+    },
+    {
+      "source": "Levitates/YANMA.png",
+      "speciesId": 193,
+      "speciesName": "yanma",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_193-b-n.png"
+    },
+    {
+      "source": "Levitates/YANMEGA.png",
+      "speciesId": 469,
+      "speciesName": "yanmega",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_469-b-n.png"
+    },
+    {
+      "source": "Levitates/YVELTAL.png",
+      "speciesId": 717,
+      "speciesName": "yveltal",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_717-b-n.png"
+    },
+    {
+      "source": "Levitates/ZAPDOS.png",
+      "speciesId": 145,
+      "speciesName": "zapdos",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_145-b-n.png"
+    },
+    {
+      "source": "Levitates/ZAPDOS_1.png",
+      "speciesId": 145,
+      "speciesName": "zapdos",
+      "variant": "normal",
+      "suffix": "1",
+      "target": "normal/levitates_145-b-n_1.png"
+    },
+    {
+      "source": "Levitates/ZUBAT.png",
+      "speciesId": 41,
+      "speciesName": "zubat",
+      "variant": "normal",
+      "suffix": null,
+      "target": "normal/levitates_041-b-n.png"
+    },
+    {
+      "source": "Levitates Shiny/ABRA.png",
+      "speciesId": 63,
+      "speciesName": "abra",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_063-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/AEGISLASH.png",
+      "speciesId": 681,
+      "speciesName": "aegislash",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_681-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/AERODACTYL.png",
+      "speciesId": 142,
+      "speciesName": "aerodactyl",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_142-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ALTARIA.png",
+      "speciesId": 334,
+      "speciesName": "altaria",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_334-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ARCHEOPS.png",
+      "speciesId": 567,
+      "speciesName": "archeops",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_567-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ARTICUNO.png",
+      "speciesId": 144,
+      "speciesName": "articuno",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_144-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ARTICUNO_1.png",
+      "speciesId": 144,
+      "speciesName": "articuno",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_144-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/AZELF.png",
+      "speciesId": 482,
+      "speciesName": "azelf",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_482-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/BALTOY.png",
+      "speciesId": 343,
+      "speciesName": "baltoy",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_343-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/BEAUTIFLY.png",
+      "speciesId": 267,
+      "speciesName": "beautifly",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_267-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/BEEDRILL.png",
+      "speciesId": 15,
+      "speciesName": "beedrill",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_015-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/BEHEEYEM.png",
+      "speciesId": 606,
+      "speciesName": "beheeyem",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_606-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/BELDUM.png",
+      "speciesId": 374,
+      "speciesName": "beldum",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_374-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/BRAVIARY.png",
+      "speciesId": 628,
+      "speciesName": "braviary",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_628-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/BRAVIARY_1.png",
+      "speciesId": 628,
+      "speciesName": "braviary",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_628-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/BRONZONG.png",
+      "speciesId": 437,
+      "speciesName": "bronzong",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_437-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/BRONZOR.png",
+      "speciesId": 436,
+      "speciesName": "bronzor",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_436-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/BUTTERFREE.png",
+      "speciesId": 12,
+      "speciesName": "butterfree",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_012-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CALYREX.png",
+      "speciesId": 898,
+      "speciesName": "calyrex",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_898-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CALYREX_1.png",
+      "speciesId": 898,
+      "speciesName": "calyrex",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_898-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/CALYREX_2.png",
+      "speciesId": 898,
+      "speciesName": "calyrex",
+      "variant": "shiny",
+      "suffix": "2",
+      "target": "shiny/levitates_898-b-s_2.png"
+    },
+    {
+      "source": "Levitates Shiny/CASTFORM.png",
+      "speciesId": 351,
+      "speciesName": "castform",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_351-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CELEBI.png",
+      "speciesId": 251,
+      "speciesName": "celebi",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_251-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CELESTEELA.png",
+      "speciesId": 797,
+      "speciesName": "celesteela",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_797-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CHANDELURE.png",
+      "speciesId": 609,
+      "speciesName": "chandelure",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_609-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CHARIZARD.png",
+      "speciesId": 6,
+      "speciesName": "charizard",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_006-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CHIMECHO.png",
+      "speciesId": 358,
+      "speciesName": "chimecho",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_358-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CHINGLING.png",
+      "speciesId": 433,
+      "speciesName": "chingling",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_433-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CLAYDOL.png",
+      "speciesId": 344,
+      "speciesName": "claydol",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_344-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/COFAGRIGUS.png",
+      "speciesId": 563,
+      "speciesName": "cofagrigus",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_563-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/COMBEE.png",
+      "speciesId": 415,
+      "speciesName": "combee",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_415-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/COMBEE_1.png",
+      "speciesId": 415,
+      "speciesName": "combee",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_415-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/COMFEY.png",
+      "speciesId": 764,
+      "speciesName": "comfey",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_764-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CORVIKNIGHT.png",
+      "speciesId": 823,
+      "speciesName": "corviknight",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_823-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CORVISQUIRE.png",
+      "speciesId": 822,
+      "speciesName": "corvisquire",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_822-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/COSMOEM.png",
+      "speciesId": 790,
+      "speciesName": "cosmoem",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_790-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/COSMOG.png",
+      "speciesId": 789,
+      "speciesName": "cosmog",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_789-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CRESSELIA.png",
+      "speciesId": 488,
+      "speciesName": "cresselia",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_488-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CROBAT.png",
+      "speciesId": 169,
+      "speciesName": "crobat",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_169-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CRYOGONAL.png",
+      "speciesId": 615,
+      "speciesName": "cryogonal",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_615-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/CUTIEFLY.png",
+      "speciesId": 742,
+      "speciesName": "cutiefly",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_742-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DARKRAI.png",
+      "speciesId": 491,
+      "speciesName": "darkrai",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_491-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DIGLETT.png",
+      "speciesId": 50,
+      "speciesName": "diglett",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_050-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DIGLETT_1.png",
+      "speciesId": 50,
+      "speciesName": "diglett",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_050-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/DOUBLADE.png",
+      "speciesId": 680,
+      "speciesName": "doublade",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_680-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DRAGAPULT.png",
+      "speciesId": 887,
+      "speciesName": "dragapult",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_887-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DRAGONITE.png",
+      "speciesId": 149,
+      "speciesName": "dragonite",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_149-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DRAKLOAK.png",
+      "speciesId": 886,
+      "speciesName": "drakloak",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_886-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DREEPY.png",
+      "speciesId": 885,
+      "speciesName": "dreepy",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_885-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DRIFBLIM.png",
+      "speciesId": 426,
+      "speciesName": "drifblim",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_426-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DRIFLOON.png",
+      "speciesId": 425,
+      "speciesName": "drifloon",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_425-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DUGTRIO.png",
+      "speciesId": 51,
+      "speciesName": "dugtrio",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_051-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DUGTRIO_1.png",
+      "speciesId": 51,
+      "speciesName": "dugtrio",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_051-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/DUOSION.png",
+      "speciesId": 578,
+      "speciesName": "duosion",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_578-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DUSKULL.png",
+      "speciesId": 355,
+      "speciesName": "duskull",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_355-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/DUSTOX.png",
+      "speciesId": 269,
+      "speciesName": "dustox",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_269-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/EELEKTRIK.png",
+      "speciesId": 603,
+      "speciesName": "eelektrik",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_603-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ELDEGOSS.png",
+      "speciesId": 830,
+      "speciesName": "eldegoss",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_830-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ELGYEM.png",
+      "speciesId": 605,
+      "speciesName": "elgyem",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_605-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/EMOLGA.png",
+      "speciesId": 587,
+      "speciesName": "emolga",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_587-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ENAMORUS.png",
+      "speciesId": 905,
+      "speciesName": "enamorus",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_905-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ENAMORUS_1.png",
+      "speciesId": 905,
+      "speciesName": "enamorus",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_905-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/ETERNATUS.png",
+      "speciesId": 890,
+      "speciesName": "eternatus",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_890-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/FEAROW.png",
+      "speciesId": 22,
+      "speciesName": "fearow",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_022-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/FLAPPLE.png",
+      "speciesId": 841,
+      "speciesName": "flapple",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_841-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/FLETCHINDER.png",
+      "speciesId": 662,
+      "speciesName": "fletchinder",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_662-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/FLUTTERMANE.png",
+      "speciesId": 987,
+      "speciesName": "fluttermane",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_987-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/FLYGON.png",
+      "speciesId": 330,
+      "speciesName": "flygon",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_330-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/FROSLASS.png",
+      "speciesId": 478,
+      "speciesName": "froslass",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_478-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/FROSMOTH.png",
+      "speciesId": 873,
+      "speciesName": "frosmoth",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_873-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/GASTLY.png",
+      "speciesId": 92,
+      "speciesName": "gastly",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_092-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/GIRATINA_1.png",
+      "speciesId": 487,
+      "speciesName": "giratina",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_487-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/GLALIE.png",
+      "speciesId": 362,
+      "speciesName": "glalie",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_362-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/GLIGAR.png",
+      "speciesId": 207,
+      "speciesName": "gligar",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_207-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/GLISCOR.png",
+      "speciesId": 472,
+      "speciesName": "gliscor",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_472-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/GOLBAT.png",
+      "speciesId": 42,
+      "speciesName": "golbat",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_042-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/GOSSIFLEUR.png",
+      "speciesId": 829,
+      "speciesName": "gossifleur",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_829-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/GOURGEIST.png",
+      "speciesId": 711,
+      "speciesName": "gourgeist",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_711-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/HAUNTER.png",
+      "speciesId": 93,
+      "speciesName": "haunter",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_093-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/HONEDGE.png",
+      "speciesId": 679,
+      "speciesName": "honedge",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_679-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/HOOH.png",
+      "speciesId": 250,
+      "speciesName": "hooh",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_250-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/HOOPA.png",
+      "speciesId": 720,
+      "speciesName": "hoopa",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_720-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/HOOPA_1.png",
+      "speciesId": 720,
+      "speciesName": "hoopa",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_720-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/HOPPIP.png",
+      "speciesId": 187,
+      "speciesName": "hoppip",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_187-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/HYDREIGON.png",
+      "speciesId": 635,
+      "speciesName": "hydreigon",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_635-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ILLUMISE.png",
+      "speciesId": 314,
+      "speciesName": "illumise",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_314-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/IRONJUGULIS.png",
+      "speciesId": 993,
+      "speciesName": "ironjugulis",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_993-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/IRONMOTH.png",
+      "speciesId": 994,
+      "speciesName": "ironmoth",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_994-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/JIRACHI.png",
+      "speciesId": 385,
+      "speciesName": "jirachi",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_385-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/JUMPLUFF.png",
+      "speciesId": 189,
+      "speciesName": "jumpluff",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_189-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/KARTANA.png",
+      "speciesId": 798,
+      "speciesName": "kartana",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_798-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/KILOWATTREL.png",
+      "speciesId": 941,
+      "speciesName": "kilowattrel",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_941-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/KLANG.png",
+      "speciesId": 600,
+      "speciesName": "klang",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_600-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/KLEFKI.png",
+      "speciesId": 707,
+      "speciesName": "klefki",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_707-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/KLINK.png",
+      "speciesId": 599,
+      "speciesName": "klink",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_599-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/KLINKLANG.png",
+      "speciesId": 601,
+      "speciesName": "klinklang",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_601-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/KOFFING.png",
+      "speciesId": 109,
+      "speciesName": "koffing",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_109-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/LAMPENT.png",
+      "speciesId": 608,
+      "speciesName": "lampent",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_608-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/LANDORUS.png",
+      "speciesId": 645,
+      "speciesName": "landorus",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_645-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/LANDORUS_1.png",
+      "speciesId": 645,
+      "speciesName": "landorus",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_645-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/LATIAS.png",
+      "speciesId": 380,
+      "speciesName": "latias",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_380-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/LATIOS.png",
+      "speciesId": 381,
+      "speciesName": "latios",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_381-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/LEDIAN.png",
+      "speciesId": 166,
+      "speciesName": "ledian",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_166-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/LEDYBA.png",
+      "speciesId": 165,
+      "speciesName": "ledyba",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_165-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/LUGIA.png",
+      "speciesId": 249,
+      "speciesName": "lugia",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_249-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/LUNALA.png",
+      "speciesId": 792,
+      "speciesName": "lunala",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_792-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/LUNATONE.png",
+      "speciesId": 337,
+      "speciesName": "lunatone",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_337-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MAGNEZONE.png",
+      "speciesId": 462,
+      "speciesName": "magnezone",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_462-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MANDIBUZZ.png",
+      "speciesId": 630,
+      "speciesName": "mandibuzz",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_630-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MASQUERAIN.png",
+      "speciesId": 284,
+      "speciesName": "masquerain",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_284-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MESPRIT.png",
+      "speciesId": 481,
+      "speciesName": "mesprit",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_481-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/METANG.png",
+      "speciesId": 375,
+      "speciesName": "metang",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_375-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MILCERY.png",
+      "speciesId": 868,
+      "speciesName": "milcery",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_868-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MINIOR.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_774-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MINIOR_10.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "shiny",
+      "suffix": "10",
+      "target": "shiny/levitates_774-b-s_10.png"
+    },
+    {
+      "source": "Levitates Shiny/MINIOR_11.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "shiny",
+      "suffix": "11",
+      "target": "shiny/levitates_774-b-s_11.png"
+    },
+    {
+      "source": "Levitates Shiny/MINIOR_12.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "shiny",
+      "suffix": "12",
+      "target": "shiny/levitates_774-b-s_12.png"
+    },
+    {
+      "source": "Levitates Shiny/MINIOR_13.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "shiny",
+      "suffix": "13",
+      "target": "shiny/levitates_774-b-s_13.png"
+    },
+    {
+      "source": "Levitates Shiny/MINIOR_7.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "shiny",
+      "suffix": "7",
+      "target": "shiny/levitates_774-b-s_7.png"
+    },
+    {
+      "source": "Levitates Shiny/MINIOR_8.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "shiny",
+      "suffix": "8",
+      "target": "shiny/levitates_774-b-s_8.png"
+    },
+    {
+      "source": "Levitates Shiny/MINIOR_9.png",
+      "speciesId": 774,
+      "speciesName": "minior",
+      "variant": "shiny",
+      "suffix": "9",
+      "target": "shiny/levitates_774-b-s_9.png"
+    },
+    {
+      "source": "Levitates Shiny/MISDREAVUS.png",
+      "speciesId": 200,
+      "speciesName": "misdreavus",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_200-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MISMAGIUS.png",
+      "speciesId": 429,
+      "speciesName": "mismagius",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_429-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MOLTRES.png",
+      "speciesId": 146,
+      "speciesName": "moltres",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_146-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MOLTRES_1.png",
+      "speciesId": 146,
+      "speciesName": "moltres",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_146-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/MOTHIM.png",
+      "speciesId": 414,
+      "speciesName": "mothim",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_414-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MUNNA.png",
+      "speciesId": 517,
+      "speciesName": "munna",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_517-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MURKROW.png",
+      "speciesId": 198,
+      "speciesName": "murkrow",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_198-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/MUSHARNA.png",
+      "speciesId": 518,
+      "speciesName": "musharna",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_518-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/NAGANADEL.png",
+      "speciesId": 804,
+      "speciesName": "naganadel",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_804-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/NECROZMA.png",
+      "speciesId": 800,
+      "speciesName": "necrozma",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_800-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/NECROZMA_1.png",
+      "speciesId": 800,
+      "speciesName": "necrozma",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_800-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/NECROZMA_2.png",
+      "speciesId": 800,
+      "speciesName": "necrozma",
+      "variant": "shiny",
+      "suffix": "2",
+      "target": "shiny/levitates_800-b-s_2.png"
+    },
+    {
+      "source": "Levitates Shiny/NIHILEGO.png",
+      "speciesId": 793,
+      "speciesName": "nihilego",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_793-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/NINJASK.png",
+      "speciesId": 291,
+      "speciesName": "ninjask",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_291-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/NOCTOWL.png",
+      "speciesId": 164,
+      "speciesName": "noctowl",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_164-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/NOIBAT.png",
+      "speciesId": 714,
+      "speciesName": "noibat",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_714-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/NOIVERN.png",
+      "speciesId": 715,
+      "speciesName": "noivern",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_715-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ORBEETLE.png",
+      "speciesId": 826,
+      "speciesName": "orbeetle",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_826-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/PELIPPER.png",
+      "speciesId": 279,
+      "speciesName": "pelipper",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_279-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/PHANTUMP.png",
+      "speciesId": 708,
+      "speciesName": "phantump",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_708-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/PIDGEOT.png",
+      "speciesId": 18,
+      "speciesName": "pidgeot",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_018-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/PIDGEOTTO.png",
+      "speciesId": 17,
+      "speciesName": "pidgeotto",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_017-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/PIDOVE.png",
+      "speciesId": 519,
+      "speciesName": "pidove",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_519-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/POLTEAGEIST.png",
+      "speciesId": 855,
+      "speciesName": "polteageist",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_855-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/PUMPKABOO.png",
+      "speciesId": 710,
+      "speciesName": "pumpkaboo",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_710-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/RABSCA.png",
+      "speciesId": 954,
+      "speciesName": "rabsca",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_954-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/RAYQUAZA.png",
+      "speciesId": 384,
+      "speciesName": "rayquaza",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_384-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/REGIELEKI.png",
+      "speciesId": 894,
+      "speciesName": "regieleki",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_894-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/REUNICLUS.png",
+      "speciesId": 579,
+      "speciesName": "reuniclus",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_579-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/REVAVROOM.png",
+      "speciesId": 966,
+      "speciesName": "revavroom",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_966-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/RIBOMBEE.png",
+      "speciesId": 743,
+      "speciesName": "ribombee",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_743-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ROARINGMOON.png",
+      "speciesId": 1005,
+      "speciesName": "roaringmoon",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_1005-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ROTOM.png",
+      "speciesId": 479,
+      "speciesName": "rotom",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_479-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ROTOM_1.png",
+      "speciesId": 479,
+      "speciesName": "rotom",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_479-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/ROTOM_2.png",
+      "speciesId": 479,
+      "speciesName": "rotom",
+      "variant": "shiny",
+      "suffix": "2",
+      "target": "shiny/levitates_479-b-s_2.png"
+    },
+    {
+      "source": "Levitates Shiny/ROTOM_3.png",
+      "speciesId": 479,
+      "speciesName": "rotom",
+      "variant": "shiny",
+      "suffix": "3",
+      "target": "shiny/levitates_479-b-s_3.png"
+    },
+    {
+      "source": "Levitates Shiny/ROTOM_4.png",
+      "speciesId": 479,
+      "speciesName": "rotom",
+      "variant": "shiny",
+      "suffix": "4",
+      "target": "shiny/levitates_479-b-s_4.png"
+    },
+    {
+      "source": "Levitates Shiny/ROTOM_5.png",
+      "speciesId": 479,
+      "speciesName": "rotom",
+      "variant": "shiny",
+      "suffix": "5",
+      "target": "shiny/levitates_479-b-s_5.png"
+    },
+    {
+      "source": "Levitates Shiny/RUNERIGUS.png",
+      "speciesId": 867,
+      "speciesName": "runerigus",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_867-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SALAMENCE.png",
+      "speciesId": 373,
+      "speciesName": "salamence",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_373-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SHEDINJA.png",
+      "speciesId": 292,
+      "speciesName": "shedinja",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_292-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SHUPPET.png",
+      "speciesId": 353,
+      "speciesName": "shuppet",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_353-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SIGILYPH.png",
+      "speciesId": 561,
+      "speciesName": "sigilyph",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_561-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SINISTEA.png",
+      "speciesId": 854,
+      "speciesName": "sinistea",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_854-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SKARMORY.png",
+      "speciesId": 227,
+      "speciesName": "skarmory",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_227-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SOLOSIS.png",
+      "speciesId": 577,
+      "speciesName": "solosis",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_577-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SOLROCK.png",
+      "speciesId": 338,
+      "speciesName": "solrock",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_338-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SPIRITOMB.png",
+      "speciesId": 442,
+      "speciesName": "spiritomb",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_442-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/STARAPTOR.png",
+      "speciesId": 398,
+      "speciesName": "staraptor",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_398-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/STARAVIA.png",
+      "speciesId": 397,
+      "speciesName": "staravia",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_397-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SURSKIT.png",
+      "speciesId": 283,
+      "speciesName": "surskit",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_283-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SWABLU.png",
+      "speciesId": 333,
+      "speciesName": "swablu",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_333-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SWANNA.png",
+      "speciesId": 581,
+      "speciesName": "swanna",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_581-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SWELLOW.png",
+      "speciesId": 277,
+      "speciesName": "swellow",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_277-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/SWOOBAT.png",
+      "speciesId": 528,
+      "speciesName": "swoobat",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_528-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/TALONFLAME.png",
+      "speciesId": 663,
+      "speciesName": "talonflame",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_663-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/TAPUBULU.png",
+      "speciesId": 787,
+      "speciesName": "tapubulu",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_787-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/TAPUFINI.png",
+      "speciesId": 788,
+      "speciesName": "tapufini",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_788-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/TAPUKOKO.png",
+      "speciesId": 785,
+      "speciesName": "tapukoko",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_785-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/TAPULELE.png",
+      "speciesId": 786,
+      "speciesName": "tapulele",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_786-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/THUNDURUS.png",
+      "speciesId": 642,
+      "speciesName": "thundurus",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_642-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/THUNDURUS_1.png",
+      "speciesId": 642,
+      "speciesName": "thundurus",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_642-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/TOGEKISS.png",
+      "speciesId": 468,
+      "speciesName": "togekiss",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_468-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/TORNADUS.png",
+      "speciesId": 641,
+      "speciesName": "tornadus",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_641-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/TORNADUS_1.png",
+      "speciesId": 641,
+      "speciesName": "tornadus",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_641-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/TOUCANNON.png",
+      "speciesId": 733,
+      "speciesName": "toucannon",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_733-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/TRANQUILL.png",
+      "speciesId": 520,
+      "speciesName": "tranquill",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_520-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/TRUMBEAK.png",
+      "speciesId": 732,
+      "speciesName": "trumbeak",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_732-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/TYNAMO.png",
+      "speciesId": 602,
+      "speciesName": "tynamo",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_602-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/UNFEZANT.png",
+      "speciesId": 521,
+      "speciesName": "unfezant",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_521-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/UNFEZANT_female.png",
+      "speciesId": 521,
+      "speciesName": "unfezant",
+      "variant": "shiny",
+      "suffix": "female",
+      "target": "shiny/levitates_521-b-s_female.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_201-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_1.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_201-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_11.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "11",
+      "target": "shiny/levitates_201-b-s_11.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_12.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "12",
+      "target": "shiny/levitates_201-b-s_12.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_13.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "13",
+      "target": "shiny/levitates_201-b-s_13.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_14.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "14",
+      "target": "shiny/levitates_201-b-s_14.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_15.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "15",
+      "target": "shiny/levitates_201-b-s_15.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_16.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "16",
+      "target": "shiny/levitates_201-b-s_16.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_17.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "17",
+      "target": "shiny/levitates_201-b-s_17.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_18.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "18",
+      "target": "shiny/levitates_201-b-s_18.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_19.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "19",
+      "target": "shiny/levitates_201-b-s_19.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_2.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "2",
+      "target": "shiny/levitates_201-b-s_2.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_20.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "20",
+      "target": "shiny/levitates_201-b-s_20.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_21.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "21",
+      "target": "shiny/levitates_201-b-s_21.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_22.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "22",
+      "target": "shiny/levitates_201-b-s_22.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_23.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "23",
+      "target": "shiny/levitates_201-b-s_23.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_24.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "24",
+      "target": "shiny/levitates_201-b-s_24.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_25.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "25",
+      "target": "shiny/levitates_201-b-s_25.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_26.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "26",
+      "target": "shiny/levitates_201-b-s_26.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_27.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "27",
+      "target": "shiny/levitates_201-b-s_27.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_3.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "3",
+      "target": "shiny/levitates_201-b-s_3.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_4.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "4",
+      "target": "shiny/levitates_201-b-s_4.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_5.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "5",
+      "target": "shiny/levitates_201-b-s_5.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_6.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "6",
+      "target": "shiny/levitates_201-b-s_6.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_7.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "7",
+      "target": "shiny/levitates_201-b-s_7.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_8.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "8",
+      "target": "shiny/levitates_201-b-s_8.png"
+    },
+    {
+      "source": "Levitates Shiny/UNOWN_9.png",
+      "speciesId": 201,
+      "speciesName": "unown",
+      "variant": "shiny",
+      "suffix": "9",
+      "target": "shiny/levitates_201-b-s_9.png"
+    },
+    {
+      "source": "Levitates Shiny/UXIE.png",
+      "speciesId": 480,
+      "speciesName": "uxie",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_480-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/VAROOM.png",
+      "speciesId": 965,
+      "speciesName": "varoom",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_965-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/VENOMOTH.png",
+      "speciesId": 49,
+      "speciesName": "venomoth",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_049-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/VESPIQUEN.png",
+      "speciesId": 416,
+      "speciesName": "vespiquen",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_416-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/VIKAVOLT.png",
+      "speciesId": 738,
+      "speciesName": "vikavolt",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_738-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_666-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_1.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_666-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_10.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "10",
+      "target": "shiny/levitates_666-b-s_10.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_11.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "11",
+      "target": "shiny/levitates_666-b-s_11.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_12.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "12",
+      "target": "shiny/levitates_666-b-s_12.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_13.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "13",
+      "target": "shiny/levitates_666-b-s_13.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_14.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "14",
+      "target": "shiny/levitates_666-b-s_14.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_15.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "15",
+      "target": "shiny/levitates_666-b-s_15.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_16.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "16",
+      "target": "shiny/levitates_666-b-s_16.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_17.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "17",
+      "target": "shiny/levitates_666-b-s_17.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_18.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "18",
+      "target": "shiny/levitates_666-b-s_18.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_19.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "19",
+      "target": "shiny/levitates_666-b-s_19.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_2.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "2",
+      "target": "shiny/levitates_666-b-s_2.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_3.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "3",
+      "target": "shiny/levitates_666-b-s_3.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_4.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "4",
+      "target": "shiny/levitates_666-b-s_4.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_5.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "5",
+      "target": "shiny/levitates_666-b-s_5.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_6.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "6",
+      "target": "shiny/levitates_666-b-s_6.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_7.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "7",
+      "target": "shiny/levitates_666-b-s_7.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_8.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "8",
+      "target": "shiny/levitates_666-b-s_8.png"
+    },
+    {
+      "source": "Levitates Shiny/VIVILLON_9.png",
+      "speciesId": 666,
+      "speciesName": "vivillon",
+      "variant": "shiny",
+      "suffix": "9",
+      "target": "shiny/levitates_666-b-s_9.png"
+    },
+    {
+      "source": "Levitates Shiny/VOLBEAT.png",
+      "speciesId": 313,
+      "speciesName": "volbeat",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_313-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/VOLCARONA.png",
+      "speciesId": 637,
+      "speciesName": "volcarona",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_637-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/WEEZING.png",
+      "speciesId": 110,
+      "speciesName": "weezing",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_110-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/WEEZING_1.png",
+      "speciesId": 110,
+      "speciesName": "weezing",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_110-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/WIGLETT.png",
+      "speciesId": 960,
+      "speciesName": "wiglett",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_960-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/WINGULL.png",
+      "speciesId": 278,
+      "speciesName": "wingull",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_278-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/WOOBAT.png",
+      "speciesId": 527,
+      "speciesName": "woobat",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_527-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/WUGTRIO.png",
+      "speciesId": 961,
+      "speciesName": "wugtrio",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_961-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/YAMASK.png",
+      "speciesId": 562,
+      "speciesName": "yamask",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_562-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/YAMASK_1.png",
+      "speciesId": 562,
+      "speciesName": "yamask",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_562-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/YANMA.png",
+      "speciesId": 193,
+      "speciesName": "yanma",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_193-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/YANMEGA.png",
+      "speciesId": 469,
+      "speciesName": "yanmega",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_469-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/YVELTAL.png",
+      "speciesId": 717,
+      "speciesName": "yveltal",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_717-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ZAPDOS.png",
+      "speciesId": 145,
+      "speciesName": "zapdos",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_145-b-s.png"
+    },
+    {
+      "source": "Levitates Shiny/ZAPDOS_1.png",
+      "speciesId": 145,
+      "speciesName": "zapdos",
+      "variant": "shiny",
+      "suffix": "1",
+      "target": "shiny/levitates_145-b-s_1.png"
+    },
+    {
+      "source": "Levitates Shiny/ZUBAT.png",
+      "speciesId": 41,
+      "speciesName": "zubat",
+      "variant": "shiny",
+      "suffix": null,
+      "target": "shiny/levitates_041-b-s.png"
+    }
+  ],
+  "unmatched": []
+}
