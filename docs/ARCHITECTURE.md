@@ -1,4 +1,4 @@
-# Architecture — Wilds of Kanto 0.6.0
+# Architecture — Wilds of Kanto 0.7.0
 
 Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
@@ -10,10 +10,11 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `options.lua` | Mod Manager schema |
 | `lib/config.lua` | Defaults + option helpers |
 | `lib/json_decode.lua` | Minimal JSON decoder for mappings |
-| `lib/animated_sprites.lua` | Follow-sprite mapping, lazy images/quads, animation, card cache |
-| `lib/enhanced_world_sprite.lua` | Stable DS SpriteRenderer-compatible adapter |
+| `lib/animated_sprites.lua` | Follow-sprite mapping / source atlas helpers |
+| `lib/runtime_sheets.lua` | Resolve build-time 16×96 SpriteRenderer sheets |
+| `lib/enhanced_world_sprite.lua` | Deprecated dynamic-card adapter (unused for body) |
 | `lib/tile.lua` | Gen1Recomp tile size (16x16) |
-| `lib/movement.lua` | Central tile-step movement |
+| `lib/movement.lua` | Tile-step movement + NPC walkPhase/stepFlip |
 | `lib/grass_occlusion.lua` | Flat feet-overdraw + above-lift helpers |
 | `lib/voxel_adapter.lua` | DS hooks; emergency overlay filter |
 | `lib/surface.lua` | GRASS / CAVE / WATER surface resolve |
@@ -32,55 +33,60 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `lib/debug_overlay.lua` | Spawn-tile markers |
 | `lib/preview_browser.lua` | Dev species browser + anim preview |
 
-## Verified Dramatic Shape pose contract
+## Verified contracts
+
+### SpriteRenderer frame order (Gen1Recomp)
+
+```text
+STAND = { down = 0, up = 1, left = 2, right = 2 }
+WALK  = { down = 3, up = 4, left = 5, right = 5 }
+```
+
+Right uses left frames + horizontal mirror. Sheet is 16×96 (6 stacked 16×16 frames).
+
+### NPC pose contract
 
 ```text
 pose() → sprite, visualX, visualY, facing, phase, flip [, hop]
+phase = Movement.walkPhase (NPC: mid-step → 1)
+flip  = stepFlip (toggles after each completed tile step)
+```
+
+### Dramatic Shape
+
+```text
 posesOf uses: sprite, visualX, e.py, facing, phase, flip
 lift = e.py - visualY
 ground = groundAt(map, e.cellX, e.cellY)
-sprite must provide: def + resolveImage() → love Image
+sprite.def.image → static loadable sheet (Assets.image)
+SpriteBillboards builds 16×16 UVs into that sheet per frame index
 ```
-
-Entity billboards are **fixed 16x16** meshes. Sheet+Quad is not accepted by DS.
-Wilds supplies cached 16x16 card Images; DS owns depth, grass mesh, occlusion.
 
 ## Flat vs Voxel presentation
 
 ```text
 FLAT (no Dramatic Shape / voxel off)
-  Entity:draw → follow-sprite quad (native tile size) or legacy PNG
+  Entity:draw → SpriteRenderer:draw(facing, phase, flip)
 
 VOXEL (Dramatic Shape drawWorld active)
   Wild entities stay in ow.entities
-  pose() → EnhancedWorldSprite (stable)
-  resolveImage() → cached 16x16 follow-sprite card
-  VoxelScene SpriteBillboards → depth + object occlusion + native grass
-  ctx.drawFx → alert emotes; Pokemon BODY only if SPATIAL_OVERLAY_EMERGENCY
+  pose() → native SpriteRenderer (frames=6, walker=true)
+  VoxelScene SpriteBillboards → depth + occlusion + grass + shadows + FP
+  ctx.drawFx → alert emotes only; Pokemon BODY only if SPATIAL_OVERLAY_EMERGENCY
 ```
 
-Primary Pokemon renderer: `WORLD_BILLBOARD_ENHANCED`.
+Primary Pokemon renderer: `NATIVE_SPRITE_RENDERER`.
 
-## Grass rendering (`pokemon_grass_render_mode`)
+## Runtime sheets
 
-| Mode | Flat 2D | Voxel (world billboard) |
-|------|---------|-------------------------|
-| `above` | Lift clears engine `drawCellBottom` | `visualY` lift (`grass_above_lift_px`); object occlusion stays |
-| `immersed` (default) | Engine `drawCellBottom` after entity | DS tall-grass mesh after cast (`DRAMATIC_SHAPE_NATIVE`) |
+```text
+Source:  assets/enhanced_overworld/followsprites/{dex}-{form}-{n|s}.png
+Build:   tools/generate_runtime_sprite_sheets.py
+Output:  assets/generated/followsprites_runtime/{dex:03d}-{normal|shiny}.png
+```
 
-No custom grass color/mask on the success world-billboard path.
-
-## Follow-sprites
-
-- PNGs: `assets/enhanced_overworld/followsprites/{id}-{form}-{n|s}.png`
-- Mapping: `assets/enhanced_overworld/followsprites_mapping/followsprites_mapping.json`
-- Identity: numeric speciesId / dex only
-- Layout: rows = directions, columns = frames (verified)
-- Shared animation state: `BehaviorTick` → `syncEntityAnimation`
-- `animation.renderRevision` increments only on visible changes
-- Image cache: `speciesId:variant`; quad/card: `speciesId:variant:anim:dir:frame:...`
-- UV carrier asset: `assets/runtime/dynamic_billboard_base.png`
-- Runtime shiny: NOT AVAILABLE (preview may force shiny)
+Scaling: shared visible-bounds fit per species, nearest-neighbor, bottom-center,
+no stretch, feet on the lower frame edge.
 
 ## Non-negotiables
 
@@ -89,6 +95,5 @@ No custom grass color/mask on the success world-billboard path.
 - Battle starts exactly once per encounter
 - No content-registry mutation after load
 - Hidden encounters never show Pokemon follow-sprites
-- Valid follow-sprites are never replaced by Legacy because Voxel is on
-- Legacy SpriteRenderer is never mutated for the enhanced voxel path
-- Commercial Anima atlas PNG must not be packaged
+- No post-voxel Pokemon body draw on the success path
+- `def.image` is stable for an entity lifetime (no per-frame texture swap)

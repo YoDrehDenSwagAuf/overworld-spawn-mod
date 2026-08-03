@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.7.0
+
+### Changed
+
+- **Native SpriteRenderer path for wild Pokemon.** Visible wilds now use the
+  same trainer/NPC contract Dramatic Shape already supports: a stable
+  `SpriteRenderer` with `frames=6`, `walker=true`, and a static 16×96 sheet.
+- Build-time generator writes
+  `assets/generated/followsprites_runtime/{dex}-{normal|shiny}.png` from the
+  follow-sprite source atlas (nearest-neighbor, bottom-center, shared scale).
+- `pose()` returns NPC-compatible `facing` / `phase` / `flip` (`Movement.walkPhase`
+  + `stepFlip`). Right-facing uses the engine left-frame mirror.
+- Primary renderer label: `NATIVE_SPRITE_RENDERER`. First Person, depth buffer,
+  wall/building occlusion, grass, shadows, and silhouettes come from Dramatic
+  Shape with no Wilds-specific body overlay on the success path.
+- `EnhancedWorldSprite` dynamic 16×16 cards remain in-repo as deprecated
+  compatibility code and are unused for the Pokemon body.
+
+### Frame order (verified against Gen1Recomp `SpriteRenderer.lua`)
+
+```text
+0 idle down / 1 idle up / 2 idle left
+3 walk down / 4 walk up / 5 walk left
+```
+
+### Fallback chain
+
+1. Generated runtime sheet (requested variant)
+2. Generated runtime sheet (normal)
+3. Legacy Pokédex / battle PNG as SpriteRenderer
+4. Black fallback as SpriteRenderer
+
 ## 0.6.0
 
 ### Changed
@@ -77,12 +109,6 @@
 - `animation.renderRevision` bumps only on visible animation changes.
 - Developer HUD fields for adapter status, card cache, ground/visual Y, lift,
   and grass renderer.
-
-### Known limitation
-
-- Dramatic Shape entity billboards are fixed **16×16** meshes (no atlas+quad).
-  Large frames are fitted proportionally bottom-center into cards. Flat 2D
-  still draws native frame sizes.
 
 ## 0.5.5
 

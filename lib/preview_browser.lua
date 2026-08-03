@@ -250,7 +250,7 @@ function PreviewBrowser:_openDetail(game, speciesId)
     { label = "CURRENT SOURCE", right = tostring(info.spriteSource or runtimeLabel) },
     { label = "SPRITE REG", right = info.spriteRegistered and "YES" or "NO" },
     { label = "2D RENDERER", right = tostring(info.renderer) },
-    { label = "VOXEL ADAPTER", right = "EnhancedWorldSprite" },
+    { label = "VOXEL ADAPTER", right = "NATIVE_SPRITE_RENDERER" },
     { label = "WORLD BILLBOARD", right = tostring(
       (render.worldBillboardReady and "READY")
         or (enh.available and "ENHANCED") or "LEGACY") },

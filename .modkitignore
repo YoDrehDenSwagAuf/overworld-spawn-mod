@@ -6,6 +6,11 @@
 tests/overworld_wild_spawns_test.lua
 tests/voxel_aggressive_compat_test.lua
 tests/animated_sprites_unit_test.lua
+tests/enhanced_world_sprite_unit_test.lua
+tests/grass_occlusion_unit_test.lua
+tests/native_sprite_sheets_unit_test.lua
+tests/render_diagnostics_unit_test.lua
+tests/voxel_overlay_unit_test.lua
 
 # Repo / authoring tooling (not runtime).
 scripts/bootstrap.sh
@@ -23,5 +28,7 @@ assets/_inspect/char_001_block_x4.png
 # Commercial Anima atlas must never ship in release ZIPs.
 assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png
 
-# Mapping generator (repo tooling only).
+# Mapping / sheet generators (repo tooling only; generated assets ship).
 tools/generate_followsprites_mapping.ps1
+tools/generate_runtime_sprite_sheets.ps1
+tools/generate_runtime_sprite_sheets.py

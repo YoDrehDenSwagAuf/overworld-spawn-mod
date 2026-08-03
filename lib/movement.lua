@@ -53,6 +53,9 @@ local function ensureTables(entity)
       targetTileY = nil,
     }
   end
+  if entity.stepFlip == nil then
+    entity.stepFlip = false
+  end
 end
 
 function Movement.syncLegacyFields(entity)
@@ -74,6 +77,11 @@ function Movement.syncLegacyFields(entity)
     entity.moving = false
   end
   entity.moveProgress = m.progress or 0
+  -- NPC-compatible aliases used by pose() / SpriteRenderer.
+  entity.walkFlip = entity.stepFlip == true
+  entity.flip = entity.stepFlip == true
+  entity.phase = Movement.walkPhase(entity)
+  entity.hopping = false
 end
 
 function Movement.init(entity, tileX, tileY, facing)
@@ -96,7 +104,24 @@ function Movement.init(entity, tileX, tileY, facing)
     targetTileX = nil,
     targetTileY = nil,
   }
+  entity.stepFlip = false
+  entity.walkFlip = false
+  entity.flip = false
+  entity.phase = 0
+  entity.hopping = false
   Movement.syncLegacyFields(entity)
+end
+
+-- Match Gen1Recomp NPC:walkPhase — stand outside [4,12) of a 16-tick cycle.
+function Movement.walkPhase(entity)
+  if not entity then return 0 end
+  if not Movement.isBusy(entity) then return 0 end
+  local m = entity.movement
+  if not m then return 0 end
+  local dur = m.duration or 0.28
+  if dur <= 0 then dur = 0.01 end
+  local p = math.floor(((m.progress or 0) / dur) * 16) % 16
+  return (p >= 4 and p < 12) and 1 or 0
 end
 
 function Movement.setFacing(entity, facing)
@@ -203,6 +228,8 @@ function Movement.update(entity, dt)
     p.previousPixelY = p.pixelY
     m.targetTileX, m.targetTileY = nil, nil
     m.progress = 0
+    -- Same as NPC.lua: alternate walk-frame mirror after each completed step.
+    entity.stepFlip = not entity.stepFlip
     if m.state == Movement.STATE.CHASING then
       -- Stay in CHASING until the behaviour machine says otherwise.
     elseif m.state == Movement.STATE.MOVING then

@@ -334,7 +334,11 @@ function Diagnostics.hudLines(logic)
     local VoxelAdapter = V.require("voxel_adapter")
     local va = logic.voxel or (logic.behaviorTick and logic.behaviorTick.voxel)
     if va and va.hooksInstalled then
-      lines[#lines + 1] = "Voxel Pokemon: WORLD_BILLBOARD"
+      lines[#lines + 1] = "Voxel Pokemon: NATIVE_SPRITE_RENDERER"
+    end
+    if render.runtimeSheets and render.runtimeSheets:isReady() then
+      local rs = render.runtimeSheets:summary()
+      lines[#lines + 1] = ("Native runtime sheets: %d"):format(rs.sheetCount or 0)
     end
     lines[#lines + 1] = ("Billboard frames cached: %d"):format(sum.voxelCacheEntries or 0)
     lines[#lines + 1] = ("Billboard cache hits/misses: %d/%d"):format(

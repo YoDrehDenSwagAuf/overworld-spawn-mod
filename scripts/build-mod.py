@@ -300,6 +300,24 @@ def verify_zip(out_zip: Path, manifest: dict) -> None:
     else:
         print(f"  follow-sprite PNGs: {len(follow_pngs)}")
 
+    runtime_manifest = "assets/generated/followsprites_runtime/manifest.json"
+    if runtime_manifest not in names:
+        fail(f"ZIP missing required runtime sheet manifest: {runtime_manifest}")
+    runtime_pngs = [
+        n for n in names
+        if n.startswith("assets/generated/followsprites_runtime/")
+        and n.lower().endswith(".png")
+    ]
+    if len(runtime_pngs) < 151:
+        fail(
+            f"ZIP runtime sheets too few ({len(runtime_pngs)}); "
+            "expected generated 16x96 SpriteRenderer sheets"
+        )
+    print(f"  native runtime sheets: {len(runtime_pngs)}")
+    sample = "assets/generated/followsprites_runtime/001-normal.png"
+    if sample not in names:
+        fail(f"ZIP missing sample runtime sheet: {sample}")
+
     try:
         parsed = json.loads(raw_manifest.decode("utf-8"))
     except json.JSONDecodeError as err:
@@ -402,6 +420,22 @@ def verify_follow_sprite_assets() -> None:
             fail(f"followsprites mapping missing required species {sid}")
 
 
+def ensure_runtime_sheets() -> None:
+    """Build Gen1Recomp 16×96 SpriteRenderer sheets from follow-sprites."""
+    script = ROOT / "tools" / "generate_runtime_sprite_sheets.py"
+    out_dir = ROOT / "assets" / "generated" / "followsprites_runtime"
+    manifest = out_dir / "manifest.json"
+    if not script.is_file():
+        fail(f"missing sheet generator: {script}")
+    print("==> generating native runtime sprite sheets")
+    subprocess.check_call([sys.executable, str(script)], cwd=str(ROOT))
+    if not manifest.is_file():
+        fail(f"runtime sheet manifest missing after generate: {manifest}")
+    sample = out_dir / "001-normal.png"
+    if not sample.is_file():
+        fail(f"runtime sheet sample missing: {sample}")
+
+
 def main() -> int:
     if not (MOD_DIR / "manifest.json").is_file():
         fail(f"missing mod manifest at repo root: {MOD_DIR / 'manifest.json'}")
@@ -410,6 +444,7 @@ def main() -> int:
     # Manager-facing metadata must be ASCII-safe UTF-8 (no BOM) before pack.
     run_ascii_guard()
     verify_follow_sprite_assets()
+    ensure_runtime_sheets()
 
     if DIST.exists():
         shutil.rmtree(DIST)

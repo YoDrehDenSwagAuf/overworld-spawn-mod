@@ -1,32 +1,29 @@
-# Wilds of Kanto — Developer Guide (0.6.0)
+# Wilds of Kanto — Developer Guide (0.7.0)
 
-> Follow-sprites, EnhancedWorldSprite adapter, and Dramatic Shape billboard
-> contract match the 0.6.0 implementation.
+> Follow-sprites → native 16×96 SpriteRenderer sheets, NPC pose contract,
+> and Dramatic Shape billboards match the 0.7.0 implementation.
 
 Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
 This document describes the **implemented** architecture. It does not invent Gen1Recomp APIs.
 
-## Dramatic Shape integration (0.6.0)
+## Dramatic Shape integration (0.7.0)
 
-Verified contract: `pose()` returns `sprite, visualX, visualY, facing, phase, flip`.
-DS uses `e.py` as ground and `e.py - visualY` as lift. Entity billboards are
-fixed 16x16 meshes — **no sheet+quad**. Wilds supplies:
+Verified NPC contract: `pose()` returns
+`sprite, visualX, visualY, facing, phase, flip [, hop]`.
 
-1. Central animation state (`idle`/`walk`, direction, frameIndex, renderRevision)
-2. Stable `EnhancedWorldSprite` (`def.frames=1`, `trueColor`, `resolveImage`)
-3. Cached proportional 16x16 card Images
+Success path:
+1. Entity stays in `ow.entities`
+2. Stable native `SpriteRenderer` (`frames=6`, `walker=true`, static sheet)
+3. `def.image` → `assets/generated/followsprites_runtime/...`
+4. Dramatic Shape SpriteBillboards (depth, occlusion, grass, shadows, FP)
 
-Legacy `SpriteRenderer` is kept separately and **not** mutated. Flat 2D still
-draws follow-sprite quads at native tile size. Success HUD:
+`EnhancedWorldSprite` is deprecated and unused for the body.
 
 ```text
-Renderer: WORLD_BILLBOARD_ENHANCED
-Sprite system: FOLLOW_SPRITES
-Grass renderer: DRAMATIC_SHAPE_NATIVE
-Depth integration: ACTIVE
-Object occlusion: ACTIVE
+Renderer: NATIVE_SPRITE_RENDERER
 ```
+
 
 ## 1. Project structure
 
