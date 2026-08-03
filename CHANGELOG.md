@@ -8,7 +8,10 @@
 - Added atomic movement target reservations
 - Prevented wild Pokémon from walking through entities
 - Added optional follower Swimming/Levitates sprite switching
-- Added immediate water sprite transition for land-to-water chase
+- Fixed land-to-water chase entry: reserve free water cell before sprite swap
+- Kept committed land surface until the first water tile commits
+- Prefer alternate free shore water cells when the direct entry is occupied
+- Temporary occupancy blocks no longer abort shore chases
 - Preserved native SpriteRenderer rendering
 
 ## 1.4.1

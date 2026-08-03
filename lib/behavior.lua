@@ -40,6 +40,9 @@ local FACINGS = { "down", "up", "left", "right" }
 local entityHasWaterSprite
 local prepareWaterSprite
 local applyWaterSurfaceTransition
+local beginLandToWaterChaseStep
+local rollbackLandToWaterEntry
+local restoreLandSprite
 
 local DEFAULT_WEIGHTS = {
   [Behavior.IDLE_LOOK] = 30,
@@ -271,22 +274,34 @@ local function occupiedBlocked(entities, x, y, ignore, occupancy)
   return false
 end
 
+local function isTemporaryOccupancyBlock(reason)
+  return reason == "occupied"
+      or reason == "reserved"
+      or reason == "swap_blocked"
+      or reason == "follower"
+      or reason == "npc"
+      or reason == "pokemon"
+      or reason == "blocked"
+end
+
 local function canStep(map, entities, entity, player, nx, ny, region, allowLeaveHome, opts)
   opts = opts or {}
   if not map then return false end
   local w = map.widthCells or 0
   local h = map.heightCells or 0
-  if nx < 0 or ny < 0 or nx >= w or ny >= h then return false end
-  if map.inBounds and not map:inBounds(nx, ny) then return false end
-  if map.warpAtCell and map:warpAtCell(nx, ny) then return false end
+  if nx < 0 or ny < 0 or nx >= w or ny >= h then return false, "oob" end
+  if map.inBounds and not map:inBounds(nx, ny) then return false, "oob" end
+  if map.warpAtCell and map:warpAtCell(nx, ny) then return false, "warp" end
   if player and player.cellX == nx and player.cellY == ny then
     return false, "player"
   end
-  local blocked = occupiedBlocked(entities, nx, ny, entity, opts.occupancy)
-  if blocked then return false, "occupied" end
+  -- Hard occupancy first (canStep is read-only; never writes reservations).
+  local blocked, blockWhy = occupiedBlocked(entities, nx, ny, entity, opts.occupancy)
+  if blocked then return false, blockWhy or "occupied" end
 
   -- Water-surface entities stay on water. Land aggro must never inherit
   -- water-only from behaviour name alone (shared tick must not leak).
+  -- Committed surface only — pendingSurface must not force water-only yet.
   local onWater = entity.surface == Surface.WATER
   local forceWaterOnly = opts.waterOnly == true or onWater
 
@@ -301,13 +316,14 @@ local function canStep(map, entities, entity, player, nx, ny, region, allowLeave
   end
 
   -- Land entity entering adjacent water (controlled land→water chase).
+  -- Terrain exception only: occupancy already passed above.
   if opts.allowEnterWater and map.isWaterCell and map:isWaterCell(nx, ny) then
     return true, "enter_water"
   end
 
   if allowLeaveHome then
     if map.isWalkableCell and not map:isWalkableCell(nx, ny) then
-      return false
+      return false, "not_walkable"
     end
     return true
   end
@@ -316,10 +332,16 @@ local function canStep(map, entities, entity, player, nx, ny, region, allowLeave
     return false, "outside_region"
   end
   if entity.surface == Surface.GRASS then
-    if not (map.isGrassCell and map:isGrassCell(nx, ny)) then return false end
-    if map.isWalkableCell and not map:isWalkableCell(nx, ny) then return false end
+    if not (map.isGrassCell and map:isGrassCell(nx, ny)) then
+      return false, "not_grass"
+    end
+    if map.isWalkableCell and not map:isWalkableCell(nx, ny) then
+      return false, "not_walkable"
+    end
   else
-    if map.isWalkableCell and not map:isWalkableCell(nx, ny) then return false end
+    if map.isWalkableCell and not map:isWalkableCell(nx, ny) then
+      return false, "not_walkable"
+    end
   end
   return true
 end
@@ -428,128 +450,136 @@ local function tryFace(entity, rng)
   bx.nextActionAt = now() + interval
 end
 
+local function manhattan(ax, ay, bx, by)
+  return math.abs((ax or 0) - (bx or 0)) + math.abs((ay or 0) - (by or 0))
+end
+
+local function facingForDelta(dx, dy)
+  if dx > 0 then return "right" end
+  if dx < 0 then return "left" end
+  if dy > 0 then return "down" end
+  return "up"
+end
+
+-- Build orthogonal chase candidates. When allowEnterWater / waterOnly chase,
+-- expand beyond the primary axis so a free alternate shore/water cell can win.
+local function chaseStepCandidates(ex, ey, tx, ty, opts)
+  opts = opts or {}
+  local primary = {}
+  if math.abs(tx - ex) >= math.abs(ty - ey) then
+    if tx ~= ex then primary[#primary + 1] = { tx > ex and 1 or -1, 0 } end
+    if ty ~= ey then primary[#primary + 1] = { 0, ty > ey and 1 or -1 } end
+  else
+    if ty ~= ey then primary[#primary + 1] = { 0, ty > ey and 1 or -1 } end
+    if tx ~= ex then primary[#primary + 1] = { tx > ex and 1 or -1, 0 } end
+  end
+
+  if not (opts.allowEnterWater or opts.expandOrthogonal) then
+    return primary
+  end
+
+  local seen = {}
+  local out = {}
+  local function push(dx, dy)
+    local key = dx .. ":" .. dy
+    if seen[key] then return end
+    seen[key] = true
+    out[#out + 1] = { dx, dy }
+  end
+  for _, d in ipairs(primary) do push(d[1], d[2]) end
+  for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+    push(d[1], d[2])
+  end
+  return out
+end
+
+local function scoreChaseCandidate(nx, ny, player, occupancy, opts, map)
+  local px = player and player.cellX or nx
+  local py = player and player.cellY or ny
+  local score = manhattan(nx, ny, px, py)
+  if occupancy and occupancy:isOccupied(nx, ny) then
+    score = score + 100
+  elseif occupancy and occupancy:isReserved(nx, ny) then
+    score = score + 50
+  end
+  -- Prefer staying in / entering the player's water region when known.
+  if opts and opts.preferPlayerWaterRegion and map and opts.waterRegions then
+    local playerRegion = SpawnRegions.regionForCell(
+      opts.waterRegions, px, py)
+    local candRegion = SpawnRegions.regionForCell(
+      opts.waterRegions, nx, ny)
+    if playerRegion and candRegion and playerRegion.id ~= candRegion.id then
+      score = score + 20
+    elseif playerRegion and not candRegion then
+      score = score + 10
+    end
+  end
+  return score
+end
+
 local function stepToward(entity, map, entities, player, tx, ty, region, allowLeave, chase, opts)
   opts = opts or {}
   if Movement.isBusy(entity) then return false, "busy" end
   local ex, ey = entity.cellX, entity.cellY
   if ex == tx and ey == ty then return false, "arrived" end
   local occupancy = opts.occupancy
-  local options = {}
-  if math.abs(tx - ex) >= math.abs(ty - ey) then
-    if tx ~= ex then options[#options + 1] = { tx > ex and 1 or -1, 0 } end
-    if ty ~= ey then options[#options + 1] = { 0, ty > ey and 1 or -1 } end
-  else
-    if ty ~= ey then options[#options + 1] = { 0, ty > ey and 1 or -1 } end
-    if tx ~= ex then options[#options + 1] = { tx > ex and 1 or -1, 0 } end
-  end
-  local tried = 0
-  for _, d in ipairs(options) do
-    tried = tried + 1
-    if tried > 4 then break end -- never loop forever in one frame
+
+  local raw = chaseStepCandidates(ex, ey, tx, ty, opts)
+  local scored = {}
+  local sawPlayerContact = false
+  for _, d in ipairs(raw) do
     local nx, ny = ex + d[1], ey + d[2]
     local ok, reason = canStep(map, entities, entity, player, nx, ny, region, allowLeave, opts)
     if ok then
       local enterWater = reason == "enter_water"
-      if enterWater then
-        if not entityHasWaterSprite(entity, opts) then
-          entity.movementBlockedBy = "no_water_sprite"
-          -- fall through to try other dirs
-        else
-          local prepared, prepErr = prepareWaterSprite(entity, opts)
-          if not prepared then
-            entity.movementBlockedBy = prepErr or "water_sprite_failed"
-            -- do not start a half-switched water step
-          else
-            if occupancy then
-              local reserved, why = occupancy:reserveMove(entity, ex, ey, nx, ny)
-              if not reserved then
-                entity.movementBlockedBy = why or "occupied"
-                -- revert prepared water sprite; stay on land
-                entity.surface = entity.originSurface or Surface.GRASS
-                entity.spriteState = "land"
-                entity.pendingSurface = nil
-                entity.waterSpritePrepared = false
-                entity.waterEntryReserved = false
-                if opts.logic and opts.logic.refreshEntitySprite then
-                  pcall(opts.logic.refreshEntitySprite, opts.logic, entity, {
-                    reason = "entered_land",
-                    surface = entity.surface,
-                    spriteState = "land",
-                    game = opts.game,
-                  })
-                end
-              else
-                local facing
-                if d[1] > 0 then facing = "right"
-                elseif d[1] < 0 then facing = "left"
-                elseif d[2] > 0 then facing = "down"
-                else facing = "up" end
-                local started = Movement.beginStep(entity, nx, ny, {
-                  facing = facing,
-                  chase = chase == true,
-                  duration = chase and (Config.DEFAULTS.aggressive_step_seconds or 0.18)
-                             or (Config.DEFAULTS.wild_step_seconds or 0.28),
-                })
-                if started then
-                  entity.waterEntryReserved = true
-                  entity.movementBlockedBy = nil
-                  return true, "enter_water"
-                end
-                occupancy:cancelMove(entity)
-                entity.surface = entity.originSurface or Surface.GRASS
-                entity.spriteState = "land"
-                entity.pendingSurface = nil
-                entity.waterSpritePrepared = false
-                entity.waterEntryReserved = false
-              end
-            else
-              local facing
-              if d[1] > 0 then facing = "right"
-              elseif d[1] < 0 then facing = "left"
-              elseif d[2] > 0 then facing = "down"
-              else facing = "up" end
-              local started = Movement.beginStep(entity, nx, ny, {
-                facing = facing,
-                chase = chase == true,
-                duration = chase and (Config.DEFAULTS.aggressive_step_seconds or 0.18)
-                           or (Config.DEFAULTS.wild_step_seconds or 0.28),
-              })
-              if started then
-                entity.movementBlockedBy = nil
-                return true, "enter_water"
-              end
-            end
-          end
+      -- For land→water, only keep true water candidates.
+      if enterWater or not opts.allowEnterWater or not (map.isWaterCell and map:isWaterCell(nx, ny)) then
+        local score = scoreChaseCandidate(nx, ny, player, occupancy, {
+          preferPlayerWaterRegion = enterWater or opts.waterOnly,
+          waterRegions = opts.waterRegions,
+        }, map)
+        -- Prefer primary axis (lower index in raw list) on ties via tiny bias.
+        score = score + (#scored) * 0.01
+        -- When a surfing chase may enter water, prefer the free water cell over
+        -- an equally good land sidestep so the shore transition actually starts.
+        if enterWater then
+          score = score - 0.5
         end
-      else
-        if occupancy then
-          local reserved, why = occupancy:reserveMove(entity, ex, ey, nx, ny)
-          if not reserved then
-            entity.movementBlockedBy = why or "occupied"
-          else
-            local facing
-            if d[1] > 0 then facing = "right"
-            elseif d[1] < 0 then facing = "left"
-            elseif d[2] > 0 then facing = "down"
-            else facing = "up" end
-            local started = Movement.beginStep(entity, nx, ny, {
-              facing = facing,
-              chase = chase == true,
-              duration = chase and (Config.DEFAULTS.aggressive_step_seconds or 0.18)
-                         or (Config.DEFAULTS.wild_step_seconds or 0.28),
-            })
-            if started then
-              entity.movementBlockedBy = nil
-              return true, nil
-            end
-            occupancy:cancelMove(entity)
-          end
+        scored[#scored + 1] = {
+          dx = d[1], dy = d[2], nx = nx, ny = ny,
+          reason = reason, enterWater = enterWater, score = score,
+        }
+      end
+    elseif reason == "player" then
+      -- Never step onto the player; prefer another free water cell first.
+      sawPlayerContact = true
+      entity.movementBlockedBy = "player"
+    else
+      entity.movementBlockedBy = reason or "blocked"
+    end
+  end
+
+  table.sort(scored, function(a, b) return a.score < b.score end)
+
+  for _, cand in ipairs(scored) do
+    local nx, ny = cand.nx, cand.ny
+    local d = { cand.dx, cand.dy }
+    if cand.enterWater then
+      local started, why = beginLandToWaterChaseStep(
+        entity, map, player, nx, ny, opts, d)
+      if started then
+        entity.movementBlockedBy = nil
+        return true, "enter_water"
+      end
+      entity.movementBlockedBy = why or "blocked"
+      -- try next candidate
+    else
+      if occupancy then
+        local reserved, why = occupancy:reserveMove(entity, ex, ey, nx, ny)
+        if not reserved then
+          entity.movementBlockedBy = why or "occupied"
         else
-          local facing
-          if d[1] > 0 then facing = "right"
-          elseif d[1] < 0 then facing = "left"
-          elseif d[2] > 0 then facing = "down"
-          else facing = "up" end
+          local facing = facingForDelta(d[1], d[2])
           local started = Movement.beginStep(entity, nx, ny, {
             facing = facing,
             chase = chase == true,
@@ -560,15 +590,29 @@ local function stepToward(entity, map, entities, player, tx, ty, region, allowLe
             entity.movementBlockedBy = nil
             return true, nil
           end
+          occupancy:cancelMove(entity)
+          entity.movementBlockedBy = "begin_failed"
         end
+      else
+        local facing = facingForDelta(d[1], d[2])
+        local started = Movement.beginStep(entity, nx, ny, {
+          facing = facing,
+          chase = chase == true,
+          duration = chase and (Config.DEFAULTS.aggressive_step_seconds or 0.18)
+                     or (Config.DEFAULTS.wild_step_seconds or 0.28),
+        })
+        if started then
+          entity.movementBlockedBy = nil
+          return true, nil
+        end
+        entity.movementBlockedBy = "begin_failed"
       end
-    elseif reason == "player" then
-      return false, "contact"
-    else
-      entity.movementBlockedBy = reason or "blocked"
     end
   end
-  return false, "blocked"
+  if sawPlayerContact and #scored == 0 then
+    return false, "contact"
+  end
+  return false, entity.movementBlockedBy or "blocked"
 end
 
 local function contactWithPlayer(entity, player)
@@ -717,6 +761,52 @@ entityHasWaterSprite = function(entity, ctx)
   return false
 end
 
+restoreLandSprite = function(entity, ctx)
+  if not entity then return end
+  local committed = entity.originSurface or entity.surface or Surface.GRASS
+  if committed == Surface.WATER then
+    committed = Surface.GRASS
+  end
+  entity.surface = committed
+  entity.spriteState = "land"
+  entity.pendingSurface = nil
+  entity.waterSpritePrepared = false
+  entity.waterSpriteApplied = false
+  entity.waterEntryReserved = false
+  local logic = ctx and ctx.logic
+  local game = ctx and ctx.game
+  if not game and entity.mod and entity.mod.world then
+    game = entity.mod.world.game
+  end
+  if logic and logic.refreshEntitySprite then
+    pcall(logic.refreshEntitySprite, logic, entity, {
+      reason = "entered_land",
+      surface = committed,
+      spriteState = "land",
+      game = game,
+    })
+  elseif entity.render and entity.render.applyProviderSprite then
+    pcall(entity.render.applyProviderSprite, entity.render, entity, game)
+  end
+end
+
+rollbackLandToWaterEntry = function(entity, ctx, reason)
+  if not entity then return end
+  local occupancy = ctx and ctx.occupancy
+  if occupancy then
+    occupancy:cancelMove(entity)
+  end
+  entity.pendingSurface = nil
+  entity.waterEntryReserved = false
+  entity.waterSpritePrepared = false
+  entity.waterSpriteApplied = false
+  entity.movementBlockedBy = reason or entity.movementBlockedBy
+  restoreLandSprite(entity, ctx)
+end
+
+-- Prepare water sprite AFTER a successful reservation.
+-- Committed surface stays land until tile commit; only spriteState/pendingSurface
+-- flip so rendering can show swimming without routing AI onto water-only logic.
 prepareWaterSprite = function(entity, ctx)
   if not entity then return false end
   if not entityHasWaterSprite(entity, ctx) then
@@ -727,37 +817,101 @@ prepareWaterSprite = function(entity, ctx)
   if not game and entity.mod and entity.mod.world then
     game = entity.mod.world.game
   end
-  entity.pendingSurface = Surface.WATER
-  entity.waterEntryReserved = true
   entity.originSurface = entity.originSurface or entity.surface or Surface.GRASS
-  -- Apply water sprite before the first interpolated water pixel.
+  entity.pendingSurface = Surface.WATER
   local prevSurface = entity.surface
   local prevState = entity.spriteState
+  -- Temporarily expose water surface so the central resolver picks swimming /
+  -- levitates, then restore the committed land surface for movement/AI.
   entity.surface = Surface.WATER
   entity.spriteState = "water"
   local ok = false
   if logic and logic.refreshEntitySprite then
     ok = select(1, logic:refreshEntitySprite(entity, {
-      reason = "entered_water",
+      reason = "prepare_water_entry",
       surface = Surface.WATER,
       spriteState = "water",
+      pendingSurface = Surface.WATER,
       game = game,
     }))
   elseif entity.render and entity.render.applyProviderSprite then
     ok = select(1, pcall(entity.render.applyProviderSprite, entity.render, entity, game))
+  else
+    -- Unit-test / headless path: mark prepared without a renderer.
+    ok = true
   end
+  -- Always restore committed surface so tickAggressive keeps land chase path.
+  entity.surface = prevSurface
   if not ok then
-    entity.surface = prevSurface
     entity.spriteState = prevState
     entity.pendingSurface = nil
     entity.waterSpritePrepared = false
     entity.waterSpriteApplied = false
     return false, "sprite_apply_failed"
   end
+  entity.spriteState = "water"
+  entity.pendingSurface = Surface.WATER
   entity.waterSpritePrepared = true
   entity.waterSpriteApplied = true
-  entity.lastSpriteRefreshReason = "entered_water"
+  entity.lastSpriteRefreshReason = "prepare_water_entry"
   return true
+end
+
+beginLandToWaterChaseStep = function(entity, map, player, nx, ny, ctx, delta)
+  ctx = ctx or {}
+  local occupancy = ctx.occupancy
+  local ex, ey = entity.cellX, entity.cellY
+  delta = delta or { nx - ex, ny - ey }
+
+  -- Eligibility (terrain exception only; occupancy checked by canStep + reserve).
+  if not entityHasWaterSprite(entity, ctx) then
+    return false, "no_water_sprite"
+  end
+  if not (map and map.isWaterCell and map:isWaterCell(nx, ny)) then
+    return false, "not_water"
+  end
+  if player and player.cellX == nx and player.cellY == ny then
+    return false, "player"
+  end
+  if math.abs(nx - ex) + math.abs(ny - ey) ~= 1 then
+    return false, "not_adjacent"
+  end
+
+  -- 1) Atomic reserve first (before any sprite change).
+  if occupancy then
+    local reserved, why = occupancy:reserveMove(entity, ex, ey, nx, ny, {
+      kind = "land_to_water_chase",
+    })
+    if not reserved then
+      entity.movementBlockedBy = why or "occupied"
+      return false, why or "occupied"
+    end
+    entity.waterEntryReserved = true
+  end
+
+  -- 2) Prepare / apply water sprite only after reservation succeeded.
+  local prepared, prepErr = prepareWaterSprite(entity, ctx)
+  if not prepared then
+    rollbackLandToWaterEntry(entity, ctx, prepErr or "water_sprite_failed")
+    return false, prepErr or "water_sprite_failed"
+  end
+
+  -- 3) Begin interpolated step while committed surface is still land.
+  local facing = facingForDelta(delta[1], delta[2])
+  local started = Movement.beginStep(entity, nx, ny, {
+    facing = facing,
+    chase = true,
+    duration = Config.DEFAULTS.aggressive_step_seconds or 0.18,
+  })
+  if not started then
+    rollbackLandToWaterEntry(entity, ctx, "begin_failed")
+    return false, "begin_failed"
+  end
+
+  entity.pendingSurface = Surface.WATER
+  entity.waterEntryReserved = true
+  entity.movementBlockedBy = nil
+  return true, "enter_water"
 end
 
 applyWaterSurfaceTransition = function(entity, ctx)
@@ -770,6 +924,7 @@ applyWaterSurfaceTransition = function(entity, ctx)
   entity.waterSink = 2
   entity.waterEnteredByChase = true
   entity.pendingSurface = nil
+  entity.waterEntryReserved = false
   if bx then
     bx.behavior = Behavior.WATER_AGGRESSIVE
     bx.waterChase = true
@@ -794,6 +949,7 @@ applyWaterSurfaceTransition = function(entity, ctx)
     pcall(entity.render.applyProviderSprite, entity.render, entity, game)
   end
   entity.waterSpriteApplied = true
+  entity.waterSpritePrepared = true
   entity.lastSpriteRefreshReason = "entered_water"
 end
 
@@ -894,6 +1050,7 @@ local function tickLandAggressive(entity, ctx, bx, t)
       logic = ctx.logic,
       game = ctx.game,
       hasWaterSprite = ctx.hasWaterSprite,
+      waterRegions = ctx.waterRegions,
     }
     -- Optional controlled land→water chase (does not change land canStep defaults).
     if ctx.waterMonsEnabled ~= false
@@ -925,9 +1082,15 @@ local function tickLandAggressive(entity, ctx, bx, t)
       end
     end
     if not moved then
-      bx.chaseFailCount = (bx.chaseFailCount or 0) + 1
-      if bx.chaseFailCount > 24 then
-        leaveChase(entity, bx, t)
+      local block = entity.movementBlockedBy or why
+      if isTemporaryOccupancyBlock(block) then
+        -- Temporary blocker at shore: wait briefly, keep chase alive.
+        bx.nextActionAt = now() + 0.1
+      else
+        bx.chaseFailCount = (bx.chaseFailCount or 0) + 1
+        if bx.chaseFailCount > 24 then
+          leaveChase(entity, bx, t)
+        end
       end
     else
       bx.chaseFailCount = 0
@@ -1044,20 +1207,27 @@ local function tickWaterAggressive(entity, ctx, bx, t)
       entity, map, entities, player,
       player.cellX, player.cellY, region, true, true, {
         waterOnly = true,
+        expandOrthogonal = true,
         occupancy = ctx.occupancy,
         logic = ctx.logic,
         game = ctx.game,
         hasWaterSprite = ctx.hasWaterSprite,
+        waterRegions = ctx.waterRegions,
       })
     if why == "contact" then
       enterBattlePending(entity, bx)
       return "contact"
     end
     if not moved then
-      bx.chaseFailCount = (bx.chaseFailCount or 0) + 1
-      if bx.chaseFailCount > 24 then
-        abortWaterChase(entity, bx, t)
-        return "chase_abort"
+      local block = entity.movementBlockedBy or why
+      if isTemporaryOccupancyBlock(block) then
+        bx.nextActionAt = now() + 0.1
+      else
+        bx.chaseFailCount = (bx.chaseFailCount or 0) + 1
+        if bx.chaseFailCount > 24 then
+          abortWaterChase(entity, bx, t)
+          return "chase_abort"
+        end
       end
     else
       bx.chaseFailCount = 0
@@ -1106,7 +1276,8 @@ local function tickWaterAggressive(entity, ctx, bx, t)
 end
 
 local function tickAggressive(entity, ctx, bx, t)
-  -- Hard split: water surface / water behaviour never share land canStep opts.
+  -- Hard split: committed water surface / water behaviour only.
+  -- pendingSurface during land→water interpolation must NOT route here early.
   if entity.surface == Surface.WATER or bx.behavior == Behavior.WATER_AGGRESSIVE then
     return tickWaterAggressive(entity, ctx, bx, t)
   end

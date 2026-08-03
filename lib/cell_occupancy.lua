@@ -16,7 +16,17 @@ local function entityToken(entity)
   if type(entity) == "string" or type(entity) == "number" then
     return tostring(entity)
   end
-  return entity.id or entity.spawnId or tostring(entity)
+  -- Player rebuild always uses the literal owner "player".
+  if entity.player == true or entity.isPlayer == true then
+    return "player"
+  end
+  if entity.id ~= nil then
+    return tostring(entity.id)
+  end
+  if entity.spawnId ~= nil then
+    return tostring(entity.spawnId)
+  end
+  return tostring(entity)
 end
 
 -- Public markers / flags that identify blocking world entities.
@@ -55,6 +65,15 @@ function CellOccupancy.isBlockingEntity(entity)
   if CellOccupancy.isFollowerEntity(entity) then return true end
   if entity.passable == true then return false end
   return true
+end
+
+-- Central owner-key API. Prefer this over inventing identities in callers.
+function CellOccupancy.ownerKey(entity)
+  return entityToken(entity)
+end
+
+function CellOccupancy:ownerKeyOf(entity)
+  return entityToken(entity)
 end
 
 function CellOccupancy.new()
@@ -277,9 +296,26 @@ function CellOccupancy:releaseSpawn(token)
   return true
 end
 
-function CellOccupancy:reserveMove(entity, fromX, fromY, toX, toY)
+function CellOccupancy:reserveMove(entity, fromX, fromY, toX, toY, opts)
+  opts = opts or {}
   local owner = entityToken(entity)
   if not owner then return false, "no_entity" end
+  local toKey = cellKey(toX, toY)
+
+  -- Idempotent: same entity already holding the same target succeeds.
+  local prevKey = self.entityMoves[owner]
+  if prevKey and prevKey == toKey then
+    local existing = self.moveReservations[toKey]
+    if existing and existing.owner == owner
+       and existing.toX == toX and existing.toY == toY then
+      if opts.kind then existing.kind = opts.kind end
+      existing.fromX = fromX
+      existing.fromY = fromY
+      existing.entity = entity
+      return true, "already_held"
+    end
+  end
+
   local ok, why = self:canReserve(entity, fromX, fromY, toX, toY)
   if not ok then
     self.stats.moveRejects = (self.stats.moveRejects or 0) + 1
@@ -292,13 +328,11 @@ function CellOccupancy:reserveMove(entity, fromX, fromY, toX, toY)
   if fromX ~= nil and fromY ~= nil then
     self:_setOccupied(fromX, fromY, owner, "entity", entity)
   end
-  local toKey = cellKey(toX, toY)
   -- Cancel any prior reservation for this entity.
-  local prev = self.entityMoves[owner]
-  if prev and prev ~= toKey then
-    local old = self.moveReservations[prev]
+  if prevKey and prevKey ~= toKey then
+    local old = self.moveReservations[prevKey]
     if old and old.owner == owner then
-      self.moveReservations[prev] = nil
+      self.moveReservations[prevKey] = nil
     end
   end
   self.moveReservations[toKey] = {
@@ -306,6 +340,7 @@ function CellOccupancy:reserveMove(entity, fromX, fromY, toX, toY)
     owner = owner,
     fromX = fromX, fromY = fromY,
     toX = toX, toY = toY,
+    kind = opts.kind,
   }
   self.entityMoves[owner] = toKey
   return true

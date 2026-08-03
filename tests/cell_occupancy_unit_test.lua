@@ -148,6 +148,16 @@ occ:cancelMove(a)
 check(occ:isReserved(6, 4) == false, "cancel clears target")
 check(occ:isOccupied(5, 4) == true, "cancel keeps origin")
 
+-- Idempotent re-reserve of the same target by the same entity.
+check(occ:reserveMove(a, 5, 4, 6, 4) == true, "reserve target once")
+local okIdem, whyIdem = occ:reserveMove(a, 5, 4, 6, 4, { kind = "land_to_water_chase" })
+check(okIdem == true, "idempotent reserveMove succeeds")
+check(whyIdem == "already_held" or whyIdem == nil, "idempotent reason already_held")
+check(occ:isReserved(6, 4, a) == false, "own reservation ignored for owner")
+local _, _, slot = occ:ownerAt(6, 4)
+check(slot and slot.kind == "land_to_water_chase", "reservation kind stored")
+eq(CellOccupancy.ownerKey(a), "A", "ownerKey uses entity id")
+
 occ:releaseEntity(a)
 check(occ:isOccupied(5, 4) == false, "releaseEntity frees cell")
 
