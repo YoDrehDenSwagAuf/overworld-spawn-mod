@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.1
+
+### Fixed
+
+- **Question-mark fallback despite generated sheets**: `RuntimeSheets` now
+  resolves sheets through `mod.assets:path(relative)` (the same load path
+  Gen1Recomp `Assets.image` / `SpriteRenderer` expect) instead of registering
+  bare `assets/generated/...` relative paths. Existence checks use `mod.read`
+  / resolved load paths — `love.filesystem.getInfo(relative)` alone no longer
+  decides that a packaged mod asset is missing.
+- Registration for valid dex IDs writes `kind=native_runtime_sheet`,
+  `frames=6`, `walker=true`, and the mod-resolved `def.image`.
+- Developer HUD shows relative path, resolved path, registration kind, and
+  fallback reason. Probe logs for dex 1 / 25 / 151 run at content registration.
+
+### Required after update
+
+- Replace the old mod ZIP completely (do not leave two copies installed).
+- Fully restart the game so the content registry reloads.
+- Clear any stale `overworld_wild_spawns-cache/` in the save directory if an
+  older bake still shadows species sprites.
+
 ## 0.7.0
 
 ### Changed

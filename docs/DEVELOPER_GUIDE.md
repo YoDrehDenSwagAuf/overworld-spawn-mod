@@ -1,13 +1,13 @@
-# Wilds of Kanto — Developer Guide (0.7.0)
+# Wilds of Kanto — Developer Guide (0.7.1)
 
 > Follow-sprites → native 16×96 SpriteRenderer sheets, NPC pose contract,
-> and Dramatic Shape billboards match the 0.7.0 implementation.
+> and Dramatic Shape billboards match the 0.7.1 implementation.
 
 Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
 This document describes the **implemented** architecture. It does not invent Gen1Recomp APIs.
 
-## Dramatic Shape integration (0.7.0)
+## Dramatic Shape integration (0.7.1)
 
 Verified NPC contract: `pose()` returns
 `sprite, visualX, visualY, facing, phase, flip [, hop]`.

@@ -138,13 +138,58 @@ function Diagnostics.entityDetail(logic, entity, record)
     ("Facing: %s"):format(tostring(entity.facing or bx.facing or "?")),
   }
   if entity.species then
+    lines[#lines + 1] = ("Species key: %s"):format(tostring(entity.species))
     lines[#lines + 1] = ("Species ID: %s"):format(tostring(entity.species))
   end
-  if entity.enhancedDexId then
-    lines[#lines + 1] = ("Dex / speciesId: %s"):format(tostring(entity.enhancedDexId))
+  local dexId = entity.enhancedDexId
+  if not dexId and logic and logic.render and logic.render.registrationInfo then
+    local reg = logic.render.registrationInfo[entity.species]
+    if reg and reg.dexId then dexId = reg.dexId end
+  end
+  if dexId then
+    lines[#lines + 1] = ("Dex ID: %s"):format(tostring(dexId))
   end
   if entity.enhancedStatus then
     lines[#lines + 1] = ("Mapping: %s"):format(tostring(entity.enhancedStatus))
+  end
+  -- Native runtime-sheet diagnostics.
+  local reg = logic and logic.render and logic.render.registrationInfo
+    and logic.render.registrationInfo[entity.species]
+  local rel = entity.runtimeRelativePath or (reg and reg.relativePath)
+  local loadP = entity.runtimeLoadPath
+    or (entity.sprite and entity.sprite.def and entity.sprite.def.image)
+    or (reg and reg.image)
+  local manKey = dexId and (tostring(dexId) .. ":" .. tostring(entity.spriteVariant or "normal"))
+  lines[#lines + 1] = ("Runtime manifest key: %s"):format(tostring(manKey or "?"))
+  lines[#lines + 1] = ("Runtime relative path: %s"):format(tostring(rel or "?"))
+  lines[#lines + 1] = ("Runtime resolved path: %s"):format(tostring(loadP or "?"))
+  if reg then
+    lines[#lines + 1] = ("Registration kind: %s"):format(tostring(reg.kind or "?"))
+    lines[#lines + 1] = ("Registered frames: %s"):format(tostring(reg.frames or "?"))
+    lines[#lines + 1] = ("Registered walker: %s"):format(tostring(reg.walker == true))
+    lines[#lines + 1] = ("Fallback used: %s"):format(
+      (reg.kind == "fallback" or entity.usingFallback) and "YES" or "NO")
+    if reg.fallbackReason then
+      lines[#lines + 1] = ("Fallback reason: %s"):format(tostring(reg.fallbackReason):sub(1, 72))
+    end
+  else
+    lines[#lines + 1] = ("Fallback used: %s"):format(entity.usingFallback and "YES" or "NO")
+  end
+  if entity.sprite and entity.sprite.def then
+    lines[#lines + 1] = ("Registered sprite image: %s"):format(
+      tostring(entity.sprite.def.image or "?"))
+    lines[#lines + 1] = ("Sprite frames: %s"):format(tostring(entity.sprite.def.frames or "?"))
+    lines[#lines + 1] = ("Walker: %s"):format(entity.sprite.def.walker and "true" or "false")
+  end
+  if logic and logic.render and logic.render.runtimeSheets and dexId then
+    local probe = logic.render.runtimeSheets:probeRegistration(
+      dexId, entity.spriteVariant or "normal")
+    lines[#lines + 1] = ("Runtime sheet load: %s"):format(
+      probe.assetsImageOk and "READY" or ("FAILED " .. tostring(probe.assetsImageError or "")))
+    if probe.imageWidth and probe.imageHeight then
+      lines[#lines + 1] = ("Runtime image dimensions: %sx%s"):format(
+        tostring(probe.imageWidth), tostring(probe.imageHeight))
+    end
   end
   for _, line in ipairs(VoxelAdapter.statusLines(entity)) do
     lines[#lines + 1] = line

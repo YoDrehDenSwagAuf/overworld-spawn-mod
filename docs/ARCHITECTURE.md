@@ -1,4 +1,4 @@
-# Architecture — Wilds of Kanto 0.7.0
+# Architecture — Wilds of Kanto 0.7.1
 
 Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 
@@ -85,8 +85,17 @@ Build:   tools/generate_runtime_sprite_sheets.py
 Output:  assets/generated/followsprites_runtime/{dex:03d}-{normal|shiny}.png
 ```
 
-Scaling: shared visible-bounds fit per species, nearest-neighbor, bottom-center,
-no stretch, feet on the lower frame edge.
+Path types:
+
+```text
+relativePath = assets/generated/followsprites_runtime/001-normal.png
+loadPath     = mod.assets:path(relativePath)
+             = mods/overworld_wild_spawns/assets/generated/.../001-normal.png
+```
+
+`SpriteRenderer.def.image` and `Assets.image` always use `loadPath`.
+Existence is checked via `mod.read(relative)` / Assets on `loadPath`, never via
+`love.filesystem.getInfo(relative)` alone.
 
 ## Non-negotiables
 

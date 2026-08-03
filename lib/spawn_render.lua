@@ -529,10 +529,32 @@ function SpawnRender:registerContent()
 
   -- Build-time native sheets (preferred over battle-front bake).
   local okSheets, sheetsErr = pcall(function()
-    self.runtimeSheets:load()
+    return self.runtimeSheets:load()
   end)
   if not okSheets then
     DebugLog.warn(self.mod, "runtime sheet load failed: %s", tostring(sheetsErr))
+  else
+    local rs = self.runtimeSheets:summary()
+    self:_notice("Runtime sheets load: ready=%s sheetCount=%s err=%s",
+      tostring(rs.ready), tostring(rs.sheetCount), tostring(rs.loadError or "none"))
+  end
+
+  -- Prove path resolution for representative dex ids (developer log).
+  local probeDex = { 1, 25, 151 }
+  for _, dex in ipairs(probeDex) do
+    local probe = self.runtimeSheets:probeRegistration(dex, "normal")
+    self:_notice(
+      "RuntimeSheet probe dex=%s key=%s rel=%s load=%s manifest=%s assets=%s dims=%sx%s getInfo(rel)=%s err=%s",
+      tostring(probe.speciesId),
+      tostring(probe.manifestKey),
+      tostring(probe.relativePath),
+      tostring(probe.loadPath),
+      tostring(probe.manifestEntryFound),
+      tostring(probe.assetsImageOk),
+      tostring(probe.imageWidth),
+      tostring(probe.imageHeight),
+      tostring(probe.loveGetInfoRelative),
+      tostring(probe.assetsImageError))
   end
 
   if pokemon and pokemon.each then
@@ -544,6 +566,8 @@ function SpawnRender:registerContent()
       local source = nil
       local frames = 1
       local walker = nil
+      local relativePath = nil
+      local fallbackReason = nil
 
       local dexId = nil
       if def and def.dex ~= nil then
@@ -553,23 +577,37 @@ function SpawnRender:registerContent()
         dexId = AnimatedSprites.resolveSpeciesId(speciesId, nil, self.mod)
       end
 
-      local runtimePath = nil
-      if dexId and self.runtimeSheets then
-        runtimePath = self.runtimeSheets:resolvePath(dexId, "normal")
+      local runtimeLoadPath, usedVariant, runtimeRel, runtimeEntry = nil, nil, nil, nil
+      if dexId and self.runtimeSheets and self.runtimeSheets:isReady() then
+        runtimeLoadPath, usedVariant, runtimeRel, runtimeEntry =
+          self.runtimeSheets:resolveAssetPath(dexId, "normal")
+        -- Always go through mod.assets:path for registration.
+        if runtimeRel then
+          local viaAssets = self:_modAssetPath(runtimeRel)
+          if viaAssets then
+            runtimeLoadPath = viaAssets
+          end
+        end
+      elseif dexId and self.runtimeSheets and not self.runtimeSheets:isReady() then
+        fallbackReason = "runtimeSheets not ready: " .. tostring(self.runtimeSheets.loadError)
+      elseif not dexId then
+        fallbackReason = "dexId unresolved for species key " .. tostring(speciesId)
       end
 
-      if runtimePath then
-        imagePath = runtimePath
-        source = runtimePath
+      if runtimeLoadPath and runtimeRel then
+        imagePath = runtimeLoadPath
+        source = runtimeLoadPath
+        relativePath = runtimeRel
         kind = "native_runtime_sheet"
         frames = RuntimeSheets.FRAMES
         walker = true
+        fallbackReason = nil
       elseif type(front) == "string" and front ~= "" and not isOsAbsolutePath(front) then
         source = front
         imagePath = front
         kind = "battle_front"
-        -- Prefer a baked 16x16 sheet when the graphics stack is already up
-        -- (real love.load). Headless tests keep the battle-front path.
+        fallbackReason = fallbackReason
+          or "no runtime sheet; using battle front"
         local baked = bakeSheet(speciesId, front, function(fmt, ...)
           self:_log(fmt, ...)
         end)
@@ -578,8 +616,9 @@ function SpawnRender:registerContent()
           kind = "generated_overworld"
         end
       else
-        -- Still register a sprite id so runtime spawn can use fallback.
         missing = missing + 1
+        fallbackReason = fallbackReason
+          or "no runtime sheet and no battle front"
       end
 
       local spriteDef = {
@@ -596,20 +635,34 @@ function SpawnRender:registerContent()
         self.registrationInfo[speciesId] = {
           spriteId = spriteId,
           image = imagePath,
+          relativePath = relativePath,
           source = source,
           kind = kind,
           frames = frames,
           walker = walker == true,
           dexId = dexId,
+          usedVariant = usedVariant or "normal",
+          fallbackReason = fallbackReason,
           status = (kind == "fallback") and "FALLBACK_REGISTERED" or "REGISTERED",
         }
         registered = registered + 1
+        -- Extra detail for the probe species.
+        if dexId == 1 or dexId == 25 or dexId == 151 then
+          self:_notice(
+            "REGISTER species=%s dex=%s kind=%s frames=%s walker=%s rel=%s image=%s reason=%s",
+            tostring(speciesId), tostring(dexId), tostring(kind),
+            tostring(frames), tostring(walker == true),
+            tostring(relativePath), tostring(imagePath),
+            tostring(fallbackReason or "ok"))
+        end
       else
         missing = missing + 1
         self.registrationInfo[speciesId] = {
           spriteId = nil,
           status = "REGISTER_ERROR",
           lastError = tostring(err),
+          dexId = dexId,
+          fallbackReason = tostring(err),
         }
         DebugLog.warn(self.mod,
           "failed to register overworld sprite for %s: %s",
@@ -1059,14 +1112,28 @@ function Entity.new(game, mod, render, record)
   end
 
   -- Prefer native follow-sprite runtime sheet (16×96, frames=6, walker).
-  local dexId = AnimatedSprites.resolveSpeciesId(record.species, game, mod)
+  -- Always resolve through mod.assets:path — never register a bare relative path.
+  local dexId = nil
+  if record.dex ~= nil then
+    dexId = tonumber(record.dex)
+  end
+  if not dexId then
+    dexId = AnimatedSprites.resolveSpeciesId(record.species, game, mod)
+  end
   local variant = AnimatedSprites.resolveRuntimeVariant(self)
-  local nativePath, usedVariant = nil, nil
+  local nativeLoadPath, usedVariant, nativeRel = nil, nil, nil
   if dexId and render.runtimeSheets then
     if not render.runtimeSheets.ready and render.runtimeSheets.load then
       pcall(function() render.runtimeSheets:load() end)
     end
-    nativePath, usedVariant = render.runtimeSheets:resolvePath(dexId, variant)
+    nativeLoadPath, usedVariant, nativeRel =
+      render.runtimeSheets:resolveAssetPath(dexId, variant)
+    if nativeRel then
+      local viaAssets = render:_modAssetPath(nativeRel)
+      if viaAssets then
+        nativeLoadPath = viaAssets
+      end
+    end
   end
 
   local drawPath = spriteDef.image
@@ -1074,13 +1141,15 @@ function Entity.new(game, mod, render, record)
   local drawWalker = spriteDef.walker == true
   local nativeSheet = false
 
-  if nativePath and not isOsAbsolutePath(nativePath) then
-    drawPath = nativePath
+  if nativeLoadPath and not isOsAbsolutePath(nativeLoadPath) then
+    drawPath = nativeLoadPath
     drawFrames = RuntimeSheets.FRAMES
     drawWalker = true
     nativeSheet = true
     self.usingFallback = false
     self.spriteVariant = usedVariant or variant
+    self.runtimeRelativePath = nativeRel
+    self.runtimeLoadPath = nativeLoadPath
   elseif resolved and resolved.path and not isOsAbsolutePath(resolved.path) then
     drawPath = resolved.path
   elseif runtime and runtime.bakedPath and not isOsAbsolutePath(runtime.bakedPath) then
@@ -1757,7 +1826,14 @@ function SpawnRender:attachEnhancedToEntity(entity, game)
     variant = "normal"
   end
   entity.spriteVariant = variant
-  local path = self.runtimeSheets and self.runtimeSheets:resolvePath(enh.dexId, variant)
+  local path, usedVar, rel = nil, nil, nil
+  if self.runtimeSheets then
+    path, usedVar, rel = self.runtimeSheets:resolveAssetPath(enh.dexId, variant)
+    if rel then
+      local viaAssets = self:_modAssetPath(rel)
+      if viaAssets then path = viaAssets end
+    end
+  end
   if path then
     local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
     if SpriteRenderer then
@@ -1778,13 +1854,16 @@ function SpawnRender:attachEnhancedToEntity(entity, game)
         entity.spriteSource2D = "FOLLOW_SPRITES"
         entity.voxelSource = "FOLLOW_SPRITES"
         entity.usingFallback = false
+        entity.runtimeRelativePath = rel
+        entity.runtimeLoadPath = path
+        entity.spriteVariant = usedVar or variant
         self:_instrumentResolveImage(entity, spr)
         if not entity.animation then
           entity.animation = self.animated:newAnimationState(entity.facing or "down")
         end
         entity.animation.usingEnhancedSprite = true
         entity.animation.source = "FOLLOW_SPRITES"
-        entity.animation.variant = variant
+        entity.animation.variant = usedVar or variant
         entity.animation.fallbackLevel = enh.status
         entity.scaleInfo = {
           scale = 1, final2DScale = 1, contentW = CELL, contentH = CELL,

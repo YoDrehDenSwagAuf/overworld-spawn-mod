@@ -1,17 +1,27 @@
-# Manual test guide — Wilds of Kanto 0.7.0
+# Manual test guide — Wilds of Kanto 0.7.1
+
+## After installing 0.7.1
+
+1. Remove any older Wilds of Kanto / `overworld_wild_spawns` copy from `mods/`.
+2. Install only `wilds-of-kanto-v0.7.1.zip`.
+3. Fully restart the game (content registry freezes after load).
+4. Optional: delete `overworld_wild_spawns-cache/` in the save directory.
 
 ## Developer HUD (nearest entity)
 
 ```text
+Species key: PIKACHU
+Dex ID: 25
+Runtime manifest key: 25:normal
+Runtime relative path: assets/generated/followsprites_runtime/025-normal.png
+Runtime resolved path: mods/overworld_wild_spawns/assets/generated/followsprites_runtime/025-normal.png
+Runtime sheet load: READY
+Runtime image dimensions: 16x96
+Registration kind: native_runtime_sheet
+Fallback used: NO
 Body renderer: NATIVE_SPRITE_RENDERER
-Sprite sheet: assets/generated/followsprites_runtime/025-normal.png
 Sprite frames: 6
 Walker: true
-Facing: ...
-Phase: ...
-Flip: ...
-In ow.entities: YES
-Dramatic Shape pose accepted: YES
 Overlay body draw: NO
 First person compatible: NATIVE
 ```
@@ -20,29 +30,10 @@ First person compatible: NATIVE
 
 1. Idle Look changes facing with phase 0.
 2. Wander / chase uses walk phase mid-step and toggles flip after each tile.
-3. Sprite size is one tile; no jitter between frames.
+3. Real Pokemon art (not question mark) for Bulbasaur / Pikachu / Mew.
 4. Hidden grass entities show no Pokemon body.
 
-## Dramatic Shape — orbit
+## Dramatic Shape — orbit + First Person
 
-1. Grass covers feet (immersed).
-2. Bushes / walls / buildings occlude the Pokemon.
-3. Pokemon in front of objects stays visible.
-4. Shadow matches the current frame.
-5. No double body (no post-voxel body draw).
-
-## Dramatic Shape — First Person
-
-1. View from front / left / right / behind — facing remaps natively.
-2. Card stays upright and yawed to the camera (no edge-on vanish).
-3. Walls and buildings still occlude.
-4. No overlay-sized screen sprite; size matches trainers.
-5. Walk while looking at the Pokemon — phase/flip animate.
-
-## Regenerating sheets
-
-```text
-python3 tools/generate_runtime_sprite_sheets.py --force
-# or
-powershell -File tools/generate_runtime_sprite_sheets.ps1 -Force
-```
+Same as 0.7.0: depth, walls, grass, shadows, upright FP billboards.
+No post-voxel Pokemon body on the success path.
