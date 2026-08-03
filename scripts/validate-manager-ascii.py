@@ -40,6 +40,7 @@ MANIFEST_VISIBLE_KEYS = (
     "game_version",
     "description",
     "options_schema",
+    "github",
 )
 
 CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")

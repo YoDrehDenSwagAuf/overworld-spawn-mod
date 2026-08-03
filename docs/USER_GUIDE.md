@@ -1,4 +1,4 @@
-# Wilds of Kanto — User Guide (0.4.2)
+# Wilds of Kanto — User Guide (1.0.0)
 
 Visible wild Pokemon appear in the overworld. Walk into one (or into a shaking grass patch) to start that exact wild battle. Classic random grass encounters stay available until the visible spawn system is ready on the current map.
 
@@ -16,7 +16,7 @@ Technical mod id: `overworld_wild_spawns` (stable for options/saves).
 
 ## 2. Installation
 
-1. Build or download `wilds-of-kanto-v0.4.2.zip`
+1. Build or download `wilds-of-kanto-v1.0.0.zip`
 2. In Gen1Recomp open **Mod Manager (F10)** → Import the ZIP
 3. Enable **Wilds of Kanto**
 
@@ -27,7 +27,7 @@ The ZIP root must contain `manifest.json` directly (no wrapping folder).
 | Control | Effect |
 |---|---|
 | Mod Manager switch off | Mod not loaded; fully vanilla |
-| Option **Show wild Pokemon in the overworld** off | Removes entities, restores vanilla grass rolls |
+| Option **Show Wild Mons** off | Removes entities, restores vanilla grass rolls |
 
 No game restart is required; options apply live.
 
@@ -79,7 +79,7 @@ Target count is roughly:
 clamp(minVisible + floor(eligibleTiles / tilesPerAdditional), min, max)
 ```
 
-adjusted by **Spawn density** (Low / Normal / High / Very High).
+adjusted by **Spawn Amount** (Low / Normal / High / Very High).
 
 Long routes with many encounter tiles get more Pokemon. Tiny patches stay sparse. Pokemon are distributed across connected grass/cave/water regions, not all clustered next to you.
 
@@ -111,63 +111,41 @@ Caves often have no tall-grass graphics but still use the grass encounter table 
 ## 13. Options
 
 All options are live (`mod.options_changed`). Map-density retargets on change; a map re-enter always rebuilds spawns.
+Visible labels are limited to 14 characters.
 
-### General
-
-| Label | Key | Default | Values | Effect |
-|---|---|---|---|---|
-| Show wild Pokemon in the overworld | `enabled` | true | on/off | Master switch |
-| Hide random grass encounters | `suppress_random_grass` | true | on/off | Suppress vanilla grass rolls only when ready |
-
-### Spawn density
+### Public
 
 | Label | Key | Default | Values | Effect |
 |---|---|---|---|---|
-| Spawn density | `spawn_density` | normal | low / normal / high / very_high | Scales target count |
-| Maximum visible Pokemon | `max_visible_pokemon` | 12 | 4–16 | Hard cap |
-| Minimum visible Pokemon | `min_visible_pokemon` | 1 | 1–3 | Floor when tiles exist |
-| Tiles per additional Pokemon | `tiles_per_additional_pokemon` | 24 | 16–40 | Tile→count slope |
-| Spawn refill interval | `spawn_refill_interval` | 8 | 4 / 8 / 14 | Steps between refill attempts |
-| On enter | `initial_spawns` | 1 | 1–5 | Immediate wave size (still capped by target) |
+| Show Wild Mons | `enabled` | true | on/off | Master switch |
+| Hide Grass RNG | `suppress_random_grass` | true | on/off | Suppress vanilla grass rolls only when ready |
+| Mon Sprites | `use_animated_overworld_sprites` | true | on/off | Follow-sprites vs legacy art |
+| Spawn Amount | `spawn_density` | normal | low / normal / high / very_high | Scales target count |
+| Grass View | `pokemon_grass_render_mode` | immersed | Above / Immersed | Tall-grass presentation |
+| Idle Mons | `enable_idle` | true | on/off | Allow Idle Look |
+| Roam Mons | `enable_wander` | true | on/off | Allow Wander |
+| Chase Mons | `enable_aggressive` | true | on/off | Allow Aggressive |
+| Hidden Mons | `enable_hidden` | true | on/off | Allow Hidden markers |
+| Dev Mode | `dev_mode` | false | on/off | HUD + preview browser |
 
-### Behaviour
-
-| Label | Key | Default | Effect |
-|---|---|---|---|
-| Enable idle Pokemon | `enable_idle` | true | Allow Idle Look |
-| Enable wandering Pokemon | `enable_wander` | true | Allow Wander |
-| Enable aggressive Pokemon | `enable_aggressive` | true | Allow Aggressive |
-| Enable hidden encounters | `enable_hidden` | true | Allow Hidden markers |
-| Aggressive encounter frequency | `aggressive_frequency` | 1.0 | Rare / Normal / Common weight |
-
-### Visuals
+### Developer rows
 
 | Label | Key | Default | Effect |
 |---|---|---|---|
-| Sprite fade | `sprite_opacity` | 1.0 | Solid / Tucked / Faint |
-| Use enhanced overworld Pokemon sprites | `use_animated_overworld_sprites` | true | Follow-sprite idle/walk when mapping is valid |
-| Minimum Pokemon sprite size | `min_sprite_size` | 16 | Preferred readable size for legacy sprites; follow-sprite frames keep native tile size |
-| Pokemon grass rendering | `pokemon_grass_render_mode` | immersed | `above` = fully visible; `immersed` = feet under tall grass like the player |
-| Enable grass movement effects | `enable_grass_movement_effects` | true | Hidden shake / dust pulses |
+| Debug HUD | `debug_hud_always_visible` | false | HUD stays up |
+| Spawn Tiles | `show_spawn_tile_overlay` | false | Tile markers |
+| Behavior View | `show_behavior_overlays` | false | Region / sight overlays |
+| Outside Spawn | `allow_debug_spawn_outside_encounter_areas` | false | Debug placement |
+| Debug Log | `debug_logging` | false | Verbose logs |
+| Force Spawn | `force_test_spawn` | false | Force one diagnostic spawn |
+| Preview Filter / Search / Map Filter / Encounter Kind | `preview_*` | … | Preview browser filters |
 
-### Developer
+Density fine-tuning, sprite opacity, legacy aliases, and old strict billboard
+debug probes are no longer public options; runtime defaults remain in code.
 
-| Label | Key | Default | Effect |
-|---|---|---|---|
-| Developer mode | `dev_mode` | false | HUD + preview browser |
-| Keep spawn debug HUD visible | `debug_hud_always_visible` | false | HUD stays up |
-| Show valid spawn tiles | `show_spawn_tile_overlay` | false | Tile markers |
-| Show behavior overlays | `show_behavior_overlays` | false | Region / sight overlays |
-| Allow test spawn outside encounter areas | `allow_debug_spawn_outside_encounter_areas` | false | Debug placement |
-| Debug log | `debug_logging` | false | Verbose logs |
-| Force test spawn | `force_test_spawn` | false | Force one diagnostic spawn |
-| Preview filter / search / map / kind | `preview_*` | … | Preview browser filters |
+## 14. Dev Mode
 
-Legacy aliases `max_spawns` and `spawn_every_steps` still exist for older option files.
-
-## 14. Developer mode
-
-Enable **Developer mode**, then:
+Enable **Dev Mode**, then:
 
 1. Read the top-right spawn HUD (Target / Active / Regions / Surface / …)
 2. Open **OPTIONS → POKEMON PREVIEW → OPEN** (or Start Menu → **WILDS PREVIEW**)
@@ -205,13 +183,13 @@ Gen1 wild spawns currently always use the normal variant.
 
 | Symptom | Check |
 |---|---|
-| No visible Pokemon | Developer mode HUD: encounter data? eligible tiles? renderer? |
+| No visible Pokemon | Dev Mode HUD: encounter data? eligible tiles? renderer? |
 | Only random grass | Spawn system not READY → vanilla fail-safe is working |
-| Too empty on long routes | Raise **Spawn density** or lower **Tiles per additional** |
-| Too crowded | Lower density or max visible |
-| Tiny sprites in grass | Raise **Minimum Pokemon sprite size** (legacy path); follow-sprites use native size |
-| Prefer classic static sprites | Turn off **Use enhanced overworld Pokemon sprites** |
-| Want classic feel | Disable aggressive / hidden, or turn the feature off |
+| Too empty on long routes | Raise **Spawn Amount** |
+| Too crowded | Lower **Spawn Amount** |
+| Prefer classic static sprites | Turn off **Mon Sprites** |
+| Prefer Pokemon fully above grass | Set **Grass View** to Above |
+| Want classic feel | Disable Chase / Hidden Mons, or turn Show Wild Mons off |
 
 ## 19. Uninstall
 

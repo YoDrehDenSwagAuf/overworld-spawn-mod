@@ -1,0 +1,130 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python packaging deps
+        run: pip install Pillow
+
+      - name: Read tag version
+        id: ver
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [[ ! "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "ERROR: Release tag must look like vMAJOR.MINOR.PATCH, got: $TAG" >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          echo "zip=wilds-of-kanto-v${BASH_REMATCH[1]}.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Validate tag / manifest / export versions
+        env:
+          RELEASE_TAG: ${{ steps.ver.outputs.tag }}
+        run: python3 tools/validate_release_version.py
+
+      - name: Validate option labels (<= 14 chars)
+        run: python3 tools/validate_option_labels.py
+
+      - name: Validate manager ASCII metadata
+        run: python3 scripts/validate-manager-ascii.py
+
+      - name: Install LuaJIT for unit tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y luajit
+
+      - name: Bootstrap Gen1Recomp test harness
+        run: |
+          ./scripts/bootstrap.sh
+
+      - name: Run unit tests
+        run: |
+          set -euo pipefail
+          # Harness tests (need Gen1Recomp test kit; cwd = engine root).
+          (
+            cd .deps/gen1recomp
+            for t in \
+              mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua \
+              mods/overworld_wild_spawns/tests/voxel_aggressive_compat_test.lua
+            do
+              echo "==> luajit $t"
+              luajit "$t"
+            done
+          )
+          # Standalone unit tests (cwd = mod / repo root).
+          for t in \
+            tests/native_sprite_sheets_unit_test.lua \
+            tests/animated_sprites_unit_test.lua \
+            tests/grass_occlusion_unit_test.lua \
+            tests/render_diagnostics_unit_test.lua \
+            tests/voxel_overlay_unit_test.lua \
+            tests/enhanced_world_sprite_unit_test.lua
+          do
+            echo "==> luajit $t"
+            luajit "$t"
+          done
+
+      - name: Verify runtime sprite sheets exist
+        run: |
+          set -euo pipefail
+          python3 tools/generate_runtime_sprite_sheets.py
+          test -f assets/generated/followsprites_runtime/manifest.json
+          test -f assets/generated/followsprites_runtime/001-normal.png
+          count=$(find assets/generated/followsprites_runtime -name '*.png' | wc -l)
+          echo "runtime sheets: $count"
+          test "$count" -ge 151
+
+      - name: Build release ZIP
+        run: python3 scripts/build-mod.py
+
+      - name: Validate ZIP structure
+        env:
+          ZIP_NAME: ${{ steps.ver.outputs.zip }}
+        run: |
+          set -euo pipefail
+          ZIP="dist/${ZIP_NAME}"
+          test -f "$ZIP"
+          python3 - <<'PY'
+          import os, zipfile, sys
+          zip_path = f"dist/{os.environ['ZIP_NAME']}"
+          with zipfile.ZipFile(zip_path) as zf:
+              names = zf.namelist()
+          required = ["manifest.json", "main.lua", "mod.card", "options.lua", "LICENSE"]
+          for req in required:
+              if req not in names:
+                  print(f"ERROR: ZIP missing {req} at archive root", file=sys.stderr)
+                  sys.exit(1)
+          if any(n.endswith("POKEMON 1.png") for n in names):
+              print("ERROR: commercial POKEMON 1.png in ZIP", file=sys.stderr)
+              sys.exit(1)
+          print("ZIP root check: ok")
+          print(f"  files: {len(names)}")
+          PY
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Wilds of Kanto ${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          files: dist/${{ steps.ver.outputs.zip }}
+          fail_on_unmatched_files: true

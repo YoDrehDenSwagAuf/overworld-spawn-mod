@@ -1,11 +1,23 @@
-# Manual test guide — Wilds of Kanto 0.7.1
+# Manual test guide — Wilds of Kanto 1.0.0
 
-## After installing 0.7.1
+## After installing 1.0.0
 
 1. Remove any older Wilds of Kanto / `overworld_wild_spawns` copy from `mods/`.
-2. Install only `wilds-of-kanto-v0.7.1.zip`.
+2. Install only `wilds-of-kanto-v1.0.0.zip`.
 3. Fully restart the game (content registry freezes after load).
 4. Optional: delete `overworld_wild_spawns-cache/` in the save directory.
+
+## Options smoke check
+
+Confirm visible labels are not truncated (max 14 characters):
+
+```text
+Show Wild Mons / Hide Grass RNG / Mon Sprites / Spawn Amount / Grass View
+Idle Mons / Roam Mons / Chase Mons / Hidden Mons / Dev Mode
+```
+
+Defaults for 1.0: Mon Sprites ON, Spawn Amount NORMAL, Grass View IMMERSED,
+Roam / Chase / Hidden ON, Dev Mode OFF.
 
 ## Developer HUD (nearest entity)
 
@@ -35,5 +47,10 @@ First person compatible: NATIVE
 
 ## Dramatic Shape — orbit + First Person
 
-Same as 0.7.0: depth, walls, grass, shadows, upright FP billboards.
+Same native sheet path: depth, walls, grass, shadows, upright FP billboards.
 No post-voxel Pokemon body on the success path.
+
+## Update detection
+
+See [docs/RELEASE_TEST.md](docs/RELEASE_TEST.md) for the GitHub Release /
+Mod Manager update checklist (`github` = `YoDrehDenSwagAuf/overworld-spawn-mod`).

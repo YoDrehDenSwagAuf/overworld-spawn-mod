@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.0.0
+
+### Stable release
+
+- First stable major release of Wilds of Kanto.
+- Native trainer/NPC-compatible `SpriteRenderer` rendering for wild Pokemon.
+- Improved Dramatic Shape and first-person compatibility (depth, walls, grass,
+  shadows) on the native sheet path.
+- Animated overworld sprites via follow-sprite runtime sheets.
+- Wall and object occlusion through the Dramatic Shape / engine billboard path.
+- Simplified mod settings for version 1.0.
+- All visible setting labels limited to 14 characters (Gen1Recomp truncation).
+- Removed obsolete and non-functional public settings (density fine-tuning,
+  legacy sprite size / opacity menus, old strict billboard debug probes, and
+  legacy option aliases).
+- GitHub update support via manifest `github` field
+  (`YoDrehDenSwagAuf/overworld-spawn-mod`).
+- MIT license for original project source plus third-party notices for
+  non-MIT assets.
+- Automated tag-triggered release workflow producing
+  `wilds-of-kanto-v1.0.0.zip` with `manifest.json` at the ZIP root.
+
+### Settings (public)
+
+| Label | Purpose | Default |
+|---|---|---|
+| Show Wild Mons | Master switch for visible wilds | ON |
+| Hide Grass RNG | Suppress vanilla grass rolls when ready | ON |
+| Mon Sprites | Animated follow-sprites vs legacy art | ON |
+| Spawn Amount | Density preset | NORMAL |
+| Grass View | Immersed vs above tall grass | IMMERSED |
+| Idle Mons | Allow idle look behaviour | ON |
+| Roam Mons | Allow wandering | ON |
+| Chase Mons | Allow aggressive chase | ON |
+| Hidden Mons | Allow hidden markers | ON |
+| Dev Mode | Diagnostics / preview browser | OFF |
+
+Internal option keys for the remaining settings are unchanged so existing
+saved values keep working.
+
 ## 0.7.1
 
 ### Fixed

@@ -33,6 +33,7 @@ REQUIRED_MANIFEST_FIELDS = (
     "category",
     "description",
     "game_version",
+    "github",
 )
 
 # Runtime files allowed in a manual fallback zip.
@@ -41,6 +42,8 @@ INCLUDE_PREFIXES = (
     "main.lua",
     "options.lua",
     "mod.card",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
     "README.md",
     "CHANGELOG.md",
     "MANUAL_TEST.md",
@@ -103,6 +106,8 @@ def read_manifest() -> dict:
             fail(f"manifest missing required field: {field}")
     if data.get("id") != "overworld_wild_spawns":
         fail("manifest id must be overworld_wild_spawns")
+    if data.get("github") != "YoDrehDenSwagAuf/overworld-spawn-mod":
+        fail("manifest github must be YoDrehDenSwagAuf/overworld-spawn-mod")
     entry = data["entry"]
     if not (MOD_DIR / entry).is_file():
         fail(f"entry file missing: {entry}")
@@ -249,6 +254,8 @@ def verify_zip(out_zip: Path, manifest: dict) -> None:
         fail("ZIP missing main.lua / entry at archive root")
     if "mod.card" not in names:
         fail("ZIP missing mod.card at archive root")
+    if "LICENSE" not in names:
+        fail("ZIP missing LICENSE at archive root")
     assert raw_manifest is not None
 
     # Reject a single outer folder wrapper (e.g. overworld-spawn-mod-main/).
@@ -470,15 +477,16 @@ def main() -> int:
     if modkit_ok:
         run_modkit("validate", "mods/overworld_wild_spawns")
 
-    # Compatibility aliases using the stable technical mod id.
+    # Prefer a single public release ZIP so Mod Manager update detection has
+    # one unambiguous archive. Optional technical-id copies stay local-only.
     id_versioned = DIST / f"{manifest['id']}-{manifest['version']}.zip"
     id_alias = DIST / f"{manifest['id']}.zip"
     shutil.copy2(out_zip, id_versioned)
     shutil.copy2(out_zip, id_alias)
 
-    print(f"wrote {out_zip}")
-    print(f"wrote {id_versioned}")
-    print(f"wrote {id_alias}")
+    print(f"wrote {out_zip}  (primary release asset)")
+    print(f"wrote {id_versioned}  (local technical-id alias)")
+    print(f"wrote {id_alias}  (local unversioned alias)")
     print(f"modkit validator: {'ok' if modkit_ok else 'skipped (manual pack)'}")
     print("manifest.json at ZIP root: confirmed")
     return 0

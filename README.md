@@ -112,7 +112,7 @@ Idle and Wander only (no aggressive chase or hidden water markers).
 - Engine tall-grass overlay with relative occlusion; Dramatic Shape uses
   world billboards so bushes/walls occlude Pokemon like trainers
 - Fallback chain: follow-sprite → legacy PNG → black fallback
-- Developer mode with debug HUD, tile/behaviour overlays, and Pokemon preview
+- Dev Mode with debug HUD, tile/behaviour overlays, and Pokemon preview
   browser (follow normal/shiny, idle/walk, encounter locations, Test spawn)
 - Optional coexistence with [Dramatic Shape Voxel Mod](https://github.com/DramaticShape/DramaticShapeVoxelMod)
   (not required); wild Pokemon use native `SpriteRenderer` sheets (trainer contract) and
@@ -169,44 +169,43 @@ This project does not include a ROM.
 ## Options
 
 All options are live (`mod.options_changed`); no restart is required.
+Visible labels are limited to 14 characters so Gen1Recomp does not truncate them.
 
-| Option | Default | Description |
+| Label | Purpose | Default |
 | --- | --- | --- |
-| Show wild Pokemon in the overworld | on | Master switch for visible spawns |
-| Hide random grass encounters | on | Suppress vanilla grass rolls only after visible spawns are ready |
-| Spawn density | Normal | Target count relative to encounter-area size |
-| Maximum visible Pokemon | 12 | Hard cap on the current map |
-| Minimum visible Pokemon | 1 | Floor when eligible tiles exist |
-| Tiles per additional Pokemon | 24 | Eligible tiles needed for each Pokemon above the minimum |
-| Spawn refill interval | Normal (8) | Player steps between refill attempts |
-| On enter | 1 | Immediate spawn wave size (still capped by density) |
-| Enable idle Pokemon | on | Allow Idle behaviour |
-| Enable wandering Pokemon | on | Allow Wander behaviour |
-| Enable aggressive Pokemon | on | Allow Aggressive behaviour |
-| Enable hidden encounters | on | Allow Hidden grass / cave markers |
-| Aggressive encounter frequency | Normal | Relative weight when picking Aggressive |
-| Sprite fade | Solid | Opacity of overworld sprites |
-| Minimum Pokemon sprite size | 16 | Minimum visible height after scaling (px) |
-| Pokemon grass rendering | Partially hidden in grass | Draw fully above grass, or immerse feet in tall grass like the player |
-| Enable grass movement effects | on | Hidden shake / dust pulses when supported |
-| Developer mode | off | Debug HUD + Pokemon preview browser |
-| Keep spawn debug HUD visible | off | Keep HUD up while developer mode is on |
-| Show valid spawn tiles | off | Highlight eligible spawn tiles |
-| Show behavior overlays | off | Region / sight / behaviour overlays (dev) |
-| Allow test spawn outside encounter areas | off | Debug placement for Test spawn |
-| Debug log | off | Verbose diagnostics (also forced on in developer mode) |
-| Force test spawn | off | Force one diagnostic spawn from the map table |
-| Preview filter | ALL | Species list filter for the preview browser |
-| Preview search | (empty) | Search by species name or ID |
-| Preview map filter | (empty) | Optional map/route id substring filter |
-| Preview encounter kind | ANY | Location-list kind filter (any / grass / water / fishing) |
+| Show Wild Mons | Master switch for visible spawns | ON |
+| Hide Grass RNG | Suppress vanilla grass rolls only after visible spawns are ready | ON |
+| Mon Sprites | Animated follow-sprites when available; off uses legacy art | ON |
+| Spawn Amount | Density preset (Low / Normal / High / Very High) | NORMAL |
+| Grass View | Immersed in tall grass, or fully Above | IMMERSED |
+| Idle Mons | Allow Idle Look behaviour | ON |
+| Roam Mons | Allow wandering inside encounter regions | ON |
+| Chase Mons | Allow aggressive spot / chase behaviour | ON |
+| Hidden Mons | Allow hidden grass / cave markers | ON |
+| Dev Mode | Debug HUD + Pokemon preview browser | OFF |
 
-Legacy aliases `max_spawns` and `spawn_every_steps` remain so older saved option
-files still resolve.
+Developer-only rows (shown in the same panel, intended for diagnosis):
+Debug HUD, Spawn Tiles, Behavior View, Outside Spawn, Debug Log, Force Spawn,
+and the Preview Filter / Search / Map Filter / Encounter Kind fields.
 
-## Developer mode
+Fine-tuning that used to appear in older builds (hard caps, refill interval,
+sprite opacity, legacy aliases, strict billboard probes) is no longer in the
+public menu. Runtime defaults remain in code.
 
-Developer mode is optional and not needed for normal play. When enabled it:
+## Updates
+
+Wilds of Kanto supports update detection through the Gen1Recomp Mod Manager.
+
+Install the mod through the manager or import the official GitHub release ZIP.
+When a newer GitHub release is available, the Mod Manager can display and
+install the update.
+
+Official repository / releases:
+[YoDrehDenSwagAuf/overworld-spawn-mod](https://github.com/YoDrehDenSwagAuf/overworld-spawn-mod/releases)
+
+## Dev Mode
+
+Dev Mode is optional and not needed for normal play. When enabled it:
 
 - Shows map and encounter diagnostics (surface, species, slots, eligible tiles,
   regions, target / active counts, asset and renderer status)
@@ -216,8 +215,7 @@ Developer mode is optional and not needed for normal play. When enabled it:
 - Shows encounter locations and asset / entity status
 - Supports phased Test spawn for diagnosis
 
-Please include Developer mode HUD details or log lines when filing bug reports.
-
+Please include Dev Mode HUD details or log lines when filing bug reports.
 ## Why I made this
 
 I have always loved the original Pokemon games, and Gen1Recomp immediately
@@ -269,6 +267,7 @@ not part of the Dramatic Shape Voxel Mod. It does not require the voxel mod.
 - [User Guide](docs/USER_GUIDE.md)
 - [Developer Guide](docs/DEVELOPER_GUIDE.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Release test checklist](docs/RELEASE_TEST.md)
 - [Manual test checklist](MANUAL_TEST.md)
 - [Changelog](CHANGELOG.md)
 
@@ -285,11 +284,13 @@ Python 3.
 Output:
 
 ```text
-dist/wilds-of-kanto-v0.4.2.zip          # public release name
-dist/overworld_wild_spawns-0.4.2.zip    # technical-id alias
-dist/overworld_wild_spawns.zip          # unversioned alias
+dist/wilds-of-kanto-v1.0.0.zip          # public release name (upload this)
+dist/overworld_wild_spawns-1.0.0.zip    # local technical-id alias
+dist/overworld_wild_spawns.zip          # local unversioned alias
 ```
 
+Tag a release with `v1.0.0` to run `.github/workflows/release.yml`, which
+publishes the public ZIP as a GitHub Release asset.
 The archive root must contain the mod files directly:
 
 ```text
@@ -322,13 +323,17 @@ Feedback and bug reports are welcome. When something looks wrong, please include
 - Map name
 - Whether a save was mid-story or a new game
 - Screenshot if possible
-- Relevant `[WildsOfKanto]` debug log lines (Developer mode helps)
+- Relevant `[WildsOfKanto]` debug log lines (Dev Mode helps)
 
 ## Legal
 
 This is an unofficial fan-made mod. It does not include a Pokemon ROM or
 copyrighted game data. A legally obtained ROM supported by Gen1Recomp is
 required.
+
+Original Wilds of Kanto source code is MIT-licensed (see `LICENSE`). Third-party
+sprites and derived sheets are not relicensed under MIT; see
+`THIRD_PARTY_NOTICES.md`.
 
 Pokemon and related trademarks belong to their respective owners.
 This project is not affiliated with or endorsed by Nintendo, Game Freak,
