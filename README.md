@@ -239,11 +239,35 @@ follow Random Enc.
 
 When Water Mons is enabled, suitable Pokémon from the current map's water
 encounter table can appear directly on connected water areas. They remain on
-water and use the same selected sprite style as land Pokémon.
-
-**Surface notes:** Idle and Wander are available on grass and caves. Water uses
-`WATER_IDLE` / `WATER_WANDER` only (no aggressive chase onto land). Legacy
+water (`WATER_IDLE` / `WATER_WANDER`; no aggressive chase onto land). Legacy
 hidden grass/cave markers (no Pokémon sprite) remain optional via Hidden Mons.
+
+## Water Pokémon Sprites
+
+Visible Pokémon on water use dedicated animated water sprites whenever
+available.
+
+Wilds of Kanto supports two built-in water sprite types:
+
+- **Swimming** — used when a dedicated swimming animation exists.
+- **Levitates** — used when a Pokémon has a levitating or flying water
+  animation.
+
+Water sprites use the same directional idle and movement animation system as
+the normal PokeMMO-style overworld sprites.
+
+If the currently selected external sprite style does not provide a compatible
+water sprite, Wilds of Kanto automatically uses its built-in Swimming or
+Levitates sprite. If neither exists for that species, the normal built-in
+PokeMMO sprite is used as a fallback.
+
+Normal and shiny variants are selected from the actual Pokémon state.
+
+Water sprites are matched by Pokédex / species ID (never localized names).
+Changing Sprite Style does not replace land art with water art — only the water
+surface state uses the water override. Rendering stays on the native
+`SpriteRenderer` path, so Dramatic Shape orbit and first-person views remain
+supported.
 
 ## Features
 

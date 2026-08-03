@@ -7,7 +7,9 @@
 --   lib/debug_hud.lua       - present-only render pipeline HUD (dev mode)
 --   lib/debug_overlay.lua   - passable tile marker entities (dev mode)
 --   lib/preview_browser.lua - OPTIONS/Start-menu Pokemon preview (dev mode)
---   lib/sprite_style_menu.lua - Start-menu Sprite Style / Spawn Amount / Random Enc / Water Mons
+--   lib/sprite_providers.lua - land sprite style providers (Gold / Followers / …)
+--   lib/water_sprite_registry.lua - swimming / levitates water sprite mapping
+--   lib/sprite_resolver.lua - land vs water SpriteRenderer def selection
 --   lib/diagnostics.lua     - status derivation for HUD/logs
 --   options.lua             - Mod Manager option schema
 --
@@ -262,7 +264,7 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "1.2.0"
+  mod.exports.version = "1.3.0"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated

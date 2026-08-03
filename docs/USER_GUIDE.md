@@ -1,4 +1,4 @@
-# Wilds of Kanto — User Guide (1.2.0)
+# Wilds of Kanto — User Guide (1.3.0)
 
 Visible wild Pokemon appear in the overworld. Walk into one to start that exact
 wild battle. **Random Enc** (default ON) controls classic step-based random
@@ -18,7 +18,7 @@ Technical mod id: `overworld_wild_spawns` (stable for options/saves).
 
 ## 2. Installation
 
-1. Build or download `wilds-of-kanto-v1.2.0.zip`
+1. Build or download `wilds-of-kanto-v1.3.0.zip`
 2. In Gen1Recomp open **Mod Manager (F10)** → Import the ZIP
 3. Enable **Wilds of Kanto**
 

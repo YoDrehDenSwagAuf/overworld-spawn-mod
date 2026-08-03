@@ -137,9 +137,57 @@ function Diagnostics.entityDetail(logic, entity, record)
     ("Behaviour: %s"):format(tostring(entity.behavior or record and record.behavior)),
     ("Behavior state: %s"):format(tostring(bx.state or "?")),
     ("Surface: %s"):format(tostring(entity.surface or "?")),
-    ("Home region: %s"):format(tostring(entity.homeRegionId or "?")),
-    ("Facing: %s"):format(tostring(entity.facing or bx.facing or "?")),
   }
+  do
+    local surfaceState = tostring(entity.spriteState or ""):upper()
+    if surfaceState == "" then
+      if entity.surface == "WATER" then
+        surfaceState = "WATER"
+      else
+        surfaceState = "LAND"
+      end
+    end
+    lines[#lines + 1] = ("Surface state: %s"):format(surfaceState)
+    if entity.waterOverride then
+      lines[#lines + 1] = "Water override: ACTIVE"
+    elseif entity.spriteState == "water" then
+      lines[#lines + 1] = "Water override: PROVIDER"
+    end
+    if entity.spriteState == "water" or entity.spriteKind == "swimming"
+       or entity.spriteKind == "levitates" then
+      local kind = entity.spriteKind
+      local label
+      if kind == "swimming" then
+        label = "SWIMMING"
+      elseif kind == "levitates" then
+        label = "LEVITATES"
+      elseif kind == "pokemmo" then
+        label = "POKEMMO_FALLBACK"
+      elseif kind then
+        label = tostring(kind):upper()
+      else
+        label = "?"
+      end
+      lines[#lines + 1] = ("Water sprite kind: %s"):format(label)
+      if entity.waterFallbackReason then
+        lines[#lines + 1] = ("Fallback reason: %s"):format(
+          tostring(entity.waterFallbackReason))
+      end
+      lines[#lines + 1] = ("Form: %s"):format(
+        tostring(entity.spriteFormKey or "DEFAULT"):upper())
+      if logic and logic.render and logic.render.waterSpriteRegistry then
+        local reg = logic.render.waterSpriteRegistry
+        lines[#lines + 1] = ("Water mapping: %s"):format(
+          reg:isReady() and "READY" or ("FAILED " .. tostring(reg.loadError or "")))
+      end
+      if entity.spriteSourcePath or entity.runtimeRelativePath then
+        lines[#lines + 1] = ("Water image: %s"):format(
+          tostring(entity.spriteSourcePath or entity.runtimeRelativePath))
+      end
+    end
+  end
+  lines[#lines + 1] = ("Home region: %s"):format(tostring(entity.homeRegionId or "?"))
+  lines[#lines + 1] = ("Facing: %s"):format(tostring(entity.facing or bx.facing or "?"))
   do
     local SpawnFx = V.require("spawn_fx")
     local fx = entity.spawnFx

@@ -7,6 +7,12 @@
 -- External mods may register via mod.exports.registerSpriteProvider after
 -- Wilds loads (Followers EX priority 160 loads after Wilds priority 80).
 --
+-- Optional water extension (backward compatible):
+--   provider:resolveWater(speciesId, variant, game)
+--   provider:resolveForState(speciesId, variant, "water"|"land", game)
+-- Missing methods simply mean "no water support" — Wilds then uses built-in
+-- swimming/levitates sheets via SpriteResolver.
+--
 -- Gold Sprites (Gold_Silver_Sprites 1.0.1) ships battle front/back PNGs only
 -- (56×56 fronts). Wilds adapts them as 1-frame SpriteRenderer defs — no asset
 -- copy, no hard dependency, no content-registry mutation after freeze.

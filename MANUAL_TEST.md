@@ -1,9 +1,9 @@
-# Manual test guide — Wilds of Kanto 1.0.2
+# Manual test guide — Wilds of Kanto 1.3.0
 
-## After installing 1.0.2
+## After installing 1.3.0
 
 1. Remove any older Wilds of Kanto / `overworld_wild_spawns` copy from `mods/`.
-2. Install only `wilds-of-kanto-v1.0.2.zip`.
+2. Install only `wilds-of-kanto-v1.3.0.zip`.
 3. Fully restart the game (content registry freezes after load).
 4. Optional: delete `overworld_wild_spawns-cache/` in the save directory.
 
@@ -52,6 +52,19 @@ Fallback step: 1
 Quick menu: READY
 Body renderer: NATIVE_SPRITE_RENDERER
 ```
+
+## Water Pokémon sprites
+
+1. Enable **Water Mons**, open a route with water (e.g. Route 12 / 19 / 20).
+2. Species with swimming art (e.g. Psyduck #54) → Swimming sheet, not land style.
+3. Species with only Levitates (e.g. Abra #63) → Levitates sheet.
+4. Species with neither → PokeMMO land sheet fallback (still visible).
+5. For each Sprite Style (Auto / Gold / Followers EX / PokeMMO / Pokedex):
+   land uses the selected style; water uses Wilds swimming/levitates override
+   unless the provider exposes `resolveWater`.
+6. Developer HUD on a water entity should show:
+   `Surface state: WATER`, `Water override: ACTIVE`,
+   `Water sprite kind: SWIMMING|LEVITATES|POKEMMO_FALLBACK`.
 
 ## Flat 2D (no Dramatic Shape)
 

@@ -625,6 +625,17 @@ function Behavior.attach(entity, behavior, region, rng)
     entity.surface = Surface.WATER
     entity.surfaceVisualOffset = 2
     entity.waterSink = 2
+    -- Swap to water sprites once when behaviour attaches (preserves entity id).
+    if entity.render and entity.render.applyProviderSprite
+       and not entity.hiddenEncounter and entity.visibleSprite ~= false then
+      local game = entity.mod and entity.mod.world and entity.mod.world.game
+      pcall(entity.render.applyProviderSprite, entity.render, entity, game)
+    end
+  elseif entity.surface == Surface.WATER then
+    -- Leaving water behaviour: clear water visual offsets; sprite refresh
+    -- happens when surface is updated by the caller.
+    entity.surfaceVisualOffset = nil
+    entity.waterSink = 0
   end
   if entity.cellX and entity.cellY then
     Movement.init(entity, entity.cellX, entity.cellY, entity.facing)

@@ -151,6 +151,20 @@ function Surface.usesGrassOverlay(surface)
   return surface == Surface.GRASS
 end
 
+-- True when an entity should use water presentation (sprites / sink offset).
+-- Prefers entity.surface and water behaviours; optionally checks map water cells.
+function Surface.isWaterEntity(entity, map)
+  if not entity then return false end
+  if entity.surface == Surface.WATER then return true end
+  local b = entity.behavior or entity.behaviour
+  if b == "WATER_IDLE" or b == "WATER_WANDER" then return true end
+  if map and map.isWaterCell and entity.cellX ~= nil and entity.cellY ~= nil then
+    local ok, water = pcall(map.isWaterCell, map, entity.cellX, entity.cellY)
+    if ok and water then return true end
+  end
+  return false
+end
+
 function Surface.hiddenEffect(surface)
   if surface == Surface.GRASS then return "grass_shake" end
   if surface == Surface.CAVE then return "dust" end

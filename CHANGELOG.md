@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.0
+
+### Water Pokémon sprites (Swimming / Levitates)
+
+- Added dedicated Swimming sprites for visible water Pokémon
+- Added Levitates water-sprite fallback
+- Added normal and shiny water variants
+- Added Pokédex-ID-based water sprite mapping
+- Added automatic water sprite fallback independent of selected land style
+- Reused the native SpriteRenderer animation pipeline
+- Added water sprite validation and diagnostics
+
 ## 1.2.0
 
 ### Removed Hidden Idle; Random Enc + Water Mons
