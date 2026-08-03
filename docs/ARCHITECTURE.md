@@ -12,6 +12,7 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `lib/json_decode.lua` | Minimal JSON decoder for mappings |
 | `lib/animated_sprites.lua` | Follow-sprite mapping / source atlas helpers |
 | `lib/runtime_sheets.lua` | Resolve build-time 16×96 SpriteRenderer sheets |
+| `lib/sprite_providers.lua` | Sprite Style providers (Followers EX / PokeMMO / Pokedex) |
 | `lib/enhanced_world_sprite.lua` | Deprecated dynamic-card adapter (unused for body) |
 | `lib/tile.lua` | Gen1Recomp tile size (16x16) |
 | `lib/movement.lua` | Tile-step movement + NPC walkPhase/stepFlip |
