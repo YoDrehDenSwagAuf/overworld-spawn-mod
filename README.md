@@ -34,14 +34,13 @@ Available styles:
 - **PokeMMO** — uses the animated sprite sheets bundled with Wilds of Kanto.
 - **Pokedex** — uses the original Pokédex-based images.
 
-You can switch styles at any time from the normal in-game menu or from the
-Wilds of Kanto mod settings. Existing wild Pokémon update immediately without
-being respawned.
+You can switch styles at any time from Wilds of Kanto **Mod Settings**.
+Existing wild Pokémon and your active Followers EX follower update immediately
+without being respawned.
 
-**Spawn Amount**, **Random Enc**, and **Water Mons** are also available from the
-normal in-game Start Menu (directly under Sprite Style). Spawn Amount was
-removed from Mod Settings so density is adjusted from the quick menu only; the
-saved `spawn_density` value is unchanged.
+**Spawn Amount**, **Random Enc**, **Water Mons**, **Dev Overlay**, and
+**Test Spawn** live in Mod Settings together with Sprite Style. The normal
+Start / Pause menu is no longer filled with Wilds quick settings.
 
 External sprite styles require their corresponding mods to be installed
 separately. Wilds of Kanto does not redistribute their assets.
@@ -61,18 +60,12 @@ Gen1Recomp Mod Manager or from its official GitHub release:
 After installation, restart Gen1Recomp and select the style from:
 
 ```text
-START MENU -> SPRITE STYLE
-START MENU -> SPAWN AMOUNT
-START MENU -> RANDOM ENC
-START MENU -> WATER MONS
-```
-
-or (Sprite Style / Random Enc / Water Mons):
-
-```text
-MOD SETTINGS -> WILDS OF KANTO -> SPRITE STYLE
-MOD SETTINGS -> WILDS OF KANTO -> RANDOM ENC
-MOD SETTINGS -> WILDS OF KANTO -> WATER MONS
+MOD SETTINGS -> WILDS OF KANTO -> Sprite Style
+MOD SETTINGS -> WILDS OF KANTO -> Spawn Amount
+MOD SETTINGS -> WILDS OF KANTO -> Random Enc
+MOD SETTINGS -> WILDS OF KANTO -> Water Mons
+MOD SETTINGS -> WILDS OF KANTO -> Dev Overlay
+MOD SETTINGS -> WILDS OF KANTO -> Test Spawn (OPEN)
 ```
 
 Auto preference order when multiple packs are present:
@@ -158,9 +151,9 @@ Normal and shiny sprite variants are supported by the asset format. Shiny
 sprites are only used during normal gameplay when the game provides a reliable
 shiny state. They remain available in the developer preview for testing.
 
-Choose **Sprite Style** from the Start Menu (**SPRITE STYLE**) or in the mod
-settings (Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex). Auto is the
-default.
+Choose **Sprite Style** in Wilds of Kanto Mod Settings (Auto / Gold Sprites /
+Followers EX / PokeMMO / Pokedex). Auto is the default. The same style is
+applied to your active Followers EX follower.
 
 If a follow sprite or mapping is missing, the mod automatically falls back to:
 
@@ -223,15 +216,14 @@ marker is used instead. Stepping onto the tile starts the encounter.
 
 ## Random Encounters
 
-Classic step-based random encounters can be enabled or disabled from the
-in-game menu or the Wilds of Kanto mod settings.
+Classic step-based random encounters can be enabled or disabled from Wilds of
+Kanto Mod Settings (**Random Enc**).
 
 Disabling random encounters does not remove visible overworld Pokémon. Wild
 Pokémon can still appear in the world and start battles through direct
 interaction or their normal behaviour.
 
-**Random Enc** is available from the Start Menu and Mod Settings. **Spawn Amount**
-is Start-Menu only. **Water Mons** stays separately toggleable — visible water
+**Spawn Amount** and **Water Mons** are also Mod Settings. Visible water
 Pokémon remain active even when Random Enc is off. Classic surf / fishing rolls
 follow Random Enc.
 
@@ -305,19 +297,20 @@ supported.
 - Visible wild Pokemon in supported overworld encounter areas
 - Behaviours: Idle, Wander, Aggressive, Hidden markers, Water Idle/Wander/Aggressive
 - Random Enc toggle for classic step-based encounters (default ON)
-- Visible Water Mons from Surf + fishing encounter pools (toggleable)
+- Visible Water Mons from Surf + fishing encounter pools (toggleable, decentered density)
 - Shore-distance water spawn zones (near / mid / deep)
+- Cave spawns / movement limited to player-reachable cells
 - Short spawn animations for visible grass and water Pokémon
 - Map-aware spawn density and connected spawn regions
 - Grass, cave (no grass graphics required), and Surf-water surfaces
 - Visible water variety uses map Surf and rod tables (not a global type list)
+- Selected Sprite Style applied to the active Followers EX follower (land + water)
 - Sprite scaling: legacy art is capped to one map tile; follow-sprite frames
   keep native tile size with feet anchored to the tile
 - Engine tall-grass overlay with relative occlusion; Dramatic Shape uses
   world billboards so bushes/walls occlude Pokemon like trainers
 - Fallback chain: follow-sprite → legacy PNG → black fallback
-- Dev Mode with debug HUD, tile/behaviour overlays, and Pokemon preview
-  browser (follow normal/shiny, idle/walk, encounter locations, Test spawn)
+- Dev Overlay (behaviour + facing labels) and Test Spawn selector
 - Optional coexistence with [Dramatic Shape Voxel Mod](https://github.com/DramaticShape/DramaticShapeVoxelMod)
   (not required); wild Pokemon use native `SpriteRenderer` sheets (trainer contract) and
   cached 16×16 billboard cards so DS depth/grass/occlusion match trainers;
@@ -379,38 +372,35 @@ This project does not include a ROM.
 All options are live (`mod.options_changed`); no restart is required.
 Visible labels are limited to 14 characters so Gen1Recomp does not truncate them.
 
+Gameplay settings live exclusively in **Mod Settings** (not duplicated in the
+Start / Pause menu).
+
 | Label | Purpose | Default |
 | --- | --- | --- |
 | Show Wild Mons | Master switch for visible spawns | ON |
-| Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | AUTO |
-| Random Enc | Classic step-based random encounters (grass / cave / water) | ON |
-| Water Mons | Visible water Pokémon from Surf + fishing pools (shore zones) | ON |
+| Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex (also applied to your active follower) | AUTO |
+| Spawn Amount | Density preset (Low / Normal / High / Very High); also scales visible water Pokémon | NORMAL |
+| Random Enc | Classic step-based random encounters (grass / cave / water). Visible overworld Pokémon stay active. | ON |
+| Water Mons | Shows compatible Pokémon on water with Swimming / Levitates sprites | ON |
 | Grass View | Immersed in tall grass, or fully Above | IMMERSED |
 | Idle Mons | Allow Idle Look behaviour | ON |
 | Roam Mons | Allow wandering inside encounter regions | ON |
 | Chase Mons | Allow aggressive spot / chase behaviour | ON |
 | Hidden Mons | Allow hidden grass / cave markers | ON |
-| Dev Mode | Debug HUD + Pokemon preview browser | OFF |
+| Dev Overlay | Compact behaviour + facing label above each wild Pokémon | OFF |
 
-Start Menu quick settings (same saved values as Mod Settings where overlapping):
+**Test Spawn** opens a Pokémon list (OPTIONS activate row / Mod Settings hook)
+and spawns the selected species on a free tile next to the player. It respects
+cell occupancy and uses the current Sprite Style.
 
-| Label | Purpose | Default |
-| --- | --- | --- |
-| SPRITE STYLE | Same as Sprite Style above | AUTO |
-| SPAWN AMOUNT | Density preset (Low / Normal / High / Very High) | NORMAL |
-| RANDOM ENC | Same as Random Enc above | ON |
-| WATER MONS | Same as Water Mons above | ON |
-
-Spawn Amount is **not** listed in Mod Settings anymore (internal key
-`spawn_density` is unchanged).
-
-Developer-only rows (shown in the same panel, intended for diagnosis):
-Debug HUD, Spawn Tiles, Behavior View, Outside Spawn, Debug Log, Force Spawn,
-and the Preview Filter / Search / Map Filter / Encounter Kind fields.
+Cave spawns and cave movement are limited to cells the player can actually
+reach (BFS from the player start cell). Visible water Pokémon are distributed
+more sparsely than earlier builds, with Manhattan spacing scaled by Spawn Amount.
 
 Fine-tuning that used to appear in older builds (hard caps, refill interval,
-sprite opacity, legacy aliases, strict billboard probes) is no longer in the
-public menu. Runtime defaults remain in code.
+sprite opacity, legacy aliases, strict billboard probes, and the old multi-toggle
+developer panel) is no longer in the public menu. Runtime defaults remain in code.
+Internal diagnostics may still appear while Dev Overlay is on.
 
 ## Updates
 
@@ -423,19 +413,21 @@ install the update.
 Official repository / releases:
 [YoDrehDenSwagAuf/overworld-spawn-mod](https://github.com/YoDrehDenSwagAuf/overworld-spawn-mod/releases)
 
-## Dev Mode
+## Dev Overlay & Test Spawn
 
-Dev Mode is optional and not needed for normal play. When enabled it:
+**Dev Overlay** is optional and not needed for normal play. When enabled it:
 
-- Shows map and encounter diagnostics (surface, species, slots, eligible tiles,
-  regions, target / active counts, asset and renderer status)
-- Opens the Pokemon preview browser (OPTIONS → POKEMON PREVIEW → OPEN, or
-  Start Menu → WILDS PREVIEW)
-- Lists species from ROM/content data without requiring the Pokédex
-- Shows encounter locations and asset / entity status
-- Supports phased Test spawn for diagnosis
+- Draws a compact behaviour + facing label above each visible wild Pokémon
+  (for example `AGGRO · LEFT` or `WATER IDLE` / `← LEFT`)
+- May also show the detailed diagnostics HUD (cave reachability, water target /
+  spacing, follower style status, and related spawn info)
 
-Please include Dev Mode HUD details or log lines when filing bug reports.
+**Test Spawn** opens a Pokémon list so you can spawn a species on a free
+neighbour tile for testing. Occupancy is respected; if no free tile exists you
+get `No free spawn tile`. Test Spawn is available as its own Mod Settings /
+OPTIONS activate row and does not require Dev Overlay.
+
+Please include Dev Overlay HUD details or log lines when filing bug reports.
 ## Why I made this
 
 I have always loved the original Pokemon games, and Gen1Recomp immediately
@@ -545,7 +537,7 @@ Feedback and bug reports are welcome. When something looks wrong, please include
 - Map name
 - Whether a save was mid-story or a new game
 - Screenshot if possible
-- Relevant `[WildsOfKanto]` debug log lines (Dev Mode helps)
+- Relevant `[WildsOfKanto]` debug log lines (Dev Overlay helps)
 
 ## Legal
 

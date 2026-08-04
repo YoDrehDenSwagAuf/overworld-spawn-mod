@@ -60,6 +60,7 @@ return function(mod)
   Config.defineOptions(mod)
   Config.migrateSpriteStyleOption(mod)
   Config.migrateRandomEncountersOption(mod)
+  Config.migrateDevOverlayOption(mod)
 
   local render = SpawnRender.new(mod)
   -- LOAD PHASE: all sprite content registration must finish here, before
@@ -76,18 +77,21 @@ return function(mod)
   local browser = PreviewBrowser.new(mod, logic)
   local spriteStyleMenu = SpriteStyleMenu.new(mod, logic)
   local behaviorTick = BehaviorTick.new(mod, logic)
-  logic:attachDevTools(hud, overlay, browser, behaviorTick)
+  local DevOverlay = V.require("dev_overlay")
+  local devOverlay = DevOverlay.new(mod, logic)
+  logic:attachDevTools(hud, overlay, browser, behaviorTick, devOverlay)
 
-  -- Register public UI / present surfaces (safe even when dev_mode is off;
+  -- Register public UI / present surfaces (safe even when Dev Overlay is off;
   -- availability / menu rows gate on the live option). Still LOAD PHASE.
   hud:register()
   browser:register()
   spriteStyleMenu:register()
   behaviorTick:register()
+  devOverlay:register()
 
-  mod.log:info("overworld_wild_spawns loaded (enabled=%s dev=%s debug=%s sprites=%d missing=%d)",
+  mod.log:info("overworld_wild_spawns loaded (enabled=%s overlay=%s debug=%s sprites=%d missing=%d)",
                tostring(Config.isEnabled(mod)),
-               tostring(Config.devMode(mod)),
+               tostring(Config.devOverlay(mod)),
                tostring(Config.debug(mod)),
                tonumber(render.registeredCount) or 0,
                tonumber(render.missingCount) or 0)
@@ -161,11 +165,12 @@ return function(mod)
 
   mod.events:on("game.ready", function()
     hud:syncPipelineLevel()
+    if devOverlay then devOverlay:syncPipelineLevel() end
     Config.migrateSpriteStyleOption(mod)
     Config.migrateRandomEncountersOption(mod)
+    Config.migrateDevOverlayOption(mod)
     render:finalizeSpriteProviders(mod.world and mod.world.game)
-    if Config.devMode(mod) then
-      render.debugMarkers = true
+    if Config.devOverlay(mod) then
       local game = mod.world and mod.world.game
       if game then
         local okAudit, auditErr = pcall(render.auditAssets, render, game)
@@ -175,9 +180,9 @@ return function(mod)
       end
     end
     if Config.debug(mod) then
-      DebugLog.info(mod, "game.ready; feature=%s dev=%s fallback=%s style=%s",
+      DebugLog.info(mod, "game.ready; feature=%s overlay=%s fallback=%s style=%s",
                     tostring(Config.isEnabled(mod)),
-                    tostring(Config.devMode(mod)),
+                    tostring(Config.devOverlay(mod)),
                     tostring(render.fallbackAvailable),
                     tostring(Config.spriteStyle(mod)))
     end
@@ -266,13 +271,14 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "1.5.0"
+  mod.exports.version = "1.6.0"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated
   mod.exports.spriteProviders = render.spriteProviders
   mod.exports.hud = hud
   mod.exports.overlay = overlay
+  mod.exports.devOverlay = devOverlay
   mod.exports.browser = browser
   mod.exports.spriteStyleMenu = spriteStyleMenu
   mod.exports.behaviorTick = behaviorTick

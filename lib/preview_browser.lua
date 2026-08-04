@@ -120,10 +120,11 @@ end
 function PreviewBrowser:speciesRows(game)
   local render = self.logic.render
   local index = self:indexFor(game)
-  local filter = Config.get(self.mod, "preview_filter") or "all"
-  local search = Config.get(self.mod, "preview_search") or ""
-  local mapFilter = Config.get(self.mod, "preview_map_filter") or ""
-  local kindFilter = Config.get(self.mod, "preview_encounter_kind") or "any"
+  -- Preview filter options were removed from public settings; keep soft defaults.
+  local filter = "all"
+  local search = ""
+  local mapFilter = ""
+  local kindFilter = "any"
   local rows = {}
 
   for _, row in ipairs(allSpecies(self.mod, game)) do
@@ -615,22 +616,15 @@ function PreviewBrowser:register()
 
   mod.content.screens:register(PreviewBrowser.SCREEN, {
     new = function(game)
-      if not Config.devMode(mod) then
-        return mod.ui.ListMenu.new(game, "PREVIEW", {
-          { label = "Enable Developer mode" },
-        }, {
-          onChoose = function(_, menu) menu:close() end,
-        })
-      end
       local items = browser:speciesRows(game)
       if #items == 0 then
         items = { { label = "Nothing matched filters" } }
       end
       local seen, owned = pokedexDiag(game)
-      DebugLog.info(mod, "preview browser open rows=%d pokedex_seen=%s owned=%s (diag-only)",
+      DebugLog.info(mod, "test spawn browser open rows=%d pokedex_seen=%s owned=%s (diag-only)",
                     #items, tostring(seen), tostring(owned))
       return mod.ui.ListMenu.new(game,
-        ("WILDS PREVIEW %d"):format(#items), items, {
+        ("TEST SPAWN %d"):format(#items), items, {
           pageJump = true,
           footer = "A: detail  B: close",
           onChoose = function(item)
@@ -654,34 +648,43 @@ function PreviewBrowser:register()
     end,
   })
 
-  -- OPTIONS → activate row (public OptionRows activate API).
+  -- Mod Settings / OPTIONS → activate row (Test Spawn). Always available;
+  -- no button option type exists in the schema API.
   mod.hooks:wrap("ui.options.rows", function(next, game, rows)
     local out = next(game, rows)
     if type(out) ~= "table" then return out end
-    if Config.devMode(mod) then
-      out[#out + 1] = {
-        id = "overworld_wild_spawns_preview",
-        label = "POKEMON PREVIEW",
-        value = function() return "OPEN" end,
-        activate = function(g)
-          mod.ui.push(g, PreviewBrowser.SCREEN)
-        end,
-      }
-    end
+    out[#out + 1] = {
+      id = "overworld_wild_spawns_test_spawn",
+      label = "Test Spawn",
+      value = function() return "OPEN" end,
+      activate = function(g)
+        mod.ui.push(g, PreviewBrowser.SCREEN)
+      end,
+    }
     return out
   end)
 
-  -- Also reachable from Start Menu while Developer mode is on.
+  -- Optional Start Menu entry only while Dev Overlay is on (keeps the normal
+  -- pause menu uncluttered).
   mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
     local out = next(game, items)
     if type(out) ~= "table" then return out end
-    if not Config.devMode(mod) then return out end
-    return mod.ui.insertBefore(out, "SAVE", {
-      label = "WILDS PREVIEW",
+    if not Config.devOverlay(mod) then return out end
+    if mod.ui and type(mod.ui.insertBefore) == "function" then
+      return mod.ui.insertBefore(out, "SAVE", {
+        label = "TEST SPAWN",
+        onSelect = function()
+          mod.ui.push(game, PreviewBrowser.SCREEN)
+        end,
+      })
+    end
+    out[#out + 1] = {
+      label = "TEST SPAWN",
       onSelect = function()
         mod.ui.push(game, PreviewBrowser.SCREEN)
       end,
-    })
+    }
+    return out
   end)
 
   self._registered = true

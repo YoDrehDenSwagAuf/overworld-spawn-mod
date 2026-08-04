@@ -23,6 +23,7 @@ local WaterSpawn = V.require("water_spawn")
 local AnimatedSprites = V.require("animated_sprites")
 local CellOccupancy = V.require("cell_occupancy")
 local FollowersWaterCompat = V.require("followers_water_compat")
+local CaveReachability = V.require("cave_reachability")
 
 local SpawnLogic = {}
 SpawnLogic.__index = SpawnLogic
@@ -96,6 +97,24 @@ function SpawnLogic.new(mod, render)
   self._lastStepDiag = nil
   self.occupancy = CellOccupancy.new()
   self.followersWater = FollowersWaterCompat.new(mod)
+  -- Land style resolver bound after self exists (closure over logic).
+  self.followersWater.resolveLandSprite = function(speciesId, isShiny, form, opts)
+    opts = opts or {}
+    local style = opts.style or Config.spriteStyle(mod)
+    local game = opts.game or gameOf(mod)
+    local variant = (isShiny == true or isShiny == "shiny") and "shiny" or "normal"
+    local providers = self.render and self.render.spriteProviders
+    if not providers then return nil, nil end
+    local result = providers:resolve(style, speciesId, variant, game)
+    if result and result.def then
+      return result.def, {
+        providerId = result.providerId,
+        kind = result.providerId,
+        frames = result.def.frames,
+      }
+    end
+    return nil, nil
+  end
   return self
 end
 
@@ -302,11 +321,12 @@ function SpawnLogic:setRestoreVanilla(fn)
   self._restoreVanilla = fn
 end
 
-function SpawnLogic:attachDevTools(hud, overlay, browser, behaviorTick)
+function SpawnLogic:attachDevTools(hud, overlay, browser, behaviorTick, devOverlay)
   self.hud = hud
   self.overlay = overlay
   self.browser = browser
   self.behaviorTick = behaviorTick
+  self.devOverlay = devOverlay
   if self.voxel and self.voxel.attachLogic then
     self.voxel:attachLogic(self)
   end
@@ -688,33 +708,38 @@ function SpawnLogic:_computeWaterTarget(waterCells)
   waterCells = tonumber(waterCells) or 0
   if waterCells <= 0 then return 0 end
   if not Config.waterMons(self.mod) then return 0 end
-  -- Scale by visible water cells so Spawn Amount is clearly visible.
-  -- small ≈1, medium 2–4, large 4–8+ (capped by max_water_mons / regions).
-  local raw = math.floor(waterCells / 12)
-  local density = Config.spawnDensity(self.mod)
-  local factor = SpawnRegions.densityFactor(density)
-  raw = math.floor(raw * factor + 0.5)
-  if waterCells >= 6 and raw < 1 then raw = 1 end
-  if waterCells < 6 then raw = math.min(raw, 1) end
-  if waterCells < 3 then raw = 0 end
 
-  -- Prefer at least one spawn per sufficiently large connected water region.
-  local regionBonus = 0
-  for _, region in ipairs(self.waterRegions or {}) do
-    local tiles = tonumber(region.tileCount) or 0
-    if tiles >= 6 then
-      regionBonus = regionBonus + 1
-    elseif tiles >= 3 then
-      regionBonus = regionBonus + 0 -- still covered by global floor above
-    end
+  -- Conservative base by water surface size (Normal Spawn Amount):
+  --   very small (<8): 0–1   small (<20): 1
+  --   medium (<50): 1–2      large (<120): 2–4
+  --   very large: max 4–6
+  local base
+  if waterCells < 4 then
+    base = 0
+  elseif waterCells < 8 then
+    base = (waterCells >= 6) and 1 or 0
+  elseif waterCells < 20 then
+    base = 1
+  elseif waterCells < 50 then
+    base = 1 + math.floor(waterCells / 40) -- 1–2
+  elseif waterCells < 120 then
+    base = 2 + math.floor((waterCells - 50) / 35) -- 2–4
+  else
+    base = 4 + math.floor((waterCells - 120) / 80) -- 4–6+
+    if base > 6 then base = 6 end
   end
-  if regionBonus > raw then raw = regionBonus end
 
+  local factor = Config.waterDensityFactor(self.mod)
+  local raw = math.floor(base * factor + 0.5)
+
+  -- Do NOT force one mon per connected water region (small ponds may stay empty).
   local maxW = Config.maxWaterMons(self.mod)
   if raw > maxW then raw = maxW end
-  -- Soft cell density cap: allow denser water than land grass.
-  if raw > math.floor(waterCells / 4) then
-    raw = math.max(0, math.floor(waterCells / 4))
+  -- Soft cell density: roughly ≥8 water tiles per mon.
+  local cellCap = math.floor(waterCells / 8)
+  if raw > cellCap then raw = math.max(0, cellCap) end
+  if waterCells >= 8 and raw < 1 and factor >= 1.0 then
+    raw = 1
   end
   return raw
 end
@@ -896,12 +921,37 @@ function SpawnLogic:initializeForMap(mapId, game)
 
   -- 4) Eligible tiles by surface (not grass graphics alone)
   self.grassCache = Grass.cells(ow.map)
+  self.caveReachability = nil
   if surfaceInfo.tileMode == "grass" then
     self.eligibleCache = self.grassCache
   elseif surfaceInfo.tileMode == "water" then
     self.eligibleCache = Grass.waterCells(ow.map)
   elseif surfaceInfo.tileMode == "walkable" then
-    self.eligibleCache = Grass.caveCells(ow.map)
+    local caveAll = Grass.caveCells(ow.map)
+    self.caveReachability = CaveReachability.build(ow.map, ow.player)
+    local filtered, rejected, status = CaveReachability.filterCells(
+      caveAll, self.caveReachability)
+    if status == "READY" or (status == "FALLBACK" and #filtered > 0) then
+      self.eligibleCache = filtered
+      self.caveReachability.rejectedUnreachable = rejected
+      self:_log("cave reachability %s reachable=%d rejected=%d",
+                tostring(status), #filtered, rejected)
+    elseif status == "FAILED" then
+      -- Conservative fallback: nearby passable cells only — never unfiltered cave.
+      local near = CaveReachability.conservativeNearPlayer(ow.map, ow.player, 5)
+      if #near > 0 then
+        self.caveReachability.status = "FALLBACK"
+        self.caveReachability.reason = self.caveReachability.reason
+          or "nearby player cells"
+        self.eligibleCache = near
+        self:_log("cave reachability FAILED → nearby fallback cells=%d", #near)
+      else
+        self.eligibleCache = {}
+        self:_log("cave reachability FAILED → no visible cave spawns")
+      end
+    else
+      self.eligibleCache = filtered
+    end
   else
     self.eligibleCache = {}
   end
@@ -1470,6 +1520,7 @@ function SpawnLogic:trySpawnWater(game, opts)
   end
 
   local occupancy = self:rebuildOccupancy(ow)
+  local minWaterSep = Config.waterMinSpacing(self.mod)
 
   local x, y, reason = Grass.pickFree(
     ow.map, ow.entities, ow.player,
@@ -1479,12 +1530,14 @@ function SpawnLogic:trySpawnWater(game, opts)
     {
       mode = "water",
       occupiedSpawns = self:_occupiedSpawnCoords(mapId),
-      minSeparation = 3,
+      minSeparation = minWaterSep,
+      strictSeparation = true,
+      separationMetric = "manhattan",
       preferFar = true,
       occupancy = occupancy,
     })
   if not x then
-    -- Retry against full water cache once.
+    -- Retry against full water cache once (still with strict spacing).
     x, y, reason = Grass.pickFree(
       ow.map, ow.entities, ow.player,
       Config.DEFAULTS.min_player_distance, nil, self.waterCache,
@@ -1493,12 +1546,20 @@ function SpawnLogic:trySpawnWater(game, opts)
       {
         mode = "water",
         occupiedSpawns = self:_occupiedSpawnCoords(mapId),
-        minSeparation = 3,
+        minSeparation = minWaterSep,
+        strictSeparation = true,
+        separationMetric = "manhattan",
         preferFar = true,
         occupancy = occupancy,
       })
     if not x then
-      return nil, reason or "rejected: no eligible tiles"
+      -- No spaced cell → reduce target rather than ignore spacing.
+      local have = self:countWaterOnMap(mapId)
+      if (self.targetWaterCount or 0) > have then
+        self.targetWaterCount = have
+        self:_log("water spacing: reduced target to %d (no spaced cell)", have)
+      end
+      return nil, reason or "rejected: water spacing"
     end
     local d = WaterSpawn.distanceAt(self.shoreDistance, x, y)
     zone = WaterSpawn.zoneForDistance(d or 0) or zone
@@ -1816,9 +1877,8 @@ function SpawnLogic:testSpawn(species, opts)
     result.steps[step] = { name = TEST_STEPS[step], ok = true, detail = detail }
   end
 
-  if not Config.devMode(self.mod) then
-    return fail(1, "Developer mode is disabled")
-  end
+  -- Test Spawn is always available as a developer Mod Settings action.
+  -- (No longer gated on a separate Dev Mode toggle.)
 
   local game = gameOf(self.mod)
   if not game or not game.data then
@@ -1868,36 +1928,58 @@ function SpawnLogic:testSpawn(species, opts)
   result.tried = info.tried
   pass(3, detail)
 
-  -- 4) Spawn tile resolved
+  -- 4) Spawn tile resolved — prefer a free neighbour of the player.
   if not ow or not ow.map or not ow.player then
-    return fail(4, "No valid test spawn position on the current map.")
+    return fail(4, "No free spawn tile")
   end
-  local allowOutside = Config.allowOutsideEncounter(self.mod)
+  local occupancy = self.rebuildOccupancy and self:rebuildOccupancy(ow) or self.occupancy
+  local px = ow.player.cellX
+  local py = ow.player.cellY
+  local dirs = { { 0, 1 }, { 0, -1 }, { 1, 0 }, { -1, 0 },
+                 { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }
   local x, y, reason
-  if allowOutside then
-    x, y, reason = Grass.pickFreeWalkable(
-      ow.map, ow.entities, ow.player, 1, nil, 32,
-      function(r) self.state:noteReject(r) end)
-  else
-    self.grassCache = self.grassCache or Grass.cells(ow.map)
-    x, y, reason = Grass.pickFree(
-      ow.map, ow.entities, ow.player, 1, nil, self.grassCache, 32,
-      function(r) self.state:noteReject(r) end)
+  local tileMode = (self.surfaceInfo and self.surfaceInfo.tileMode) or "grass"
+  for _, d in ipairs(dirs) do
+    local nx, ny = px + d[1], py + d[2]
+    local okTile, tileReason
+    if tileMode == "water" then
+      okTile, tileReason = Grass.validateEligibleTile(
+        ow.map, ow.entities, ow.player, nx, ny, 1, nil, nil, nil, "water", occupancy)
+    elseif tileMode == "walkable" then
+      okTile, tileReason = Grass.validateWalkableTile(
+        ow.map, ow.entities, ow.player, nx, ny, 1, nil, nil)
+      if okTile and self.caveReachability
+         and self.caveReachability.status ~= "FAILED"
+         and not CaveReachability.isReachable(self.caveReachability, nx, ny) then
+        okTile, tileReason = false, "rejected: unreachable cave"
+      end
+    else
+      okTile, tileReason = Grass.validateSpawnTile(
+        ow.map, ow.entities, ow.player, nx, ny, 1, nil, nil)
+    end
+    if okTile then
+      x, y = nx, ny
+      break
+    end
+    reason = tileReason
   end
   if not x then
-    return fail(4, reason or "No valid test spawn position on the current map.")
+    -- Expand search slightly using surface-appropriate candidate list.
+    local list
+    if tileMode == "water" then
+      list = self.waterCache or Grass.waterCells(ow.map)
+    elseif tileMode == "walkable" then
+      list = self.eligibleCache or Grass.caveCells(ow.map)
+    else
+      list = self.grassCache or Grass.cells(ow.map)
+    end
+    x, y, reason = Grass.pickFree(
+      ow.map, ow.entities, ow.player, 1, nil, list, 6,
+      function(r) self.state:noteReject(r) end,
+      { mode = tileMode, occupancy = occupancy })
   end
-  -- Hard bans still apply even with allowOutside.
-  local okTile, tileReason
-  if allowOutside then
-    okTile, tileReason = Grass.validateWalkableTile(
-      ow.map, ow.entities, ow.player, x, y, 1, nil, nil)
-  else
-    okTile, tileReason = Grass.validateSpawnTile(
-      ow.map, ow.entities, ow.player, x, y, 1, nil, nil)
-  end
-  if not okTile then
-    return fail(4, tileReason or "No valid test spawn position on the current map.")
+  if not x then
+    return fail(4, "No free spawn tile")
   end
   pass(4, ("(%d,%d)"):format(x, y))
 
@@ -2113,7 +2195,8 @@ function SpawnLogic:onOptionsChanged(payload)
       payload.value == true, "options_changed")
   elseif key == "water_spawns" or key == "enable_water_spawns" then
     self:applyWaterMons(payload.value == true, "options_changed")
-  elseif key == "dev_mode"
+  elseif key == "dev_overlay"
+      or key == "dev_mode"
       or key == "debug_hud_always_visible"
       or key == "show_spawn_tile_overlay"
       or key == "show_behavior_overlays"
@@ -2122,20 +2205,19 @@ function SpawnLogic:onOptionsChanged(payload)
       or key == "force_test_spawn"
       or key == "suppress_random_grass"
       or key == "enabled" then
-    self:_log("option %s -> %s (suppress_ready=%s dev=%s)",
+    self:_log("option %s -> %s (suppress_ready=%s overlay=%s)",
               tostring(key), tostring(payload.value),
               tostring(self:canSuppressVanilla()),
-              tostring(Config.devMode(self.mod)))
+              tostring(Config.devOverlay(self.mod)))
     if self.hud then self.hud:syncPipelineLevel() end
     if self.behaviorTick then self.behaviorTick:syncPipelineLevel() end
-    if key == "dev_mode" and payload.value == true and self.hud then
+    if self.devOverlay and self.devOverlay.syncPipelineLevel then
+      self.devOverlay:syncPipelineLevel()
+    end
+    if key == "dev_overlay" and payload.value == true and self.hud then
       self.hud:markMapEnter()
     end
-    if key == "show_spawn_tile_overlay" or key == "dev_mode"
-       or key == "show_behavior_overlays" then
-      if self.overlay then self.overlay:rebuild() end
-    end
-    if key == "dev_mode" and payload.value == false then
+    if key == "dev_overlay" and payload.value == false then
       if self.overlay then self.overlay:clear() end
     end
   elseif key == "sprite_style"
@@ -2147,6 +2229,16 @@ function SpawnLogic:onOptionsChanged(payload)
     local n = self.render:refreshAllEntitySprites(self, game)
     self:_log("sprite_style -> %s; refreshed %d entities (no respawn)",
               tostring(Config.spriteStyle(self.mod)), n)
+    -- Refresh active follower land/water sprite to the new style.
+    if self.followersWater and self.followersWater.invalidateStyle then
+      pcall(function()
+        self.followersWater:invalidateStyle()
+        local ow = world and world.overworld and world:overworld()
+        self.followersWater:tick(game, ow, function(speciesId, shiny, form, opts)
+          return self:resolveWaterSprite(speciesId, shiny, form, opts)
+        end)
+      end)
+    end
   elseif key == "pokemon_grass_render_mode"
       or key == "show_pokemon_in_grass" then
     local Movement = V.require("movement")

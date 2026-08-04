@@ -325,6 +325,14 @@ local function canStep(map, entities, entity, player, nx, ny, region, allowLeave
     if map.isWalkableCell and not map:isWalkableCell(nx, ny) then
       return false, "not_walkable"
     end
+    -- Cave entities may leave home region when aggressive, but never enter
+    -- unreachable / cut-off cave pockets.
+    if opts.reachableCaveCells then
+      local key = tostring(nx) .. ":" .. tostring(ny)
+      if not opts.reachableCaveCells[key] then
+        return false, "unreachable_cave"
+      end
+    end
     return true
   end
 
@@ -341,6 +349,12 @@ local function canStep(map, entities, entity, player, nx, ny, region, allowLeave
   else
     if map.isWalkableCell and not map:isWalkableCell(nx, ny) then
       return false, "not_walkable"
+    end
+    if opts.reachableCaveCells then
+      local key = tostring(nx) .. ":" .. tostring(ny)
+      if not opts.reachableCaveCells[key] then
+        return false, "unreachable_cave"
+      end
     end
   end
   return true
@@ -1051,6 +1065,7 @@ local function tickLandAggressive(entity, ctx, bx, t)
       game = ctx.game,
       hasWaterSprite = ctx.hasWaterSprite,
       waterRegions = ctx.waterRegions,
+      reachableCaveCells = (entity.surface == Surface.CAVE) and ctx.reachableCaveCells or nil,
     }
     -- Optional controlled land→water chase (does not change land canStep defaults).
     if ctx.waterMonsEnabled ~= false
@@ -1357,6 +1372,7 @@ function Behavior.tick(entity, ctx)
     local stepOpts = {
       occupancy = ctx.occupancy,
       waterOnly = bx.behavior == Behavior.WATER_WANDER or entity.surface == Surface.WATER,
+      reachableCaveCells = (entity.surface == Surface.CAVE) and ctx.reachableCaveCells or nil,
     }
     for _, d in ipairs(dirs) do
       local nx, ny = entity.cellX + d[1], entity.cellY + d[2]

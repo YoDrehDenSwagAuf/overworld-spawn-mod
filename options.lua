@@ -6,13 +6,13 @@
 -- Internal keys are stable so saved settings survive across releases.
 --
 -- Types match Gen1Recomp ManagerState.OPTION_TYPES: toggle, choice, number, text.
--- There is no action/button option type; the Pokemon preview browser is opened
--- via the public ui.options.rows activate hook (see lib/preview_browser.lua).
+-- There is no action/button option type; Test Spawn opens via the public
+-- ui.options.rows activate hook (see lib/preview_browser.lua).
 --
 -- All options are live-toggleable through Mod Manager (mod.options_changed).
 
 return {
-  -- ------- Core
+  -- ------- Core gameplay
   {
     key = "enabled",
     label = "Show Wild Mons",
@@ -32,23 +32,34 @@ return {
       { "PokeMMO", "pokemmo" },
       { "Pokedex", "pokedex" },
     },
-    description = "Overworld Pokemon sprite source. Auto prefers Gold Sprites, then Followers EX, then Wilds PokeMMO-style sheets, then Pokedex images.",
+    description = "Selects the overworld sprite style used by wild Pokémon and your active follower. Water Pokémon use Swimming or Levitates sprites when available.",
   },
-  -- Spawn Amount (key: spawn_density) is Start-Menu only — not listed here.
-  -- Internal key / saved value / density math are unchanged.
+  {
+    key = "spawn_density",
+    label = "Spawn Amount",
+    type = "choice",
+    default = "normal",
+    choices = {
+      { "Low", "low" },
+      { "Normal", "normal" },
+      { "High", "high" },
+      { "Very High", "very_high" },
+    },
+    description = "Controls how many visible overworld Pokémon can appear. This also affects visible water Pokémon.",
+  },
   {
     key = "random_encounters",
     label = "Random Enc",
     type = "toggle",
     default = true,
-    description = "Allow classic step-based random encounters (grass, cave, and water). Off does not remove visible overworld Pokémon.",
+    description = "Enables or disables classic step-based random encounters. Visible overworld Pokémon remain active.",
   },
   {
     key = "water_spawns",
     label = "Water Mons",
     type = "toggle",
     default = true,
-    description = "Spawn visible wild Pokemon on water tiles from the map water encounter table. Classic surf encounters follow Random Enc.",
+    description = "Shows compatible Pokémon directly on water using animated Swimming or Levitates sprites.",
   },
   {
     key = "pokemon_grass_render_mode",
@@ -90,95 +101,12 @@ return {
     description = "Allow hidden grass (or cave dust) encounter markers with no Pokemon sprite.",
   },
 
-  -- ------- Developer
+  -- ------- Developer (only Dev Overlay + Test Spawn)
   {
-    key = "dev_mode",
-    label = "Dev Mode",
+    key = "dev_overlay",
+    label = "Dev Overlay",
     type = "toggle",
     default = false,
-    description = "Show overworld spawn diagnostics and enable the Pokemon preview browser.",
-  },
-  {
-    key = "debug_hud_always_visible",
-    label = "Debug HUD",
-    type = "toggle",
-    default = false,
-    description = "Keep the current map spawn diagnostics visible while developer mode is enabled.",
-  },
-  {
-    key = "show_spawn_tile_overlay",
-    label = "Spawn Tiles",
-    type = "toggle",
-    default = false,
-    description = "Highlight tiles that the mod considers valid for visible wild Pokemon.",
-  },
-  {
-    key = "show_behavior_overlays",
-    label = "Behavior View",
-    type = "toggle",
-    default = false,
-    description = "DEBUG: draw home region, sight line, and behaviour labels in developer mode.",
-  },
-  {
-    key = "allow_debug_spawn_outside_encounter_areas",
-    label = "Outside Spawn",
-    type = "toggle",
-    default = false,
-    description = "DEBUG: allow Test spawn on any free walkable tile (not only encounter tiles). Dev mode only.",
-  },
-  {
-    key = "debug_logging",
-    label = "Debug Log",
-    type = "toggle",
-    default = false,
-    description = "Write extra Wilds of Kanto diagnostics to the log. Also forced on when Dev Mode is enabled.",
-  },
-  {
-    key = "force_test_spawn",
-    label = "Force Spawn",
-    type = "toggle",
-    default = false,
-    description = "Force one visible spawn from the map encounter table for diagnosis.",
-  },
-  {
-    key = "preview_filter",
-    label = "Preview Filter",
-    type = "choice",
-    default = "all",
-    choices = {
-      { "All", "all" },
-      { "Asset OK", "asset_loaded" },
-      { "Missing", "asset_missing" },
-      { "Ready", "entity_ready" },
-      { "Failed", "entity_failed" },
-    },
-    description = "Filter used when opening the Pokemon preview browser (Dev Mode).",
-  },
-  {
-    key = "preview_search",
-    label = "Preview Search",
-    type = "text",
-    default = "",
-    description = "Search by species name or ID when opening the Pokemon preview browser.",
-  },
-  {
-    key = "preview_map_filter",
-    label = "Map Filter",
-    type = "text",
-    default = "",
-    description = "Optional map/route id substring filter for the preview browser location list.",
-  },
-  {
-    key = "preview_encounter_kind",
-    label = "Encounter Kind",
-    type = "choice",
-    default = "any",
-    choices = {
-      { "Any", "any" },
-      { "Grass", "grass" },
-      { "Water", "water" },
-      { "Fishing", "fishing" },
-    },
-    description = "Encounter-kind filter for preview browser locations.",
+    description = "Shows each wild Pokémon's behaviour and facing direction above it.",
   },
 }

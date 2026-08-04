@@ -133,6 +133,10 @@ function BehaviorTick:step(ctx)
       game = world and world.game,
       logic = logic,
       occupancy = occupancy,
+      reachableCaveCells = logic.caveReachability
+        and logic.caveReachability.status ~= "FAILED"
+        and logic.caveReachability.reachable
+        or nil,
       hasWaterSprite = function(e)
         return logic:_entityHasCompatibleWaterSprite(e)
       end,

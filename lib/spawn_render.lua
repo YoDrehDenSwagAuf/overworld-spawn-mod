@@ -1712,8 +1712,8 @@ function Entity:draw(camX, camY)
     end
   end
 
-  -- Optional debug marker (dev mode): outline + species / behaviour.
-  if self.render.debugMarkers and Config.devMode(self.mod)
+  -- Optional debug marker (Dev Overlay): outline + species / behaviour.
+  if self.render.debugMarkers and Config.devOverlay(self.mod)
      and love and love.graphics then
     local x = math.floor(self.px - (camX or 0))
     local y = math.floor(self.py - (camY or 0)) - 4
@@ -1728,34 +1728,10 @@ function Entity:draw(camX, camY)
   end
 
   if Config.showBehaviorOverlays(self.mod) and love and love.graphics then
-    self:_drawBehaviorOverlay(camX, camY)
+    -- Legacy sight/region fill removed; compact Dev Overlay labels instead.
+    local DevOverlay = V.require("dev_overlay")
+    DevOverlay.drawOnEntity(self, camX, camY)
   end
-end
-
-function Entity:_drawBehaviorOverlay(camX, camY)
-  local x = math.floor(self.px - (camX or 0))
-  local y = math.floor(self.py - (camY or 0))
-  local bx = self.behaviorState
-  if self.homeRegion then
-    love.graphics.setColor(0.2, 0.7, 1.0, 0.12)
-    for _, t in ipairs(self.homeRegion.tiles or {}) do
-      love.graphics.rectangle("fill",
-        t.x * CELL - (camX or 0), t.y * CELL - (camY or 0), CELL, CELL)
-    end
-  end
-  if self.behavior == Behavior.AGGRESSIVE and bx then
-    local range = Config.DEFAULTS.aggressive_sight_range or 4
-    local dx, dy = 0, 0
-    local f = bx.facing or self.facing or "down"
-    if f == "up" then dy = -1 elseif f == "down" then dy = 1
-    elseif f == "left" then dx = -1 elseif f == "right" then dx = 1 end
-    love.graphics.setColor(1, 0.85, 0.1, 0.22)
-    for i = 1, range do
-      love.graphics.rectangle("fill",
-        x + dx * i * CELL, y + dy * i * CELL, CELL, CELL)
-    end
-  end
-  love.graphics.setColor(1, 1, 1, 1)
 end
 
 function SpawnRender:makeEntity(game, record)
