@@ -188,9 +188,24 @@ check(compat.status.waterSprite == "unavailable" or compat.status.waterSprite ==
 check(compat.status.lastAction ~= nil, "lastAction recorded")
 
 -- No per-frame thrash: second tick with same state is cached.
-local action1 = compat.status.lastAction
 compat:tick(nil, owWater, resolveWaterSprite)
 eq(compat.status.lastAction, "cached", "no sprite swap every frame")
+
+-- Repeated land ticks after style resolve must not thrash.
+compat:invalidateStyle()
+owLand.player.surfing = false
+compat:tick(nil, owLand, resolveWaterSprite)
+check(compat.status.lastAction == "to_land_keep" or compat.status.lastAction == "to_land"
+      or compat.status.lastAction == "style_land" or compat.status.lastAction == "cached",
+      "land tick after invalidate recorded")
+compat:tick(nil, owLand, resolveWaterSprite)
+eq(compat.status.lastAction, "cached", "second land tick cached")
+
+-- Sticky follower: same entity reference across ticks.
+local e1 = select(1, compat:activeFollower(owLand, nil))
+local e2 = select(1, compat:activeFollower(owLand, nil))
+eq(e1, e2, "activeFollower sticky same reference")
+eq(e1, followerEntity, "activeFollower returns known trailer")
 
 -- Leave water.
 owLand.player.surfing = false

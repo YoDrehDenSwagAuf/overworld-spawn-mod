@@ -2,15 +2,22 @@
 
 ## 1.7.1
 
-### PokeMMO / follower walk animation + aggressive search wander
+### PokeMMO walk frames + follower swap stability + aggressive search wander
 
-- Native walker sheets (PokeMMO, Followers EX, Swimming, Levitates) no longer
-  mark `usingEnhancedSprite` after a provider sprite swap
-- Sprite swaps preserve movement progress, facing, phase, and step flip
-- Follower sprite defs are copied exactly (`frames` / `walker` not invented)
-- AGGRESSIVE and WATER_AGGRESSIVE occasionally wander during search while
-  still scanning for the player; detection interrupts wander and starts alert
-- Safari / SAFARI_FLEE behaviour unchanged
+- **Root cause of frozen PokeMMO walk:** runtime sheet generator picked source
+  column 1 (idle bob). After bottom-align fit, idle and walk frames were
+  pixel-identical, so `phase` 0/1 could not change the drawn frame.
+- Generator now picks the first walk column whose silhouette differs from idle
+  (typically column 2). Regenerated all follow-sprite and water runtime sheets.
+- Native walker sheets still use Gen1Recomp's 6-frame stand/walk contract;
+  extra source walk frames remain unused by design.
+- Removed speculative Followers sprite-API probing; only verified
+  `getActiveFollowerMon` is used.
+- Stabilized active-follower selection (sticky entity) and skip
+  `SpriteRenderer.new` when the bound def is unchanged.
+- Kept `usingEnhancedSprite = false` for native sheets and aggressive search
+  wander from the earlier 1.7.1 draft.
+- Safari / SAFARI_FLEE behaviour unchanged.
 
 ## 1.7.0
 

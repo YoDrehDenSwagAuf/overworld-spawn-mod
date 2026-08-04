@@ -1942,7 +1942,6 @@ function SpawnRender:applyProviderSprite(entity, game)
     stepFlip = entity.stepFlip,
     walkFlip = entity.walkFlip,
     flip = entity.flip,
-    phase = entity.phase,
     movement = entity.movement,
     position = entity.position,
     cellX = entity.cellX,
@@ -1977,6 +1976,8 @@ function SpawnRender:applyProviderSprite(entity, game)
   if not ok or not sprite then
     return false
   end
+  self._spriteRendererNews = (self._spriteRendererNews or 0) + 1
+  entity._wildsSpriteRendererNews = (entity._wildsSpriteRendererNews or 0) + 1
 
   local nativeSheet = (def.walker == true and (def.frames or 1) >= 6)
   entity.sprite = sprite
@@ -2054,12 +2055,12 @@ function SpawnRender:applyProviderSprite(entity, game)
       or entity.grassOcclusionHeight or 0
   end
 
-  -- Restore owner fields that must survive a presentation-only swap.
+  -- Restore identity / simulation fields. Phase is recomputed from Movement
+  -- below — do not treat a stashed phase as an animation fix.
   entity.facing = preserved.facing or entity.facing
   entity.stepFlip = preserved.stepFlip
   entity.walkFlip = preserved.walkFlip
   entity.flip = preserved.flip
-  entity.phase = preserved.phase
   entity.movement = preserved.movement
   entity.position = preserved.position
   entity.cellX = preserved.cellX

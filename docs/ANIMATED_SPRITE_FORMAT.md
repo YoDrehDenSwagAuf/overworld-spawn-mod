@@ -63,6 +63,11 @@ columns = animation frames (0..3)
 
 - Idle = column 0 of the direction row
 - Walk = columns 0–3 of the direction row (4-frame loop)
+- Runtime Gen1Recomp sheets keep **one** distinct walk pose per direction
+  (typically source column 2). Column 1 is an idle bob that collapses under
+  bottom-align fit and must not be used as the walk frame. Columns beyond that
+  (and the right-facing row) are discarded because SpriteRenderer only supports
+  stand/walk (`phase` 0/1) with right = mirrored left.
 
 Common sizes: 128×128 → 32×32 tiles; some legends use 256×256 → 64×64 tiles.
 
