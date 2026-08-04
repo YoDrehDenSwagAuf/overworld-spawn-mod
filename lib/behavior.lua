@@ -6,6 +6,7 @@ local Surface = V.require("surface")
 local SpawnRegions = V.require("spawn_regions")
 local Movement = V.require("movement")
 local CellOccupancy = V.require("cell_occupancy")
+local SafariCompat = V.require("safari_compat")
 
 local Behavior = {}
 
@@ -17,6 +18,10 @@ Behavior.HIDDEN_CAVE = "HIDDEN_CAVE"
 Behavior.WATER_IDLE = "WATER_IDLE"
 Behavior.WATER_WANDER = "WATER_WANDER"
 Behavior.WATER_AGGRESSIVE = "WATER_AGGRESSIVE"
+-- Safari-session land behaviours (replace AGGRESSIVE; reuse idle/wander ticks).
+Behavior.SAFARI_IDLE = "SAFARI_IDLE"
+Behavior.SAFARI_WANDER = "SAFARI_WANDER"
+Behavior.SAFARI_FLEE = "SAFARI_FLEE"
 
 Behavior.STATE = {
   IDLE = "IDLE",
@@ -32,6 +37,11 @@ Behavior.STATE = {
   CLEANUP = "CLEANUP",
   HIDDEN = "HIDDEN",
   LOCKED = "LOCKED",
+  -- Safari flee sub-states (only evaluated in an active Safari session).
+  PLAYER_NOTICED = "PLAYER_NOTICED",
+  FLEE_START = "FLEE_START",
+  FLEEING = "FLEEING",
+  FLEE_DONE = "FLEE_DONE",
 }
 
 local FACINGS = { "down", "up", "left", "right" }
@@ -53,6 +63,9 @@ local DEFAULT_WEIGHTS = {
   [Behavior.WATER_IDLE] = 40,
   [Behavior.WATER_WANDER] = 45,
   [Behavior.WATER_AGGRESSIVE] = 15,
+  [Behavior.SAFARI_IDLE] = SafariCompat.LAND_WEIGHTS.SAFARI_IDLE,
+  [Behavior.SAFARI_WANDER] = SafariCompat.LAND_WEIGHTS.SAFARI_WANDER,
+  [Behavior.SAFARI_FLEE] = SafariCompat.LAND_WEIGHTS.SAFARI_FLEE,
 }
 
 local SPECIES_AFFINITY = {
@@ -178,6 +191,10 @@ function Behavior.weightsFor(species, surface, opts)
 end
 
 function Behavior.pick(species, surface, opts, rng)
+  opts = opts or {}
+  if opts.safari == true then
+    return Behavior.pickSafari(species, surface, opts, rng)
+  end
   rng = rngOf(rng)
   local weights = Behavior.weightsFor(species, surface, opts)
   local total = 0
@@ -208,9 +225,97 @@ function Behavior.pick(species, surface, opts, rng)
   return Behavior.IDLE_LOOK
 end
 
+-- Safari-session behaviour selection. Never returns AGGRESSIVE / WATER_AGGRESSIVE.
+-- Land: SAFARI_IDLE / SAFARI_WANDER / SAFARI_FLEE. Water: WATER_IDLE / WATER_WANDER.
+function Behavior.weightsForSafari(species, surface, opts)
+  opts = opts or {}
+  local weights = {
+    [Behavior.SAFARI_IDLE] = 0,
+    [Behavior.SAFARI_WANDER] = 0,
+    [Behavior.SAFARI_FLEE] = 0,
+    [Behavior.WATER_IDLE] = 0,
+    [Behavior.WATER_WANDER] = 0,
+  }
+
+  if surface == Surface.WATER then
+    weights[Behavior.WATER_IDLE] = SafariCompat.WATER_WEIGHTS.WATER_IDLE
+    weights[Behavior.WATER_WANDER] = SafariCompat.WATER_WEIGHTS.WATER_WANDER
+  else
+    weights[Behavior.SAFARI_IDLE] = SafariCompat.LAND_WEIGHTS.SAFARI_IDLE
+    weights[Behavior.SAFARI_WANDER] = SafariCompat.LAND_WEIGHTS.SAFARI_WANDER
+    weights[Behavior.SAFARI_FLEE] = SafariCompat.LAND_WEIGHTS.SAFARI_FLEE
+
+    -- Species affinity: map land temperaments onto Safari behaviours.
+    local affinity = SPECIES_AFFINITY[species]
+    if affinity then
+      if affinity.IDLE_LOOK then
+        weights[Behavior.SAFARI_IDLE] =
+          weights[Behavior.SAFARI_IDLE] * affinity.IDLE_LOOK
+      end
+      if affinity.GRASS_WANDER then
+        weights[Behavior.SAFARI_WANDER] =
+          weights[Behavior.SAFARI_WANDER] * affinity.GRASS_WANDER
+      end
+      -- Aggressive affinity boosts SAFARI_FLEE (skittish / reactive species).
+      if affinity.AGGRESSIVE then
+        weights[Behavior.SAFARI_FLEE] =
+          weights[Behavior.SAFARI_FLEE] * affinity.AGGRESSIVE
+      end
+    end
+    local fleeMul = SafariCompat.fleeAffinity(species)
+    weights[Behavior.SAFARI_FLEE] = weights[Behavior.SAFARI_FLEE] * fleeMul
+
+    if opts.enable_idle == false then weights[Behavior.SAFARI_IDLE] = 0 end
+    if opts.enable_wander == false then weights[Behavior.SAFARI_WANDER] = 0 end
+    if opts.enable_safari_flee == false or opts.enable_flee == false then
+      weights[Behavior.SAFARI_FLEE] = 0
+    end
+  end
+
+  return weights
+end
+
+function Behavior.pickSafari(species, surface, opts, rng)
+  rng = rngOf(rng)
+  local weights = Behavior.weightsForSafari(species, surface, opts)
+  local order
+  if surface == Surface.WATER then
+    order = { Behavior.WATER_IDLE, Behavior.WATER_WANDER }
+  else
+    order = { Behavior.SAFARI_IDLE, Behavior.SAFARI_WANDER, Behavior.SAFARI_FLEE }
+  end
+  local total = 0
+  for _, b in ipairs(order) do
+    total = total + (weights[b] or 0)
+  end
+  if total <= 0 then
+    if surface == Surface.WATER then return Behavior.WATER_IDLE end
+    return Behavior.SAFARI_IDLE
+  end
+  local roll = rng() * total
+  if type(roll) ~= "number" then roll = (rng(10000) / 10000) * total end
+  local acc = 0
+  for _, b in ipairs(order) do
+    acc = acc + (weights[b] or 0)
+    if roll <= acc then return b end
+  end
+  if surface == Surface.WATER then return Behavior.WATER_IDLE end
+  return Behavior.SAFARI_IDLE
+end
+
 function Behavior.isHidden(behavior)
   return behavior == Behavior.HIDDEN_GRASS
       or behavior == Behavior.HIDDEN_CAVE
+end
+
+function Behavior.isSafari(behavior)
+  return behavior == Behavior.SAFARI_IDLE
+      or behavior == Behavior.SAFARI_WANDER
+      or behavior == Behavior.SAFARI_FLEE
+end
+
+function Behavior.isSafariFlee(behavior)
+  return behavior == Behavior.SAFARI_FLEE
 end
 
 function Behavior.initState(behavior, rng)
@@ -248,11 +353,46 @@ function Behavior.initState(behavior, rng)
     battleStarted = false,
     battlePending = false,
     sightDisabled = true,
+    fleeReady = false,
+    safariFlee = nil,
   }
-  if not Behavior.isHidden(behavior) then
+  if Behavior.isSafari(behavior) then
+    st.safariFlee = Behavior.newSafariFleeState()
+    -- Only SAFARI_FLEE watches the player; idle/wander keep sight off for aggro.
+    if behavior == Behavior.SAFARI_FLEE then
+      st.sightDisabled = false
+    else
+      st.sightDisabled = true
+    end
+  elseif not Behavior.isHidden(behavior) then
     st.sightDisabled = false
   end
   return st
+end
+
+function Behavior.newSafariFleeState()
+  return {
+    active = false,
+    noticedPlayer = false,
+    alertStarted = false,
+    fleeStepsTaken = 0,
+    fleeStepsTarget = 0,
+    fleeStartedAt = nil,
+    fleeCooldownUntil = nil,
+  }
+end
+
+function Behavior.clearSafariFlee(entity)
+  local bx = entity and entity.behaviorState
+  if not bx then return end
+  bx.fleeReady = false
+  bx.safariFlee = nil
+  if bx.state == Behavior.STATE.PLAYER_NOTICED
+     or bx.state == Behavior.STATE.FLEE_START
+     or bx.state == Behavior.STATE.FLEEING
+     or bx.state == Behavior.STATE.FLEE_DONE then
+    bx.state = Behavior.STATE.IDLE
+  end
 end
 
 local function occupiedBlocked(entities, x, y, ignore, occupancy)
@@ -1299,6 +1439,397 @@ local function tickAggressive(entity, ctx, bx, t)
   return tickLandAggressive(entity, ctx, bx, t)
 end
 
+local function ensureSafariFlee(bx)
+  if not bx.safariFlee then
+    bx.safariFlee = Behavior.newSafariFleeState()
+  end
+  return bx.safariFlee
+end
+
+local function scoreFleeCandidate(nx, ny, player, ex, ey)
+  local px = player and player.cellX or ex
+  local py = player and player.cellY or ey
+  local dist = math.abs(nx - px) + math.abs(ny - py)
+  -- Prefer moving away from the player (increase manhattan distance).
+  local cur = math.abs(ex - px) + math.abs(ey - py)
+  local score = dist
+  if dist > cur then
+    score = score + 2 -- direction bonus
+  elseif dist < cur then
+    score = score - 4 -- strongly discourage approaching
+  end
+  -- Tiny axis preference: pure opposite axis over sideways when tied.
+  local awayDx = ex - px
+  local awayDy = ey - py
+  local stepDx = nx - ex
+  local stepDy = ny - ey
+  if awayDx ~= 0 and stepDx ~= 0 and ((awayDx > 0) == (stepDx > 0)) then
+    score = score + 0.5
+  end
+  if awayDy ~= 0 and stepDy ~= 0 and ((awayDy > 0) == (stepDy > 0)) then
+    score = score + 0.5
+  end
+  return score
+end
+
+-- One orthogonal flee step away from the player. Uses the same occupancy
+-- reservation + canStep gates as wander/chase (no teleports / swaps).
+local function stepAwayFrom(entity, map, entities, player, region, opts)
+  opts = opts or {}
+  if Movement.isBusy(entity) then return false, "busy" end
+  if not player then return false, "no_player" end
+  local ex, ey = entity.cellX, entity.cellY
+  local occupancy = opts.occupancy
+  local dirs = {
+    { 0, -1, "up" }, { 0, 1, "down" },
+    { -1, 0, "left" }, { 1, 0, "right" },
+  }
+  local scored = {}
+  for _, d in ipairs(dirs) do
+    local nx, ny = ex + d[1], ey + d[2]
+    local ok, reason = canStep(map, entities, entity, player, nx, ny, region, false, opts)
+    if ok then
+      local score = scoreFleeCandidate(nx, ny, player, ex, ey)
+      scored[#scored + 1] = {
+        nx = nx, ny = ny, facing = d[3], score = score,
+      }
+    else
+      entity.movementBlockedBy = reason or "blocked"
+    end
+  end
+  table.sort(scored, function(a, b) return a.score > b.score end)
+  for _, cand in ipairs(scored) do
+    local reserved = true
+    if occupancy then
+      reserved = occupancy:reserveMove(entity, ex, ey, cand.nx, cand.ny)
+    end
+    if reserved then
+      local started = Movement.beginStep(entity, cand.nx, cand.ny, {
+        facing = cand.facing,
+        duration = Config.DEFAULTS.wild_step_seconds or 0.28,
+      })
+      if started then
+        entity.movementBlockedBy = nil
+        return true, nil
+      end
+      if occupancy then occupancy:cancelMove(entity) end
+      entity.movementBlockedBy = "begin_failed"
+    else
+      entity.movementBlockedBy = "occupied"
+    end
+  end
+  return false, entity.movementBlockedBy or "blocked"
+end
+
+local function enterSafariNoticed(entity, bx, player)
+  local sf = ensureSafariFlee(bx)
+  sf.active = true
+  sf.noticedPlayer = true
+  sf.alertStarted = false
+  bx.playerDetected = true
+  bx.sightDisabled = true
+  bx.fleeReady = false
+  bx.alertEmoteSpawned = false
+  bx.alertAt = now()
+  bx.state = Behavior.STATE.PLAYER_NOTICED
+  if player and entity.cellX and entity.cellY then
+    local fdx = (player.cellX or 0) - entity.cellX
+    local fdy = (player.cellY or 0) - entity.cellY
+    local face
+    if math.abs(fdx) >= math.abs(fdy) then
+      face = (fdx >= 0) and "right" or "left"
+    else
+      face = (fdy >= 0) and "down" or "up"
+    end
+    Movement.setFacing(entity, face)
+  end
+  Movement.stop(entity, Movement.STATE.ALERT)
+  bx.state = Behavior.STATE.ALERT
+end
+
+local function beginSafariFlee(entity, bx, rng)
+  local sf = ensureSafariFlee(bx)
+  rng = rngOf(rng)
+  sf.active = true
+  sf.fleeStepsTaken = 0
+  sf.fleeStepsTarget = SafariCompat.randomRangeInt(
+    rng, SafariCompat.FLEE_STEPS_MIN, SafariCompat.FLEE_STEPS_MAX)
+  sf.fleeStartedAt = now()
+  sf.fleeCooldownUntil = nil
+  bx.fleeReady = true
+  bx.sightDisabled = true
+  bx.state = Behavior.STATE.FLEE_START
+end
+
+local function finishSafariFlee(entity, bx, rng)
+  local sf = ensureSafariFlee(bx)
+  rng = rngOf(rng)
+  sf.active = false
+  sf.noticedPlayer = false
+  sf.alertStarted = false
+  sf.fleeStepsTaken = 0
+  sf.fleeStepsTarget = 0
+  sf.fleeStartedAt = nil
+  local cool = SafariCompat.randomRangeFloat(
+    rng, SafariCompat.FLEE_COOLDOWN_MIN, SafariCompat.FLEE_COOLDOWN_MAX)
+  sf.fleeCooldownUntil = now() + cool
+  bx.fleeReady = false
+  bx.playerDetected = false
+  bx.alertEmoteSpawned = false
+  bx.alertAt = nil
+  bx.sightDisabled = false
+  bx.state = Behavior.STATE.FLEE_DONE
+
+  -- Return to idle or wander after a short escape (never despawn).
+  local nextBeh = (rng() < 0.45) and Behavior.SAFARI_IDLE or Behavior.SAFARI_WANDER
+  bx.behavior = nextBeh
+  entity.behavior = nextBeh
+  bx.state = Behavior.STATE.IDLE
+  bx.nextActionAt = now() + (0.4 + rng() * 1.0)
+  Movement.stop(entity, Movement.STATE.IDLE)
+end
+
+local function tickSafariFlee(entity, ctx, bx, t)
+  -- Hard gate: never evaluate flee state outside an active Safari session.
+  if not ctx or not ctx.safariActive then
+    Behavior.clearSafariFlee(entity)
+    return nil
+  end
+
+  local map = ctx.map
+  local entities = ctx.entities
+  local player = ctx.player
+  local region = entity.homeRegion
+  local rng = rngOf(ctx.rng)
+  local sf = ensureSafariFlee(bx)
+  local range = ctx.safariSightRange or SafariCompat.SIGHT_RANGE
+
+  if bx.battlePending or bx.battleStarted
+     or bx.state == Behavior.STATE.BATTLE_PENDING
+     or bx.state == Behavior.STATE.IN_BATTLE then
+    Movement.stop(entity, Movement.STATE.BATTLE_PENDING)
+    sf.active = false
+    return bx.battleStarted and nil or "battle_pending"
+  end
+
+  -- Cooldown after a completed flee: idle/wander-like facing only.
+  if sf.fleeCooldownUntil and t < sf.fleeCooldownUntil
+     and not sf.active
+     and bx.state ~= Behavior.STATE.ALERT
+     and bx.state ~= Behavior.STATE.PLAYER_NOTICED
+     and bx.state ~= Behavior.STATE.FLEE_START
+     and bx.state ~= Behavior.STATE.FLEEING then
+    if Movement.isBusy(entity) then
+      Movement.update(entity, ctx.dt or 0.016)
+      return nil
+    end
+    if t >= (bx.nextActionAt or 0) then
+      tryFace(entity, rng)
+    end
+    return nil
+  end
+
+  if Movement.isBusy(entity) then
+    local done = Movement.update(entity, ctx.dt or 0.016)
+    if done then
+      if ctx.occupancy then ctx.occupancy:commitMove(entity) end
+      Movement.refreshGrassFlag(entity, entity.mod)
+      if bx.state == Behavior.STATE.FLEEING or sf.active then
+        sf.fleeStepsTaken = (sf.fleeStepsTaken or 0) + 1
+        if sf.fleeStepsTaken >= (sf.fleeStepsTarget or 0) then
+          finishSafariFlee(entity, bx, rng)
+          return "flee_done"
+        end
+      end
+    end
+    return nil
+  end
+
+  -- Alert / noticed: freeze, face player, wait for fleeReady (emote onDone).
+  if bx.state == Behavior.STATE.ALERT
+     or bx.state == Behavior.STATE.PLAYER_NOTICED
+     or bx.state == Behavior.STATE.PLAYER_DETECTED then
+    Movement.stop(entity, Movement.STATE.ALERT)
+    bx.sightDisabled = true
+    if bx.fleeReady then
+      beginSafariFlee(entity, bx, rng)
+      bx.state = Behavior.STATE.FLEEING
+      return "flee_start"
+    end
+    -- Fail-safe if emote never completes.
+    local alertAt = bx.alertAt or t
+    if (t - alertAt) >= (SafariCompat.ALERT_TIMEOUT or 1.2) then
+      Behavior.markFleeReady(entity)
+      beginSafariFlee(entity, bx, rng)
+      bx.state = Behavior.STATE.FLEEING
+      return "flee_start"
+    end
+    return nil
+  end
+
+  if bx.state == Behavior.STATE.FLEE_START then
+    -- markFleeReady already armed us; finish bookkeeping and report once.
+    if (sf.fleeStepsTarget or 0) <= 0 then
+      beginSafariFlee(entity, bx, rng)
+    end
+    bx.state = Behavior.STATE.FLEEING
+    sf.active = true
+    local moved = stepAwayFrom(entity, map, entities, player, region, {
+      occupancy = ctx.occupancy,
+      reachableCaveCells = (entity.surface == Surface.CAVE) and ctx.reachableCaveCells or nil,
+    })
+    if not moved then
+      bx.nextActionAt = t + 0.15
+    end
+    return "flee_start"
+  end
+
+  if bx.state == Behavior.STATE.FLEEING or (sf.active and bx.fleeReady) then
+    bx.state = Behavior.STATE.FLEEING
+    sf.active = true
+    if (sf.fleeStepsTaken or 0) >= (sf.fleeStepsTarget or 0)
+       and (sf.fleeStepsTarget or 0) > 0 then
+      finishSafariFlee(entity, bx, rng)
+      return "flee_done"
+    end
+    local moved, why = stepAwayFrom(entity, map, entities, player, region, {
+      occupancy = ctx.occupancy,
+      reachableCaveCells = (entity.surface == Surface.CAVE) and ctx.reachableCaveCells or nil,
+    })
+    if not moved then
+      -- All candidates blocked: wait briefly, retry (no teleport).
+      bx.nextActionAt = t + 0.15
+      entity.movementBlockedBy = why or entity.movementBlockedBy
+      -- If stuck for many attempts, end flee early rather than soft-lock.
+      sf._blockCount = (sf._blockCount or 0) + 1
+      if sf._blockCount > 12 then
+        finishSafariFlee(entity, bx, rng)
+        return "flee_done"
+      end
+    else
+      sf._blockCount = 0
+    end
+    return nil
+  end
+
+  -- Idle watching: detect player in sight once.
+  if Movement.isBusy(entity) then
+    Movement.update(entity, ctx.dt or 0.016)
+    return nil
+  end
+  if t >= (bx.nextActionAt or 0) and not sf.noticedPlayer then
+    tryFace(entity, rng)
+  end
+
+  if sf.noticedPlayer or bx.playerDetected or bx.sightDisabled then
+    return nil
+  end
+  if sf.fleeCooldownUntil and t < sf.fleeCooldownUntil then
+    return nil
+  end
+
+  if Behavior.playerInSight(entity, player, map, entities, range) then
+    enterSafariNoticed(entity, bx, player)
+    return "alert"
+  end
+  return nil
+end
+
+local function tickSafariIdle(entity, ctx, bx, t)
+  -- Reuse land idle look; Safari idle never detects/chases.
+  if Movement.isBusy(entity) then
+    Movement.update(entity, ctx.dt or 0.016)
+    return nil
+  end
+  local rng = rngOf(ctx.rng)
+  if t >= (bx.nextActionAt or 0) then
+    tryFace(entity, rng)
+  else
+    bx.state = Behavior.STATE.IDLE
+  end
+  return nil
+end
+
+local function tickSafariWander(entity, ctx, bx, t)
+  -- Same movement path as GRASS_WANDER (occupancy + region + canStep).
+  local map = ctx.map
+  local entities = ctx.entities
+  local player = ctx.player
+  local region = entity.homeRegion
+  local rng = rngOf(ctx.rng)
+
+  if Movement.isBusy(entity) then
+    local done = Movement.update(entity, ctx.dt or 0.016)
+    if done then
+      if ctx.occupancy then ctx.occupancy:commitMove(entity) end
+      bx.state = Behavior.STATE.PAUSED
+      bx.nextActionAt = t + (0.4 + rng() * 1.6)
+      Movement.refreshGrassFlag(entity, entity.mod)
+    end
+    return nil
+  end
+  if t < (bx.nextActionAt or 0) then
+    bx.state = Behavior.STATE.PAUSED
+    return nil
+  end
+  local dirs = { { 0, -1, "up" }, { 0, 1, "down" }, { -1, 0, "left" }, { 1, 0, "right" } }
+  for i = #dirs, 2, -1 do
+    local j = rng(i)
+    dirs[i], dirs[j] = dirs[j], dirs[i]
+  end
+  if rng() < 0.35 then
+    Movement.setFacing(entity, dirs[rng(#dirs)][3])
+    bx.state = Behavior.STATE.PAUSED
+    bx.nextActionAt = t + (0.5 + rng() * 2.0)
+    return nil
+  end
+  local stepOpts = {
+    occupancy = ctx.occupancy,
+    reachableCaveCells = (entity.surface == Surface.CAVE) and ctx.reachableCaveCells or nil,
+  }
+  for _, d in ipairs(dirs) do
+    local nx, ny = entity.cellX + d[1], entity.cellY + d[2]
+    if canStep(map, entities, entity, player, nx, ny, region, false, stepOpts) then
+      local reserved = true
+      if ctx.occupancy then
+        reserved = ctx.occupancy:reserveMove(entity, entity.cellX, entity.cellY, nx, ny)
+      end
+      if reserved and Movement.beginStep(entity, nx, ny, { facing = d[3] }) then
+        entity.movementBlockedBy = nil
+        bx.state = Behavior.STATE.MOVING
+        bx.nextActionAt = t + (0.55 + rng() * 1.2)
+        return nil
+      end
+      if ctx.occupancy then ctx.occupancy:cancelMove(entity) end
+      entity.movementBlockedBy = "occupied"
+    end
+  end
+  bx.nextActionAt = t + (0.8 + rng() * 1.5)
+  bx.state = Behavior.STATE.PAUSED
+  return nil
+end
+
+function Behavior.tickSafari(entity, ctx)
+  if not entity or not entity.behaviorState then return nil end
+  local bx = entity.behaviorState
+  if not ctx or not ctx.safariActive then
+    Behavior.clearSafariFlee(entity)
+    return nil
+  end
+  local t = now()
+  if bx.behavior == Behavior.SAFARI_FLEE then
+    return tickSafariFlee(entity, ctx, bx, t)
+  end
+  if bx.behavior == Behavior.SAFARI_IDLE then
+    return tickSafariIdle(entity, ctx, bx, t)
+  end
+  if bx.behavior == Behavior.SAFARI_WANDER then
+    return tickSafariWander(entity, ctx, bx, t)
+  end
+  -- Water Safari reuses normal water idle/wander ticks via Behavior.tick.
+  return nil
+end
+
 function Behavior.tick(entity, ctx)
   if not entity or not entity.behaviorState then return nil end
   local bx = entity.behaviorState
@@ -1330,7 +1861,21 @@ function Behavior.tick(entity, ctx)
     return nil
   end
 
-  if bx.behavior == Behavior.IDLE_LOOK or bx.behavior == Behavior.WATER_IDLE then
+  -- Safari land behaviours are isolated; never leak into normal maps.
+  if Behavior.isSafari(bx.behavior) then
+    if ctx.safariActive then
+      return Behavior.tickSafari(entity, ctx)
+    end
+    -- Session ended / left Safari: strip flee state and idle safely.
+    Behavior.clearSafariFlee(entity)
+    bx.behavior = Behavior.IDLE_LOOK
+    entity.behavior = Behavior.IDLE_LOOK
+    bx.state = Behavior.STATE.IDLE
+    return nil
+  end
+
+  if bx.behavior == Behavior.IDLE_LOOK or bx.behavior == Behavior.WATER_IDLE
+     or bx.behavior == Behavior.SAFARI_IDLE then
     if Movement.isBusy(entity) then
       Movement.update(entity, ctx.dt or 0.016)
       return nil
@@ -1456,6 +2001,10 @@ function Behavior.markChaseReady(entity)
   local bx = entity and entity.behaviorState
   if not bx then return end
   if bx.battleStarted or bx.battlePending then return end
+  -- Safari flee alerts must never arm chase.
+  if Behavior.isSafariFlee(bx.behavior) or Behavior.isSafari(bx.behavior) then
+    return Behavior.markFleeReady(entity)
+  end
   bx.chaseReady = true
   if bx.state == Behavior.STATE.ALERT
      or bx.state == Behavior.STATE.PLAYER_DETECTED then
@@ -1464,6 +2013,26 @@ function Behavior.markChaseReady(entity)
   bx.chasing = true
   bx.leftHome = true
   bx.sightDisabled = true
+end
+
+-- Arm overworld Safari flee after the shared emote bubble finishes.
+function Behavior.markFleeReady(entity)
+  local bx = entity and entity.behaviorState
+  if not bx then return end
+  if bx.battleStarted or bx.battlePending then return end
+  local sf = ensureSafariFlee(bx)
+  sf.active = true
+  sf.noticedPlayer = true
+  sf.alertStarted = true
+  bx.fleeReady = true
+  bx.chaseReady = false
+  bx.chasing = false
+  bx.sightDisabled = true
+  if bx.state == Behavior.STATE.ALERT
+     or bx.state == Behavior.STATE.PLAYER_NOTICED
+     or bx.state == Behavior.STATE.PLAYER_DETECTED then
+    bx.state = Behavior.STATE.FLEE_START
+  end
 end
 
 return Behavior

@@ -11,6 +11,7 @@ local DebugLog = V.require("debug_log")
 local SpawnFx = V.require("spawn_fx")
 local Surface = V.require("surface")
 local WaterSpawn = V.require("water_spawn")
+local SafariCompat = V.require("safari_compat")
 
 local BehaviorTick = {}
 BehaviorTick.__index = BehaviorTick
@@ -114,6 +115,18 @@ function BehaviorTick:step(ctx)
   local chaseStep = Config.get(self.mod, "aggressive_step_seconds")
                     or Config.DEFAULTS.aggressive_step_seconds
 
+  local game = world and world.game
+  local safariActive = SafariCompat.isActive(game, ow, ow.map and ow.map.id)
+  -- Strip Safari flee state when the session ends mid-map.
+  if not safariActive and logic.safariStatus == SafariCompat.STATUS.ACTIVE then
+    for _, entity in pairs(logic.entities or {}) do
+      if entity and entity.behaviorState and Behavior.isSafari(entity.behavior) then
+        Behavior.clearSafariFlee(entity)
+      end
+    end
+  end
+  logic.safariStatus = SafariCompat.status(game, ow, ow.map and ow.map.id)
+
   local function behaviorCtx(extraDt)
     return {
       map = ow.map,
@@ -130,7 +143,7 @@ function BehaviorTick:step(ctx)
       shoreMap = logic.shoreDistance,
       landWaterPlayerMax = Config.get(self.mod, "land_water_chase_player_max")
         or Config.DEFAULTS.land_water_chase_player_max,
-      game = world and world.game,
+      game = game,
       logic = logic,
       occupancy = occupancy,
       reachableCaveCells = logic.caveReachability
@@ -140,6 +153,8 @@ function BehaviorTick:step(ctx)
       hasWaterSprite = function(e)
         return logic:_entityHasCompatibleWaterSprite(e)
       end,
+      safariActive = safariActive,
+      safariSightRange = SafariCompat.SIGHT_RANGE,
     }
   end
 
@@ -166,11 +181,17 @@ function BehaviorTick:step(ctx)
       local bx = entity.behaviorState
       local chasing = bx and (bx.chasing or bx.state == Behavior.STATE.CHASING
                               or bx.state == Behavior.STATE.CHASE_START)
+      local fleeing = bx and Behavior.isSafariFlee(bx.behavior)
+        and (bx.fleeReady or bx.state == Behavior.STATE.FLEEING
+             or bx.state == Behavior.STATE.FLEE_START
+             or (bx.safariFlee and bx.safariFlee.active))
+      local activeSpecial = chasing or fleeing
 
       local alreadyMoved = false
       if Movement.isBusy(entity) and not (holdAi and bx
          and (bx.state == Behavior.STATE.ALERT
-              or bx.state == Behavior.STATE.PLAYER_DETECTED)) then
+              or bx.state == Behavior.STATE.PLAYER_DETECTED
+              or bx.state == Behavior.STATE.PLAYER_NOTICED)) then
         local done = Movement.update(entity, dt)
         alreadyMoved = true
         if done then
@@ -206,8 +227,16 @@ function BehaviorTick:step(ctx)
             end
           end
         end
-      elseif holdAi and not chasing then
-        -- freeze
+      elseif holdAi and not activeSpecial then
+        -- freeze (Safari flee alert owns the emote; keep ticking that entity)
+        if bx and (bx.state == Behavior.STATE.ALERT
+                   or bx.state == Behavior.STATE.PLAYER_NOTICED)
+           and Behavior.isSafariFlee(bx.behavior) then
+          local event = Behavior.tick(entity, behaviorCtx(0))
+          if event == "alert" then
+            logic:_onAggressiveAlert(entity, record)
+          end
+        end
       else
         local event = Behavior.tick(entity, behaviorCtx(alreadyMoved and 0 or dt))
         if event == "alert" then
@@ -231,7 +260,7 @@ function BehaviorTick:step(ctx)
               reason = "entered_water",
               surface = Surface.WATER,
               spriteState = "water",
-              game = world and world.game,
+              game = game,
             })
           end
           DebugLog.info(self.mod, "land→water chase id=%s species=%s",
@@ -240,6 +269,8 @@ function BehaviorTick:step(ctx)
           if SpawnFx.canBattle(entity) then
             logic:_startBattle(record)
           end
+        elseif event == "flee_start" or event == "flee_done" then
+          record.behavior = entity.behavior
         end
       end
 

@@ -21,9 +21,15 @@ local BEHAVIOUR_META = {
   [Behavior.WATER_IDLE] = { label = "WATER IDLE", color = { 0.25, 0.85, 0.85, 1 } },
   [Behavior.WATER_WANDER] = { label = "WATER WANDER", color = { 0.35, 0.30, 0.75, 1 } },
   [Behavior.WATER_AGGRESSIVE] = { label = "WATER AGGRO", color = { 0.95, 0.55, 0.15, 1 } },
+  [Behavior.SAFARI_IDLE] = { label = "SAFARI IDLE", color = { 0.85, 0.85, 0.85, 1 } },
+  [Behavior.SAFARI_WANDER] = { label = "SAFARI WANDER", color = { 0.35, 0.55, 0.95, 1 } },
+  [Behavior.SAFARI_FLEE] = { label = "SAFARI FLEE", color = { 0.95, 0.70, 0.20, 1 } },
   IDLE = { label = "IDLE", color = { 0.85, 0.85, 0.85, 1 } },
   WANDER = { label = "WANDER", color = { 0.35, 0.55, 0.95, 1 } },
   AGGRESSIVE = { label = "AGGRO", color = { 0.95, 0.25, 0.22, 1 } },
+  SAFARI_IDLE = { label = "SAFARI IDLE", color = { 0.85, 0.85, 0.85, 1 } },
+  SAFARI_WANDER = { label = "SAFARI WANDER", color = { 0.35, 0.55, 0.95, 1 } },
+  SAFARI_FLEE = { label = "SAFARI FLEE", color = { 0.95, 0.70, 0.20, 1 } },
 }
 
 local FACING_ARROW = {
@@ -73,7 +79,7 @@ function DevOverlay.stateSuffix(entity)
   if not st then return nil end
   st = tostring(st):upper()
   if st == "" or st == "IDLE" or st == "LOOK" then return nil end
-  -- Keep short: CHASING / ALERT / WALK …
+  -- Keep short: CHASING / ALERT / FLEEING …
   if #st > 10 then st = st:sub(1, 10) end
   return st
 end
@@ -81,14 +87,30 @@ end
 function DevOverlay.labelLines(entity)
   local meta = DevOverlay.behaviourMeta(entity.behavior or entity.behaviour)
   local line1 = meta.label
-  local suffix = DevOverlay.stateSuffix(entity)
-  if suffix then
-    line1 = line1 .. " · " .. suffix
-  end
   local facing = (entity.behaviorState and entity.behaviorState.facing)
               or entity.facing
               or "down"
   local line2 = DevOverlay.facingLabel(facing)
+  local bx = entity and entity.behaviorState
+  local beh = entity and (entity.behavior or entity.behaviour)
+  -- Safari flee overlay: SAFARI FLEE · LEFT / STATE: FLEEING / STEPS: 2/4
+  if beh == Behavior.SAFARI_FLEE or beh == "SAFARI_FLEE" then
+    local faceWord = tostring(facing or "down"):upper()
+    line1 = "SAFARI FLEE · " .. faceWord
+    local st = bx and bx.state or "IDLE"
+    line2 = "STATE: " .. tostring(st):upper()
+    local sf = bx and bx.safariFlee
+    local line3 = nil
+    if sf and (sf.active or (sf.fleeStepsTarget or 0) > 0) then
+      line3 = ("STEPS: %d/%d"):format(
+        sf.fleeStepsTaken or 0, sf.fleeStepsTarget or 0)
+    end
+    return line1, line2, meta.color, line3
+  end
+  local suffix = DevOverlay.stateSuffix(entity)
+  if suffix then
+    line1 = meta.label .. " · " .. suffix
+  end
   return line1, line2, meta.color
 end
 
@@ -214,7 +236,7 @@ function DevOverlay:draw(_canvas, ctx)
 
   local entities = self:collectEntities(ctx)
   for _, entity in ipairs(entities) do
-    local line1, line2, color = DevOverlay.labelLines(entity)
+    local line1, line2, color, line3 = DevOverlay.labelLines(entity)
     local sx, sy
 
     -- Prefer a projection helper when Dramatic Shape / First Person expose one.
@@ -234,15 +256,22 @@ function DevOverlay:draw(_canvas, ctx)
     love.graphics.setColor(color[1], color[2], color[3], color[4] or 1)
     local font = love.graphics.getFont and love.graphics.getFont()
     local tw = 0
+    local lines = { line1, line2 }
+    if line3 then lines[#lines + 1] = line3 end
     if font and font.getWidth then
-      tw = math.max(font:getWidth(line1), font:getWidth(line2))
+      for _, ln in ipairs(lines) do
+        tw = math.max(tw, font:getWidth(ln))
+      end
     else
-      tw = math.max(#line1, #line2) * 6
+      for _, ln in ipairs(lines) do
+        tw = math.max(tw, #ln * 6)
+      end
     end
     local x = math.floor(sx - tw / 2)
     local y = math.floor(sy - 14)
-    love.graphics.print(line1, x, y)
-    love.graphics.print(line2, x, y + 10)
+    for i, ln in ipairs(lines) do
+      love.graphics.print(ln, x, y + (i - 1) * 10)
+    end
   end
   love.graphics.setColor(1, 1, 1, 1)
 end

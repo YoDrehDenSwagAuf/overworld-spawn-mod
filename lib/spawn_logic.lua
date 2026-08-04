@@ -24,6 +24,7 @@ local AnimatedSprites = V.require("animated_sprites")
 local CellOccupancy = V.require("cell_occupancy")
 local FollowersWaterCompat = V.require("followers_water_compat")
 local CaveReachability = V.require("cave_reachability")
+local SafariCompat = V.require("safari_compat")
 
 local SpawnLogic = {}
 SpawnLogic.__index = SpawnLogic
@@ -342,8 +343,29 @@ function SpawnLogic:canSuppressVanilla()
 end
 
 -- True when classic encounter RNG must be blocked (grass / cave / water).
+-- Active Safari sessions always suppress step encounters (independent of
+-- Random Enc) so visible Safari Pokémon can be approached safely.
 function SpawnLogic:shouldSuppressClassicEncounter(ctx)
+  local game = gameOf(self.mod)
+  local world = self.mod.world
+  local ow = world and world.overworld and world:overworld()
+  local mapId = (ctx and ctx.mapId) or (ow and ow.map and ow.map.id) or self.activeMapId
+  if SafariCompat.shouldSuppressClassicEncounters(game, ow, mapId) then
+    return true
+  end
   return not Config.randomEncountersEnabled(self.mod)
+end
+
+function SpawnLogic:_safariStatus(game, ow, mapId)
+  game = game or gameOf(self.mod)
+  local world = self.mod.world
+  ow = ow or (world and world.overworld and world:overworld())
+  mapId = mapId or (ow and ow.map and ow.map.id) or self.activeMapId
+  return SafariCompat.status(game, ow, mapId)
+end
+
+function SpawnLogic:_safariActive(game, ow, mapId)
+  return self:_safariStatus(game, ow, mapId) == SafariCompat.STATUS.ACTIVE
 end
 
 function SpawnLogic:_log(fmt, ...)
@@ -472,14 +494,24 @@ function SpawnLogic:_onAggressiveAlert(entity, record)
   -- Exactly one alert / emote per detection.
   if bx.alertEmoteSpawned then return end
 
+  local safariFlee = Behavior.isSafariFlee(bx.behavior or entity.behavior
+                                           or record.behavior)
+
   -- Stop movement and disable sight for the reaction pause.
   Movement.stop(entity, "ALERT")
   bx.sightDisabled = true
   bx.alertAt = bx.alertAt or (love and love.timer and love.timer.getTime and love.timer.getTime()) or os.clock()
   bx.state = Behavior.STATE.ALERT
+  if safariFlee then
+    local sf = bx.safariFlee or Behavior.newSafariFleeState()
+    bx.safariFlee = sf
+    sf.noticedPlayer = true
+    sf.alertStarted = true
+    sf.active = true
+  end
 
   if ow.emote or ow.engaging then
-    -- Emote slot busy: Behaviour.healAggroFlags will markChaseReady after timeout.
+    -- Emote slot busy: Behaviour fail-safe arms chase/flee after timeout.
     return
   end
 
@@ -487,16 +519,22 @@ function SpawnLogic:_onAggressiveAlert(entity, record)
 
   -- Engine emotion bubble (same path as trainers). NOT a wild/Voxel entity.
   -- No species, no collision, no spawn slot — only npc.px/py for anchoring.
+  local frames = safariFlee and (SafariCompat.ALERT_FRAMES or 24) or 60
   ow.emote = {
     npc = entity,
-    frames = 60,
+    frames = frames,
     onDone = function()
-      -- Clear emote ownership first; then arm chase exactly once.
-      Behavior.markChaseReady(entity)
+      if safariFlee then
+        Behavior.markFleeReady(entity)
+      else
+        -- Clear emote ownership first; then arm chase exactly once.
+        Behavior.markChaseReady(entity)
+      end
     end,
   }
   entity.alertIcon = true
-  self:_log("aggressive alert id=%s species=%s at (%d,%d)",
+  self:_log("%s alert id=%s species=%s at (%d,%d)",
+            safariFlee and "safari flee" or "aggressive",
             tostring(entity.id or record.id),
             tostring(record.species), record.x, record.y)
 end
@@ -878,6 +916,22 @@ function SpawnLogic:initializeForMap(mapId, game)
   st.mapType = EncounterIndex.mapTypeOf(game, mapId)
   st.mapSupported = true
 
+  -- Safari Zone gate: only spawn visible mons during an ACTIVE session with a
+  -- verified native Safari encounter path. Otherwise keep Vanilla Safari.
+  local safariStatus = SafariCompat.status(game, ow, mapId)
+  st.safariCompat = safariStatus
+  st.safariActive = safariStatus == SafariCompat.STATUS.ACTIVE
+  self.safariStatus = safariStatus
+  if safariStatus == SafariCompat.STATUS.FALLBACK_VANILLA then
+    st.encounterDataAvailable = true
+    st:markUnsupported("Safari compat: FALLBACK_VANILLA")
+    self:_log("map %s Safari FALLBACK_VANILLA; visible spawns off, vanilla Safari kept",
+              tostring(mapId))
+    if self.hud then self.hud:markMapEnter() end
+    self:_restoreVanillaEncounters("safari fallback vanilla")
+    return false
+  end
+
   -- 3) Encounter surface + table
   local encDef = self:_encDef(mapId, game)
   local surfaceInfo = Surface.resolve(game, ow.map, encDef)
@@ -894,6 +948,17 @@ function SpawnLogic:initializeForMap(mapId, game)
     self:_logMapDiagnostics(mapId, game, encDef)
     if self.hud then self.hud:markMapEnter() end
     self:_restoreVanillaEncounters("no encounter data")
+    return false
+  end
+
+  -- Safari Zone without an active paid session: do not alter Vanilla.
+  if SafariCompat.isSafariMap(game, mapId, ow)
+     and safariStatus ~= SafariCompat.STATUS.ACTIVE then
+    st:markUnsupported("Safari session inactive")
+    self:_log("map %s Safari map without active session; vanilla left intact",
+              tostring(mapId))
+    if self.hud then self.hud:markMapEnter() end
+    self:_restoreVanillaEncounters("safari session inactive")
     return false
   end
 
@@ -1319,16 +1384,21 @@ function SpawnLogic:trySpawn(game, opts)
 
   local behavior = opts.behavior
   if not behavior then
+    local safariActive = self:_safariActive(game, ow, mapId)
     if opts.readinessProbe or opts.force then
-      behavior = Behavior.IDLE_LOOK
+      behavior = safariActive and Behavior.SAFARI_IDLE or Behavior.IDLE_LOOK
     else
       behavior = Behavior.pick(species, surfaceInfo.surface, {
+        safari = safariActive,
         enable_idle = Config.get(self.mod, "enable_idle") ~= false,
         enable_wander = Config.get(self.mod, "enable_wander") ~= false,
-        enable_aggressive = Config.get(self.mod, "enable_aggressive") ~= false,
-        enable_hidden = Config.get(self.mod, "enable_hidden") ~= false,
+        enable_aggressive = (not safariActive)
+          and Config.get(self.mod, "enable_aggressive") ~= false,
+        enable_hidden = (not safariActive)
+          and Config.get(self.mod, "enable_hidden") ~= false,
+        enable_safari_flee = safariActive,
         aggressive_frequency = Config.get(self.mod, "aggressive_frequency") or 1,
-        hiddenCaveAvailable = true,
+        hiddenCaveAvailable = not safariActive,
       })
     end
   end
@@ -1606,16 +1676,24 @@ function SpawnLogic:trySpawnWater(game, opts)
   local region = SpawnRegions.regionForCell(self.waterRegions, x, y)
   local waterAggChance = Config.get(self.mod, "water_aggressive_chance")
                       or Config.DEFAULTS.water_aggressive_chance or 0.15
+  local safariActive = self:_safariActive(game, ow, mapId)
   local behavior = Behavior.pick(species, Surface.WATER, {
+    safari = safariActive,
     enable_idle = true,
     enable_wander = true,
-    enable_aggressive = Config.get(self.mod, "enable_aggressive") ~= false,
-    enable_water_aggressive = Config.get(self.mod, "enable_aggressive") ~= false,
+    -- Water Safari: never WATER_AGGRESSIVE; land Safari flee not used on water.
+    enable_aggressive = (not safariActive)
+      and Config.get(self.mod, "enable_aggressive") ~= false,
+    enable_water_aggressive = (not safariActive)
+      and Config.get(self.mod, "enable_aggressive") ~= false,
     enable_hidden = false,
-    water_aggressive_chance = waterAggChance,
+    water_aggressive_chance = safariActive and 0 or waterAggChance,
     aggressive_frequency = Config.get(self.mod, "aggressive_frequency") or 1,
   })
   if not Behavior.isWater(behavior) then
+    behavior = (math.random() < 0.45) and Behavior.WATER_IDLE or Behavior.WATER_WANDER
+  end
+  if safariActive and behavior == Behavior.WATER_AGGRESSIVE then
     behavior = (math.random() < 0.45) and Behavior.WATER_IDLE or Behavior.WATER_WANDER
   end
 
@@ -2145,6 +2223,15 @@ end
 function SpawnLogic:onMapExited(ev)
   if ev.mapId then self:_clearMap(ev.mapId) end
   if self.overlay then self.overlay:clear() end
+  -- Safari flee state must not leak onto the next map.
+  for _, entity in pairs(self.entities or {}) do
+    if entity then Behavior.clearSafariFlee(entity) end
+  end
+  self.safariStatus = SafariCompat.STATUS.INACTIVE
+  if self.state then
+    self.state.safariCompat = SafariCompat.STATUS.INACTIVE
+    self.state.safariActive = false
+  end
   if self.activeMapId == ev.mapId then
     self.activeMapId = nil
     self.grassCache = nil
@@ -2278,6 +2365,19 @@ function SpawnLogic:_startBattle(record)
     return false
   end
 
+  local game = gameOf(self.mod)
+  local mapId = record.mapId or (ow.map and ow.map.id) or self.activeMapId
+  local safariStatus = SafariCompat.status(game, ow, mapId)
+  local safariActive = safariStatus == SafariCompat.STATUS.ACTIVE
+
+  -- Never start a normal wild battle inside Safari; only the native path.
+  if SafariCompat.isSafariMap(game, mapId, ow)
+     and safariStatus ~= SafariCompat.STATUS.ACTIVE then
+    self:_warn("Safari encounter blocked (status=%s); no normal wild battle",
+               tostring(safariStatus))
+    return false
+  end
+
   record.state = Config.STATE.ENCOUNTER_STARTING
   local entity = self.entities[record.id]
   if entity then
@@ -2288,6 +2388,9 @@ function SpawnLogic:_startBattle(record)
       entity.behaviorState.battlePending = true
       entity.behaviorState.sightDisabled = true
       entity.behaviorState.state = Behavior.STATE.BATTLE_PENDING
+      Behavior.clearSafariFlee(entity)
+      entity.behaviorState.battleStarted = true
+      entity.behaviorState.battlePending = true
     end
     if self.occupancy then
       self.occupancy:cancelMove(entity)
@@ -2307,6 +2410,7 @@ function SpawnLogic:_startBattle(record)
     species = record.species,
     level = record.level,
     behavior = record.behavior,
+    safari = safariActive,
   }
 
   -- Clear our emotion bubble if we own it.
@@ -2317,7 +2421,31 @@ function SpawnLogic:_startBattle(record)
   self:_despawn(record.id, true)
   self:_recountRegions()
 
-  local ok, err = world:queueScript({
+  local ok, err
+  if safariActive then
+    ok, err = SafariCompat.startNativeSafariEncounter(
+      game, ow, record.species, record.level, {
+        safari = SafariCompat.sessionState(game),
+      })
+    if not ok then
+      self:_warn("could not start native Safari encounter: %s", tostring(err))
+      self.pendingBattle = nil
+      self.state:markError(err)
+      -- Do not fall back to a normal wild battle in Safari.
+      self.state.safariCompat = SafariCompat.STATUS.FALLBACK_VANILLA
+      self:_restoreVanillaEncounters("safari encounter path failed")
+      return false
+    end
+    if self.pendingBattle then
+      self.pendingBattle.state = Config.STATE.IN_BATTLE
+    end
+    self.mod.log:info("triggered safari encounter: %s Lv%d (%s) id=%s",
+                      record.species, record.level, tostring(record.behavior),
+                      tostring(record.id))
+    return true
+  end
+
+  ok, err = world:queueScript({
     { "start_battle", "wild", record.species, record.level },
   })
   if not ok then
