@@ -214,6 +214,24 @@ second Pokemon entity).
 Shows no Pokemon sprite. On grass, the tile shakes; in caves, a dust/shadow
 marker is used instead. Stepping onto the tile starts the encounter.
 
+## Safari Pokémon Behaviour
+
+Visible Pokémon inside an active Safari Zone session never start normal
+battles.
+
+Some Safari Pokémon may notice the player, show an alert icon, and run a few
+tiles away before returning to idle or wandering behaviour. Catching them still
+uses the game's native Safari encounter system with Safari Balls, bait, rocks,
+and the normal flee mechanics.
+
+This overworld behaviour only affects movement and does not change Safari catch
+or flee rates.
+
+During an active Safari session, classic step encounters stay off so you can
+approach visible Pokémon without a random interruption. Outside the Safari Zone,
+behaviour and Random Enc are unchanged. If the native Safari battle path is
+unavailable, visible Safari spawns are disabled and Vanilla Safari is left alone.
+
 ## Random Encounters
 
 Classic step-based random encounters can be enabled or disabled from Wilds of
@@ -296,6 +314,7 @@ supported.
 
 - Visible wild Pokemon in supported overworld encounter areas
 - Behaviours: Idle, Wander, Aggressive, Hidden markers, Water Idle/Wander/Aggressive
+- Safari Zone: native Safari encounters, Safari Idle/Wander/Flee (no normal aggro)
 - Random Enc toggle for classic step-based encounters (default ON)
 - Visible Water Mons from Surf + fishing encounter pools (toggleable, decentered density)
 - Shore-distance water spawn zones (near / mid / deep)

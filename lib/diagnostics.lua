@@ -139,6 +139,46 @@ function Diagnostics.entityDetail(logic, entity, record)
     ("Surface: %s"):format(tostring(entity.surface or "?")),
   }
   do
+    local SafariCompat = V.require("safari_compat")
+    local world = logic and logic.mod and logic.mod.world
+    local ow = world and world.overworld and world:overworld()
+    local game = world and world.game
+    local mapId = (record and record.mapId)
+               or (ow and ow.map and ow.map.id)
+               or (logic and logic.activeMapId)
+    local active = SafariCompat.isActive(game, ow, mapId)
+    lines[#lines + 1] = ("Safari active: %s"):format(active and "YES" or "NO")
+    local status = (logic and logic.state and logic.state.safariCompat)
+                or SafariCompat.status(game, ow, mapId)
+    if status and status ~= SafariCompat.STATUS.INACTIVE then
+      lines[#lines + 1] = ("Safari compat: %s"):format(tostring(status))
+    end
+    local beh = entity.behavior or (record and record.behavior)
+    if beh == "SAFARI_FLEE" or beh == "SAFARI_IDLE" or beh == "SAFARI_WANDER"
+       or (bx.safariFlee and active) then
+      local sf = bx.safariFlee or {}
+      lines[#lines + 1] = ("Behaviour: %s"):format(tostring(beh))
+      lines[#lines + 1] = ("Player noticed: %s"):format(
+        sf.noticedPlayer and "YES" or "NO")
+      lines[#lines + 1] = ("Alert shown: %s"):format(
+        (bx.alertEmoteSpawned or sf.alertStarted) and "YES" or "NO")
+      lines[#lines + 1] = ("Flee steps: %d/%d"):format(
+        sf.fleeStepsTaken or 0, sf.fleeStepsTarget or 0)
+      if sf.fleeCooldownUntil then
+        local now = (love and love.timer and love.timer.getTime and love.timer.getTime())
+                 or os.clock()
+        local left = sf.fleeCooldownUntil - now
+        if left > 0 then
+          lines[#lines + 1] = ("Flee cooldown: %.1fs"):format(left)
+        else
+          lines[#lines + 1] = "Flee cooldown: ready"
+        end
+      else
+        lines[#lines + 1] = "Flee cooldown:"
+      end
+    end
+  end
+  do
     local WaterSpawn = V.require("water_spawn")
     local Behavior = V.require("behavior")
     if entity.surface == "WATER" or (record and record.surface == "WATER")
@@ -569,6 +609,18 @@ function Diagnostics.hudLines(logic)
     local onOff = randomOn and "ON" or "OFF"
     local WaterSpawn = V.require("water_spawn")
     local Behavior = V.require("behavior")
+    do
+      local SafariCompat = V.require("safari_compat")
+      local world = logic.mod and logic.mod.world
+      local ow = world and world.overworld and world:overworld()
+      local game = world and world.game
+      local mapId = (ow and ow.map and ow.map.id) or logic.activeMapId
+      local sStatus = (logic.state and logic.state.safariCompat)
+                   or SafariCompat.status(game, ow, mapId)
+      lines[#lines + 1] = ("Safari compat: %s"):format(tostring(sStatus))
+      lines[#lines + 1] = ("Safari active: %s"):format(
+        (sStatus == SafariCompat.STATUS.ACTIVE) and "YES" or "NO")
+    end
     lines[#lines + 1] = ("Random Enc: %s"):format(onOff)
     lines[#lines + 1] = ("Classic Grass: %s"):format(onOff)
     lines[#lines + 1] = ("Classic Cave: %s"):format(onOff)

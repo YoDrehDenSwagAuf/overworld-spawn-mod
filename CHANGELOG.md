@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.0
+
+### Safari Zone compatibility + Safari Flee
+
+- Added native Safari encounter routing for visible Pokémon
+- Disabled normal aggressive behaviour inside active Safari sessions
+- Added Safari Flee behaviour for selected Pokémon
+- Added alert and short-distance escape movement
+- Preserved native Safari catch and flee mechanics
+- Disabled step-based encounters during visible Safari gameplay
+- Added safe Vanilla Safari fallback
+
 ## 1.6.0
 
 ### Settings consolidation + cave / water / overlay / follower style
