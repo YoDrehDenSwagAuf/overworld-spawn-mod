@@ -1579,7 +1579,8 @@ function Entity:_drawAnimatedSprite(camX, camY, opacity)
 end
 
 function Entity:_drawScaledSprite(camX, camY, opacity)
-  if self.usingEnhancedSprite then
+  -- Deprecated atlas path only when explicitly enhanced AND not a native walker.
+  if self.usingEnhancedSprite and not self.nativeSpriteRenderer then
     self:_drawAnimatedSprite(camX, camY, opacity)
     return
   end
@@ -1934,19 +1935,49 @@ function SpawnRender:applyProviderSprite(entity, game)
     return false
   end
 
+  -- Preserve owner movement / pose contract across the swap. Only the
+  -- SpriteRenderer + presentation metadata may change.
+  local preserved = {
+    facing = entity.facing,
+    stepFlip = entity.stepFlip,
+    walkFlip = entity.walkFlip,
+    flip = entity.flip,
+    movement = entity.movement,
+    position = entity.position,
+    cellX = entity.cellX,
+    cellY = entity.cellY,
+    px = entity.px,
+    py = entity.py,
+    targetX = entity.targetX,
+    targetY = entity.targetY,
+    moving = entity.moving,
+    behavior = entity.behavior,
+    behaviorState = entity.behaviorState,
+    surface = entity.surface,
+    spawnId = entity.spawnId,
+    id = entity.id,
+  }
+
+  -- Copy provider def exactly for native walkers; never invent walker=true.
   local def = {
     image = result.def.image,
     frames = result.def.frames or 1,
     trueColor = result.def.trueColor ~= false,
     id = result.def.id or ("SPRITE_OW_WILD_" .. tostring(species)),
   }
-  if result.def.walker then def.walker = true end
+  if result.def.walker == true then def.walker = true end
   if result.def.pokepcShiny then def.pokepcShiny = true end
+  -- Retain any extra SpriteRenderer fields the provider already published.
+  for k, v in pairs(result.def) do
+    if def[k] == nil then def[k] = v end
+  end
 
   local ok, sprite = pcall(SpriteRenderer.new, def, entity.spawnId or entity.id)
   if not ok or not sprite then
     return false
   end
+  self._spriteRendererNews = (self._spriteRendererNews or 0) + 1
+  entity._wildsSpriteRendererNews = (entity._wildsSpriteRendererNews or 0) + 1
 
   local nativeSheet = (def.walker == true and (def.frames or 1) >= 6)
   entity.sprite = sprite
@@ -1960,7 +1991,9 @@ function SpawnRender:applyProviderSprite(entity, game)
   entity.requestedSpriteStyle = style
   entity.spriteVariant = (result.meta and result.meta.usedVariant) or variant
   entity.usingFollowerSprite = (result.providerId == "followers_ex")
-  entity.usingEnhancedSprite = nativeSheet
+  -- Native walker sheets are driven solely by SpriteRenderer + Movement.walkPhase.
+  -- Never mark them as the deprecated enhanced-atlas body path.
+  entity.usingEnhancedSprite = false
   entity.worldSprite = nil
   if self.spriteResolver then
     self.spriteResolver:applyEntityMeta(entity, result)
@@ -1990,11 +2023,10 @@ function SpawnRender:applyProviderSprite(entity, game)
     entity.visualScale = 1
     entity.final2DScale = 1
     entity.grassOcclusionHeight = entity.grassOcclusionHeight or 6
-    if not entity.animation and self.animated then
-      entity.animation = self.animated:newAnimationState(entity.facing or "down")
-    end
+    -- Optional HUD/diagnostic animation metadata only. Must not claim the
+    -- enhanced atlas owns the body, and must not reset Movement phase.
     if entity.animation then
-      entity.animation.usingEnhancedSprite = true
+      entity.animation.usingEnhancedSprite = false
       entity.animation.source = entity.spriteSource
       entity.animation.variant = entity.spriteVariant
     end
@@ -2022,6 +2054,29 @@ function SpawnRender:applyProviderSprite(entity, game)
     entity.grassOcclusionHeight = entity.scaleInfo.grassOcclusionHeight
       or entity.grassOcclusionHeight or 0
   end
+
+  -- Restore identity / simulation fields. Phase is recomputed from Movement
+  -- below — do not treat a stashed phase as an animation fix.
+  entity.facing = preserved.facing or entity.facing
+  entity.stepFlip = preserved.stepFlip
+  entity.walkFlip = preserved.walkFlip
+  entity.flip = preserved.flip
+  entity.movement = preserved.movement
+  entity.position = preserved.position
+  entity.cellX = preserved.cellX
+  entity.cellY = preserved.cellY
+  entity.px = preserved.px
+  entity.py = preserved.py
+  entity.targetX = preserved.targetX
+  entity.targetY = preserved.targetY
+  entity.moving = preserved.moving
+  entity.behavior = preserved.behavior
+  entity.behaviorState = preserved.behaviorState
+  entity.surface = preserved.surface
+  entity.spawnId = preserved.spawnId
+  entity.id = preserved.id
+
+  Movement.syncLegacyFields(entity)
 
   if entity.sprite and entity.sprite.image and entity.sprite.image.setFilter then
     entity.sprite.image:setFilter("nearest", "nearest")

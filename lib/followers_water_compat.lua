@@ -89,6 +89,9 @@ function FollowersWaterCompat.new(mod, opts)
     form = nil,
     surfaceState = nil,
     requestedStyle = nil,
+    image = nil,
+    frames = nil,
+    walker = nil,
   }
   self.status = {
     detected = false,
@@ -101,6 +104,9 @@ function FollowersWaterCompat.new(mod, opts)
   }
   self._landBackup = nil
   self._styleGeneration = 0
+  self._activeEntity = nil
+  self._activeEntityId = nil
+  self._spriteRendererNews = 0
   return self
 end
 
@@ -116,83 +122,159 @@ end
 function FollowersWaterCompat:invalidateStyle()
   self._styleGeneration = (self._styleGeneration or 0) + 1
   self._cache.requestedStyle = nil -- force refresh on next tick
+  self._cache.image = nil
   self.status.lastAction = "style_invalidated"
 end
 
-function FollowersWaterCompat:collectFollowerEntities(ow)
-  local out = {}
-  if not ow then return out end
-  local seen = {}
-  local function add(e)
-    if not e or seen[e] then return end
-    if CellOccupancy.isFollowerEntity(e) then
-      seen[e] = true
-      out[#out + 1] = e
-    end
-  end
-  if type(ow.pokepcTrailers) == "table" then
-    for _, e in ipairs(ow.pokepcTrailers) do add(e) end
-  end
-  for _, e in ipairs(ow.entities or {}) do add(e) end
-  for _, e in ipairs(ow.npcs or {}) do add(e) end
-  return out
-end
+-- Verified Followers EX / PokePC public export used by Wilds:
+--   getActiveFollowerMon(game) → party mon table (species, dvs, form, …)
+-- No verified public sprite-swap / refresh export exists. Do NOT probe
+-- guessed method names — that can re-bind Followers art and cause flicker.
 
-function FollowersWaterCompat:activeFollower(ow, game)
-  local followers = self:collectFollowerEntities(ow)
-  if #followers == 0 then
-    self.status.detected = false
-    return nil, nil
-  end
-  local api = self:publicApi()
-  local mon = nil
-  if api and type(api.getActiveFollowerMon) == "function" then
-    local ok, got = pcall(api.getActiveFollowerMon, game)
-    if ok then mon = got end
-  end
-  local best = nil
-  local want = mon and mon.species and tostring(mon.species) or nil
-  for _, e in ipairs(followers) do
-    if e.pokepcTrailerKind == "trainer" then
-      -- skip trainer trailers for sprite swaps
-    else
-      local key = speciesKeyOf(e, mon)
-      if want and key == want then
-        best = e
-        break
+local function entityStillPresent(ow, entity)
+  if not ow or not entity then return false end
+  local lists = { ow.pokepcTrailers, ow.entities, ow.npcs }
+  for _, list in ipairs(lists) do
+    if type(list) == "table" then
+      for _, e in ipairs(list) do
+        if e == entity then return true end
       end
-      if not best then best = e end
     end
   end
-  self.status.detected = best ~= nil
-  return best, mon
+  return false
 end
 
+local function isPokemonTrailer(entity)
+  if not entity then return false end
+  if entity.pokepcTrailerKind == "trainer" then return false end
+  if entity.pokepcTrailerKind == "mon" or entity.pokepcTrailerKind == "pokemon" then
+    return true
+  end
+  if entity.pokepcTrailer == true or entity.pikachuFollower == true then
+    return true
+  end
+  return CellOccupancy.isFollowerEntity(entity)
+end
+
+-- Exact def copy for SpriteRenderer. Never invent walker sheets from static art.
+local function copySpriteDef(def)
+  local renderDef = {}
+  if type(def) == "table" then
+    for k, v in pairs(def) do
+      renderDef[k] = v
+    end
+  end
+  renderDef.image = def.image
+  renderDef.frames = def.frames or 1
+  renderDef.walker = def.walker == true
+  if def.trueColor == nil then
+    renderDef.trueColor = true
+  else
+    renderDef.trueColor = def.trueColor ~= false
+  end
+  renderDef.id = def.id or "SPRITE_POKEPC_MON"
+  if def.pokepcShiny then
+    renderDef.pokepcShiny = true
+  end
+  return renderDef
+end
+
+local function defAlreadyBound(entity, renderDef)
+  local cur = entity and entity.sprite and entity.sprite.def
+  if not cur or not renderDef then return false end
+  return cur.image == renderDef.image
+     and (cur.frames or 1) == (renderDef.frames or 1)
+     and (cur.walker == true) == (renderDef.walker == true)
+end
+
+-- Entity-local SpriteRenderer swap only. Never touches content registries,
+-- game.data.pokemon, or battle spriteFront / spriteBack.
 local function applySpriteDef(entity, def)
   if not entity or not def or type(def.image) ~= "string" then
-    return false
+    return false, "bad_def"
   end
-  local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
-  if not SpriteRenderer then return false end
-  local renderDef = {
-    image = def.image,
-    frames = def.frames or 6,
-    walker = def.walker ~= false,
-    trueColor = def.trueColor ~= false,
-    id = def.id or "SPRITE_POKEPC_MON",
+
+  local renderDef = copySpriteDef(def)
+  if defAlreadyBound(entity, renderDef) then
+    entity.usingFollowerSprite = true
+    entity.usingEnhancedSprite = false
+    if renderDef.walker == true and (renderDef.frames or 1) >= 6 then
+      entity.nativeSpriteRenderer = true
+    end
+    return true, "unchanged"
+  end
+
+  -- Snapshot Followers-owned pose / movement fields before any swap.
+  local preserved = {
+    facing = entity.facing,
+    phase = entity.phase,
+    flip = entity.flip,
+    stepFlip = entity.stepFlip,
+    walkFlip = entity.walkFlip,
+    movement = entity.movement,
+    position = entity.position,
+    cellX = entity.cellX,
+    cellY = entity.cellY,
+    px = entity.px,
+    py = entity.py,
+    targetX = entity.targetX,
+    targetY = entity.targetY,
+    moving = entity.moving,
+    passable = entity.passable,
+    pokepcShiny = entity.pokepcShiny,
+    pokepcTrailer = entity.pokepcTrailer,
+    pokepcTrailerKind = entity.pokepcTrailerKind,
+    pokepcMon = entity.pokepcMon,
+    form = entity.form,
   }
-  if def.pokepcShiny then renderDef.pokepcShiny = true end
+
+  local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
+  if not SpriteRenderer then return false, "no_renderer" end
   local ok, sprite = pcall(SpriteRenderer.new, renderDef, entity.spawnId or entity.id)
-  if not (ok and sprite) then return false end
-  -- Only swap SpriteRenderer — never touch passable / cell / occupancy.
+  if not (ok and sprite) then return false, "new_failed" end
+
   entity.sprite = sprite
   entity.legacySprite = sprite
   entity.spriteId = renderDef.id
   entity.usingFollowerSprite = true
-  return true
+  entity.usingEnhancedSprite = false
+  if renderDef.walker == true and (renderDef.frames or 1) >= 6 then
+    entity.nativeSpriteRenderer = true
+  elseif renderDef.walker ~= true then
+    if entity.nativeSpriteRenderer == true and (renderDef.frames or 1) < 6 then
+      entity.nativeSpriteRenderer = false
+    end
+  end
+
+  entity.facing = preserved.facing
+  entity.phase = preserved.phase
+  entity.flip = preserved.flip
+  entity.stepFlip = preserved.stepFlip
+  entity.walkFlip = preserved.walkFlip
+  entity.movement = preserved.movement
+  entity.position = preserved.position
+  entity.cellX = preserved.cellX
+  entity.cellY = preserved.cellY
+  entity.px = preserved.px
+  entity.py = preserved.py
+  entity.targetX = preserved.targetX
+  entity.targetY = preserved.targetY
+  entity.moving = preserved.moving
+  entity.passable = preserved.passable
+  if preserved.pokepcShiny ~= nil then entity.pokepcShiny = preserved.pokepcShiny end
+  if preserved.pokepcTrailer ~= nil then entity.pokepcTrailer = preserved.pokepcTrailer end
+  if preserved.pokepcTrailerKind ~= nil then
+    entity.pokepcTrailerKind = preserved.pokepcTrailerKind
+  end
+  if preserved.pokepcMon ~= nil then entity.pokepcMon = preserved.pokepcMon end
+  if preserved.form ~= nil then entity.form = preserved.form end
+  if renderDef.pokepcShiny and entity.pokepcShiny == nil then
+    entity.pokepcShiny = true
+  end
+  return true, "replaced"
 end
 
-function FollowersWaterCompat:cacheKey(entity, speciesId, variant, form, surfaceState, style)
+function FollowersWaterCompat:cacheKey(entity, speciesId, variant, form, surfaceState, style, image, frames, walker)
   return table.concat({
     tostring(entity and (entity.id or entity.spawnId) or ""),
     tostring(speciesId or ""),
@@ -200,6 +282,9 @@ function FollowersWaterCompat:cacheKey(entity, speciesId, variant, form, surface
     tostring(form or "default"),
     tostring(surfaceState or "land"),
     tostring(style or "auto"),
+    tostring(image or ""),
+    tostring(frames or ""),
+    tostring(walker == true),
   }, "|")
 end
 
@@ -230,6 +315,86 @@ local function resolveLandDef(self, species, shiny, form, style, game)
   return nil, nil
 end
 
+function FollowersWaterCompat:collectFollowerEntities(ow)
+  local out = {}
+  if not ow then return out end
+  local seen = {}
+  local function add(e)
+    if not e or seen[e] then return end
+    if isPokemonTrailer(e) then
+      seen[e] = true
+      out[#out + 1] = e
+    end
+  end
+  if type(ow.pokepcTrailers) == "table" then
+    for _, e in ipairs(ow.pokepcTrailers) do add(e) end
+  end
+  for _, e in ipairs(ow.entities or {}) do add(e) end
+  for _, e in ipairs(ow.npcs or {}) do add(e) end
+  return out
+end
+
+function FollowersWaterCompat:activeFollower(ow, game)
+  local followers = self:collectFollowerEntities(ow)
+  if #followers == 0 then
+    self.status.detected = false
+    self._activeEntity = nil
+    self._activeEntityId = nil
+    return nil, nil
+  end
+
+  local api = self:publicApi()
+  local mon = nil
+  -- Only verified public export: getActiveFollowerMon.
+  if api and type(api.getActiveFollowerMon) == "function" then
+    local ok, got = pcall(api.getActiveFollowerMon, game)
+    if ok then mon = got end
+  end
+  local want = mon and mon.species and tostring(mon.species) or nil
+
+  -- Sticky: keep the same entity reference across frames while it exists.
+  local sticky = self._activeEntity
+  if sticky and entityStillPresent(ow, sticky) and isPokemonTrailer(sticky) then
+    local stickySpecies = speciesKeyOf(sticky, mon)
+    if not want or stickySpecies == want or stickySpecies == nil then
+      self.status.detected = true
+      return sticky, mon
+    end
+  end
+
+  local best = nil
+  local pokemonOnly = {}
+  for _, e in ipairs(followers) do
+    if e.pokepcTrailerKind == "mon" or e.pokepcTrailerKind == "pokemon" then
+      pokemonOnly[#pokemonOnly + 1] = e
+    end
+  end
+  local pool = (#pokemonOnly > 0) and pokemonOnly or followers
+
+  if want then
+    for _, e in ipairs(pool) do
+      if speciesKeyOf(e, mon) == want then
+        best = e
+        break
+      end
+    end
+  end
+  if not best and #pool == 1 then
+    best = pool[1]
+  elseif not best then
+    -- Conservative: prefer previous sticky match inside pool, else first.
+    for _, e in ipairs(pool) do
+      if e == sticky then best = e break end
+    end
+    if not best then best = pool[1] end
+  end
+
+  self._activeEntity = best
+  self._activeEntityId = best and tostring(best.id or best.spawnId or "") or nil
+  self.status.detected = best ~= nil
+  return best, mon
+end
+
 function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
   resolveWaterSprite = resolveWaterSprite or self.resolveWaterSprite
   local ex, exId = findExports(self.mod)
@@ -239,6 +404,7 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
     self.status.waterSprite = "n/a"
     self.status.spriteKind = "n/a"
     self.status.activeProvider = "n/a"
+    self._activeEntity = nil
     return false
   end
 
@@ -263,51 +429,55 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
   local shiny = mon and monShiny(mon) or (entity.pokepcShiny == true)
   local variant = shiny and "shiny" or "normal"
   local form = entity.form or (mon and mon.form) or "default"
-  local entityId = tostring(entity.id or entity.spawnId or entity)
-  local key = self:cacheKey(entity, species, variant, form, surfaceState, style)
+  local entityId = tostring(entity.id or entity.spawnId or "")
   local prev = self._cache
-  local prevKey = self:cacheKey(
-    { id = prev.entityId }, prev.speciesId, prev.variant, prev.form,
-    prev.surfaceState, prev.requestedStyle)
 
-  if key == prevKey and prev.entityId == entityId then
+  -- Stable identity cache: no resolve / no SpriteRenderer while nothing changed.
+  if prev.entityId == entityId
+     and prev.speciesId == tostring(species or "")
+     and prev.variant == variant
+     and tostring(prev.form or "default") == tostring(form)
+     and prev.surfaceState == surfaceState
+     and prev.requestedStyle == style
+     and prev.image ~= nil then
     self.status.lastAction = "cached"
+    if surfaceState == "water" then
+      self.status.spriteKind = self.status.spriteKind ~= "n/a" and self.status.spriteKind or "water"
+    else
+      self.status.waterSprite = "n/a"
+      self.status.spriteKind = "land"
+    end
     return false
   end
 
-  local changedSurface = prev.surfaceState ~= surfaceState
-  local changedStyle = prev.requestedStyle ~= style
-  local changedFollower = prev.entityId ~= entityId
-    or prev.speciesId ~= tostring(species or "")
-    or prev.variant ~= variant
-    or tostring(prev.form or "default") ~= tostring(form)
-
-  if not (changedSurface or changedFollower or changedStyle or prev.entityId == nil) then
-    self.status.lastAction = "noop"
-    return false
+  local function remember(extra)
+    self._cache = {
+      entityId = entityId,
+      speciesId = tostring(species or ""),
+      variant = variant,
+      form = form,
+      surfaceState = surfaceState,
+      requestedStyle = style,
+      image = extra and extra.image or nil,
+      frames = extra and extra.frames or nil,
+      walker = extra and extra.walker or nil,
+    }
   end
 
+  local def, meta
   if surfaceState == "water" then
     if type(resolveWaterSprite) ~= "function" then
       self.status.waterSprite = "unavailable"
       self.status.spriteKind = "n/a"
       self.status.lastAction = "no_resolver"
-      DebugLog.info(self.mod, "Follower water sprite: unavailable")
-      DebugLog.info(self.mod, "Follower fallback: existing land sprite")
-      self._cache = {
-        entityId = entityId, speciesId = tostring(species or ""),
-        variant = variant, form = form, surfaceState = surfaceState,
-        requestedStyle = style,
-      }
+      remember(nil)
       return false
     end
-    local def, meta = resolveWaterSprite(species, shiny, form, {
+    def, meta = resolveWaterSprite(species, shiny, form, {
       game = game,
       follower = true,
       allowLandFallback = false,
     })
-    -- Water chain: swimming → levitates → (resolver may already include these).
-    -- If still nil, try PokeMMO land as last visual fallback before keeping current.
     if not def then
       local landDef = resolveLandDef(self, species, shiny, form, "pokemmo", game)
       if landDef then
@@ -319,79 +489,112 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
       self.status.waterSprite = "unavailable"
       self.status.spriteKind = "n/a"
       self.status.lastAction = "no_water_sprite"
-      DebugLog.info(self.mod, "Follower water sprite: unavailable")
-      DebugLog.info(self.mod, "Follower fallback: existing follower sprite")
-      self._cache = {
-        entityId = entityId, speciesId = tostring(species or ""),
-        variant = variant, form = form, surfaceState = surfaceState,
-        requestedStyle = style,
-      }
+      remember(nil)
       return false
     end
-    if applySpriteDef(entity, {
-      image = def.image,
-      frames = def.frames or (meta and meta.frames) or 6,
-      walker = def.walker ~= false,
-      trueColor = true,
-      id = def.id or "SPRITE_POKEPC_MON",
-      pokepcShiny = shiny or nil,
-    }) then
-      entity.spriteState = "water"
-      entity.wildsFollowerWater = true
-      self.status.waterSprite = "YES"
-      self.status.spriteKind = tostring((meta and meta.kind) or def.kind or "?")
-      self.status.activeProvider = self.status.spriteKind
-      self.status.lastAction = "to_water"
-      DebugLog.info(self.mod,
-        "Follower water sprite: %s (%s) via %s",
-        tostring(species), self.status.spriteKind, tostring(exId))
-    else
-      self.status.waterSprite = "unavailable"
-      self.status.lastAction = "apply_failed"
-      DebugLog.info(self.mod, "Follower water sprite: unavailable")
-      DebugLog.info(self.mod, "Follower fallback: existing follower sprite")
-    end
   else
-    -- Land: always re-resolve with the currently selected Sprite Style.
-    -- Never blind-restore a stale backup if the user changed styles.
-    local def, meta = resolveLandDef(self, species, shiny, form, style, game)
-    if def and applySpriteDef(entity, {
-      image = def.image,
-      frames = def.frames or (meta and meta.frames) or 6,
-      walker = def.walker ~= false,
-      trueColor = def.trueColor ~= false,
-      id = def.id or "SPRITE_POKEPC_MON",
-      pokepcShiny = shiny or nil,
-    }) then
-      entity.spriteState = "land"
-      entity.wildsFollowerWater = false
-      self.status.waterSprite = "n/a"
-      self.status.spriteKind = "land"
-      self.status.activeProvider = tostring((meta and (meta.providerId or meta.kind)) or style)
-      self.status.lastAction = changedStyle and "style_land" or "to_land"
-      DebugLog.info(self.mod,
-        "Follower land sprite: %s style=%s provider=%s",
-        tostring(species), tostring(style), self.status.activeProvider)
-    else
-      -- Keep existing Followers art — never force a black fallback.
+    def, meta = resolveLandDef(self, species, shiny, form, style, game)
+    if not def then
       entity.spriteState = "land"
       entity.wildsFollowerWater = false
       self.status.waterSprite = "n/a"
       self.status.spriteKind = "land"
       self.status.activeProvider = "keep_current"
       self.status.lastAction = "to_land_keep"
+      local cur = entity.sprite and entity.sprite.def
+      remember({
+        image = (cur and cur.image) or "__keep_current__",
+        frames = cur and cur.frames or 1,
+        walker = cur and cur.walker == true,
+      })
+      return false
     end
   end
 
-  self._cache = {
-    entityId = entityId,
-    speciesId = tostring(species or ""),
-    variant = variant,
-    form = form,
-    surfaceState = surfaceState,
-    requestedStyle = style,
+  local applyDef = {
+    image = def.image,
+    frames = def.frames or (meta and meta.frames) or 1,
+    walker = def.walker == true,
+    trueColor = def.trueColor ~= false,
+    id = def.id or "SPRITE_POKEPC_MON",
+    pokepcShiny = shiny or nil,
   }
-  return true
+  for k, v in pairs(def) do
+    if applyDef[k] == nil then applyDef[k] = v end
+  end
+
+  local nextKey = self:cacheKey(
+    entity, species, variant, form, surfaceState, style,
+    applyDef.image, applyDef.frames, applyDef.walker)
+  local prevKey = self:cacheKey(
+    { id = prev.entityId }, prev.speciesId, prev.variant, prev.form,
+    prev.surfaceState, prev.requestedStyle,
+    prev.image, prev.frames, prev.walker == true)
+
+  if nextKey == prevKey then
+    self.status.lastAction = "cached"
+    return false
+  end
+
+  local ok, how = applySpriteDef(entity, applyDef)
+  if ok then
+    if how == "replaced" then
+      self._spriteRendererNews = (self._spriteRendererNews or 0) + 1
+    end
+    if surfaceState == "water" then
+      entity.spriteState = "water"
+      entity.wildsFollowerWater = true
+      self.status.waterSprite = "YES"
+      self.status.spriteKind = tostring((meta and meta.kind) or def.kind or "?")
+      self.status.activeProvider = self.status.spriteKind
+      self.status.lastAction = (how == "unchanged") and "cached" or "to_water"
+      if how == "replaced" then
+        DebugLog.info(self.mod,
+          "Follower water sprite: %s (%s) via %s",
+          tostring(species), self.status.spriteKind, tostring(exId))
+      end
+    else
+      entity.spriteState = "land"
+      entity.wildsFollowerWater = false
+      self.status.waterSprite = "n/a"
+      self.status.spriteKind = "land"
+      self.status.activeProvider = tostring((meta and (meta.providerId or meta.kind)) or style)
+      if how == "unchanged" then
+        self.status.lastAction = "cached"
+      else
+        self.status.lastAction = (prev.requestedStyle ~= style) and "style_land" or "to_land"
+        DebugLog.info(self.mod,
+          "Follower land sprite: %s style=%s provider=%s",
+          tostring(species), tostring(style), self.status.activeProvider)
+      end
+    end
+    remember({
+      image = applyDef.image,
+      frames = applyDef.frames,
+      walker = applyDef.walker == true,
+    })
+    return how == "replaced"
+  end
+
+  if surfaceState == "water" then
+    self.status.waterSprite = "unavailable"
+    self.status.lastAction = "apply_failed"
+  else
+    entity.spriteState = "land"
+    entity.wildsFollowerWater = false
+    self.status.waterSprite = "n/a"
+    self.status.spriteKind = "land"
+    self.status.activeProvider = "keep_current"
+    self.status.lastAction = "to_land_keep"
+  end
+  -- Remember the desired def so the next tick hits the cache even when
+  -- SpriteRenderer is unavailable — never thrash SpriteRenderer.new.
+  remember({
+    image = applyDef.image,
+    frames = applyDef.frames,
+    walker = applyDef.walker == true,
+  })
+  return false
 end
 
 function FollowersWaterCompat:hudLines()

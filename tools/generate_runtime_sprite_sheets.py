@@ -7,8 +7,17 @@ Verified SpriteRenderer frame tables (src/render/SpriteRenderer.lua):
   WALK  = { down = 3, up = 4, left = 5, right = 5 }
 
 Right-facing uses the left frames with a horizontal mirror in the engine.
-Walk column 1 of each follow-sprite direction row is used as the single
-native walk frame (column 0 matches idle; columns 1/3 are the step pair).
+
+Follow-sprite sources are 4×4 grids (rows = directions, columns = frames):
+  col 0 = idle pose
+  col 1 = idle bob (same silhouette, Y+1) — discarded for runtime walk
+  col 2 = distinct walk pose  ← used as the single native walk frame
+  col 3 = walk bob (same as col 2, Y+1)
+
+``fit_to_card`` bottom-aligns feet, so bob-only columns collapse to idle.
+We therefore pick the first column whose visible content differs from idle
+(typically column 2). Extra source walk frames beyond that one pose are not
+used: Gen1Recomp SpriteRenderer only supports stand/walk (phase 0/1).
 
 Output:
   assets/generated/followsprites_runtime/{dex:03d}-normal.png
@@ -94,10 +103,20 @@ def common_scale(tiles: list[Image.Image]) -> float:
 
 
 def walk_col(layout: dict) -> int:
+    """Default walk column for layouts without per-tile inspection.
+
+    Follow-sprite sheets use columns ``[idle, idle_bob, walk, walk_bob]``.
+    Column 1 is the same silhouette as idle shifted down one pixel; after
+    ``fit_to_card`` bottom-aligns feet, idle and walk become identical and
+    SpriteRenderer phase 0/1 shows no animation. Prefer column 2 (first
+    pose-distinct walk frame). Right is still mirrored from left by the engine.
+    """
     cols = layout.get("walkColumns") or [0, 1, 2, 3]
+    if len(cols) >= 3:
+        return int(cols[2])
     if len(cols) >= 2:
-        return int(cols[1])  # first distinct step pose
-    return int(cols[0]) if cols else 1
+        return int(cols[1])
+    return int(cols[0]) if cols else 2
 
 
 def idle_col(layout: dict) -> int:
@@ -111,13 +130,41 @@ def direction_row(layout: dict, direction: str) -> int:
     return int(dirs[direction])
 
 
+def _visible_content_key(tile: Image.Image) -> bytes:
+    """Offset-invariant fingerprint of a tile's opaque content."""
+    bbox = visible_bounds(tile)
+    if bbox is None:
+        return b""
+    return tile.crop(bbox).tobytes()
+
+
+def pick_walk_column(
+    src: Image.Image, layout: dict, tw: int, th: int, direction: str
+) -> int:
+    """Pick a walk column whose silhouette differs from idle (not just a bob)."""
+    cols = layout.get("walkColumns") or [0, 1, 2, 3]
+    ic = idle_col(layout)
+    row = direction_row(layout, direction)
+    idle_key = _visible_content_key(crop_tile(src, ic, row, tw, th))
+    for col in cols:
+        col = int(col)
+        if col == ic:
+            continue
+        if _visible_content_key(crop_tile(src, col, row, tw, th)) != idle_key:
+            return col
+    # Last resort: documented default (column 2 in the 4-frame follower grid).
+    return walk_col(layout)
+
+
 def extract_source_tiles(src: Image.Image, layout: dict, tw: int, th: int) -> list[Image.Image]:
     tiles: list[Image.Image] = []
     ic = idle_col(layout)
-    wc = walk_col(layout)
     for anim, direction in FRAME_SPECS:
         row = direction_row(layout, direction)
-        col = ic if anim == "idle" else wc
+        if anim == "idle":
+            col = ic
+        else:
+            col = pick_walk_column(src, layout, tw, th, direction)
         tiles.append(crop_tile(src, col, row, tw, th))
     return tiles
 
@@ -194,7 +241,17 @@ def main() -> int:
             "use dedicated right quads from the source atlas optionally."
         ),
         "walkSourceColumn": walk_col(layout),
+        "walkSourceNote": (
+            "Per-direction walk column is the first walkColumns entry whose "
+            "visible content differs from idle (typically column 2). Column 1 "
+            "is an idle bob that collapses under bottom-align fit_to_card."
+        ),
         "idleSourceColumn": idle_col(layout),
+        "discardedSourceFrames": (
+            "Per direction: idle bob (col 1), walk bob (col 3), and dedicated "
+            "right-facing row (engine mirrors left). Gen1Recomp only supports "
+            "stand/walk phase 0/1."
+        ),
         "scale": "visible-bounds fit, nearest-neighbor, bottom-center, shared per species",
         "sheets": {},
     }

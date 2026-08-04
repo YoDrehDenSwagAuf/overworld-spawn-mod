@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.7.1
+
+### PokeMMO walk frames + follower swap stability + aggressive search wander
+
+- **Root cause of frozen PokeMMO walk:** runtime sheet generator picked source
+  column 1 (idle bob). After bottom-align fit, idle and walk frames were
+  pixel-identical, so `phase` 0/1 could not change the drawn frame.
+- Generator now picks the first walk column whose silhouette differs from idle
+  (typically column 2). Regenerated all follow-sprite and water runtime sheets.
+- Native walker sheets still use Gen1Recomp's 6-frame stand/walk contract;
+  extra source walk frames remain unused by design.
+- Removed speculative Followers sprite-API probing; only verified
+  `getActiveFollowerMon` is used.
+- Stabilized active-follower selection (sticky entity) and skip
+  `SpriteRenderer.new` when the bound def is unchanged.
+- Kept `usingEnhancedSprite = false` for native sheets and aggressive search
+  wander from the earlier 1.7.1 draft.
+- Safari / SAFARI_FLEE behaviour unchanged.
+
 ## 1.7.0
 
 ### Safari Zone compatibility + Safari Flee

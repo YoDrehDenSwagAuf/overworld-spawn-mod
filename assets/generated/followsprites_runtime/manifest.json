@@ -17,8 +17,10 @@
   ],
   "rightFacing": "mirror_left",
   "rightFacingNote": "Follow-sprite right frames can be artistically distinct from mirrored left. The native SpriteRenderer / Dramatic Shape path mirrors left for right (trainer contract). Flat 2D may still use dedicated right quads from the source atlas optionally.",
-  "walkSourceColumn": 1,
+  "walkSourceColumn": 2,
+  "walkSourceNote": "Per-direction walk column is the first walkColumns entry whose visible content differs from idle (typically column 2). Column 1 is an idle bob that collapses under bottom-align fit_to_card.",
   "idleSourceColumn": 0,
+  "discardedSourceFrames": "Per direction: idle bob (col 1), walk bob (col 3), and dedicated right-facing row (engine mirrors left). Gen1Recomp only supports stand/walk phase 0/1.",
   "scale": "visible-bounds fit, nearest-neighbor, bottom-center, shared per species",
   "sheets": {
     "1:normal": {
