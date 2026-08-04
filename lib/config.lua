@@ -57,7 +57,6 @@ Config.DEFAULTS = {
   idle_look_max_s = 10,
   enable_water_spawns = true, -- legacy internal alias
   water_spawns = true,        -- public "Water Mons" toggle
-  max_water_mons = 12,
   -- Water spawn zones (tile distance from walkable land). Internal only.
   water_near_shore_max = 2,
   water_mid_water_max = 5,
@@ -70,8 +69,12 @@ Config.DEFAULTS = {
   land_water_chase_player_max = 5,
   water_aggressive_sight_range = 5,
   enable_cave_spawns = true,
+  -- Public developer overlay (behaviour + facing labels).
+  dev_overlay = false,
+  -- Internal-only (no longer public options). Kept as defaults for code paths.
   debug_logging = false,
   force_test_spawn = false,
+  -- Legacy keys retained for one-shot migration into dev_overlay.
   dev_mode = false,
   debug_hud_always_visible = false,
   allow_debug_spawn_outside_encounter_areas = false,
@@ -83,6 +86,17 @@ Config.DEFAULTS = {
   preview_encounter_kind = "any",
   strict_world_billboard_debug = false,
   strict_magenta_billboard_probe = false,
+  -- Water spacing (Manhattan tiles). Scaled by Spawn Amount.
+  water_min_spacing_low = 5,
+  water_min_spacing_normal = 4,
+  water_min_spacing_high = 3,
+  water_min_spacing_very_high = 3,
+  -- Water density scale vs Normal.
+  water_density_low = 0.60,
+  water_density_normal = 1.0,
+  water_density_high = 1.40,
+  water_density_very_high = 1.60,
+  max_water_mons = 6, -- soft global cap for visible water mons
 }
 
 -- Entity lifecycle states for encounter safety.
@@ -138,33 +152,119 @@ function Config.isEnabled(mod)
   return Config.get(mod, "enabled") == true
 end
 
+-- Public Dev Overlay toggle. Migrates legacy debug / Dev Mode when unset.
+function Config.devOverlay(mod)
+  local raw, present = Config.peekSavedOption(mod, "dev_overlay")
+  if present then
+    return raw == true
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local v = mod.options:get("dev_overlay")
+    if v ~= nil then return v == true end
+  end
+  -- One-shot legacy: general debug / Dev Mode ON → Dev Overlay ON.
+  local legacyDebug, legacyPresent = Config.peekSavedOption(mod, "debug")
+  if legacyPresent and legacyDebug == true then return true end
+  local legacyDev, legacyDevPresent = Config.peekSavedOption(mod, "dev_mode")
+  if legacyDevPresent and legacyDev == true then return true end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    if mod.options:get("dev_mode") == true then return true end
+  end
+  return Config.DEFAULTS.dev_overlay == true
+end
+
+-- Back-compat alias: older call sites treated "dev mode" as developer tools.
+-- Now maps onto Dev Overlay (no separate public Dev Mode option).
 function Config.devMode(mod)
-  return Config.get(mod, "dev_mode") == true
+  return Config.devOverlay(mod)
 end
 
 function Config.debug(mod)
-  -- Developer mode forces structured diagnostics logging.
-  if Config.devMode(mod) then return true end
+  -- Dev Overlay forces structured diagnostics logging.
+  if Config.devOverlay(mod) then return true end
   return Config.get(mod, "debug_logging") == true
 end
 
 function Config.hudAlwaysVisible(mod)
-  return Config.devMode(mod) and Config.get(mod, "debug_hud_always_visible") == true
+  -- Detail HUD may show while Dev Overlay is on (no separate public toggle).
+  return Config.devOverlay(mod)
 end
 
 function Config.allowOutsideEncounter(mod)
-  return Config.devMode(mod)
-     and Config.get(mod, "allow_debug_spawn_outside_encounter_areas") == true
+  -- Outside-encounter test spawn no longer has a public toggle.
+  return false
 end
 
 function Config.showSpawnTileOverlay(mod)
-  return Config.devMode(mod)
-     and Config.get(mod, "show_spawn_tile_overlay") == true
+  return false
 end
 
 function Config.showBehaviorOverlays(mod)
-  return Config.devMode(mod)
-     and Config.get(mod, "show_behavior_overlays") == true
+  -- Replaced by Dev Overlay world labels.
+  return Config.devOverlay(mod)
+end
+
+function Config.migrateDevOverlayOption(mod)
+  local on = Config.devOverlay(mod)
+  local function write(bucket)
+    if type(bucket) ~= "table" then return end
+    bucket[mod.id] = bucket[mod.id] or {}
+    if bucket[mod.id].dev_overlay == nil then
+      bucket[mod.id].dev_overlay = on
+    end
+    -- Drop obsolete public developer keys (ignore on load; no crash).
+    bucket[mod.id].dev_mode = nil
+    bucket[mod.id].debug_hud_always_visible = nil
+    bucket[mod.id].show_spawn_tile_overlay = nil
+    bucket[mod.id].show_behavior_overlays = nil
+    bucket[mod.id].allow_debug_spawn_outside_encounter_areas = nil
+    bucket[mod.id].debug_logging = nil
+    bucket[mod.id].force_test_spawn = nil
+    bucket[mod.id].preview_filter = nil
+    bucket[mod.id].preview_search = nil
+    bucket[mod.id].preview_map_filter = nil
+    bucket[mod.id].preview_encounter_kind = nil
+    bucket[mod.id].debug = nil
+  end
+  local world = mod.world
+  local game = world and world.game
+  if game and game.save and game.save.options then
+    game.save.options.modOptions = game.save.options.modOptions or {}
+    write(game.save.options.modOptions)
+  end
+  if game and game.mods then
+    if game.mods.modOptions then write(game.mods.modOptions) end
+    if game.mods.loader and game.mods.loader.modOptions then
+      write(game.mods.loader.modOptions)
+    end
+  end
+  return on
+end
+
+-- Manhattan spacing between visible water Pokémon (tiles).
+function Config.waterMinSpacing(mod)
+  local amount = Config.spawnAmount(mod)
+  if amount == "low" then
+    return tonumber(Config.DEFAULTS.water_min_spacing_low) or 5
+  elseif amount == "high" then
+    return tonumber(Config.DEFAULTS.water_min_spacing_high) or 3
+  elseif amount == "very_high" then
+    return tonumber(Config.DEFAULTS.water_min_spacing_very_high) or 3
+  end
+  return tonumber(Config.DEFAULTS.water_min_spacing_normal) or 4
+end
+
+-- Moderate Spawn Amount scale for water targets.
+function Config.waterDensityFactor(mod)
+  local amount = Config.spawnAmount(mod)
+  if amount == "low" then
+    return tonumber(Config.DEFAULTS.water_density_low) or 0.60
+  elseif amount == "high" then
+    return tonumber(Config.DEFAULTS.water_density_high) or 1.40
+  elseif amount == "very_high" then
+    return tonumber(Config.DEFAULTS.water_density_very_high) or 1.60
+  end
+  return tonumber(Config.DEFAULTS.water_density_normal) or 1.0
 end
 
 local VALID_SPRITE_STYLES = {

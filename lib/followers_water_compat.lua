@@ -1,14 +1,17 @@
--- Optional Followers EX / PokePC water-sprite compatibility.
+-- Optional Followers EX / PokePC sprite-style + water compatibility.
 --
 -- Ownership stays with Followers EX (spawn, queue, pathing, battle).
--- Wilds only swaps the native SpriteDef on the existing follower entity when
--- the player transitions land ↔ water, using the public resolveWaterSprite API.
+-- Wilds only swaps the native SpriteDef on the existing follower entity when:
+--   * the selected Sprite Style changes
+--   * the follower species / shiny / form changes
+--   * the player transitions land ↔ water
 --
 -- Never reads private Followers tables. Detection uses:
 --   * mod.find("FOLLOWERS_EX"|"PokePCFollowers_VoxelMerge").exports
 --   * public markers on ow.entities (pokepcTrailer, pikachuFollower, sprite ids)
 --   * optional ow.pokepcTrailers list published on the shared overworld
 local V = ...
+local Config = V.require("config")
 local DebugLog = V.require("debug_log")
 local CellOccupancy = V.require("cell_occupancy")
 local Surface = V.require("surface")
@@ -42,7 +45,6 @@ local function playerInWater(player, game)
   if player.surface == Surface.WATER or player.surface == "water" then
     return true
   end
-  -- Engine surf state when exposed.
   if game and game.player and game.player.surfing == true then
     return true
   end
@@ -79,21 +81,26 @@ function FollowersWaterCompat.new(mod, opts)
   local self = setmetatable({}, FollowersWaterCompat)
   self.mod = mod
   self.resolveWaterSprite = opts.resolveWaterSprite
+  self.resolveLandSprite = opts.resolveLandSprite
   self._cache = {
     entityId = nil,
     speciesId = nil,
     variant = nil,
     form = nil,
     surfaceState = nil,
+    requestedStyle = nil,
   }
   self.status = {
     detected = false,
     surface = "land",
     waterSprite = "n/a",
     spriteKind = "n/a",
+    requestedStyle = "auto",
+    activeProvider = "n/a",
     lastAction = "idle",
   }
-  self._landBackup = nil -- per entity id
+  self._landBackup = nil
+  self._styleGeneration = 0
   return self
 end
 
@@ -104,6 +111,12 @@ end
 
 function FollowersWaterCompat:publicApi()
   return select(1, findExports(self.mod))
+end
+
+function FollowersWaterCompat:invalidateStyle()
+  self._styleGeneration = (self._styleGeneration or 0) + 1
+  self._cache.requestedStyle = nil -- force refresh on next tick
+  self.status.lastAction = "style_invalidated"
 end
 
 function FollowersWaterCompat:collectFollowerEntities(ow)
@@ -137,12 +150,11 @@ function FollowersWaterCompat:activeFollower(ow, game)
     local ok, got = pcall(api.getActiveFollowerMon, game)
     if ok then mon = got end
   end
-  -- Prefer mon trailer matching active mon species; else first mon trailer.
   local best = nil
   local want = mon and mon.species and tostring(mon.species) or nil
   for _, e in ipairs(followers) do
     if e.pokepcTrailerKind == "trainer" then
-      -- skip trainer trailers for water sprites
+      -- skip trainer trailers for sprite swaps
     else
       local key = speciesKeyOf(e, mon)
       if want and key == want then
@@ -172,6 +184,7 @@ local function applySpriteDef(entity, def)
   if def.pokepcShiny then renderDef.pokepcShiny = true end
   local ok, sprite = pcall(SpriteRenderer.new, renderDef, entity.spawnId or entity.id)
   if not (ok and sprite) then return false end
+  -- Only swap SpriteRenderer — never touch passable / cell / occupancy.
   entity.sprite = sprite
   entity.legacySprite = sprite
   entity.spriteId = renderDef.id
@@ -179,54 +192,42 @@ local function applySpriteDef(entity, def)
   return true
 end
 
-local function backupLand(self, entity)
-  local def = entity.sprite and entity.sprite.def
-  if not def or type(def.image) ~= "string" then return end
-  local id = tostring(entity.id or entity.spawnId or entity)
-  self._landBackup = self._landBackup or {}
-  self._landBackup[id] = {
-    image = def.image,
-    frames = def.frames or 6,
-    walker = def.walker ~= false,
-    trueColor = def.trueColor ~= false,
-    id = def.id,
-    pokepcShiny = def.pokepcShiny,
-    species = speciesKeyOf(entity),
-    shiny = entity.pokepcShiny == true,
-  }
-end
-
-local function restoreLand(self, entity, mon)
-  local id = tostring(entity.id or entity.spawnId or entity)
-  local bak = self._landBackup and self._landBackup[id]
-  local species = speciesKeyOf(entity, mon)
-  local shiny = mon and monShiny(mon) or (entity.pokepcShiny == true)
-  -- If species/shiny changed, do not blind-restore stale backup.
-  if bak and bak.species and species and bak.species ~= species then
-    bak = nil
-  end
-  if bak and bak.shiny ~= nil and bak.shiny ~= shiny then
-    bak = nil
-  end
-  if bak then
-    if applySpriteDef(entity, bak) then
-      entity.spriteState = "land"
-      return true, "backup"
-    end
-  end
-  -- Leave existing Followers land art alone if we cannot restore.
-  entity.spriteState = "land"
-  return false, "keep_current"
-end
-
-function FollowersWaterCompat:cacheKey(entity, speciesId, variant, form, surfaceState)
+function FollowersWaterCompat:cacheKey(entity, speciesId, variant, form, surfaceState, style)
   return table.concat({
     tostring(entity and (entity.id or entity.spawnId) or ""),
     tostring(speciesId or ""),
     tostring(variant or "normal"),
     tostring(form or "default"),
     tostring(surfaceState or "land"),
+    tostring(style or "auto"),
   }, "|")
+end
+
+local function resolveLandDef(self, species, shiny, form, style, game)
+  if type(self.resolveLandSprite) == "function" then
+    local def, meta = self.resolveLandSprite(species, shiny, form, {
+      game = game,
+      style = style,
+      follower = true,
+    })
+    if def and type(def.image) == "string" then
+      return def, meta
+    end
+  end
+  -- Fallback: ask Wilds sprite providers through mod.exports when available.
+  local exports = self.mod and self.mod.exports
+  local providers = exports and exports.spriteProviders
+  if providers and type(providers.resolve) == "function" then
+    local variant = shiny and "shiny" or "normal"
+    local result = providers:resolve(style, species, variant, game)
+    if result and result.def and type(result.def.image) == "string" then
+      return result.def, {
+        providerId = result.providerId,
+        kind = result.providerId,
+      }
+    end
+  end
+  return nil, nil
 end
 
 function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
@@ -237,13 +238,16 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
     self.status.surface = "n/a"
     self.status.waterSprite = "n/a"
     self.status.spriteKind = "n/a"
+    self.status.activeProvider = "n/a"
     return false
   end
 
   local player = ow and ow.player
   local inWater = playerInWater(player, game)
   local surfaceState = inWater and "water" or "land"
+  local style = Config.spriteStyle(self.mod)
   self.status.surface = surfaceState
+  self.status.requestedStyle = style
 
   local entity, mon = self:activeFollower(ow, game)
   if not entity then
@@ -251,6 +255,7 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
     self.status.spriteKind = "n/a"
     self.status.lastAction = "no_follower"
     self._cache.surfaceState = surfaceState
+    self._cache.requestedStyle = style
     return false
   end
 
@@ -259,10 +264,11 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
   local variant = shiny and "shiny" or "normal"
   local form = entity.form or (mon and mon.form) or "default"
   local entityId = tostring(entity.id or entity.spawnId or entity)
-  local key = self:cacheKey(entity, species, variant, form, surfaceState)
+  local key = self:cacheKey(entity, species, variant, form, surfaceState, style)
   local prev = self._cache
   local prevKey = self:cacheKey(
-    { id = prev.entityId }, prev.speciesId, prev.variant, prev.form, prev.surfaceState)
+    { id = prev.entityId }, prev.speciesId, prev.variant, prev.form,
+    prev.surfaceState, prev.requestedStyle)
 
   if key == prevKey and prev.entityId == entityId then
     self.status.lastAction = "cached"
@@ -270,12 +276,13 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
   end
 
   local changedSurface = prev.surfaceState ~= surfaceState
+  local changedStyle = prev.requestedStyle ~= style
   local changedFollower = prev.entityId ~= entityId
     or prev.speciesId ~= tostring(species or "")
     or prev.variant ~= variant
     or tostring(prev.form or "default") ~= tostring(form)
 
-  if not (changedSurface or changedFollower or prev.entityId == nil) then
+  if not (changedSurface or changedFollower or changedStyle or prev.entityId == nil) then
     self.status.lastAction = "noop"
     return false
   end
@@ -290,25 +297,34 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
       self._cache = {
         entityId = entityId, speciesId = tostring(species or ""),
         variant = variant, form = form, surfaceState = surfaceState,
+        requestedStyle = style,
       }
       return false
     end
-    backupLand(self, entity)
     local def, meta = resolveWaterSprite(species, shiny, form, {
       game = game,
       follower = true,
       allowLandFallback = false,
     })
+    -- Water chain: swimming → levitates → (resolver may already include these).
+    -- If still nil, try PokeMMO land as last visual fallback before keeping current.
+    if not def then
+      local landDef = resolveLandDef(self, species, shiny, form, "pokemmo", game)
+      if landDef then
+        def = landDef
+        meta = { kind = "pokemmo_fallback" }
+      end
+    end
     if not def then
       self.status.waterSprite = "unavailable"
       self.status.spriteKind = "n/a"
       self.status.lastAction = "no_water_sprite"
       DebugLog.info(self.mod, "Follower water sprite: unavailable")
-      DebugLog.info(self.mod, "Follower fallback: existing land sprite")
-      -- Prefer Followers EX own surf handling; keep land art.
+      DebugLog.info(self.mod, "Follower fallback: existing follower sprite")
       self._cache = {
         entityId = entityId, speciesId = tostring(species or ""),
         variant = variant, form = form, surfaceState = surfaceState,
+        requestedStyle = style,
       }
       return false
     end
@@ -324,6 +340,7 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
       entity.wildsFollowerWater = true
       self.status.waterSprite = "YES"
       self.status.spriteKind = tostring((meta and meta.kind) or def.kind or "?")
+      self.status.activeProvider = self.status.spriteKind
       self.status.lastAction = "to_water"
       DebugLog.info(self.mod,
         "Follower water sprite: %s (%s) via %s",
@@ -332,14 +349,38 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
       self.status.waterSprite = "unavailable"
       self.status.lastAction = "apply_failed"
       DebugLog.info(self.mod, "Follower water sprite: unavailable")
-      DebugLog.info(self.mod, "Follower fallback: existing land sprite")
+      DebugLog.info(self.mod, "Follower fallback: existing follower sprite")
     end
   else
-    local ok = restoreLand(self, entity, mon)
-    entity.wildsFollowerWater = false
-    self.status.waterSprite = "n/a"
-    self.status.spriteKind = "land"
-    self.status.lastAction = ok and "to_land" or "to_land_keep"
+    -- Land: always re-resolve with the currently selected Sprite Style.
+    -- Never blind-restore a stale backup if the user changed styles.
+    local def, meta = resolveLandDef(self, species, shiny, form, style, game)
+    if def and applySpriteDef(entity, {
+      image = def.image,
+      frames = def.frames or (meta and meta.frames) or 6,
+      walker = def.walker ~= false,
+      trueColor = def.trueColor ~= false,
+      id = def.id or "SPRITE_POKEPC_MON",
+      pokepcShiny = shiny or nil,
+    }) then
+      entity.spriteState = "land"
+      entity.wildsFollowerWater = false
+      self.status.waterSprite = "n/a"
+      self.status.spriteKind = "land"
+      self.status.activeProvider = tostring((meta and (meta.providerId or meta.kind)) or style)
+      self.status.lastAction = changedStyle and "style_land" or "to_land"
+      DebugLog.info(self.mod,
+        "Follower land sprite: %s style=%s provider=%s",
+        tostring(species), tostring(style), self.status.activeProvider)
+    else
+      -- Keep existing Followers art — never force a black fallback.
+      entity.spriteState = "land"
+      entity.wildsFollowerWater = false
+      self.status.waterSprite = "n/a"
+      self.status.spriteKind = "land"
+      self.status.activeProvider = "keep_current"
+      self.status.lastAction = "to_land_keep"
+    end
   end
 
   self._cache = {
@@ -348,6 +389,7 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
     variant = variant,
     form = form,
     surfaceState = surfaceState,
+    requestedStyle = style,
   }
   return true
 end
@@ -355,6 +397,8 @@ end
 function FollowersWaterCompat:hudLines()
   return {
     ("Follower detected: %s"):format(self.status.detected and "YES" or "NO"),
+    ("Follower requested style: %s"):format(tostring(self.status.requestedStyle or "?")),
+    ("Follower active provider: %s"):format(tostring(self.status.activeProvider or "?")),
     ("Follower surface: %s"):format(tostring(self.status.surface or "?")),
     ("Follower water sprite: %s"):format(tostring(self.status.waterSprite or "?")),
     ("Follower sprite kind: %s"):format(tostring(self.status.spriteKind or "?")),

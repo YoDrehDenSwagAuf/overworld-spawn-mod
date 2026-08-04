@@ -576,6 +576,14 @@ function Diagnostics.hudLines(logic)
     lines[#lines + 1] = ("Water Mons: %s"):format(
       Config.waterMons(logic.mod) and "ON" or "OFF")
     lines[#lines + 1] = ("Water target: %d"):format(logic.targetWaterCount or 0)
+    lines[#lines + 1] = ("Water minimum spacing: %d"):format(
+      Config.waterMinSpacing(logic.mod))
+    if logic.caveReachability then
+      local CaveReachability = V.require("cave_reachability")
+      for _, line in ipairs(CaveReachability.hudLines(logic.caveReachability)) do
+        lines[#lines + 1] = line
+      end
+    end
     local zt = logic.waterZoneTargets or {}
     lines[#lines + 1] = ("Near/Mid/Deep: %d/%d/%d"):format(
       zt.near or 0, zt.mid or 0, zt.deep or 0)

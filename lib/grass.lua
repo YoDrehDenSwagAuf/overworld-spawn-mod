@@ -106,8 +106,20 @@ local function chebyshev(ax, ay, bx, by)
   return dx > dy and dx or dy
 end
 
+local function manhattan(ax, ay, bx, by)
+  local dx = ax - bx
+  if dx < 0 then dx = -dx end
+  local dy = ay - by
+  if dy < 0 then dy = -dy end
+  return dx + dy
+end
+
 function Grass.chebyshev(ax, ay, bx, by)
   return chebyshev(ax, ay, bx, by)
+end
+
+function Grass.manhattan(ax, ay, bx, by)
+  return manhattan(ax, ay, bx, by)
 end
 
 -- Returns ok, reason. Reasons match the fail-safe diagnostics contract.
@@ -220,17 +232,19 @@ function Grass.validateEligibleTile(map, entities, player, x, y, minDist, maxDis
   return Grass.validateWalkableTile(map, entities, player, x, y, minDist, maxDist, ignore)
 end
 
-local function tooCloseToSpawns(x, y, occupiedSpawns, minSep)
+local function tooCloseToSpawns(x, y, occupiedSpawns, minSep, metric)
   if not occupiedSpawns or not minSep or minSep <= 0 then return false end
+  local distFn = (metric == "manhattan") and manhattan or chebyshev
   for _, s in ipairs(occupiedSpawns) do
-    if chebyshev(x, y, s.x, s.y) < minSep then return true end
+    if distFn(x, y, s.x, s.y) < minSep then return true end
   end
   return false
 end
 
 -- Progressive search: prefer configured min/max, then relax minDist down to 1,
 -- then expand maxDist so small maps are not left with zero candidates.
--- opts: { membership, mode, occupiedSpawns, minSeparation, preferFar }
+-- opts: { membership, mode, occupiedSpawns, minSeparation, preferFar,
+--         strictSeparation, separationMetric ("chebyshev"|"manhattan") }
 function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist, onReject, opts)
   opts = opts or {}
   grassList = grassList or Grass.cells(map)
@@ -246,6 +260,8 @@ function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist,
   local occupiedSpawns = opts.occupiedSpawns
   local minSep = opts.minSeparation or 0
   local occupancy = opts.occupancy
+  local strictSep = opts.strictSeparation == true
+  local sepMetric = opts.separationMetric or "chebyshev"
 
   local function collect(useMin, useMax, enforceSep)
     local candidates = {}
@@ -253,7 +269,8 @@ function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist,
       local ok, reason = Grass.validateEligibleTile(
         map, entities, player, cell.x, cell.y, useMin, useMax, nil,
         membership, mode, occupancy)
-      if ok and enforceSep and tooCloseToSpawns(cell.x, cell.y, occupiedSpawns, minSep) then
+      if ok and enforceSep
+         and tooCloseToSpawns(cell.x, cell.y, occupiedSpawns, minSep, sepMetric) then
         ok = false
         reason = "rejected: too close to spawn"
       end
@@ -268,14 +285,18 @@ function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist,
 
   local candidates = collect(minDist, maxDist, true)
 
-  if #candidates == 0 then
+  -- Soft separation: may drop spacing when nothing fits.
+  -- Strict (water): never fully ignore spacing — caller reduces target instead.
+  if #candidates == 0 and not strictSep then
     candidates = collect(minDist, maxDist, false)
   end
 
   if #candidates == 0 then
     for relax = minDist - 1, 1, -1 do
       candidates = collect(relax, maxDist, true)
-      if #candidates == 0 then candidates = collect(relax, maxDist, false) end
+      if #candidates == 0 and not strictSep then
+        candidates = collect(relax, maxDist, false)
+      end
       if #candidates > 0 then
         minDist = relax
         break
@@ -292,7 +313,11 @@ function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist,
     local hardMax = math.max(maxDist, mapSpan, 32)
     while #candidates == 0 and expand < hardMax do
       expand = expand + 4
-      candidates = collect(1, expand, false)
+      -- Keep separation under strict mode while expanding search radius.
+      candidates = collect(1, expand, true)
+      if #candidates == 0 and not strictSep then
+        candidates = collect(1, expand, false)
+      end
     end
     if #candidates > 0 then
       maxDist = expand
