@@ -1,10 +1,10 @@
-# Manual test guide — Wilds of Kanto 1.7.0
+# Manual test guide — Wilds of Kanto 1.7.1
 
-## After installing 1.7.0
+## After installing 1.7.1
 
 1. Remove any previous Wilds of Kanto install from the Mod Manager.
-2. Install only `wilds-of-kanto-v1.7.0.zip`.
-3. Confirm the Mod Manager shows version **1.7.0**.
+2. Install only `wilds-of-kanto-v1.7.1.zip`.
+3. Confirm the Mod Manager shows version **1.7.1**.
 
 ## Settings
 
@@ -64,6 +64,23 @@
 1. With Followers EX + compatible style, follower uses the selected sprite style.
 2. Enter/leave water: follower Swimming/Levitates transitions once per change.
 3. Wild collision still blocks through followers.
+4. Sprite Style = PokeMMO: follower walk frames animate while following.
+5. Style switch mid-walk must not freeze the follower on a stand frame.
+
+## PokeMMO walk animation
+
+1. Sprite Style = PokeMMO on a grass route.
+2. GRASS_WANDER Pokémon must show walk frames while moving between tiles.
+3. IDLE_LOOK still turns without walk frames.
+4. AGGRESSIVE search wander and chase must also animate walk frames.
+5. Swimming / Levitates water sheets must keep the same native walk contract.
+
+## Aggressive search wander
+
+1. Outside Safari, AGGRESSIVE Pokémon should occasionally take a step while scanning.
+2. Behaviour label stays AGGRO (not WANDER).
+3. Seeing the player still stops wander, shows one alert, then chase.
+4. Safari session must still never use normal AGGRESSIVE.
 
 ## Regression smoke
 

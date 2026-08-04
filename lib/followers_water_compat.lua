@@ -168,27 +168,133 @@ function FollowersWaterCompat:activeFollower(ow, game)
   return best, mon
 end
 
-local function applySpriteDef(entity, def)
+-- Prefer a public Followers / PokePC sprite refresh hook when one exists.
+local function tryPublicFollowerSpriteApi(api, entity, def)
+  if type(api) ~= "table" or not entity or not def then return false end
+  for _, name in ipairs({
+    "setFollowerSpriteDef", "setActiveFollowerSpriteDef",
+    "applyFollowerSpriteDef", "refreshFollowerSprite",
+    "setFollowerSprite", "updateFollowerSprite",
+  }) do
+    local fn = api[name]
+    if type(fn) == "function" then
+      local ok, applied = pcall(fn, entity, def)
+      if ok and applied ~= false then
+        return true
+      end
+      ok, applied = pcall(fn, api, entity, def)
+      if ok and applied ~= false then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+-- Exact def copy for SpriteRenderer. Never invent walker sheets from static art.
+local function copySpriteDef(def)
+  local renderDef = {}
+  if type(def) == "table" then
+    for k, v in pairs(def) do
+      renderDef[k] = v
+    end
+  end
+  renderDef.image = def.image
+  renderDef.frames = def.frames or 1
+  renderDef.walker = def.walker == true
+  if def.trueColor == nil then
+    renderDef.trueColor = true
+  else
+    renderDef.trueColor = def.trueColor ~= false
+  end
+  renderDef.id = def.id or "SPRITE_POKEPC_MON"
+  if def.pokepcShiny then
+    renderDef.pokepcShiny = true
+  end
+  return renderDef
+end
+
+local function applySpriteDef(entity, def, api)
   if not entity or not def or type(def.image) ~= "string" then
     return false
   end
-  local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
-  if not SpriteRenderer then return false end
-  local renderDef = {
-    image = def.image,
-    frames = def.frames or 6,
-    walker = def.walker ~= false,
-    trueColor = def.trueColor ~= false,
-    id = def.id or "SPRITE_POKEPC_MON",
+
+  -- Snapshot Followers-owned pose / movement fields before any swap.
+  local preserved = {
+    facing = entity.facing,
+    phase = entity.phase,
+    flip = entity.flip,
+    stepFlip = entity.stepFlip,
+    walkFlip = entity.walkFlip,
+    movement = entity.movement,
+    position = entity.position,
+    cellX = entity.cellX,
+    cellY = entity.cellY,
+    px = entity.px,
+    py = entity.py,
+    targetX = entity.targetX,
+    targetY = entity.targetY,
+    moving = entity.moving,
+    passable = entity.passable,
+    pokepcShiny = entity.pokepcShiny,
+    pokepcTrailer = entity.pokepcTrailer,
+    pokepcTrailerKind = entity.pokepcTrailerKind,
+    pokepcMon = entity.pokepcMon,
+    form = entity.form,
   }
-  if def.pokepcShiny then renderDef.pokepcShiny = true end
-  local ok, sprite = pcall(SpriteRenderer.new, renderDef, entity.spawnId or entity.id)
-  if not (ok and sprite) then return false end
-  -- Only swap SpriteRenderer — never touch passable / cell / occupancy.
-  entity.sprite = sprite
-  entity.legacySprite = sprite
-  entity.spriteId = renderDef.id
+
+  local renderDef = copySpriteDef(def)
+  if tryPublicFollowerSpriteApi(api, entity, renderDef) then
+    -- Public API owns the swap; still restore pose/movement contract.
+  else
+    local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
+    if not SpriteRenderer then return false end
+    local ok, sprite = pcall(SpriteRenderer.new, renderDef, entity.spawnId or entity.id)
+    if not (ok and sprite) then return false end
+    -- Only swap SpriteRenderer — never touch passable / cell / occupancy /
+    -- Followers movement / follow queue / pose owner fields.
+    entity.sprite = sprite
+    entity.legacySprite = sprite
+    entity.spriteId = renderDef.id
+  end
+
   entity.usingFollowerSprite = true
+  entity.usingEnhancedSprite = false
+  if renderDef.walker == true and (renderDef.frames or 1) >= 6 then
+    entity.nativeSpriteRenderer = true
+  elseif renderDef.walker ~= true then
+    -- Static providers must stay static; do not force walker metadata.
+    if entity.nativeSpriteRenderer == true and (renderDef.frames or 1) < 6 then
+      entity.nativeSpriteRenderer = false
+    end
+  end
+
+  -- Restore Followers-owned fields exactly.
+  entity.facing = preserved.facing
+  entity.phase = preserved.phase
+  entity.flip = preserved.flip
+  entity.stepFlip = preserved.stepFlip
+  entity.walkFlip = preserved.walkFlip
+  entity.movement = preserved.movement
+  entity.position = preserved.position
+  entity.cellX = preserved.cellX
+  entity.cellY = preserved.cellY
+  entity.px = preserved.px
+  entity.py = preserved.py
+  entity.targetX = preserved.targetX
+  entity.targetY = preserved.targetY
+  entity.moving = preserved.moving
+  entity.passable = preserved.passable
+  if preserved.pokepcShiny ~= nil then entity.pokepcShiny = preserved.pokepcShiny end
+  if preserved.pokepcTrailer ~= nil then entity.pokepcTrailer = preserved.pokepcTrailer end
+  if preserved.pokepcTrailerKind ~= nil then
+    entity.pokepcTrailerKind = preserved.pokepcTrailerKind
+  end
+  if preserved.pokepcMon ~= nil then entity.pokepcMon = preserved.pokepcMon end
+  if preserved.form ~= nil then entity.form = preserved.form end
+  if renderDef.pokepcShiny and entity.pokepcShiny == nil then
+    entity.pokepcShiny = true
+  end
   return true
 end
 
@@ -259,6 +365,8 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
     return false
   end
 
+  local api = select(1, findExports(self.mod))
+
   local species = speciesKeyOf(entity, mon)
   local shiny = mon and monShiny(mon) or (entity.pokepcShiny == true)
   local variant = shiny and "shiny" or "normal"
@@ -328,14 +436,16 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
       }
       return false
     end
-    if applySpriteDef(entity, {
+    local applyDef = {
       image = def.image,
-      frames = def.frames or (meta and meta.frames) or 6,
-      walker = def.walker ~= false,
+      frames = def.frames or (meta and meta.frames) or 1,
+      walker = def.walker == true,
       trueColor = true,
       id = def.id or "SPRITE_POKEPC_MON",
       pokepcShiny = shiny or nil,
-    }) then
+    }
+    if def.kind then applyDef.kind = def.kind end
+    if applySpriteDef(entity, applyDef, api) then
       entity.spriteState = "water"
       entity.wildsFollowerWater = true
       self.status.waterSprite = "YES"
@@ -355,14 +465,20 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
     -- Land: always re-resolve with the currently selected Sprite Style.
     -- Never blind-restore a stale backup if the user changed styles.
     local def, meta = resolveLandDef(self, species, shiny, form, style, game)
-    if def and applySpriteDef(entity, {
+    local applyDef = def and {
       image = def.image,
-      frames = def.frames or (meta and meta.frames) or 6,
-      walker = def.walker ~= false,
+      frames = def.frames or (meta and meta.frames) or 1,
+      walker = def.walker == true,
       trueColor = def.trueColor ~= false,
       id = def.id or "SPRITE_POKEPC_MON",
       pokepcShiny = shiny or nil,
-    }) then
+    } or nil
+    if applyDef and def then
+      for k, v in pairs(def) do
+        if applyDef[k] == nil then applyDef[k] = v end
+      end
+    end
+    if applyDef and applySpriteDef(entity, applyDef, api) then
       entity.spriteState = "land"
       entity.wildsFollowerWater = false
       self.status.waterSprite = "n/a"

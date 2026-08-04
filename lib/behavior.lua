@@ -44,6 +44,12 @@ Behavior.STATE = {
   FLEE_DONE = "FLEE_DONE",
 }
 
+-- AGGRESSIVE / WATER_AGGRESSIVE search-phase wander (not a new public behaviour).
+-- Slightly rarer than GRASS_WANDER so search feels alive without looking frantic.
+Behavior.AGGRESSIVE_SEARCH_WANDER_MIN_S = 1.5
+Behavior.AGGRESSIVE_SEARCH_WANDER_MAX_S = 3.5
+Behavior.AGGRESSIVE_SEARCH_WANDER_STEP_CHANCE = 0.60
+
 local FACINGS = { "down", "up", "left", "right" }
 
 -- Forward declarations for land→water helpers used by stepToward.
@@ -364,6 +370,12 @@ function Behavior.initState(behavior, rng)
     else
       st.sightDisabled = true
     end
+  elseif Behavior.isAggressive(behavior) then
+    st.sightDisabled = false
+    -- Search wander uses a shorter cadence than IDLE_LOOK.
+    local lo = Behavior.AGGRESSIVE_SEARCH_WANDER_MIN_S
+    local hi = Behavior.AGGRESSIVE_SEARCH_WANDER_MAX_S
+    st.nextActionAt = now() + lo + (rng() * (hi - lo))
   elseif not Behavior.isHidden(behavior) then
     st.sightDisabled = false
   end
@@ -847,6 +859,112 @@ local function enterBattlePending(entity, bx)
   Movement.stop(entity, Movement.STATE.BATTLE_PENDING)
 end
 
+-- Shared GRASS_WANDER / WATER_WANDER / aggressive-search step planner.
+-- Uses the same canStep + occupancy + Movement.beginStep contract.
+local function planWanderStep(entity, ctx, bx, t, opts)
+  opts = opts or {}
+  local map = ctx.map
+  local entities = ctx.entities
+  local player = ctx.player
+  local region = entity.homeRegion
+  local rng = rngOf(ctx.rng)
+  local waterOnly = opts.waterOnly == true
+    or entity.surface == Surface.WATER
+
+  local dirs = { { 0, -1, "up" }, { 0, 1, "down" }, { -1, 0, "left" }, { 1, 0, "right" } }
+  for i = #dirs, 2, -1 do
+    local j = rng(i)
+    dirs[i], dirs[j] = dirs[j], dirs[i]
+  end
+
+  local faceOnlyChance = opts.faceOnlyChance
+  if faceOnlyChance == nil then faceOnlyChance = 0.35 end
+  if rng() < faceOnlyChance then
+    Movement.setFacing(entity, dirs[rng(#dirs)][3])
+    bx.state = Behavior.STATE.LOOKING
+    return false, "look"
+  end
+
+  local stepOpts = {
+    occupancy = ctx.occupancy,
+    waterOnly = waterOnly,
+    reachableCaveCells = (entity.surface == Surface.CAVE) and ctx.reachableCaveCells or nil,
+  }
+  for _, d in ipairs(dirs) do
+    local nx, ny = entity.cellX + d[1], entity.cellY + d[2]
+    if canStep(map, entities, entity, player, nx, ny, region, false, stepOpts) then
+      local reserved = true
+      if ctx.occupancy then
+        reserved = ctx.occupancy:reserveMove(entity, entity.cellX, entity.cellY, nx, ny)
+      end
+      if reserved and Movement.beginStep(entity, nx, ny, { facing = d[3] }) then
+        entity.movementBlockedBy = nil
+        bx.state = Behavior.STATE.MOVING
+        return true, nil
+      end
+      if ctx.occupancy then ctx.occupancy:cancelMove(entity) end
+      entity.movementBlockedBy = "occupied"
+    end
+  end
+  return false, "blocked"
+end
+
+local function searchWanderCooldown(rng)
+  rng = rngOf(rng)
+  local lo = Behavior.AGGRESSIVE_SEARCH_WANDER_MIN_S
+  local hi = Behavior.AGGRESSIVE_SEARCH_WANDER_MAX_S
+  return lo + rng() * (hi - lo)
+end
+
+-- Aggressive search phase: occasional wander + look, never leaves AGGRESSIVE.
+local function tryAggressiveSearchWander(entity, ctx, bx, t, opts)
+  opts = opts or {}
+  if bx.playerDetected or bx.chasing or bx.sightDisabled then
+    return false
+  end
+  if Movement.isBusy(entity) then
+    return false
+  end
+  if t < (bx.nextActionAt or 0) then
+    bx.state = bx.state or Behavior.STATE.IDLE
+    return false
+  end
+
+  local rng = rngOf(ctx.rng)
+  local stepChance = opts.stepChance or Behavior.AGGRESSIVE_SEARCH_WANDER_STEP_CHANCE
+  if rng() < stepChance then
+    local moved = planWanderStep(entity, ctx, bx, t, {
+      waterOnly = opts.waterOnly,
+      faceOnlyChance = 0.25,
+    })
+    bx.nextActionAt = t + searchWanderCooldown(rng)
+    return moved == true
+  end
+
+  tryFace(entity, rng)
+  -- Search cadence is intentionally shorter than IDLE_LOOK intervals.
+  bx.nextActionAt = t + searchWanderCooldown(rng)
+  return false
+end
+
+-- Sight check during a search wander step. Detection stops the step safely.
+local function interruptSearchWanderOnSight(entity, ctx, bx, player, range, sightOpts)
+  if bx.playerDetected or bx.chasing or bx.sightDisabled then
+    return false
+  end
+  if not Behavior.playerInSight(entity, player, ctx.map, ctx.entities, range, sightOpts) then
+    return false
+  end
+  if Movement.isBusy(entity) then
+    Movement.stop(entity, Movement.STATE.ALERT)
+    if ctx.occupancy then
+      ctx.occupancy:cancelMove(entity)
+    end
+  end
+  enterDetected(entity, bx, player)
+  return true
+end
+
 -- Heal inconsistent aggro flags so sight/chase cannot soft-lock.
 local function healAggroFlags(entity, bx, t)
   if not bx then return end
@@ -1178,6 +1296,23 @@ local function tickLandAggressive(entity, ctx, bx, t)
         enterBattlePending(entity, bx)
         return "contact"
       end
+      return nil
+    end
+    -- Search wander mid-step: detection has priority over finishing aimlessly.
+    local sightOptsBusy = {}
+    if ctx.waterMonsEnabled ~= false
+       and playerSurfing(player, map)
+       and entityHasWaterSprite(entity, ctx)
+       and landAdjacentToWater(map, entity.cellX, entity.cellY) then
+      local pDist = shoreDistanceOfPlayer(map, player, ctx.shoreMap)
+      local maxPlayer = ctx.landWaterPlayerMax
+                     or Config.DEFAULTS.land_water_chase_player_max or 5
+      if pDist ~= nil and pDist <= maxPlayer then
+        sightOptsBusy.allowWater = true
+      end
+    end
+    if interruptSearchWanderOnSight(entity, ctx, bx, player, range, sightOptsBusy) then
+      return "alert"
     end
     return nil
   end
@@ -1271,15 +1406,6 @@ local function tickLandAggressive(entity, ctx, bx, t)
     return nil
   end
 
-  if Movement.isBusy(entity) then
-    Movement.update(entity, ctx.dt or 0.016)
-    return nil
-  end
-
-  if t >= (bx.nextActionAt or 0) and not bx.playerDetected then
-    tryFace(entity, ctx.rng)
-  end
-
   local sightOpts = {}
   if ctx.waterMonsEnabled ~= false
      and playerSurfing(player, map)
@@ -1293,10 +1419,13 @@ local function tickLandAggressive(entity, ctx, bx, t)
     end
   end
 
+  -- Sight first: never start a new search wander after detection.
   if Behavior.playerInSight(entity, player, map, entities, range, sightOpts) then
     enterDetected(entity, bx, player)
     return "alert"
   end
+
+  tryAggressiveSearchWander(entity, ctx, bx, t, { waterOnly = false })
   return nil
 end
 
@@ -1347,6 +1476,10 @@ local function tickWaterAggressive(entity, ctx, bx, t)
         enterBattlePending(entity, bx)
         return "contact"
       end
+      return nil
+    end
+    if interruptSearchWanderOnSight(entity, ctx, bx, player, range, { waterOnly = true }) then
+      return "alert"
     end
     return nil
   end
@@ -1407,26 +1540,18 @@ local function tickWaterAggressive(entity, ctx, bx, t)
     return nil
   end
 
-  if Movement.isBusy(entity) then
-    Movement.update(entity, ctx.dt or 0.016)
-    return nil
-  end
-
-  if t >= (bx.nextActionAt or 0) and not bx.playerDetected then
-    tryFace(entity, ctx.rng)
-  end
-
-  if not playerSurfing(player, map) then return nil end
-  if not sameWaterComponent(map, ctx.waterRegions,
+  -- Water search: only watch / wander while the player shares this water body.
+  if playerSurfing(player, map)
+     and sameWaterComponent(map, ctx.waterRegions,
                             entity.cellX, entity.cellY,
-                            player.cellX, player.cellY) then
-    return nil
-  end
-
-  if Behavior.playerInSight(entity, player, map, entities, range, { waterOnly = true }) then
+                            player.cellX, player.cellY)
+     and Behavior.playerInSight(entity, player, map, entities, range, { waterOnly = true }) then
     enterDetected(entity, bx, player)
     return "alert"
   end
+
+  -- Water search wander uses WATER_WANDER-compatible cells only.
+  tryAggressiveSearchWander(entity, ctx, bx, t, { waterOnly = true })
   return nil
 end
 

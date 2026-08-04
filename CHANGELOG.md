@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.1
+
+### PokeMMO / follower walk animation + aggressive search wander
+
+- Native walker sheets (PokeMMO, Followers EX, Swimming, Levitates) no longer
+  mark `usingEnhancedSprite` after a provider sprite swap
+- Sprite swaps preserve movement progress, facing, phase, and step flip
+- Follower sprite defs are copied exactly (`frames` / `walker` not invented)
+- AGGRESSIVE and WATER_AGGRESSIVE occasionally wander during search while
+  still scanning for the player; detection interrupts wander and starts alert
+- Safari / SAFARI_FLEE behaviour unchanged
+
 ## 1.7.0
 
 ### Safari Zone compatibility + Safari Flee
