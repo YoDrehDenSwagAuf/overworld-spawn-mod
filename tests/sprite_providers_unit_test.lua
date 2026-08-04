@@ -449,33 +449,31 @@ check(okSet == true, "setSpriteStyle accepts pokemmo from mod settings path")
 eq(V.mod.world.game.save.options.modOptions.overworld_wild_spawns.sprite_style,
    "pokemmo", "mod settings path writes same sprite_style key")
 
--- Menu module registers once
+-- Menu module registers screens once and does NOT inject Start Menu rows.
 local SpriteStyleMenu = assert(loadfile("lib/sprite_style_menu.lua"))(V)
 local menu = SpriteStyleMenu.new(V.mod, fakeLogic)
 local wraps = 0
+local screens = 0
 V.mod.hooks = {
   wrap = function(_, name, fn)
-    if name == "ui.start_menu.items" then wraps = wraps + 1 end
-    -- Immediately exercise uniqueness: call twice through register.
-    local items = { { label = "POKeDEX" }, { label = "SAVE" } }
-    local out = fn(function(_, items2) return items2 end, nil, items)
-    local order = {}
-    for _, it in ipairs(out) do
-      if it.label == "SPRITE STYLE" or it.label == "SPAWN AMOUNT"
-         or it.label == "RANDOM ENC" or it.label == "WATER MONS" then
-        order[#order + 1] = it.label
+    if name == "ui.start_menu.items" then
+      wraps = wraps + 1
+      local items = { { label = "POKeDEX" }, { label = "SAVE" } }
+      local out = fn(function(_, items2) return items2 end, nil, items)
+      local order = {}
+      for _, it in ipairs(out) do
+        if it.label == "SPRITE STYLE" or it.label == "SPAWN AMOUNT"
+           or it.label == "RANDOM ENC" or it.label == "WATER MONS" then
+          order[#order + 1] = it.label
+        end
       end
+      eq(#order, 0, "start menu has no Wilds gameplay entries")
     end
-    eq(#order, 4, "start menu inserts four Wilds entries")
-    eq(order[1], "SPRITE STYLE", "menu order 1 SPRITE STYLE")
-    eq(order[2], "SPAWN AMOUNT", "menu order 2 SPAWN AMOUNT")
-    eq(order[3], "RANDOM ENC", "menu order 3 RANDOM ENC")
-    eq(order[4], "WATER MONS", "menu order 4 WATER MONS")
   end,
 }
 V.mod.content = {
   screens = {
-    register = function() end,
+    register = function() screens = screens + 1 end,
   },
 }
 V.mod.ui = {
@@ -492,7 +490,8 @@ V.mod.ui = {
 }
 menu:register()
 menu:register() -- second call must no-op
-eq(wraps, 1, "start menu hook registered only once")
+eq(wraps, 0, "start menu hook not registered by sprite style menu")
+check(screens >= 4, "style/spawn/random/water screens registered")
 eq(menu._registered, true, "menu marked registered")
 
 -- options.lua includes gold

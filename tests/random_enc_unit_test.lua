@@ -72,7 +72,10 @@ check(Config.waterMons(V.mod) == true, "waterMons defaults ON")
 local schema = assert(loadfile("options.lua"))()
 local byKey = {}
 for _, row in ipairs(schema) do byKey[row.key] = row end
-check(byKey.spawn_density == nil, "spawn_density removed from Mod Settings schema")
+check(byKey.spawn_density ~= nil, "spawn_density present in Mod Settings schema")
+eq(byKey.spawn_density.label, "Spawn Amount", "Spawn Amount label")
+eq(byKey.spawn_density.default, "normal", "spawn_density schema default")
+check(#byKey.spawn_density.label <= 14, "Spawn Amount label <= 14")
 check(byKey.grass_encounters == nil, "grass_encounters removed from Mod Settings")
 check(byKey.suppress_random_grass == nil, "suppress_random_grass removed from Mod Settings")
 check(byKey.random_encounters ~= nil, "random_encounters present in Mod Settings")
@@ -83,6 +86,15 @@ eq(byKey.random_encounters.type, "toggle", "random_encounters is toggle")
 check(byKey.sprite_style ~= nil, "Sprite Style remains in Mod Settings")
 check(byKey.water_spawns ~= nil, "water_spawns present in Mod Settings")
 eq(byKey.water_spawns.label, "Water Mons", "Water Mons label")
+check(byKey.dev_overlay ~= nil, "dev_overlay present in Mod Settings")
+eq(byKey.dev_overlay.default, false, "dev_overlay defaults OFF")
+eq(byKey.dev_overlay.label, "Dev Overlay", "Dev Overlay label")
+check(byKey.dev_mode == nil, "dev_mode removed from public schema")
+check(byKey.debug_hud_always_visible == nil, "debug_hud_always_visible removed")
+check(byKey.show_behavior_overlays == nil, "show_behavior_overlays removed")
+check(byKey.force_test_spawn == nil, "force_test_spawn removed")
+check(byKey.preview_filter == nil, "preview_filter removed")
+check(byKey.debug_logging == nil, "debug_logging removed from public schema")
 
 -- ------- Migration from grass_encounters -------
 savedOpts.random_encounters = nil
@@ -226,7 +238,21 @@ check(tHigh > tLow, "high density > low density")
 local mf = io.open("manifest.json", "r")
 local mft = mf:read("*a")
 mf:close()
-check(mft:find('"version"%s*:%s*"1%.5%.0"') ~= nil, "manifest version 1.5.0")
+check(mft:find('"version"%s*:%s*"1%.6%.0"') ~= nil, "manifest version 1.6.0")
+
+-- Start menu no longer injects Wilds gameplay settings.
+do
+  local wraps = 0
+  V.mod.hooks = {
+    wrap = function(_, name)
+      if name == "ui.start_menu.items" then wraps = wraps + 1 end
+    end,
+  }
+  V.mod.content = { screens = { register = function() end } }
+  local menu = SpriteStyleMenu.new(V.mod, {})
+  menu:register()
+  eq(wraps, 0, "sprite style menu does not wrap start menu")
+end
 
 print("")
 if failures > 0 then

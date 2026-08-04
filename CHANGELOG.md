@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.6.0
+
+### Settings consolidation + cave / water / overlay / follower style
+
+- Consolidated all gameplay settings into Mod Settings
+- Removed obsolete and duplicate developer options
+- Added behaviour/facing developer overlay
+- Preserved the Pokémon test-spawn selector
+- Restricted cave spawns and movement to reachable cells
+- Reduced visible water Pokémon density and increased spacing
+- Applied selected sprite style to the active follower
+- Added follower Swimming/Levitates sprite transitions
+
 ## 1.5.0
 
 ### World collision + follower water sprites

@@ -115,51 +115,44 @@ Caves often have no tall-grass graphics but still use the grass encounter table 
 All options are live (`mod.options_changed`). Map-density retargets on change; a map re-enter always rebuilds spawns.
 Visible labels are limited to 14 characters.
 
+Gameplay settings live in **Mod Settings** only (not duplicated in the Start menu).
+
 ### Public
 
 | Label | Key | Default | Values | Effect |
 |---|---|---|---|---|
 | Show Wild Mons | `enabled` | true | on/off | Master switch |
-| Sprite Style | `sprite_style` | auto | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | Overworld sprite source |
+| Sprite Style | `sprite_style` | auto | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | Wild + follower land sprites |
+| Spawn Amount | `spawn_density` | normal | Low / Normal / High / Very High | Visible land + water density |
 | Random Enc | `random_encounters` | true | on/off | Classic step RNG (grass / cave / water) |
-| Water Mons | `water_spawns` | true | on/off | Visible water Pokémon from Surf + fishing pools |
+| Water Mons | `water_spawns` | true | on/off | Visible water Pokémon (Swimming / Levitates) |
 | Grass View | `pokemon_grass_render_mode` | immersed | Above / Immersed | Tall-grass presentation |
 | Idle Mons | `enable_idle` | true | on/off | Allow Idle Look |
 | Roam Mons | `enable_wander` | true | on/off | Allow Wander |
 | Chase Mons | `enable_aggressive` | true | on/off | Allow Aggressive |
 | Hidden Mons | `enable_hidden` | true | on/off | Allow Hidden markers |
-| Dev Mode | `dev_mode` | false | on/off | HUD + preview browser |
+| Dev Overlay | `dev_overlay` | false | on/off | Behaviour + facing labels above wild Pokémon |
 
-Start Menu only (same saved keys): **SPRITE STYLE**, **SPAWN AMOUNT**
-(`spawn_density`), **RANDOM ENC**, **WATER MONS**. Spawn Amount is not in Mod
-Settings.
+**Test Spawn** is an OPTIONS activate row (no schema button type) that opens the
+Pokémon list and spawns beside the player.
 
-### Developer rows
+Density fine-tuning, sprite opacity, legacy aliases, old strict billboard
+probes, and the former multi-toggle developer panel are no longer public;
+runtime defaults remain in code.
 
-| Label | Key | Default | Effect |
-|---|---|---|---|
-| Debug HUD | `debug_hud_always_visible` | false | HUD stays up |
-| Spawn Tiles | `show_spawn_tile_overlay` | false | Tile markers |
-| Behavior View | `show_behavior_overlays` | false | Region / sight overlays |
-| Outside Spawn | `allow_debug_spawn_outside_encounter_areas` | false | Debug placement |
-| Debug Log | `debug_logging` | false | Verbose logs |
-| Force Spawn | `force_test_spawn` | false | Force one diagnostic spawn |
-| Preview Filter / Search / Map Filter / Encounter Kind | `preview_*` | … | Preview browser filters |
+## 14. Dev Overlay & Test Spawn
 
-Density fine-tuning, sprite opacity, legacy aliases, and old strict billboard
-debug probes are no longer public options; runtime defaults remain in code.
+Enable **Dev Overlay**, then:
 
-## 14. Dev Mode
+1. Read behaviour / facing labels above wild Pokémon
+2. Optionally read the diagnostics HUD (cave reachability, water target/spacing,
+   follower style status)
+3. Open **Test Spawn** for a free-neighbour spawn (7 phases)
 
-Enable **Dev Mode**, then:
+## 15. Test Spawn browser
 
-1. Read the top-right spawn HUD (Target / Active / Regions / Surface / …)
-2. Open **OPTIONS → POKEMON PREVIEW → OPEN** (or Start Menu → **WILDS PREVIEW**)
-3. Inspect assets and run **Test spawn** (7 phases)
-
-## 15. Preview browser
-
-Lists species from ROM/content data (not the Pokédex). Shows asset status, encounter locations, and Test spawn.
+Lists species from ROM/content data (not the Pokédex). Shows asset status and
+supports Test spawn with occupancy checks.
 
 ## 16. Fallback sprites
 
