@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Generate the Voxel Hidden Silhouettes underwater shadow marker.
 
-Output: assets/generated/water_hidden_runtime/hidden-water-shadow.png
-  - 16×96 RGBA (6 stacked 16×16 frames)
+Output: assets/generated/water_hidden_runtime/water_hidden_shadow.png
+  - 16×16 RGBA
   - Flat dark blue-teal ellipse, soft transparent rim
   - No question mark / Pokémon detail
+
+Also writes a legacy alias path used by older docs:
+  assets/generated/water_hidden_runtime/hidden-water-shadow.png
+  (same 16×16 bytes)
 
 Usage:
   python3 tools/generate_hidden_water_shadow.py
@@ -16,11 +20,13 @@ import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "assets/generated/water_hidden_runtime/hidden-water-shadow.png"
+OUT_DIR = ROOT / "assets/generated/water_hidden_runtime"
+OUT = OUT_DIR / "water_hidden_shadow.png"
+OUT_LEGACY = OUT_DIR / "hidden-water-shadow.png"
 
-W, H_FRAME, FRAMES = 16, 16, 6
-H = H_FRAME * FRAMES
-BASE = (10, 28, 36)  # dark blue-teal (~WaterDisplay.SILHOUETTE)
+W, H = 16, 16
+# Dark blue-teal (~WaterDisplay.SILHOUETTE / HIDDEN)
+BASE = (10, 28, 36)
 
 
 def ellipse_alpha(px: float, py: float, cx: float, cy: float, rx: float, ry: float) -> float:
@@ -36,14 +42,13 @@ def ellipse_alpha(px: float, py: float, cx: float, cy: float, rx: float, ry: flo
     return 1.0 - t
 
 
-def make_frame(frame_i: int) -> list[list[tuple[int, int, int, int]]]:
-    pulse = [0.0, 0.04, 0.08, 0.04, 0.0, -0.03][frame_i]
-    rx = 5.0 + pulse * 2.0
-    ry = 1.9 + pulse * 0.6
-    cx, cy = 8.0, 11.0
-    alpha_scale = 0.78 + pulse * 0.5
+def make_image() -> list[list[tuple[int, int, int, int]]]:
+    # Visible oval ~10×5 inside the 16×16 canvas (spec: 9–12 × 4–7).
+    rx, ry = 5.2, 2.4
+    cx, cy = 8.0, 8.0
+    alpha_scale = 0.82
     pixels: list[list[tuple[int, int, int, int]]] = []
-    for y in range(H_FRAME):
+    for y in range(H):
         row: list[tuple[int, int, int, int]] = []
         for x in range(W):
             a = max(0.0, min(1.0, ellipse_alpha(x, y, cx, cy, rx, ry) * alpha_scale))
@@ -65,26 +70,30 @@ def chunk(tag: bytes, data: bytes) -> bytes:
     )
 
 
-def main() -> int:
-    frames = [make_frame(i) for i in range(FRAMES)]
+def encode_png(pixels: list[list[tuple[int, int, int, int]]]) -> bytes:
     raw = bytearray()
-    for fr in frames:
-        for y in range(H_FRAME):
-            raw.append(0)
-            for x in range(W):
-                r, g, b, a = fr[y][x]
-                raw.extend((r, g, b, a))
-
+    for y in range(H):
+        raw.append(0)
+        for x in range(W):
+            r, g, b, a = pixels[y][x]
+            raw.extend((r, g, b, a))
     ihdr = struct.pack(">IIBBBBB", W, H, 8, 6, 0, 0, 0)
-    png = (
+    return (
         b"\x89PNG\r\n\x1a\n"
         + chunk(b"IHDR", ihdr)
         + chunk(b"IDAT", zlib.compress(bytes(raw), 9))
         + chunk(b"IEND", b"")
     )
-    OUT.parent.mkdir(parents=True, exist_ok=True)
+
+
+def main() -> int:
+    pixels = make_image()
+    png = encode_png(pixels)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     OUT.write_bytes(png)
+    OUT_LEGACY.write_bytes(png)
     print(f"wrote {OUT.relative_to(ROOT)} ({W}x{H}, {len(png)} bytes)")
+    print(f"wrote {OUT_LEGACY.relative_to(ROOT)} (alias)")
     return 0
 
 

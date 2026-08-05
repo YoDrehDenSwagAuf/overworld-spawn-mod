@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.9.1
+
+### Voxel water silhouettes as horizontal world quads
+
+- Fixed Hidden Silhouettes in Voxel mode
+- Rendered Voxel Hidden Silhouettes as flat underwater world quads
+- Rendered Voxel Pokémon Silhouettes as flat underwater world quads
+- Removed upright character-style presentation from Voxel silhouette modes
+- Preserved the existing Flat 2D presentation
+- Kept Swimming Sprites on the native character billboard path
+
 ## 1.9.0
 
 ### Sprite Style simplification + Voxel water shadows

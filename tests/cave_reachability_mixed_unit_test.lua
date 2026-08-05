@@ -232,10 +232,14 @@ check(WaterDisplay.needsNativeHiddenShadow(V.mod, waterEnt),
       "hidden needs native flat shadow marker")
 check(not WaterDisplay.needsNativeSilhouetteSheet(V.mod, waterEnt),
       "hidden does not use native silhouette sheet")
-local hiddenAsset = "assets/generated/water_hidden_runtime/hidden-water-shadow.png"
+local hiddenAsset = "assets/generated/water_hidden_runtime/water_hidden_shadow.png"
 local hf = io.open(hiddenAsset, "rb")
 check(hf ~= nil, "hidden water shadow asset exists")
 if hf then hf:close() end
+local hiddenAlias = "assets/generated/water_hidden_runtime/hidden-water-shadow.png"
+local ha = io.open(hiddenAlias, "rb")
+check(ha ~= nil, "hidden water shadow legacy alias exists")
+if ha then ha:close() end
 
 -- ------- Silhouette assets exist -------
 local sil = "assets/generated/swimming_silhouette_runtime/130-normal.png"

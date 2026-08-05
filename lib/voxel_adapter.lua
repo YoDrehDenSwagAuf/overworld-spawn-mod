@@ -47,8 +47,8 @@ function VoxelAdapter:refreshPresence()
   self.present = dramatic ~= nil
   if self.present then
     self:ensureHooks()
-    local WaterShadowRenderer = V.require("water_shadow_renderer")
-    WaterShadowRenderer.installDrawHook(self)
+    local VoxelWaterShadows = V.require("voxel_water_shadows")
+    VoxelWaterShadows.installHooks(self)
   end
   self.voxelActive = self:_probeVoxelActive()
   return self.present
@@ -208,12 +208,12 @@ function VoxelAdapter:updateEntity(entity)
     or "LEGACY_PNG"
   entity.voxelScale = 1
 
-  -- Voxel Hidden / Silhouettes: native SpriteRenderer sheets drawn as flat
-  -- underwater shadows via WaterShadowRenderer (wraps VoxelScene.drawEntity).
+  -- Voxel Hidden / Silhouettes: horizontal world-quad shadows via
+  -- VoxelWaterShadows (filtered out of the character/posesOf body pass).
   -- Flat 2D keeps the circle / tint paths untouched.
   local WaterDisplay = V.require("water_display")
-  local WaterShadowRenderer = V.require("water_shadow_renderer")
-  WaterShadowRenderer.installDrawHook(self)
+  local VoxelWaterShadows = V.require("voxel_water_shadows")
+  VoxelWaterShadows.installHooks(self)
   local waterShadow = WaterDisplay.needsWaterShadowPresentation(self.mod, entity)
 
   if not active then
@@ -227,7 +227,10 @@ function VoxelAdapter:updateEntity(entity)
     entity.voxelUpdateOk = true
     entity.voxelSource = entity.spriteSource2D
     entity.waterPresentationForced = nil
-    entity.shadowRendererMode = WaterShadowRenderer.MODE.NONE
+    entity.voxelWaterShadowPresentation = false
+    entity.voxelWaterPresentation = WaterDisplay.isWaterEntity(entity)
+      and VoxelWaterShadows.PRESENTATION.FLAT_2D or nil
+    entity.shadowRendererMode = VoxelWaterShadows.MODE.NONE
     -- Leaving Voxel: restore colour water sheet / drop hidden marker.
     if (entity.waterSilhouetteSheet == true or entity.waterHiddenShadow == true)
        and entity.render and entity.render.applyProviderSprite then
@@ -249,20 +252,32 @@ function VoxelAdapter:updateEntity(entity)
       local game = self.mod.world and self.mod.world.game
       pcall(entity.render.applyProviderSprite, entity.render, entity, game)
     end
-    entity.shadowRendererMode = self._waterShadowDrawOk
-      and WaterShadowRenderer.MODE.FLAT_WORLD
-      or WaterShadowRenderer.MODE.UPRIGHT_FALLBACK
   elseif (entity.waterSilhouetteSheet == true or entity.waterHiddenShadow == true)
      and entity.render and entity.render.applyProviderSprite then
     -- Left silhouettes / hidden mode while still in Voxel: restore colour sheet.
     local game = self.mod.world and self.mod.world.game
     pcall(entity.render.applyProviderSprite, entity.render, entity, game)
-    entity.shadowRendererMode = WaterShadowRenderer.MODE.NONE
-  else
-    entity.shadowRendererMode = WaterShadowRenderer.MODE.NONE
   end
 
+  VoxelWaterShadows.markPresentation(entity, self.mod, true)
+
   entity.worldRenderer = VoxelAdapter.WORLD_RENDERER
+
+  -- Water silhouette / hidden shadows are world markers, not characters.
+  -- Keep the entity in world state / AI, but skip character billboard bind
+  -- requirements that would force an upright body path.
+  if entity.voxelWaterShadowPresentation then
+    entity.dramaticBillboardSkipped = true
+    entity.depthIntegration = self._voxelWaterShadowsOk and "ACTIVE" or "UNVERIFIED"
+    entity.objectOcclusion = self._voxelWaterShadowsOk and "ACTIVE" or "UNVERIFIED"
+    entity.grassRenderer = "VOXEL_WATER_SHADOW"
+    entity.pokemonRenderer = "VOXEL_WATER_SHADOW"
+    entity.voxelRegistered = true
+    entity.voxelUpdateOk = true
+    entity.voxelDisabled = false
+    entity.voxelSource = entity.spriteSource2D
+    return true
+  end
 
   -- Bind / refresh native SpriteRenderer for DS SpriteBillboards.
   if entity.render and entity.render.bindWorldBillboard then
@@ -328,16 +343,23 @@ end
 
 -- ------------------------------------------------------------------ hooks
 
-local function filterOverlayEmergencyEntities(entities)
+local function filterCharacterPassEntities(entities, mod)
+  local VoxelWaterShadows = V.require("voxel_water_shadows")
   local kept = {}
   for _, e in ipairs(entities or {}) do
     local d = RenderDiagnostics.ensure(e)
     local isEmerg = VoxelAdapter.isWildEntity(e) and isEmergencyOverlay(e.pokemonRenderer)
-    if isEmerg then
+    local isWaterShadow = VoxelWaterShadows.shouldFilterCharacterBody(e, mod)
+    if isEmerg or isWaterShadow then
       d.dramaticBillboardRejected = (d.dramaticBillboardRejected or 0) + 1
       d.lastFilterKept = false
-      d.lastFailureReason = d.lastFailureReason
-        or ("filtered from posesOf: " .. tostring(e.pokemonRenderer))
+      if isWaterShadow then
+        d.lastFailureReason = "filtered from posesOf: VOXEL_WATER_SHADOW"
+        e._voxelWaterShadowFiltered = true
+      else
+        d.lastFailureReason = d.lastFailureReason
+          or ("filtered from posesOf: " .. tostring(e.pokemonRenderer))
+      end
     else
       if VoxelAdapter.isWildEntity(e) then
         d.dramaticBillboardAccepted = (d.dramaticBillboardAccepted or 0) + 1
@@ -349,8 +371,17 @@ local function filterOverlayEmergencyEntities(entities)
   return kept
 end
 
+-- Back-compat name for tests that still import the emergency-only filter.
+local function filterOverlayEmergencyEntities(entities)
+  return filterCharacterPassEntities(entities, nil)
+end
+
 function VoxelAdapter:ensureHooks()
   if self.hooksInstalled then return true end
+
+  local adapter = self
+  local VoxelWaterShadows = V.require("voxel_water_shadows")
+  VoxelWaterShadows.installHooks(self)
 
   local ds = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
   local lib = ds and ds.exports and ds.exports.lib
@@ -361,10 +392,25 @@ function VoxelAdapter:ensureHooks()
       local origRender = VoxelScene.render
       VoxelScene.render = function(state, w, h, vw, vh, paletteFor)
         local prev = state and state.entities
+        local shadowList = nil
         if state and prev then
-          state.entities = filterOverlayEmergencyEntities(prev)
+          -- Collect before filtering so the shadow pass still has the entities.
+          shadowList = VoxelWaterShadows.collectEntities(state, adapter.logic, adapter.mod)
+          state.entities = filterCharacterPassEntities(prev, adapter.mod)
         end
         local ok, canvasOrErr = pcall(origRender, state, w, h, vw, vh, paletteFor)
+        -- Horizontal water shadows: 3D Voxel3D.draw path (depth tested), not
+        -- a final 2D overlay / drawFx body. Drawn after the character pass;
+        -- depth test provides occlusion.
+        if ok and shadowList and #shadowList > 0 then
+          pcall(VoxelWaterShadows.drawPass, adapter, {
+            entities = shadowList,
+            map = state and state.map,
+            colors = state and state.colors,
+            groundAt = state and state.groundAt,
+            camera = state and state.camera,
+          })
+        end
         if state then state.entities = prev end
         if not ok then error(canvasOrErr, 0) end
         return canvasOrErr
@@ -386,7 +432,6 @@ function VoxelAdapter:ensureHooks()
     return true
   end
 
-  local adapter = self
   local origDrawWorld = def.drawWorld
   def.drawWorld = function(ctx)
     local origDrawFx = ctx and ctx.drawFx
@@ -404,7 +449,7 @@ function VoxelAdapter:ensureHooks()
 
   self.hooksInstalled = true
   DebugLog.info(self.mod,
-    "Voxel hooks: NATIVE_SPRITE_RENDERER in posesOf; overlay body only as emergency")
+    "Voxel hooks: characters in posesOf; water shadows as horizontal world quads")
   return true
 end
 
@@ -495,8 +540,13 @@ function VoxelAdapter.statusLines(entity)
     (entity.pokemonRenderer == VoxelAdapter.POKEMON_OVERLAY_EMERGENCY
       or entity.pokemonRenderer == "SPATIAL_OVERLAY_FALLBACK") and "YES" or "NO")
   lines[#lines + 1] = ("First person compatible: %s"):format(
-    entity.nativeSpriteRenderer and "NATIVE" or "LEGACY")
+    entity.voxelWaterShadowPresentation and "WORLD_QUAD"
+      or (entity.nativeSpriteRenderer and "NATIVE" or "LEGACY"))
   for _, line in ipairs(RenderDiagnostics.statusLines(entity)) do
+    lines[#lines + 1] = line
+  end
+  local VoxelWaterShadows = V.require("voxel_water_shadows")
+  for _, line in ipairs(VoxelWaterShadows.statusLines(entity)) do
     lines[#lines + 1] = line
   end
   lines[#lines + 1] = ("World renderer: %s"):format(

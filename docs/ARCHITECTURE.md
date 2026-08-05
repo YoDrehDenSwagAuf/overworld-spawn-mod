@@ -13,7 +13,8 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `lib/animated_sprites.lua` | Follow-sprite mapping / source atlas helpers |
 | `lib/runtime_sheets.lua` | Resolve build-time 16×96 SpriteRenderer sheets |
 | `lib/sprite_providers.lua` | Sprite Style providers (HGSS/PokeMMO / Poke Followers / Pokedex) |
-| `lib/water_shadow_renderer.lua` | Voxel flat underwater shadows for Hidden / Silhouettes |
+| `lib/voxel_water_shadows.lua` | Voxel horizontal underwater world-quad shadows |
+| `lib/water_shadow_renderer.lua` | Compatibility facade → `voxel_water_shadows` |
 | `lib/sprite_style_menu.lua` | Start-menu Sprite Style picker (`ui.start_menu.items`) |
 | `lib/enhanced_world_sprite.lua` | Deprecated dynamic-card adapter (unused for body) |
 | `lib/tile.lua` | Gen1Recomp tile size (16x16) |
@@ -72,15 +73,23 @@ SpriteBillboards builds 16×16 UVs into that sheet per frame index
 ```text
 FLAT (no Dramatic Shape / voxel off)
   Entity:draw → SpriteRenderer:draw(facing, phase, flip)
+  Water Hidden → WaterDisplay.drawHiddenCircle (unchanged)
+  Water Silhouettes → WaterDisplay.withSilhouetteTint (unchanged)
 
 VOXEL (Dramatic Shape drawWorld active)
-  Wild entities stay in ow.entities
-  pose() → native SpriteRenderer (frames=6, walker=true)
-  VoxelScene SpriteBillboards → depth + occlusion + grass + shadows + FP
+  Wild entities stay in ow.entities / world state / AI
+  Swimming Sprites:
+    pose() → native SpriteRenderer (frames=6, walker=true)
+    VoxelScene SpriteBillboards → upright characters
+  Hidden / Silhouettes:
+    entity.voxelWaterShadowPresentation = true
+    filtered out of posesOf / character body pass
+    VoxelWaterShadows → horizontal world quad via Voxel3D.draw
   ctx.drawFx → alert emotes only; Pokemon BODY only if SPATIAL_OVERLAY_EMERGENCY
 ```
 
-Primary Pokemon renderer: `NATIVE_SPRITE_RENDERER`.
+Primary Pokemon renderer: `NATIVE_SPRITE_RENDERER` (swimming / land).
+Voxel silhouette modes: `VOXEL_WATER_SHADOW` (world quad, not a character).
 
 ## Runtime sheets
 

@@ -81,6 +81,7 @@ jobs:
             tests/enhanced_world_sprite_unit_test.lua \
             tests/water_display_modes_unit_test.lua \
             tests/water_shadow_unit_test.lua \
+            tests/water_flat_presentation_contract_test.lua \
             tests/water_sprites_unit_test.lua \
             tests/cave_reachability_mixed_unit_test.lua \
             tests/settings_cave_water_overlay_unit_test.lua \

@@ -42,10 +42,11 @@ available), and with Sprite Style HGSS/PokeMMO / Poke Followers / Pokedex.
 4. Land Pokémon remain full sprites.
 
 **Voxel / First Person**
-1. Generic flat underwater shadow marker (no question mark, no Pokémon body).
-2. Lies nearly horizontal under the water surface (~1–2 px sink).
-3. Moves with the entity; no upright trainer billboard / no 2D HUD overlay.
-4. Water Idle / Wander / Aggressive chase and encounter behaviour unchanged.
+1. Generic flat underwater ellipse as a horizontal world quad (no '?', no body).
+2. Lies fully horizontal on the water surface (small epsilon, no upright card).
+3. Moves with the entity; filtered out of the character/posesOf body pass.
+4. No sun/drop shadow, no 2D HUD overlay, no camera-facing billboard.
+5. Water Idle / Wander / Aggressive chase and encounter behaviour unchanged.
 
 ### Silhouettes
 
@@ -55,11 +56,10 @@ available), and with Sprite Style HGSS/PokeMMO / Poke Followers / Pokedex.
 3. Land Pokémon never receive the tint.
 
 **Voxel / First Person**
-1. Native pre-rendered silhouette sheets drawn as flat underwater shadows
-   (local WaterShadowRenderer transform; not upright trainer lean).
-2. Depth / object occlusion like normal water Pokémon.
-3. No coloured water sprite leaking through.
-4. Under-water sink ~2–3 px; animation + facing/mirroring still work.
+1. Current dark Pokémon silhouette frame as a horizontal underwater world quad.
+2. Depth / object occlusion via Voxel3D (not a final 2D overlay).
+3. No coloured water sprite / no upright black character.
+4. Facing/mirroring still select the correct 16×16 frame; quad stays world-aligned.
 5. Water Idle / Wander / Aggressive still animate and chase.
 
 ### Cave Spawns

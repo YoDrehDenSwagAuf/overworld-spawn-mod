@@ -246,13 +246,16 @@ current map's water encounter table appear on connected water and keep
 `WATER_IDLE` / `WATER_WANDER` / `WATER_AGGRESSIVE`. Legacy hidden grass/cave
 markers remain optional via Hidden Mons.
 
-### Voxel Water Presentation
+### Voxel Water Silhouettes
 
-- **Hidden Silhouettes** use a generic flat underwater shadow marker
-  (`assets/generated/water_hidden_runtime/hidden-water-shadow.png`).
-- **Silhouettes** use the actual dark Pokémon shape as a flat underwater
-  shadow (native pre-rendered silhouette sheets + local flat world transform).
-- **Flat 2D** presentation remains unchanged (dark circle / tinted sprite).
+In Flat 2D, the existing silhouette presentation is unchanged.
+
+In Voxel mode:
+
+- **Hidden Silhouettes** are rendered as a generic flat underwater shadow.
+- **Silhouettes** use the current Pokémon silhouette frame as a flat
+  underwater world shadow.
+- **Swimming Sprites** remain normal upright animated characters.
 
 ## Cave Spawns
 

@@ -1496,6 +1496,12 @@ end
 -- not paint a second body (that would sit on top of grass with no depth).
 function Entity:_voxelBillboardOwnsBody()
   if self.worldRenderer ~= "DRAMATIC_SHAPE" then return false end
+  -- Voxel water shadows are world quads (not character billboards), but they
+  -- still own the body presentation — Entity:draw must not paint a 2D body.
+  if self.voxelWaterShadowPresentation == true
+     or self.pokemonRenderer == "VOXEL_WATER_SHADOW" then
+    return true
+  end
   local r = self.pokemonRenderer
   return r == SpawnRender.RENDERER.NATIVE_SPRITE_RENDERER
     or r == SpawnRender.RENDERER.WORLD_BILLBOARD_ENHANCED
@@ -2066,10 +2072,12 @@ function SpawnRender:applyProviderSprite(entity, game)
   entity._wildsSpriteRendererNews = (entity._wildsSpriteRendererNews or 0) + 1
 
   local nativeSheet = (def.walker == true and (def.frames or 1) >= 6)
+  -- Hidden world-quad marker is a single 16×16 image (not a 16×96 walker sheet).
+  local waterShadowSheet = wantHiddenShadow or (wantFlatShadow and wantSilSheet)
   entity.sprite = sprite
   entity.legacySprite = sprite
   entity.spriteId = def.id
-  entity.nativeSpriteRenderer = nativeSheet
+  entity.nativeSpriteRenderer = nativeSheet or wantHiddenShadow
   entity.usingFallback = (result.providerId == "black")
   entity.spriteProviderId = result.providerId
   entity.spriteFallbackStep = result.fallbackStep
@@ -2098,7 +2106,7 @@ function SpawnRender:applyProviderSprite(entity, game)
     end
   end
 
-  if nativeSheet then
+  if nativeSheet or waterShadowSheet then
     if wantHiddenShadow then
       entity.spriteSource = "WATER_HIDDEN_SHADOW"
     elseif result.spriteKind == "swimming" or result.spriteKind == "levitates" then
@@ -2112,11 +2120,14 @@ function SpawnRender:applyProviderSprite(entity, game)
     end
     entity.spriteSource2D = entity.spriteSource
     entity.voxelSource = entity.spriteSource
-    entity.pokemonRenderer = SpawnRender.RENDERER.NATIVE_SPRITE_RENDERER
+    entity.pokemonRenderer = (wantHiddenShadow or wantFlatShadow)
+      and "VOXEL_WATER_SHADOW"
+      or SpawnRender.RENDERER.NATIVE_SPRITE_RENDERER
     entity.scaleInfo = {
       scale = 1, final2DScale = 1, contentW = CELL, contentH = CELL,
       renderedW = CELL, renderedH = CELL, originalW = CELL,
-      originalH = RuntimeSheets.SHEET_H, logicalFootprintTiles = 1,
+      originalH = wantHiddenShadow and CELL or RuntimeSheets.SHEET_H,
+      logicalFootprintTiles = 1,
       grassOcclusionHeight = entity.grassOcclusionHeight or 6,
     }
     entity.visualScale = 1

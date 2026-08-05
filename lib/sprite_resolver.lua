@@ -173,16 +173,17 @@ function SpriteResolver:resolveWaterSprite(entity, context)
       usedVariant = variant,
       loadPath = def.image,
       relativePath = WaterShadowRenderer.HIDDEN_RELATIVE,
-      bodyRenderer = "NATIVE_SPRITE_RENDERER",
+      bodyRenderer = "VOXEL_WATER_SHADOW",
       waterSource = "hidden_shadow",
-      frames = 6,
-      walker = true,
+      frames = 1,
+      walker = false,
       waterDisplayMode = (type(Config.waterDisplayMode) == "function"
         and Config.waterDisplayMode(self.mod)) or "hidden_silhouettes",
       voxelActive = true,
       shadowRendererMode = WaterShadowRenderer.MODE.FLAT_WORLD,
       waterFlatShadow = true,
       waterShadowKind = "hidden",
+      voxelWaterShadowPresentation = true,
     }
     local result = {
       def = def,
@@ -196,6 +197,7 @@ function SpriteResolver:resolveWaterSprite(entity, context)
       waterHiddenShadow = true,
       waterFlatShadow = true,
       shadowRendererMode = WaterShadowRenderer.MODE.FLAT_WORLD,
+      voxelWaterShadowPresentation = true,
     }
     steps[#steps + 1] = { providerId = "water_hidden_shadow", ok = true }
     return result
