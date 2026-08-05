@@ -74,6 +74,7 @@ modules.config = {
   },
   get = function(_, k) return modules.config.DEFAULTS[k] end,
   spriteStyle = function() return savedOpts.sprite_style or "pokemmo" end,
+  waterDisplayMode = function() return savedOpts.water_spawns or "swimming_sprites" end,
   useAnimatedOverworldSprites = function() return true end,
   debug = function() return false end,
   devOverlay = function() return false end,

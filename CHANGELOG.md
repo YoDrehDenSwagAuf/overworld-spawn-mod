@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.8.0
+
+### Water Pokémon display modes + cave reachability
+
+- Replaced the Water Mons on/off toggle with five presentation modes:
+  **Swim Sprites** (default), **Hid Silhouette**, **Silhouettes**,
+  **Classic Enc**, **Disabled**
+- **Swim Sprites** preserves the previous swimming / levitates behaviour 100%
+- **Hid Silhouette** keeps water AI / chase / collision, draws only a small
+  dark animated circle on the water surface (no Pokémon sprite)
+- **Silhouettes** Flat 2D: temporary dark blue-teal draw tint + proximity
+  brightness + sink. Voxel: native pre-rendered 16×96 silhouette sheets for
+  correct Dramatic Shape depth / occlusion (no runtime tint, no emergency body)
+- Fixed Water Silhouettes in Voxel mode using native pre-rendered sheets
+- Preserved the existing Flat 2D water presentation
+- Prevented normal Water sprites from leaking into Voxel silhouette modes
+- **Classic Enc** / **Disabled** water RNG overrides unchanged
+- Added **Cave Spawns** choice: **Reachable Only** (default) / **Mixed**
+- Restricted normal cave spawns to player-reachable areas (not mere walkability)
+- Mixed allows ~20% atmospheric scenery in inaccessible cave pockets
+- Prevented unreachable scenery Pokémon from chasing through walls
+- Legacy Water Mons: `true` → `swimming_sprites`, `false` → `classic_encounters`
+
 ## 1.7.1
 
 ### PokeMMO walk frames + follower swap stability + aggressive search wander

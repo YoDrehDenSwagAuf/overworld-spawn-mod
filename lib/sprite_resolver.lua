@@ -153,9 +153,12 @@ function SpriteResolver:resolveWaterSprite(entity, context)
   local form = context.form or resolveForm(entity)
   local steps = {}
   local fallbackStep = 0
+  local WaterDisplay = V.require("water_display")
+  local wantSilhouette = context.nativeSilhouette == true
+    or (context.voxelActive == true and WaterDisplay.isSilhouettes(self.mod))
 
-  -- 1) Optional water support on the selected style's provider chain.
-  if self.spriteProviders then
+  -- 1) Provider water (skip when Voxel silhouettes need Wilds silhouette sheets).
+  if not wantSilhouette and self.spriteProviders then
     local chain = self.spriteProviders:chainForStyle(style)
     for _, providerId in ipairs(chain) do
       fallbackStep = fallbackStep + 1
@@ -195,17 +198,28 @@ function SpriteResolver:resolveWaterSprite(entity, context)
         end
       end
     end
+  elseif wantSilhouette then
+    steps[#steps + 1] = {
+      providerId = "provider_water", ok = false,
+      reason = "skipped for native silhouette sheets",
+    }
   end
 
   -- 2–3) Wilds swimming / levitates registry.
+  -- Voxel silhouettes: native pre-rendered silhouette sheets (same kind order).
+  -- Flat silhouettes keep colour sheets + runtime tint (handled at draw).
   if self.waterRegistry and self.waterRegistry.ready then
     fallbackStep = fallbackStep + 1
     local preferred = self.waterRegistry:preferredKindFor(speciesId)
     local waterDef, waterErr = self.waterRegistry:resolve(
-      speciesId, variant, preferred, form)
+      speciesId, variant, preferred, form, { silhouette = wantSilhouette })
     if waterDef then
+      local providerTag = "water_" .. waterDef.kind
+      if waterDef.silhouette then
+        providerTag = providerTag .. "_silhouette"
+      end
       local meta = {
-        providerId = "water_" .. waterDef.kind,
+        providerId = providerTag,
         requestedStyle = style,
         fallbackStep = fallbackStep,
         usedVariant = waterDef.variant,
@@ -217,6 +231,11 @@ function SpriteResolver:resolveWaterSprite(entity, context)
         form = waterDef.formKey,
         frames = waterDef.frames,
         walker = true,
+        silhouette = waterDef.silhouette == true,
+        silhouetteFallback = waterDef.silhouetteFallback == true,
+        waterDisplayMode = (type(Config.waterDisplayMode) == "function"
+          and Config.waterDisplayMode(self.mod)) or "swimming_sprites",
+        voxelActive = context.voxelActive == true,
       }
       local result = {
         def = {
@@ -227,14 +246,18 @@ function SpriteResolver:resolveWaterSprite(entity, context)
           id = waterDef.id,
         },
         meta = meta,
-        providerId = "water_" .. waterDef.kind,
+        providerId = providerTag,
         fallbackStep = fallbackStep,
         steps = steps,
         spriteState = "water",
         spriteKind = waterDef.kind,
         waterOverride = true,
+        waterSilhouetteSheet = waterDef.silhouette == true,
       }
-      steps[#steps + 1] = { providerId = result.providerId, ok = true, kind = waterDef.kind }
+      steps[#steps + 1] = {
+        providerId = result.providerId, ok = true, kind = waterDef.kind,
+        silhouette = waterDef.silhouette == true,
+      }
       return result
     end
     steps[#steps + 1] = {
@@ -243,6 +266,7 @@ function SpriteResolver:resolveWaterSprite(entity, context)
   end
 
   -- 4–6) Built-in PokeMMO → Pokedex → black (ignore gold/followers land art).
+  -- Never used as a Voxel silhouette primary path when Wilds water exists.
   if self.spriteProviders then
     local landFallback = self.spriteProviders:resolve("pokemmo", speciesId or (entity and entity.species), variant, game)
     if landFallback then
@@ -250,7 +274,9 @@ function SpriteResolver:resolveWaterSprite(entity, context)
       landFallback.spriteKind = landFallback.providerId == "pokemmo"
         and "pokemmo" or landFallback.providerId
       landFallback.waterOverride = true
-      landFallback.fallbackReason = "no swimming or levitates asset"
+      landFallback.fallbackReason = wantSilhouette
+        and "no swimming/levitates silhouette asset"
+        or "no swimming or levitates asset"
       if landFallback.providerId == "pokemmo" then
         landFallback.spriteKind = "pokemmo"
       end
@@ -280,12 +306,27 @@ function SpriteResolver:cacheKey(entity, context, state)
   local variant = tostring(context.variant or resolveVariant(entity) or "normal")
   local form = tostring(context.form or resolveForm(entity) or "default")
   state = state or "land"
-  return string.format("%s:%s:%s:%s:%s",
-    tostring(speciesId), variant, form, state, style)
+  local waterMode = "na"
+  local voxel = "flat"
+  if state == "water" then
+    if type(Config.waterDisplayMode) == "function" then
+      waterMode = tostring(Config.waterDisplayMode(self.mod) or "swimming_sprites")
+    else
+      waterMode = "swimming_sprites"
+    end
+    if context.voxelActive == true then
+      voxel = "voxel"
+    end
+  end
+  return string.format("%s:%s:%s:%s:%s:%s:%s",
+    tostring(speciesId), variant, form, state, style, waterMode, voxel)
 end
 
 function SpriteResolver:invalidateCache()
   self.cache = {}
+  if self.waterRegistry and self.waterRegistry.invalidateCache then
+    pcall(self.waterRegistry.invalidateCache, self.waterRegistry)
+  end
 end
 
 function SpriteResolver:resolveForEntity(entity, context)

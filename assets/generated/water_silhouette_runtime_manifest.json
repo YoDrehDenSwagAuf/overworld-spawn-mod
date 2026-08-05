@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "format": "gen1recomp-water-silhouette-sprite-renderer-sheet",
+  "sheetWidth": 16,
+  "sheetHeight": 96,
+  "frames": 6,
+  "walker": true,
+  "color": {
+    "r": 13,
+    "g": 30,
+    "b": 39
+  },
+  "alphaScale": 0.86,
+  "sink": "1-3px per frame from free pixels below visible bounds",
+  "kinds": {
+    "swimming": {
+      "source": "assets/generated/water_runtime/swimming",
+      "output": "assets/generated/swimming_silhouette_runtime",
+      "written": 2093,
+      "skippedExisting": 0,
+      "totalSource": 2093
+    },
+    "levitates": {
+      "source": "assets/generated/water_runtime/levitates",
+      "output": "assets/generated/levitates_silhouette_runtime",
+      "written": 523,
+      "skippedExisting": 0,
+      "totalSource": 523
+    }
+  }
+}

@@ -60,6 +60,8 @@ return function(mod)
   Config.defineOptions(mod)
   Config.migrateSpriteStyleOption(mod)
   Config.migrateRandomEncountersOption(mod)
+  Config.migrateWaterDisplayMode(mod)
+  Config.migrateCaveSpawnMode(mod)
   Config.migrateDevOverlayOption(mod)
 
   local render = SpawnRender.new(mod)
@@ -168,6 +170,8 @@ return function(mod)
     if devOverlay then devOverlay:syncPipelineLevel() end
     Config.migrateSpriteStyleOption(mod)
     Config.migrateRandomEncountersOption(mod)
+    Config.migrateWaterDisplayMode(mod)
+    Config.migrateCaveSpawnMode(mod)
     Config.migrateDevOverlayOption(mod)
     render:finalizeSpriteProviders(mod.world and mod.world.game)
     if Config.devOverlay(mod) then
@@ -271,7 +275,7 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "1.7.1"
+  mod.exports.version = "1.8.0"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated
@@ -318,6 +322,10 @@ return function(mod)
     opts.game = opts.game or (mod.world and mod.world.game)
     opts.logic = opts.logic or logic
     return Config.setWaterMons(mod, value, source or "export", opts)
+  end
+  mod.exports.setWaterDisplayMode = mod.exports.setWaterMons
+  mod.exports.waterDisplayMode = function()
+    return Config.waterDisplayMode(mod)
   end
 
   -- Optional companion sprite providers (Followers EX / PokePC). Runtime

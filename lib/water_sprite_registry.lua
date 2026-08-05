@@ -18,6 +18,11 @@ WaterSpriteRegistry.SHEET_H = RuntimeSheets.SHEET_H or 96
 WaterSpriteRegistry.ROOT_REL = "assets/enhanced_overworld/water_sprites"
 WaterSpriteRegistry.RUNTIME_REL = "assets/generated/water_runtime"
 WaterSpriteRegistry.MANIFEST_REL = WaterSpriteRegistry.RUNTIME_REL .. "/manifest.json"
+-- Native Voxel silhouette sheets (pre-rendered; filenames match water_runtime).
+WaterSpriteRegistry.SILHOUETTE_RUNTIME = {
+  swimming = "assets/generated/swimming_silhouette_runtime",
+  levitates = "assets/generated/levitates_silhouette_runtime",
+}
 
 local KIND_META = {
   swimming = {
@@ -347,7 +352,24 @@ function WaterSpriteRegistry:_pickFormRecord(byForm, form)
   return nil
 end
 
-function WaterSpriteRegistry:_resolvePath(record)
+function WaterSpriteRegistry:_fileName(record)
+  if not record then return nil end
+  if record.form then
+    return string.format("%03d-%s-%s.png", record.speciesId, record.variant, record.form)
+  end
+  return string.format("%03d-%s.png", record.speciesId, record.variant)
+end
+
+function WaterSpriteRegistry:_silhouetteRel(kind, record)
+  local root = WaterSpriteRegistry.SILHOUETTE_RUNTIME[kind]
+  if not root or not record then return nil end
+  local name = self:_fileName(record)
+  if not name then return nil end
+  return root .. "/" .. name
+end
+
+function WaterSpriteRegistry:_resolvePath(record, opts)
+  opts = opts or {}
   if not record then return nil end
   -- Prefer runtime sheet; fall back to checking manifest path.
   local rel = record.runtimeRel
@@ -359,14 +381,29 @@ function WaterSpriteRegistry:_resolvePath(record)
   if man and type(man.path) == "string" and man.path ~= "" then
     rel = man.path
   end
+
+  local silhouette = opts.silhouette == true
+  if silhouette then
+    local silRel = self:_silhouetteRel(record.kind, record)
+    if silRel and self:_assetPresent(silRel) then
+      return silRel, nil, key, true
+    end
+    -- Fallback: keep colour water sheet only as last resort (diagnosed).
+    if not self:_assetPresent(rel) then
+      return nil, "silhouette + water sheet missing: " .. tostring(silRel or rel)
+    end
+    return rel, nil, key, false
+  end
+
   if not self:_assetPresent(rel) then
     return nil, "runtime sheet missing: " .. tostring(rel)
   end
-  return rel, nil, key
+  return rel, nil, key, false
 end
 
 -- Resolve one kind+variant attempt. Returns def table or nil, err.
-function WaterSpriteRegistry:_resolveKindVariant(speciesId, kind, variant, form)
+function WaterSpriteRegistry:_resolveKindVariant(speciesId, kind, variant, form, opts)
+  opts = opts or {}
   local bySpecies = self.index[kind]
   if not bySpecies then return nil, "kind not indexed" end
   local byVariant = bySpecies[speciesId]
@@ -375,11 +412,15 @@ function WaterSpriteRegistry:_resolveKindVariant(speciesId, kind, variant, form)
   if not byForm then return nil, "variant missing for kind" end
   local record = self:_pickFormRecord(byForm, form)
   if not record then return nil, "form unavailable" end
-  local rel, err = self:_resolvePath(record)
+  local rel, err, _key, usedSilhouette = self:_resolvePath(record, opts)
   if not rel then return nil, err end
   local loadPath = self:_modPath(rel)
   if type(loadPath) ~= "string" or loadPath == "" then
     return nil, "asset path unresolved"
+  end
+  local idKind = kind
+  if opts.silhouette and usedSilhouette then
+    idKind = kind .. "_silhouette"
   end
   return {
     kind = kind,
@@ -393,14 +434,19 @@ function WaterSpriteRegistry:_resolveKindVariant(speciesId, kind, variant, form)
     walker = true,
     trueColor = true,
     source = "mapping",
+    silhouette = usedSilhouette == true,
+    silhouetteRequested = opts.silhouette == true,
+    silhouetteFallback = opts.silhouette == true and usedSilhouette ~= true,
     id = string.format("SPRITE_OW_WATER_%s_%d_%s",
-      string.upper(kind), speciesId, variant),
+      string.upper(idKind), speciesId, variant),
   }
 end
 
--- Public resolve: speciesId, variant, preferredKind, form
+-- Public resolve: speciesId, variant, preferredKind, form [, opts]
+-- opts.silhouette = true → prefer pre-rendered silhouette runtime sheets.
 -- Shiny tries shiny then normal within each kind before next kind.
-function WaterSpriteRegistry:resolve(speciesId, variant, preferredKind, form)
+function WaterSpriteRegistry:resolve(speciesId, variant, preferredKind, form, opts)
+  opts = opts or {}
   local sid = tonumber(speciesId)
   if not sid or sid < 1 then
     return nil, "water sprite unavailable"
@@ -409,9 +455,10 @@ function WaterSpriteRegistry:resolve(speciesId, variant, preferredKind, form)
   local want = normalizeVariant(variant)
   form = normalizeForm(form)
   preferredKind = preferredKind or self:preferredKindFor(sid)
+  local silKey = opts.silhouette and "sil" or "color"
 
-  local cacheKey = string.format("%d:%s:water:%s:%s",
-    sid, want, tostring(preferredKind or "auto"), formKey(form))
+  local cacheKey = string.format("%d:%s:water:%s:%s:%s",
+    sid, want, tostring(preferredKind or "auto"), formKey(form), silKey)
   local cached = self.cache[cacheKey]
   if cached ~= nil then
     if cached.ok then return cached.def end
@@ -423,7 +470,7 @@ function WaterSpriteRegistry:resolve(speciesId, variant, preferredKind, form)
 
   for _, kind in ipairs(order) do
     for _, v in ipairs(variantOrder) do
-      local def, err = self:_resolveKindVariant(sid, kind, v, form)
+      local def, err = self:_resolveKindVariant(sid, kind, v, form, opts)
       if def then
         self.cache[cacheKey] = { ok = true, def = def }
         return def
@@ -434,6 +481,10 @@ function WaterSpriteRegistry:resolve(speciesId, variant, preferredKind, form)
   local err = "water sprite unavailable"
   self.cache[cacheKey] = { ok = false, err = err }
   return nil, err
+end
+
+function WaterSpriteRegistry:invalidateCache()
+  self.cache = {}
 end
 
 function WaterSpriteRegistry:hasKind(speciesId, kind, variant)

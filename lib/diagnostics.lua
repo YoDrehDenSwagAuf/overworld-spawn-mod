@@ -621,18 +621,29 @@ function Diagnostics.hudLines(logic)
       lines[#lines + 1] = ("Safari active: %s"):format(
         (sStatus == SafariCompat.STATUS.ACTIVE) and "YES" or "NO")
     end
+    local waterMode = Config.waterDisplayMode(logic.mod)
+    local classicWater = onOff
+    if Config.waterEncountersDisabled(logic.mod) then
+      classicWater = "OFF"
+    elseif Config.waterClassicEncountersForced(logic.mod) then
+      classicWater = "ON"
+    end
     lines[#lines + 1] = ("Random Enc: %s"):format(onOff)
     lines[#lines + 1] = ("Classic Grass: %s"):format(onOff)
     lines[#lines + 1] = ("Classic Cave: %s"):format(onOff)
-    lines[#lines + 1] = ("Classic Water: %s"):format(onOff)
-    lines[#lines + 1] = ("Water Mons: %s"):format(
-      Config.waterMons(logic.mod) and "ON" or "OFF")
+    lines[#lines + 1] = ("Classic Water: %s"):format(classicWater)
+    lines[#lines + 1] = ("Water Mons: %s"):format(tostring(waterMode))
     lines[#lines + 1] = ("Water target: %d"):format(logic.targetWaterCount or 0)
     lines[#lines + 1] = ("Water minimum spacing: %d"):format(
       Config.waterMinSpacing(logic.mod))
     if logic.caveReachability then
       local CaveReachability = V.require("cave_reachability")
-      for _, line in ipairs(CaveReachability.hudLines(logic.caveReachability)) do
+      for _, line in ipairs(CaveReachability.hudLines(logic.caveReachability, {
+        caveMode = logic.caveMode or Config.caveSpawnMode(logic.mod),
+        mapTarget = logic.targetSpawnCount,
+        reachableTarget = logic.caveReachableTarget,
+        sceneryTarget = logic.caveSceneryTarget,
+      })) do
         lines[#lines + 1] = line
       end
     end

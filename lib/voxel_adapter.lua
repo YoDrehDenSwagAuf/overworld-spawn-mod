@@ -206,6 +206,12 @@ function VoxelAdapter:updateEntity(entity)
     or "LEGACY_PNG"
   entity.voxelScale = 1
 
+  -- Hidden Silhouettes only: force overlay so Entity:draw paints the circle
+  -- (DS billboards would otherwise show the Pokémon body). Voxel Silhouettes
+  -- use native pre-rendered sheets on the normal DS billboard path.
+  local WaterDisplay = V.require("water_display")
+  local waterPresentation = WaterDisplay.needsOverlayPresentation(self.mod, entity)
+
   if not active then
     entity.worldRenderer = "GEN1_FLAT"
     entity.pokemonRenderer = "WILDS_2D"
@@ -216,7 +222,41 @@ function VoxelAdapter:updateEntity(entity)
     entity.grassRenderer = "ENGINE_2D"
     entity.voxelUpdateOk = true
     entity.voxelSource = entity.spriteSource2D
+    entity.waterPresentationForced = waterPresentation or nil
     return true
+  end
+
+  if waterPresentation then
+    entity.worldRenderer = VoxelAdapter.WORLD_RENDERER
+    entity.pokemonRenderer = VoxelAdapter.POKEMON_OVERLAY_EMERGENCY
+    entity.dramaticBillboardSkipped = true
+    entity.depthIntegration = "INACTIVE"
+    entity.objectOcclusion = "INACTIVE"
+    entity.grassRenderer = "EMERGENCY_OVERLAY"
+    entity.voxelRegistered = true
+    entity.voxelUpdateOk = true
+    entity.voxelDisabled = false
+    entity.voxelSource = entity.spriteSource2D
+    entity.waterPresentationForced = true
+    entity.render2DFallback = true
+    return true
+  end
+  entity.waterPresentationForced = nil
+
+  -- Voxel silhouettes: ensure native silhouette sheet is bound once when the
+  -- camera becomes Voxel (or mode changes). No respawn; at most one rebind.
+  if WaterDisplay.needsNativeSilhouetteSheet(self.mod, entity) then
+    local needRebind = (entity.waterVoxelActive ~= true)
+      or (entity.waterSilhouetteSheet ~= true)
+    if needRebind and entity.render and entity.render.applyProviderSprite then
+      local game = self.mod.world and self.mod.world.game
+      pcall(entity.render.applyProviderSprite, entity.render, entity, game)
+    end
+  elseif entity.waterSilhouetteSheet == true and entity.render
+     and entity.render.applyProviderSprite then
+    -- Left Voxel or left silhouettes mode: restore colour water sheet.
+    local game = self.mod.world and self.mod.world.game
+    pcall(entity.render.applyProviderSprite, entity.render, entity, game)
   end
 
   entity.worldRenderer = VoxelAdapter.WORLD_RENDERER

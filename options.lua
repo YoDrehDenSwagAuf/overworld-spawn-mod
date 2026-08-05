@@ -57,9 +57,27 @@ return {
   {
     key = "water_spawns",
     label = "Water Mons",
-    type = "toggle",
-    default = true,
-    description = "Shows compatible Pokémon directly on water using animated Swimming or Levitates sprites.",
+    type = "choice",
+    default = "swimming_sprites",
+    choices = {
+      { "Swim Sprites", "swimming_sprites" },
+      { "Hid Silhouette", "hidden_silhouettes" },
+      { "Silhouettes", "silhouettes" },
+      { "Classic Enc", "classic_encounters" },
+      { "Disabled", "disabled" },
+    },
+    description = "How water Pokémon appear: swimming sprites (default), hidden dark circles, tinted silhouettes, classic random encounters only, or fully disabled.",
+  },
+  {
+    key = "cave_spawns",
+    label = "Cave Spawns",
+    type = "choice",
+    default = "reachable",
+    choices = {
+      { "Reachable Only", "reachable" },
+      { "Mixed", "mixed" },
+    },
+    description = "Cave Pokémon spawn only on tiles the player can reach, or Mixed (~20% atmospheric scenery in inaccessible cave pockets).",
   },
   {
     key = "pokemon_grass_render_mode",

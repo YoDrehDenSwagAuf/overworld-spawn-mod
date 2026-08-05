@@ -19,7 +19,7 @@ local savedOpts = {
   sprite_style = "auto",
   spawn_density = "normal",
   random_encounters = true,
-  water_spawns = true,
+  water_spawns = "swimming_sprites",
   dev_overlay = nil,
   debug = nil,
   dev_mode = nil,
@@ -75,7 +75,7 @@ end
 
 local required = {
   "enabled", "sprite_style", "spawn_density", "random_encounters",
-  "water_spawns", "dev_overlay",
+  "water_spawns", "cave_spawns", "dev_overlay",
 }
 for _, k in ipairs(required) do
   check(byKey[k] ~= nil, "core option present: " .. k)
@@ -257,9 +257,9 @@ eq(fw.status.lastAction, "style_invalidated", "invalidateStyle works")
 
 -- Manifest / export version
 local mf = io.open("manifest.json", "r"):read("*a")
-check(mf:find('"1.7.1"', 1, true) ~= nil, "manifest 1.7.1")
+check(mf:find('"1.8.0"', 1, true) ~= nil, "manifest 1.8.0")
 local main = io.open("main.lua", "r"):read("*a")
-check(main:find('version = "1.7.1"', 1, true) ~= nil, "export version 1.7.1")
+check(main:find('version = "1.8.0"', 1, true) ~= nil, "export version 1.8.0")
 
 print("")
 if failures > 0 then

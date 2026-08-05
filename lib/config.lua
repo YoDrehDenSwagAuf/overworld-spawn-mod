@@ -55,8 +55,10 @@ Config.DEFAULTS = {
   wild_step_seconds = 0.28,
   idle_look_min_s = 5,
   idle_look_max_s = 10,
-  enable_water_spawns = true, -- legacy internal alias
-  water_spawns = true,        -- public "Water Mons" toggle
+  enable_water_spawns = true, -- legacy internal alias (spawn-enabled modes)
+  -- Public "Water Mons" choice: swimming_sprites | hidden_silhouettes |
+  -- silhouettes | classic_encounters | disabled. Legacy bool true/false migrates.
+  water_spawns = "swimming_sprites",
   -- Water spawn zones (tile distance from walkable land). Internal only.
   water_near_shore_max = 2,
   water_mid_water_max = 5,
@@ -68,7 +70,9 @@ Config.DEFAULTS = {
   land_water_chase_shore_max = 1,
   land_water_chase_player_max = 5,
   water_aggressive_sight_range = 5,
-  enable_cave_spawns = true,
+  enable_cave_spawns = true, -- internal master; public choice is cave_spawns
+  -- Public "Cave Spawns": reachable (default) | mixed (~20% scenery).
+  cave_spawns = "reachable",
   -- Public developer overlay (behaviour + facing labels).
   dev_overlay = false,
   -- Internal-only (no longer public options). Kept as defaults for code paths.
@@ -558,7 +562,7 @@ function Config.migrateRandomEncountersOption(mod)
     -- Drop obsolete choice key once migrated.
     bucket[mod.id].grass_encounters = nil
     if bucket[mod.id].water_spawns == nil then
-      bucket[mod.id].water_spawns = Config.waterMons(mod)
+      bucket[mod.id].water_spawns = Config.waterDisplayMode(mod)
     end
   end
   local world = mod.world
@@ -579,18 +583,103 @@ end
 -- Back-compat alias used during transition.
 Config.migrateGrassEncountersOption = Config.migrateRandomEncountersOption
 
-function Config.waterMons(mod)
+local VALID_WATER_MODES = {
+  swimming_sprites = true,
+  hidden_silhouettes = true,
+  silhouettes = true,
+  classic_encounters = true,
+  disabled = true,
+}
+
+local WATER_MODE_CONFIRM = {
+  swimming_sprites = "SWIM SPRITES",
+  hidden_silhouettes = "HID SILHOUETTE",
+  silhouettes = "SILHOUETTES",
+  classic_encounters = "CLASSIC ENC",
+  disabled = "DISABLED",
+}
+
+Config.VALID_WATER_MODES = VALID_WATER_MODES
+Config.WATER_MODE_CONFIRM = WATER_MODE_CONFIRM
+
+local function coerceWaterMode(value)
+  if value == true or value == "true" or value == "on" or value == "ON" then
+    return "swimming_sprites"
+  end
+  if value == false or value == "false" or value == "off" or value == "OFF" then
+    -- Legacy OFF: no visible water mons; classic rolls still followed Random Enc.
+    return "classic_encounters"
+  end
+  if type(value) == "string" and VALID_WATER_MODES[value] then
+    return value
+  end
+  return nil
+end
+
+-- Public Water Mons choice (string mode). Migrates legacy boolean saves.
+function Config.waterDisplayMode(mod)
   local raw, present = Config.peekSavedOption(mod, "water_spawns")
   if present then
-    return raw == true
+    local mode = coerceWaterMode(raw)
+    if mode then return mode end
   end
   if mod and mod.options and type(mod.options.get) == "function" then
     local v = mod.options:get("water_spawns")
-    if v ~= nil then return v == true end
+    local mode = coerceWaterMode(v)
+    if mode then return mode end
     local legacy = mod.options:get("enable_water_spawns")
-    if legacy ~= nil then return legacy == true end
+    if legacy ~= nil then
+      return coerceWaterMode(legacy) or "swimming_sprites"
+    end
   end
-  return Config.DEFAULTS.water_spawns ~= false
+  local def = Config.DEFAULTS.water_spawns
+  return coerceWaterMode(def) or "swimming_sprites"
+end
+
+function Config.migrateWaterDisplayMode(mod)
+  local mode = Config.waterDisplayMode(mod)
+  local function write(bucket)
+    if type(bucket) ~= "table" then return end
+    bucket[mod.id] = bucket[mod.id] or {}
+    local cur = bucket[mod.id].water_spawns
+    if cur == true or cur == false or cur == nil
+       or (type(cur) == "string" and not VALID_WATER_MODES[cur]) then
+      bucket[mod.id].water_spawns = mode
+    end
+    bucket[mod.id].enable_water_spawns = (mode == "swimming_sprites"
+      or mode == "hidden_silhouettes"
+      or mode == "silhouettes")
+  end
+  local world = mod.world
+  local game = world and world.game
+  if game and game.save and game.save.options then
+    game.save.options.modOptions = game.save.options.modOptions or {}
+    write(game.save.options.modOptions)
+  end
+  if game and game.mods then
+    if game.mods.modOptions then write(game.mods.modOptions) end
+    if game.mods.loader and game.mods.loader.modOptions then
+      write(game.mods.loader.modOptions)
+    end
+  end
+  return mode
+end
+
+-- True when visible water overworld entities may spawn
+-- (Swim Sprites / Hidden Silhouettes / Silhouettes).
+function Config.waterMons(mod)
+  local mode = Config.waterDisplayMode(mod)
+  return mode == "swimming_sprites"
+    or mode == "hidden_silhouettes"
+    or mode == "silhouettes"
+end
+
+function Config.waterClassicEncountersForced(mod)
+  return Config.waterDisplayMode(mod) == "classic_encounters"
+end
+
+function Config.waterEncountersDisabled(mod)
+  return Config.waterDisplayMode(mod) == "disabled"
 end
 
 function Config.maxWaterMons(mod)
@@ -680,42 +769,149 @@ end
 
 function Config.setWaterMons(mod, value, source, opts)
   opts = opts or {}
-  local on = (value == true or value == "on" or value == "ON" or value == "true")
-  if value == false or value == "off" or value == "OFF" or value == "false" then
-    on = false
-  elseif value ~= true and value ~= "on" and value ~= "ON" and value ~= "true" then
-    if type(value) ~= "boolean" then
-      return false, "invalid water_spawns: " .. tostring(value)
-    end
+  local mode = coerceWaterMode(value)
+  if not mode then
+    return false, "invalid water_spawns: " .. tostring(value)
   end
 
   local game = resolveGame(mod, opts)
-  writeOptionBucket(mod, game, "water_spawns", on)
-  writeOptionBucket(mod, game, "enable_water_spawns", on)
+  local spawnOn = (mode == "swimming_sprites"
+    or mode == "hidden_silhouettes"
+    or mode == "silhouettes")
+  writeOptionBucket(mod, game, "water_spawns", mode)
+  writeOptionBucket(mod, game, "enable_water_spawns", spawnOn)
 
   local logic = opts.logic
   if not logic and mod and mod.exports then
     logic = mod.exports.logic
   end
   if logic and type(logic.applyWaterMons) == "function" then
-    pcall(logic.applyWaterMons, logic, on, source)
+    pcall(logic.applyWaterMons, logic, spawnOn, source, mode)
   elseif logic and type(logic.onOptionsChanged) == "function" then
     pcall(logic.onOptionsChanged, logic, {
-      mod = mod.id, key = "water_spawns", value = on, source = source,
+      mod = mod.id, key = "water_spawns", value = mode, source = source,
     })
   end
 
   local confirmMsg = opts.message
   if not confirmMsg and opts.confirm ~= false then
-    confirmMsg = "WATER: " .. (on and "ON" or "OFF")
+    confirmMsg = "WATER: " .. (WATER_MODE_CONFIRM[mode] or mode:upper())
   end
   confirmText(game, mod, confirmMsg)
 
   if source and mod and mod.log and type(mod.log.info) == "function" then
     pcall(mod.log.info, mod.log,
-      "water_spawns set to %s via %s", tostring(on), tostring(source))
+      "water_spawns set to %s via %s", tostring(mode), tostring(source))
   end
-  return true, on
+  return true, mode
+end
+
+-- Alias used by menus / docs.
+Config.setWaterDisplayMode = Config.setWaterMons
+
+local VALID_CAVE_MODES = {
+  reachable = true,
+  mixed = true,
+}
+
+local CAVE_MODE_CONFIRM = {
+  reachable = "REACHABLE ONLY",
+  mixed = "MIXED",
+}
+
+Config.VALID_CAVE_MODES = VALID_CAVE_MODES
+Config.CAVE_MODE_CONFIRM = CAVE_MODE_CONFIRM
+
+local function coerceCaveMode(value)
+  if value == true or value == "true" or value == "on" or value == "ON"
+     or value == "strict" or value == "reachable_only" then
+    return "reachable"
+  end
+  if value == false or value == "false" or value == "off" or value == "OFF"
+     or value == "classic" then
+    return "mixed"
+  end
+  if type(value) == "string" and VALID_CAVE_MODES[value] then
+    return value
+  end
+  return nil
+end
+
+function Config.caveSpawnMode(mod)
+  local raw, present = Config.peekSavedOption(mod, "cave_spawns")
+  if present then
+    local mode = coerceCaveMode(raw)
+    if mode then return mode end
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local v = mod.options:get("cave_spawns")
+    local mode = coerceCaveMode(v)
+    if mode then return mode end
+  end
+  return coerceCaveMode(Config.DEFAULTS.cave_spawns) or "reachable"
+end
+
+function Config.caveSpawnsMixed(mod)
+  return Config.caveSpawnMode(mod) == "mixed"
+end
+
+function Config.caveSpawnsEnabled(mod)
+  if Config.get(mod, "enable_cave_spawns") == false then return false end
+  return true
+end
+
+function Config.migrateCaveSpawnMode(mod)
+  local mode = Config.caveSpawnMode(mod)
+  local function write(bucket)
+    if type(bucket) ~= "table" then return end
+    bucket[mod.id] = bucket[mod.id] or {}
+    local cur = bucket[mod.id].cave_spawns
+    if cur == nil or not VALID_CAVE_MODES[cur] then
+      bucket[mod.id].cave_spawns = mode
+    end
+  end
+  local world = mod.world
+  local game = world and world.game
+  if game and game.save and game.save.options then
+    game.save.options.modOptions = game.save.options.modOptions or {}
+    write(game.save.options.modOptions)
+  end
+  if game and game.mods then
+    if game.mods.modOptions then write(game.mods.modOptions) end
+    if game.mods.loader and game.mods.loader.modOptions then
+      write(game.mods.loader.modOptions)
+    end
+  end
+  return mode
+end
+
+function Config.setCaveSpawnMode(mod, value, source, opts)
+  opts = opts or {}
+  local mode = coerceCaveMode(value)
+  if not mode then
+    return false, "invalid cave_spawns: " .. tostring(value)
+  end
+  local game = resolveGame(mod, opts)
+  writeOptionBucket(mod, game, "cave_spawns", mode)
+
+  local logic = opts.logic
+  if not logic and mod and mod.exports then
+    logic = mod.exports.logic
+  end
+  if logic and type(logic.applyCaveSpawnMode) == "function" then
+    pcall(logic.applyCaveSpawnMode, logic, mode, source)
+  elseif logic and type(logic.onOptionsChanged) == "function" then
+    pcall(logic.onOptionsChanged, logic, {
+      mod = mod.id, key = "cave_spawns", value = mode, source = source,
+    })
+  end
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "CAVE: " .. (CAVE_MODE_CONFIRM[mode] or mode:upper())
+  end
+  confirmText(game, mod, confirmMsg)
+  return true, mode
 end
 
 function Config.pokemonGrassRenderMode(mod)

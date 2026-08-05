@@ -241,16 +241,42 @@ Disabling random encounters does not remove visible overworld Pokémon. Wild
 Pokémon can still appear in the world and start battles through direct
 interaction or their normal behaviour.
 
-**Spawn Amount** and **Water Mons** are also Mod Settings. Visible water
-Pokémon remain active even when Random Enc is off. Classic surf / fishing rolls
-follow Random Enc.
+**Spawn Amount** and **Water Mons** are also Mod Settings. With the default
+**Swim Sprites** mode, visible water Pokémon remain active even when Random Enc
+is off. Classic surf / fishing rolls follow Random Enc, except when Water Mons
+is set to **Classic Enc** (water rolls stay on) or **Disabled** (water rolls
+off).
 
 ## Visible Water Pokémon
 
-When Water Mons is enabled, suitable Pokémon from the current map's water
-encounter table can appear directly on connected water areas. They remain on
-water (`WATER_IDLE` / `WATER_WANDER` / `WATER_AGGRESSIVE`). Legacy
-hidden grass/cave markers (no Pokémon sprite) remain optional via Hidden Mons.
+**Water Mons** chooses how water Pokémon appear:
+
+| Mode | Visible water mons | Water / fishing RNG |
+| --- | --- | --- |
+| Swim Sprites (default) | Full Swimming / Levitates sprites | Follows Random Enc |
+| Hid Silhouette | Small dark circle on the surface | Follows Random Enc |
+| Silhouettes | Dark blue-teal silhouette of the active sprite style | Follows Random Enc |
+| Classic Enc | None | Always on (even if Random Enc is off) |
+| Disabled | None | Always off |
+
+In Swim Sprites / Hid Silhouette / Silhouettes, suitable Pokémon from the
+current map's water encounter table appear on connected water and keep
+`WATER_IDLE` / `WATER_WANDER` / `WATER_AGGRESSIVE`. Legacy hidden grass/cave
+markers remain optional via Hidden Mons.
+
+In Voxel mode, full Pokémon silhouettes use native pre-rendered water
+silhouette sheets for correct depth and object occlusion. Hidden silhouettes
+remain simple animated water markers.
+
+## Cave Spawns
+
+- **Reachable Only** keeps visible cave Pokémon on areas the player can
+  actually enter.
+- **Mixed** keeps most Pokémon on reachable paths, while allowing a small
+  number of atmospheric Pokémon in inaccessible cave sections.
+
+Scenery Pokémon cannot attack the player through walls or start encounters
+from unreachable areas.
 
 ## Water Spawn Variety
 
@@ -400,7 +426,8 @@ Start / Pause menu).
 | Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex (also applied to your active follower) | AUTO |
 | Spawn Amount | Density preset (Low / Normal / High / Very High); also scales visible water Pokémon | NORMAL |
 | Random Enc | Classic step-based random encounters (grass / cave / water). Visible overworld Pokémon stay active. | ON |
-| Water Mons | Shows compatible Pokémon on water with Swimming / Levitates sprites | ON |
+| Water Mons | Swim Sprites (default) / Hid Silhouette / Silhouettes / Classic Enc / Disabled | SWIM SPRITES |
+| Cave Spawns | Reachable Only (default) / Mixed (~20% scenery) | REACHABLE ONLY |
 | Grass View | Immersed in tall grass, or fully Above | IMMERSED |
 | Idle Mons | Allow Idle Look behaviour | ON |
 | Roam Mons | Allow wandering inside encounter regions | ON |

@@ -244,7 +244,8 @@ Contact: `world.stepped` tile match + `movement.collision` bump.
 - Stay on connected water; never chase onto land
 - Land→water chase only with Swimming/Levitates sprite (entity preserved)
 - Slight visual sink (`waterSink = 2`)
-- Classic Surf / fishing `encounter.roll` gated by Random Enc only
+- Classic Surf / fishing `encounter.roll` gated by Random Enc, with Water Mons
+  overrides: `classic_encounters` forces water rolls ON; `disabled` forces them OFF
 
 ### Deferred: Followers EX water integration
 

@@ -35,19 +35,17 @@ function Grass.waterCells(map)
   return out
 end
 
--- Cave / indoor encounter floors: walkable, non-warp, non-water.
+-- Cave / indoor encounter floors: player-passable floor, non-warp, non-water.
+-- Uses the same passability rules as CaveReachability (not a looser walkable scan).
 function Grass.caveCells(map)
   local out = {}
   if not map then return out end
+  local CaveReachability = V.require("cave_reachability")
   local w = map.widthCells or 0
   local h = map.heightCells or 0
   for cy = 0, h - 1 do
     for cx = 0, w - 1 do
-      local walkable = true
-      if map.isWalkableCell then walkable = map:isWalkableCell(cx, cy) end
-      if walkable
-         and not (map.warpAtCell and map:warpAtCell(cx, cy))
-         and not (map.isWaterCell and map:isWaterCell(cx, cy)) then
+      if CaveReachability.isPassableCaveCell(map, cx, cy) then
         out[#out + 1] = { x = cx, y = cy }
       end
     end

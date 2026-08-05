@@ -345,6 +345,10 @@ end
 -- True when classic encounter RNG must be blocked (grass / cave / water).
 -- Active Safari sessions always suppress step encounters (independent of
 -- Random Enc) so visible Safari Pokémon can be approached safely.
+-- Water Mons modes may override Random Enc for water / fishing only:
+--   classic_encounters → never suppress water (even if Random Enc OFF)
+--   disabled           → always suppress water
+-- Land / cave remain gated solely by Random Enc (+ Safari).
 function SpawnLogic:shouldSuppressClassicEncounter(ctx)
   local game = gameOf(self.mod)
   local world = self.mod.world
@@ -353,6 +357,17 @@ function SpawnLogic:shouldSuppressClassicEncounter(ctx)
   if SafariCompat.shouldSuppressClassicEncounters(game, ow, mapId) then
     return true
   end
+
+  local WaterDisplay = V.require("water_display")
+  if WaterDisplay.isWaterTerrain(ctx) then
+    if Config.waterEncountersDisabled(self.mod) then
+      return true
+    end
+    if Config.waterClassicEncountersForced(self.mod) then
+      return false
+    end
+  end
+
   return not Config.randomEncountersEnabled(self.mod)
 end
 
@@ -642,6 +657,64 @@ function SpawnLogic:countWaterOnMap(mapId)
     end
   end
   return n
+end
+
+function SpawnLogic:countCaveSceneryOnMap(mapId)
+  local n = 0
+  for _, id in ipairs(self.byMap[mapId] or {}) do
+    local r = self.spawns[id]
+    local e = self.entities[id]
+    if r and r.state == Config.STATE.AVAILABLE
+       and (r.caveScenery == true or (e and e.caveScenery == true)) then
+      n = n + 1
+    end
+  end
+  return n
+end
+
+function SpawnLogic:countCaveReachableOnMap(mapId)
+  local n = 0
+  for _, id in ipairs(self.byMap[mapId] or {}) do
+    local r = self.spawns[id]
+    local e = self.entities[id]
+    if r and r.state == Config.STATE.AVAILABLE
+       and not Behavior.isWater(r.behavior)
+       and r.caveScenery ~= true
+       and not (e and e.caveScenery == true) then
+      n = n + 1
+    end
+  end
+  return n
+end
+
+function SpawnLogic:applyCaveSpawnMode(mode, source)
+  mode = mode or Config.caveSpawnMode(self.mod)
+  self.caveMode = mode
+  self:_log("cave_spawns -> %s via %s", tostring(mode), tostring(source))
+  -- Rebuild map eligibility with the new mode (despawn scenery when leaving Mixed).
+  if mode ~= "mixed" and self.activeMapId then
+    local doomed = {}
+    for _, id in ipairs(self.byMap[self.activeMapId] or {}) do
+      local r = self.spawns[id]
+      local e = self.entities[id]
+      if r and (r.caveScenery or (e and e.caveScenery))
+         and r.state == Config.STATE.AVAILABLE then
+        if not (e and e.state == Config.STATE.ENCOUNTER_STARTING) then
+          doomed[#doomed + 1] = id
+        end
+      end
+    end
+    for _, id in ipairs(doomed) do
+      self:_despawn(id, true)
+    end
+    self.caveSceneryTarget = 0
+    self.caveSceneryCache = {}
+  end
+  local world = self.mod.world
+  local ow = world and world.overworld and world:overworld()
+  if ow and ow.map and self.state and self.state.initialized then
+    self:onMapEntered({ mapId = ow.map.id, map = ow.map })
+  end
 end
 
 function SpawnLogic:countWaterZone(mapId, zone)
@@ -970,7 +1043,7 @@ function SpawnLogic:initializeForMap(mapId, game)
     return false
   end
   if surfaceInfo.surface == Surface.CAVE
-     and Config.get(self.mod, "enable_cave_spawns") == false then
+     and not Config.caveSpawnsEnabled(self.mod) then
     st:markUnsupported("cave spawns disabled")
     self:_restoreVanillaEncounters("cave spawns disabled")
     return false
@@ -994,13 +1067,19 @@ function SpawnLogic:initializeForMap(mapId, game)
   elseif surfaceInfo.tileMode == "walkable" then
     local caveAll = Grass.caveCells(ow.map)
     self.caveReachability = CaveReachability.build(ow.map, ow.player)
-    local filtered, rejected, status = CaveReachability.filterCells(
-      caveAll, self.caveReachability)
-    if status == "READY" or (status == "FALLBACK" and #filtered > 0) then
-      self.eligibleCache = filtered
-      self.caveReachability.rejectedUnreachable = rejected
-      self:_log("cave reachability %s reachable=%d rejected=%d",
-                tostring(status), #filtered, rejected)
+    local reachable, unreachable, invalid = CaveReachability.partitionCells(
+      caveAll, ow.map, self.caveReachability)
+    local status = self.caveReachability.status
+    self.caveSceneryCache = {}
+    self.caveMode = Config.caveSpawnMode(self.mod)
+    if status == "READY" or (status == "FALLBACK" and #reachable > 0) then
+      self.eligibleCache = reachable
+      if self.caveMode == "mixed" then
+        self.caveSceneryCache = unreachable
+      end
+      self:_log("cave reachability %s mode=%s reachable=%d scenery=%d invalid=%d",
+                tostring(status), tostring(self.caveMode),
+                #reachable, #unreachable, invalid)
     elseif status == "FAILED" then
       -- Conservative fallback: nearby passable cells only — never unfiltered cave.
       local near = CaveReachability.conservativeNearPlayer(ow.map, ow.player, 5)
@@ -1009,16 +1088,22 @@ function SpawnLogic:initializeForMap(mapId, game)
         self.caveReachability.reason = self.caveReachability.reason
           or "nearby player cells"
         self.eligibleCache = near
+        self.caveSceneryCache = {}
         self:_log("cave reachability FAILED → nearby fallback cells=%d", #near)
       else
         self.eligibleCache = {}
+        self.caveSceneryCache = {}
         self:_log("cave reachability FAILED → no visible cave spawns")
       end
     else
-      self.eligibleCache = filtered
+      self.eligibleCache = reachable
+      if self.caveMode == "mixed" then
+        self.caveSceneryCache = unreachable
+      end
     end
   else
     self.eligibleCache = {}
+    self.caveSceneryCache = nil
   end
   st.eligibleTileCount = #self.eligibleCache
   if #self.eligibleCache == 0 then
@@ -1032,6 +1117,10 @@ function SpawnLogic:initializeForMap(mapId, game)
 
   -- 5) Connected spawn regions + density target
   self.regions = SpawnRegions.build(self.eligibleCache)
+  self.caveSceneryRegions = nil
+  if self.caveSceneryCache and #self.caveSceneryCache > 0 then
+    self.caveSceneryRegions = SpawnRegions.build(self.caveSceneryCache)
+  end
   st.spawnRegionCount = #self.regions
   local mapSpan = math.max(ow.map.widthCells or 0, ow.map.heightCells or 0)
   self.targetSpawnCount = SpawnRegions.targetCount({
@@ -1085,17 +1174,43 @@ function SpawnLogic:initializeForMap(mapId, game)
   for _, region in ipairs(self.regions) do
     self.regionCounts[region.id] = 0
   end
-  self:_log("surface=%s tiles=%d regions=%d target=%d waterTarget=%d density=%s randomEnc=%s",
+
+  -- Cave Mixed quota: ~80% reachable / ~20% scenery (unreachable valid).
+  self.caveReachableTarget = self.targetSpawnCount
+  self.caveSceneryTarget = 0
+  if surfaceInfo.tileMode == "walkable" and self.caveMode == "mixed" then
+    local rTarget, sTarget = CaveReachability.mixedTargets(self.targetSpawnCount)
+    if not self.caveSceneryCache or #self.caveSceneryCache == 0 then
+      sTarget = 0
+      rTarget = self.targetSpawnCount
+    end
+    -- Never exceed available reachable tiles; reduce total rather than raise scenery.
+    if rTarget > #self.eligibleCache then
+      rTarget = #self.eligibleCache
+    end
+    if sTarget > #(self.caveSceneryCache or {}) then
+      sTarget = #(self.caveSceneryCache or {})
+    end
+    self.caveReachableTarget = rTarget
+    self.caveSceneryTarget = sTarget
+    self.targetSpawnCount = rTarget + sTarget
+    st.targetSpawnCount = self.targetSpawnCount
+    self:_log("cave mixed targets reachable=%d scenery=%d (tiles r/s=%d/%d)",
+              rTarget, sTarget, #self.eligibleCache, #(self.caveSceneryCache or {}))
+  end
+
+  self:_log("surface=%s tiles=%d regions=%d target=%d waterTarget=%d density=%s randomEnc=%s water=%s",
             tostring(surfaceInfo.surface), #self.eligibleCache,
             #self.regions, self.targetSpawnCount,
             self.targetWaterCount,
             tostring(Config.spawnDensity(self.mod)),
-            tostring(Config.randomEncountersEnabled(self.mod)))
+            tostring(Config.randomEncountersEnabled(self.mod)),
+            tostring(Config.waterDisplayMode(self.mod)))
   if Config.devMode(self.mod) then
     self:_log("Random Enc: %s",
               tostring(Config.randomEncountersEnabled(self.mod)))
     self:_log("Water Mons: %s cells=%d target=%d",
-              tostring(Config.waterMons(self.mod)),
+              tostring(Config.waterDisplayMode(self.mod)),
               #(self.waterCache or {}), self.targetWaterCount or 0)
     if self.shoreDistance then
       local s = WaterSpawn.summarize(
@@ -1213,7 +1328,7 @@ function SpawnLogic:initializeForMap(mapId, game)
     -- Classic surf / fishing encounters stay unchanged either way.
     if surfaceInfo.surface == Surface.WATER then
       self:_log("water map ready with %d visible water mons (Water Mons=%s target=%d)",
-                waterSpawned, tostring(Config.waterMons(self.mod)),
+                waterSpawned, tostring(Config.waterDisplayMode(self.mod)),
                 self.targetWaterCount or 0)
     else
       local record, err = self:trySpawn(game, { force = true, readinessProbe = true })
@@ -1303,19 +1418,53 @@ function SpawnLogic:trySpawn(game, opts)
     region = self:_pickUnderfilledRegion()
   end
 
+  -- Cave Mixed: choose scenery vs reachable pool by remaining quota.
+  local scenerySpawn = opts.scenery == true
+  if not opts.scenery and not opts.x and tileMode == "walkable"
+     and self.caveMode == "mixed"
+     and (self.caveSceneryTarget or 0) > 0
+     and self.caveSceneryCache and #self.caveSceneryCache > 0 then
+    local sceneryCount = self:countCaveSceneryOnMap(mapId)
+    local reachCount = self:countCaveReachableOnMap(mapId)
+    if sceneryCount < (self.caveSceneryTarget or 0)
+       and reachCount >= (self.caveReachableTarget or 0) then
+      scenerySpawn = true
+    elseif sceneryCount < (self.caveSceneryTarget or 0)
+       and math.random() < 0.25
+       and reachCount + 1 >= (self.caveReachableTarget or 0) then
+      -- Prefer filling reachable first; occasional scenery while both open.
+      scenerySpawn = true
+    end
+  end
+
   local tileList = self.eligibleCache
-  if region and region.tiles then
+  if scenerySpawn then
+    tileList = self.caveSceneryCache
+    region = nil
+  elseif region and region.tiles then
     tileList = region.tiles
   elseif not tileList or #tileList == 0 then
     if tileMode == "water" then
       tileList = Grass.waterCells(ow.map)
     elseif tileMode == "walkable" then
-      tileList = Grass.caveCells(ow.map)
+      -- Never reload unfiltered cave cells; rebuild from reachability.
+      if self.caveReachability and self.caveReachability.status ~= "FAILED" then
+        tileList = {}
+        for _, c in ipairs(Grass.caveCells(ow.map)) do
+          if CaveReachability.isReachable(self.caveReachability, c.x, c.y) then
+            tileList[#tileList + 1] = c
+          end
+        end
+      else
+        tileList = {}
+      end
     else
       tileList = Grass.cells(ow.map)
       self.grassCache = tileList
     end
-    self.eligibleCache = tileList
+    if not scenerySpawn then
+      self.eligibleCache = tileList
+    end
   end
 
   local occupancy = self:rebuildOccupancy(ow)
@@ -1356,6 +1505,21 @@ function SpawnLogic:trySpawn(game, opts)
   if not x then
     return nil, reason or "rejected: no eligible tiles"
   end
+  if tileMode == "walkable" and self.caveReachability then
+    local cls = CaveReachability.classifyCell(ow.map, self.caveReachability, x, y)
+    if cls == CaveReachability.CLASS.INVALID then
+      return nil, "rejected: invalid cave tile"
+    end
+    if scenerySpawn and cls ~= CaveReachability.CLASS.UNREACHABLE_VALID then
+      scenerySpawn = false
+    elseif (not scenerySpawn) and cls == CaveReachability.CLASS.UNREACHABLE_VALID
+           and self.caveMode ~= "mixed" then
+      return nil, "rejected: unreachable cave tile"
+    elseif (not scenerySpawn) and cls == CaveReachability.CLASS.UNREACHABLE_VALID
+           and self.caveMode == "mixed" then
+      scenerySpawn = true
+    end
+  end
 
   -- Atomic spawn reservation before species/entity creation.
   local spawnToken, reserveErr = occupancy:reserveSpawn(nil, x, y)
@@ -1388,18 +1552,24 @@ function SpawnLogic:trySpawn(game, opts)
     if opts.readinessProbe or opts.force then
       behavior = safariActive and Behavior.SAFARI_IDLE or Behavior.IDLE_LOOK
     else
+      -- Mixed scenery: atmosphere only — never AGGRESSIVE / Hidden.
       behavior = Behavior.pick(species, surfaceInfo.surface, {
         safari = safariActive,
         enable_idle = Config.get(self.mod, "enable_idle") ~= false,
         enable_wander = Config.get(self.mod, "enable_wander") ~= false,
-        enable_aggressive = (not safariActive)
+        enable_aggressive = (not scenerySpawn) and (not safariActive)
           and Config.get(self.mod, "enable_aggressive") ~= false,
-        enable_hidden = (not safariActive)
+        enable_hidden = (not scenerySpawn) and (not safariActive)
           and Config.get(self.mod, "enable_hidden") ~= false,
         enable_safari_flee = safariActive,
         aggressive_frequency = Config.get(self.mod, "aggressive_frequency") or 1,
-        hiddenCaveAvailable = not safariActive,
+        hiddenCaveAvailable = (not scenerySpawn) and not safariActive,
       })
+    end
+  end
+  if scenerySpawn then
+    if Behavior.isHidden(behavior) or behavior == Behavior.AGGRESSIVE then
+      behavior = (math.random() < 0.55) and Behavior.IDLE_LOOK or Behavior.GRASS_WANDER
     end
   end
 
@@ -1470,6 +1640,23 @@ function SpawnLogic:trySpawn(game, opts)
   entity.encounterKind = encounterKind
   record.facing = entity.facing
   record.originSurface = surfaceInfo.surface
+
+  if tileMode == "walkable" and self.caveReachability then
+    if scenerySpawn then
+      entity.caveReachClass = CaveReachability.CLASS.UNREACHABLE_VALID
+      entity.caveScenery = true
+      entity.caveHomeCells = CaveReachability.componentCells(
+        self.caveReachability, x, y)
+      entity.canTriggerBattle = false
+      record.caveReachClass = entity.caveReachClass
+      record.caveScenery = true
+    else
+      entity.caveReachClass = CaveReachability.CLASS.REACHABLE
+      entity.caveScenery = false
+      entity.caveHomeCells = self.caveReachability.reachable
+      record.caveReachClass = entity.caveReachClass
+    end
+  end
 
   -- Visible grass/land spawn pop (not readiness probe).
   -- Begin FX before world attach so pose-nil entities stay logical-only.
@@ -1857,8 +2044,13 @@ function SpawnLogic:applyRandomEncounters(on, source)
             tostring(enabled), tostring(not enabled), tostring(source))
 end
 
-function SpawnLogic:applyWaterMons(on, source)
+function SpawnLogic:applyWaterMons(on, source, mode)
   local game = gameOf(self.mod)
+  mode = mode or Config.waterDisplayMode(self.mod)
+  -- Prefer spawn-enabled check from mode when provided as string/bool.
+  if on == nil then
+    on = Config.waterMons(self.mod)
+  end
   if not on then
     local mapId = self.activeMapId
     if mapId then
@@ -1886,12 +2078,13 @@ function SpawnLogic:applyWaterMons(on, source)
     end
     self.targetWaterCount = 0
     self.waterZoneTargets = { near = 0, mid = 0, deep = 0, total = 0 }
-    self:_log("water_spawns OFF via %s; removed water mons", tostring(source))
+    self:_log("water_spawns %s via %s; removed water mons",
+              tostring(mode), tostring(source))
     return
   end
 
   if not self.activeMapId or not self.state.initialized then
-    self:_log("water_spawns ON via %s (deferred)", tostring(source))
+    self:_log("water_spawns %s via %s (deferred)", tostring(mode), tostring(source))
     return
   end
   local world = self.mod.world
@@ -1923,7 +2116,8 @@ function SpawnLogic:applyWaterMons(on, source)
       if not self:trySpawnWater(game, {}) then break end
     end
   end
-  self:_log("water_spawns ON target=%d via %s", self.targetWaterCount or 0, tostring(source))
+  self:_log("water_spawns %s target=%d via %s",
+            tostring(mode), self.targetWaterCount or 0, tostring(source))
 end
 
 -- Developer test spawn with explicit phase reporting. Never touches Pokédex,
@@ -2281,7 +2475,24 @@ function SpawnLogic:onOptionsChanged(payload)
     self:applyRandomEncounters(
       payload.value == true, "options_changed")
   elseif key == "water_spawns" or key == "enable_water_spawns" then
-    self:applyWaterMons(payload.value == true, "options_changed")
+    local mode = Config.waterDisplayMode(self.mod)
+    self:applyWaterMons(Config.waterMons(self.mod), "options_changed", mode)
+    -- Presentation-only mode switches (swim ↔ silhouette ↔ hidden) must rebind
+    -- sprites without respawning. invalidate caches so old colour/silhouette
+    -- SpriteRenderers are never reused.
+    if Config.waterMons(self.mod) and self.render then
+      local world = self.mod.world
+      local game = world and world.game
+      if self.render.invalidateAssetCache then
+        pcall(self.render.invalidateAssetCache, self.render)
+      end
+      if self.render.spriteResolver and self.render.spriteResolver.invalidateCache then
+        pcall(self.render.spriteResolver.invalidateCache, self.render.spriteResolver)
+      end
+      pcall(self.render.refreshAllEntitySprites, self.render, self, game)
+    end
+  elseif key == "cave_spawns" or key == "enable_cave_spawns" then
+    self:applyCaveSpawnMode(Config.caveSpawnMode(self.mod), "options_changed")
   elseif key == "dev_overlay"
       or key == "dev_mode"
       or key == "debug_hud_always_visible"
