@@ -173,10 +173,16 @@ savedOpts.water_spawns = "swimming_sprites"
 check(WaterDisplay.needsOverlayPresentation(V.mod, farEnt) == false,
       "swimming does not force overlay")
 savedOpts.water_spawns = "hidden_silhouettes"
-check(WaterDisplay.needsOverlayPresentation(V.mod, farEnt) == true,
-      "hidden needs overlay")
+check(WaterDisplay.needsOverlayPresentation(V.mod, farEnt) == false,
+      "hidden no longer forces emergency overlay")
+check(WaterDisplay.needsNativeHiddenShadow(V.mod, farEnt) == true,
+      "hidden needs native flat shadow marker")
 check(WaterDisplay.needsNativeSilhouetteSheet(V.mod, farEnt) == false,
       "hidden does not use native silhouette sheet")
+check(WaterDisplay.useNativeHiddenShadow(V.mod, farEnt, true) == true,
+      "voxel hidden uses native shadow")
+check(WaterDisplay.useNativeHiddenShadow(V.mod, farEnt, false) == false,
+      "flat hidden keeps circle path")
 
 -- ------- shouldSuppressClassicEncounter -------
 local SpawnLogic = V.require("spawn_logic")

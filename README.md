@@ -23,15 +23,11 @@ without changing the spawn or encounter system.
 
 Available styles:
 
-- **Auto** — automatically uses an installed compatible sprite pack and falls
-  back to the built-in sprites.
-- **Gold Sprites** — uses the Gold/Silver battle-front art from
-  **OtaconRevengeance**’s [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites)
-  mod (`Gold_Silver_Sprites`) when that mod is installed. Adapted as native
-  1-frame SpriteRenderer definitions (no walker sheet; no asset copy).
-- **Followers EX** — uses compatible walker sprites supplied through
-  **Followers EX / PokePC Followers** when those mods are installed.
-- **PokeMMO** — uses the animated sprite sheets bundled with Wilds of Kanto.
+- **HGSS / PokeMMO** (default) — uses the animated sprite sheets bundled with
+  Wilds of Kanto.
+- **Poke Followers** — uses compatible walker sprites supplied through
+  **Followers EX / PokePC Followers** when those mods are installed. Falls back
+  to HGSS / PokeMMO when the follower provider is unavailable.
 - **Pokedex** — uses the original Pokédex-based images.
 
 You can switch styles at any time from Wilds of Kanto **Mod Settings**.
@@ -47,11 +43,9 @@ separately. Wilds of Kanto does not redistribute their assets.
 
 ### Optional Sprite Mods
 
-To use an external sprite style, install the corresponding mod through the
-Gen1Recomp Mod Manager or from its official GitHub release:
+To use **Poke Followers**, install the corresponding mods through the
+Gen1Recomp Mod Manager or from their official GitHub releases:
 
-- [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites/releases)
-  (`Gold_Silver_Sprites`)
 - [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
   (`FOLLOWERS_EX`)
 - [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
@@ -68,13 +62,8 @@ MOD SETTINGS -> WILDS OF KANTO -> Dev Overlay
 MOD SETTINGS -> WILDS OF KANTO -> Test Spawn (OPEN)
 ```
 
-Auto preference order when multiple packs are present:
-
-1. Gold Sprites
-2. Followers EX
-3. PokeMMO (built-in)
-4. Pokedex
-5. black fallback
+Default Sprite Style is always **HGSS / PokeMMO** (built-in) and does not
+depend on which companion mods are installed.
 
 ## Sprite Pack Shoutouts
 
@@ -97,29 +86,23 @@ assets remain owned and licensed by their respective creators.
 
 ## Sprite Styles (technical)
 
-Wilds of Kanto supports multiple overworld Pokémon sprite styles through a
-shared provider pipeline:
+Wilds of Kanto exposes three public overworld sprite styles:
 
-- **Auto** — prefers Gold Sprites, then Followers EX, then built-in PokeMMO,
-  then Pokedex.
-- **Gold Sprites** — read-only adapter for `Gold_Silver_Sprites` battle fronts.
-- **Followers EX** — uses compatible sprites supplied by Followers EX /
-  PokePC Followers when available.
-- **PokeMMO** — uses Wilds of Kanto's built-in animated overworld sprites.
-- **Pokedex** — uses the original Pokédex-based images.
+- **HGSS / PokeMMO** (`pokemmo`) — built-in animated overworld sprites (default).
+- **Poke Followers** (`followers`) — visible setting value; resolves through the
+  internal `followers_ex` provider, then falls back to HGSS / PokeMMO.
+- **Pokedex** (`pokedex`) — original Pokédex-based images.
 
 All styles use the same native Gen1Recomp SpriteRenderer pipeline and remain
 compatible with Dramatic Shape, including first-person rendering and world
 occlusion.
 
-The **PokeMMO** label refers to Wilds of Kanto’s own runtime follow-sprite
+The **HGSS / PokeMMO** label refers to Wilds of Kanto’s own runtime follow-sprite
 sheets (`assets/generated/followsprites_runtime/`). It does not ship or claim
-Gold Sprites / Followers EX / PokePC assets.
+Followers EX / PokePC assets.
 
 Optional companion mods (runtime detection only — **no hard dependencies**):
 
-- [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites)
-  (`Gold_Silver_Sprites`)
 - [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
   (`FOLLOWERS_EX`) — control / pack integration; depends on Wilds and the
   PokePC sprite pack.
@@ -151,8 +134,8 @@ Normal and shiny sprite variants are supported by the asset format. Shiny
 sprites are only used during normal gameplay when the game provides a reliable
 shiny state. They remain available in the developer preview for testing.
 
-Choose **Sprite Style** in Wilds of Kanto Mod Settings (Auto / Gold Sprites /
-Followers EX / PokeMMO / Pokedex). Auto is the default. The same style is
+Choose **Sprite Style** in Wilds of Kanto Mod Settings (HGSS / PokeMMO /
+Poke Followers / Pokedex). HGSS / PokeMMO is the default. The same style is
 applied to your active Followers EX follower.
 
 If a follow sprite or mapping is missing, the mod automatically falls back to:
@@ -179,9 +162,8 @@ tables and places tangible wild Pokemon (or hidden markers) on eligible tiles.
 - Tall-grass presentation: option for fully above grass or partially immersed
   (engine `drawCellBottom` feet overdraw, like the player)
 - Small species get nearest-neighbor sprite scaling so they stay readable
-- Real Pokemon art is preferred; **Sprite Style** selects Gold Sprites,
-  Followers EX, Wilds PokeMMO-style sheets, or legacy Pokedex images (Auto by
-  default)
+- Real Pokemon art is preferred; **Sprite Style** selects HGSS / PokeMMO,
+  Poke Followers, or legacy Pokedex images (HGSS / PokeMMO by default)
 - Otherwise legacy species / battle PNGs are used; a black fallback sprite is
   used when no image resolves (hidden behaviours draw no Pokemon sprite)
 - Vanilla random grass encounters remain as a fail-safe until the visible
@@ -264,9 +246,13 @@ current map's water encounter table appear on connected water and keep
 `WATER_IDLE` / `WATER_WANDER` / `WATER_AGGRESSIVE`. Legacy hidden grass/cave
 markers remain optional via Hidden Mons.
 
-In Voxel mode, full Pokémon silhouettes use native pre-rendered water
-silhouette sheets for correct depth and object occlusion. Hidden silhouettes
-remain simple animated water markers.
+### Voxel Water Presentation
+
+- **Hidden Silhouettes** use a generic flat underwater shadow marker
+  (`assets/generated/water_hidden_runtime/hidden-water-shadow.png`).
+- **Silhouettes** use the actual dark Pokémon shape as a flat underwater
+  shadow (native pre-rendered silhouette sheets + local flat world transform).
+- **Flat 2D** presentation remains unchanged (dark circle / tinted sprite).
 
 ## Cave Spawns
 
@@ -423,7 +409,7 @@ Start / Pause menu).
 | Label | Purpose | Default |
 | --- | --- | --- |
 | Show Wild Mons | Master switch for visible spawns | ON |
-| Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex (also applied to your active follower) | AUTO |
+| Sprite Style | HGSS / PokeMMO / Poke Followers / Pokedex (also applied to your active follower) | HGSS / POKEMMO |
 | Spawn Amount | Density preset (Low / Normal / High / Very High); also scales visible water Pokémon | NORMAL |
 | Random Enc | Classic step-based random encounters (grass / cave / water). Visible overworld Pokémon stay active. | ON |
 | Water Mons | Swim Sprites (default) / Hid Silhouette / Silhouettes / Classic Enc / Disabled | SWIM SPRITES |

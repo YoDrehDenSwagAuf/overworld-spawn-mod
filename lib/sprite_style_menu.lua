@@ -28,10 +28,8 @@ SpriteStyleMenu.MENU_LABEL = SpriteStyleMenu.LABEL_STYLE
 SpriteStyleMenu.LABEL_GRASS = SpriteStyleMenu.LABEL_RANDOM
 
 SpriteStyleMenu.STYLE_CHOICES = {
-  { label = "AUTO", value = "auto" },
-  { label = "GOLD SPRITES", value = "gold" },
-  { label = "FOLLOWERS EX", value = "followers_ex" },
-  { label = "POKEMMO", value = "pokemmo" },
+  { label = "HGSS / POKEMMO", value = "pokemmo" },
+  { label = "POKE FOLLOWERS", value = "followers" },
   { label = "POKEDEX", value = "pokedex" },
 }
 SpriteStyleMenu.CHOICES = SpriteStyleMenu.STYLE_CHOICES
@@ -57,10 +55,8 @@ SpriteStyleMenu.WATER_CHOICES = {
 }
 
 local STYLE_CONFIRM = {
-  auto = "AUTO",
-  gold = "GOLD",
-  followers_ex = "FOLLOWERS EX",
-  pokemmo = "POKEMMO",
+  pokemmo = "HGSS / POKEMMO",
+  followers = "POKE FOLLOWERS",
   pokedex = "POKEDEX",
 }
 
@@ -68,8 +64,12 @@ local function providerAvailable(menu, style, game)
   local render = menu.logic and menu.logic.render
   local providers = render and render.spriteProviders
   if not providers then return false, "no providers" end
-  if style == "auto" or style == "pokemmo" or style == "pokedex" then
+  style = Config.normalizeSpriteStyle(style)
+  if style == "pokemmo" or style == "pokedex" then
     return true, "built-in"
+  end
+  if style == "followers" then
+    return providers:providerAvailable("followers_ex", game)
   end
   return providers:providerAvailable(style, game)
 end
@@ -77,14 +77,13 @@ end
 local function activeFallbackLabel(menu, style, game)
   local render = menu.logic and menu.logic.render
   local providers = render and render.spriteProviders
-  if not providers then return "POKEMMO" end
+  if not providers then return "HGSS / POKEMMO" end
   local id = select(1, providers:activeProviderForStyle(style, game))
-  if id == "gold" then return "GOLD"
-  elseif id == "followers_ex" then return "FOLLOWERS EX"
+  if id == "followers_ex" then return "POKE FOLLOWERS"
   elseif id == "pokedex" then return "POKEDEX"
   elseif id == "black" then return "FALLBACK"
   end
-  return "POKEMMO"
+  return "HGSS / POKEMMO"
 end
 
 local function markCurrent(label, isCurrent)
@@ -108,12 +107,10 @@ function SpriteStyleMenu:_applyStyle(game, value)
   local avail, reason = providerAvailable(self, value, game)
   local message = "SPRITES: " .. (STYLE_CONFIRM[value] or tostring(value):upper())
 
-  if value == "gold" and not avail then
-    message = ("GOLD SPRITES\nNOT INSTALLED\nUSING %s"):format(
-      activeFallbackLabel(self, "gold", game))
-  elseif value == "followers_ex" and not avail then
-    message = ("FOLLOWERS EX\nNOT INSTALLED\nUSING %s"):format(
-      activeFallbackLabel(self, "followers_ex", game))
+  value = Config.normalizeSpriteStyle(value)
+  if value == "followers" and not avail then
+    message = ("POKE FOLLOWERS\nNOT INSTALLED\nUSING %s"):format(
+      activeFallbackLabel(self, "followers", game))
   end
 
   local ok, err = Config.setSpriteStyle(mod, value, "mod_settings", {
@@ -178,7 +175,7 @@ function SpriteStyleMenu:_openStyleMenu(game)
     if choice.value == current then
       label = markCurrent(base, true)
     else
-      if avail and (choice.value == "gold" or choice.value == "followers_ex") then
+      if avail and choice.value == "followers" then
         local withStar = base .. " *"
         label = (#withStar <= 14) and withStar or base
       else

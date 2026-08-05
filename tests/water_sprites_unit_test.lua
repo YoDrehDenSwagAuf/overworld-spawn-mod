@@ -189,11 +189,12 @@ end
 local keyLand = resolver:cacheKey(landEntity, {
   style = "pokemmo", speciesId = 54, variant = "normal", form = nil,
 }, "land")
-eq(keyLand, "54:normal:default:land:pokemmo", "cache key includes style+surface")
-local keyAuto = resolver:cacheKey(landEntity, {
-  style = "auto", speciesId = 54, variant = "normal", form = nil,
+eq(keyLand, "54:normal:default:land:pokemmo:na:flat:none:na",
+   "cache key includes style+surface")
+local keyFollowers = resolver:cacheKey(landEntity, {
+  style = "followers", speciesId = 54, variant = "normal", form = nil,
 }, "land")
-check(keyLand ~= keyAuto, "pokemmo and auto use different cache keys")
+check(keyLand ~= keyFollowers, "pokemmo and followers use different cache keys")
 
 local waterEntity = {
   species = "PSYDUCK",
@@ -203,7 +204,7 @@ local waterEntity = {
   isShiny = false,
 }
 local water = resolver:resolveForEntity(waterEntity, {
-  style = "gold", -- external land style without water support
+  style = "pokemmo",
   surface = "water",
   speciesId = 54,
   variant = "normal",
@@ -211,21 +212,21 @@ local water = resolver:resolveForEntity(waterEntity, {
 check(water ~= nil and water.def ~= nil, "water resolve returns def")
 if water then
   eq(water.spriteState, "water", "water spriteState")
-  eq(water.spriteKind, "swimming", "gold-on-water falls back to swimming")
+  eq(water.spriteKind, "swimming", "pokemmo-on-water falls back to swimming")
   check(water.waterOverride == true, "water override active")
   check(water.def.frames == 6, "water frames=6")
   check(water.def.walker == true, "water walker")
 end
 
--- Followers EX style on water → swimming override
+-- Poke Followers style on water → swimming override
 local waterEx = resolver:resolveForEntity(waterEntity, {
-  style = "followers_ex",
+  style = "followers",
   surface = "water",
   speciesId = 54,
   variant = "normal",
 })
 check(waterEx and waterEx.spriteKind == "swimming",
-      "followers_ex on water → swimming")
+      "followers on water → swimming")
 
 -- Pokedex style on water → swimming
 local waterDex = resolver:resolveForEntity(waterEntity, {
@@ -255,35 +256,34 @@ if lev and not reg:hasKind(63, "swimming", "normal") then
   eq(lev.spriteKind, "levitates", "63 water uses levitates")
 end
 
--- Optional provider resolveWater wins when present
+-- Optional provider resolveWater wins when present (stub on pokemmo).
 local customCalled = false
-local gold = providers.providers.gold
-check(gold ~= nil, "gold provider registered")
-gold.isAvailable = function() return true, "test force" end
-gold.resolve = function() return nil, nil, "no land" end
-gold.resolveWater = function(_, speciesId, variant)
+local pokemmoProv = providers.providers.pokemmo
+check(pokemmoProv ~= nil, "pokemmo provider registered")
+local prevResolveWater = pokemmoProv.resolveWater
+pokemmoProv.resolveWater = function(_, speciesId, variant)
   customCalled = true
   return {
-    image = "mods/Gold_Silver_Sprites/fake_water.png",
+    image = "mods/test/fake_water.png",
     frames = 1,
     trueColor = true,
-    id = "GOLD_WATER",
-  }, { usedVariant = variant, providerMod = "Gold_Silver_Sprites" }
+    id = "TEST_WATER",
+  }, { usedVariant = variant, providerMod = "test" }
 end
 local resolver2 = SpriteResolver.new(V.mod, providers, reg)
 local custom = resolver2:resolveWaterSprite(waterEntity, {
-  style = "gold",
+  style = "pokemmo",
   speciesId = 54,
   variant = "normal",
 })
 check(customCalled == true, "provider resolveWater consulted")
-check(custom and custom.providerId == "gold", "provider water wins over Wilds")
+check(custom and custom.providerId == "pokemmo", "provider water wins over Wilds")
 check(custom and custom.waterOverride == false, "provider water is not Wilds override")
 
 -- Missing resolveWater is not an error
-gold.resolveWater = nil
+pokemmoProv.resolveWater = prevResolveWater
 local fallback = resolver2:resolveWaterSprite(waterEntity, {
-  style = "gold",
+  style = "pokemmo",
   speciesId = 54,
   variant = "normal",
 })

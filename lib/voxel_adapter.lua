@@ -47,6 +47,8 @@ function VoxelAdapter:refreshPresence()
   self.present = dramatic ~= nil
   if self.present then
     self:ensureHooks()
+    local WaterShadowRenderer = V.require("water_shadow_renderer")
+    WaterShadowRenderer.installDrawHook(self)
   end
   self.voxelActive = self:_probeVoxelActive()
   return self.present
@@ -206,11 +208,13 @@ function VoxelAdapter:updateEntity(entity)
     or "LEGACY_PNG"
   entity.voxelScale = 1
 
-  -- Hidden Silhouettes only: force overlay so Entity:draw paints the circle
-  -- (DS billboards would otherwise show the Pokémon body). Voxel Silhouettes
-  -- use native pre-rendered sheets on the normal DS billboard path.
+  -- Voxel Hidden / Silhouettes: native SpriteRenderer sheets drawn as flat
+  -- underwater shadows via WaterShadowRenderer (wraps VoxelScene.drawEntity).
+  -- Flat 2D keeps the circle / tint paths untouched.
   local WaterDisplay = V.require("water_display")
-  local waterPresentation = WaterDisplay.needsOverlayPresentation(self.mod, entity)
+  local WaterShadowRenderer = V.require("water_shadow_renderer")
+  WaterShadowRenderer.installDrawHook(self)
+  local waterShadow = WaterDisplay.needsWaterShadowPresentation(self.mod, entity)
 
   if not active then
     entity.worldRenderer = "GEN1_FLAT"
@@ -222,41 +226,40 @@ function VoxelAdapter:updateEntity(entity)
     entity.grassRenderer = "ENGINE_2D"
     entity.voxelUpdateOk = true
     entity.voxelSource = entity.spriteSource2D
-    entity.waterPresentationForced = waterPresentation or nil
+    entity.waterPresentationForced = nil
+    entity.shadowRendererMode = WaterShadowRenderer.MODE.NONE
+    -- Leaving Voxel: restore colour water sheet / drop hidden marker.
+    if (entity.waterSilhouetteSheet == true or entity.waterHiddenShadow == true)
+       and entity.render and entity.render.applyProviderSprite then
+      local game = self.mod.world and self.mod.world.game
+      pcall(entity.render.applyProviderSprite, entity.render, entity, game)
+    end
     return true
   end
 
-  if waterPresentation then
-    entity.worldRenderer = VoxelAdapter.WORLD_RENDERER
-    entity.pokemonRenderer = VoxelAdapter.POKEMON_OVERLAY_EMERGENCY
-    entity.dramaticBillboardSkipped = true
-    entity.depthIntegration = "INACTIVE"
-    entity.objectOcclusion = "INACTIVE"
-    entity.grassRenderer = "EMERGENCY_OVERLAY"
-    entity.voxelRegistered = true
-    entity.voxelUpdateOk = true
-    entity.voxelDisabled = false
-    entity.voxelSource = entity.spriteSource2D
-    entity.waterPresentationForced = true
-    entity.render2DFallback = true
-    return true
-  end
   entity.waterPresentationForced = nil
 
-  -- Voxel silhouettes: ensure native silhouette sheet is bound once when the
-  -- camera becomes Voxel (or mode changes). No respawn; at most one rebind.
-  if WaterDisplay.needsNativeSilhouetteSheet(self.mod, entity) then
+  -- Bind Hidden marker or Silhouette sheet once when entering Voxel / mode.
+  -- No respawn; at most one targeted rebind per entity.
+  if waterShadow then
     local needRebind = (entity.waterVoxelActive ~= true)
-      or (entity.waterSilhouetteSheet ~= true)
+      or (WaterDisplay.isSilhouettes(self.mod) and entity.waterSilhouetteSheet ~= true)
+      or (WaterDisplay.isHiddenSilhouettes(self.mod) and entity.waterHiddenShadow ~= true)
     if needRebind and entity.render and entity.render.applyProviderSprite then
       local game = self.mod.world and self.mod.world.game
       pcall(entity.render.applyProviderSprite, entity.render, entity, game)
     end
-  elseif entity.waterSilhouetteSheet == true and entity.render
-     and entity.render.applyProviderSprite then
-    -- Left Voxel or left silhouettes mode: restore colour water sheet.
+    entity.shadowRendererMode = self._waterShadowDrawOk
+      and WaterShadowRenderer.MODE.FLAT_WORLD
+      or WaterShadowRenderer.MODE.UPRIGHT_FALLBACK
+  elseif (entity.waterSilhouetteSheet == true or entity.waterHiddenShadow == true)
+     and entity.render and entity.render.applyProviderSprite then
+    -- Left silhouettes / hidden mode while still in Voxel: restore colour sheet.
     local game = self.mod.world and self.mod.world.game
     pcall(entity.render.applyProviderSprite, entity.render, entity, game)
+    entity.shadowRendererMode = WaterShadowRenderer.MODE.NONE
+  else
+    entity.shadowRendererMode = WaterShadowRenderer.MODE.NONE
   end
 
   entity.worldRenderer = VoxelAdapter.WORLD_RENDERER

@@ -122,7 +122,7 @@ Gameplay settings live in **Mod Settings** only (not duplicated in the Start men
 | Label | Key | Default | Values | Effect |
 |---|---|---|---|---|
 | Show Wild Mons | `enabled` | true | on/off | Master switch |
-| Sprite Style | `sprite_style` | auto | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex | Wild + follower land sprites |
+| Sprite Style | `sprite_style` | pokemmo | HGSS / PokeMMO / Poke Followers / Pokedex | Wild + follower land sprites |
 | Spawn Amount | `spawn_density` | normal | Low / Normal / High / Very High | Visible land + water density |
 | Random Enc | `random_encounters` | true | on/off | Classic step RNG (grass / cave / water) |
 | Water Mons | `water_spawns` | swimming_sprites | Swim Sprites / Hid Silhouette / Silhouettes / Classic Enc / Disabled | Water presentation mode (default = current swimming sprites) |

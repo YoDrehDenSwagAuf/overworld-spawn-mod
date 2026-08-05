@@ -26,7 +26,7 @@ Config.DEFAULTS = {
   wander_every_steps = 0, -- legacy; behaviours own movement now
   suppress_random_grass = true,
   sprite_opacity = 1.0,
-  sprite_style = "auto",
+  sprite_style = "pokemmo",
   -- Legacy key kept for save migration only (Mon Sprites toggle).
   use_animated_overworld_sprites = true,
   pokemon_grass_render_mode = "immersed",
@@ -271,21 +271,44 @@ function Config.waterDensityFactor(mod)
   return tonumber(Config.DEFAULTS.water_density_normal) or 1.0
 end
 
+-- Public Sprite Style choices (Mod Settings). Internal providers may differ
+-- (e.g. visible "followers" → provider "followers_ex").
 local VALID_SPRITE_STYLES = {
-  auto = true,
-  gold = true,
-  followers_ex = true,
   pokemmo = true,
+  followers = true,
   pokedex = true,
 }
 
 local SPRITE_STYLE_CONFIRM = {
-  auto = "AUTO",
-  gold = "GOLD",
-  followers_ex = "FOLLOWERS EX",
-  pokemmo = "POKEMMO",
+  pokemmo = "HGSS / POKEMMO",
+  followers = "POKE FOLLOWERS",
   pokedex = "POKEDEX",
 }
+
+-- Migrate legacy / unknown save values onto the public three-choice set.
+-- Internal provider ids (followers_ex) are not public setting values.
+function Config.normalizeSpriteStyle(value)
+  if value == true or value == "true" or value == "on" or value == "ON" then
+    return "pokemmo"
+  end
+  if value == false or value == "false" or value == "off" or value == "OFF" then
+    return "pokedex"
+  end
+  if type(value) ~= "string" then
+    return "pokemmo"
+  end
+  local v = value
+  if v == "followers_ex" then
+    return "followers"
+  end
+  if v == "auto" or v == "gold" or v == "crystal" then
+    return "pokemmo"
+  end
+  if VALID_SPRITE_STYLES[v] then
+    return v
+  end
+  return "pokemmo"
+end
 
 function Config.peekSavedOption(mod, key)
   if not mod then return nil, false end
@@ -314,22 +337,25 @@ function Config.peekSavedOption(mod, key)
 end
 
 -- Preferred public style selector. Migrates legacy Mon Sprites boolean:
---   true  -> auto
+--   true  -> pokemmo (was auto)
 --   false -> pokedex
+-- Legacy sprite_style strings (auto/gold/crystal/followers_ex) normalize onto
+-- the public three-choice set.
 function Config.spriteStyle(mod)
   local rawStyle, stylePresent = Config.peekSavedOption(mod, "sprite_style")
-  if stylePresent and type(rawStyle) == "string" and VALID_SPRITE_STYLES[rawStyle] then
-    return rawStyle
+  if stylePresent and type(rawStyle) == "string" then
+    return Config.normalizeSpriteStyle(rawStyle)
   end
 
   local v = nil
   if mod and mod.options and type(mod.options.get) == "function" then
     v = mod.options:get("sprite_style")
   end
-  if type(v) == "string" and VALID_SPRITE_STYLES[v] then
-    -- Schema default is "auto". If the save never stored sprite_style but still
-    -- has legacy Mon Sprites = off, prefer pokedex once.
-    if v == "auto" and not stylePresent then
+  if type(v) == "string" then
+    local normalized = Config.normalizeSpriteStyle(v)
+    -- Schema default is "pokemmo". If the save never stored sprite_style but
+    -- still has legacy Mon Sprites = off, prefer pokedex once.
+    if (v == "pokemmo" or v == "auto") and not stylePresent then
       local legacyRaw, legacyPresent = Config.peekSavedOption(mod, "use_animated_overworld_sprites")
       if legacyPresent and legacyRaw == false then
         return "pokedex"
@@ -343,7 +369,7 @@ function Config.spriteStyle(mod)
         end
       end
     end
-    return v
+    return normalized
   end
 
   local legacyRaw, legacyPresent = Config.peekSavedOption(mod, "use_animated_overworld_sprites")
@@ -355,7 +381,7 @@ function Config.spriteStyle(mod)
       return "pokedex"
     end
   end
-  return "auto"
+  return "pokemmo"
 end
 
 function Config.migrateSpriteStyleOption(mod)
@@ -363,7 +389,9 @@ function Config.migrateSpriteStyleOption(mod)
   local function write(bucket)
     if type(bucket) ~= "table" then return end
     bucket[mod.id] = bucket[mod.id] or {}
-    if bucket[mod.id].sprite_style == nil then
+    local current = bucket[mod.id].sprite_style
+    -- Persist the normalized public value whenever missing or legacy.
+    if current == nil or Config.normalizeSpriteStyle(current) ~= current then
       bucket[mod.id].sprite_style = style
     end
   end
@@ -392,9 +420,9 @@ end
 -- opts: { game=, logic=, render=, confirm=, message= }
 function Config.setSpriteStyle(mod, value, source, opts)
   opts = opts or {}
-  value = tostring(value or "")
+  value = Config.normalizeSpriteStyle(value)
   if not VALID_SPRITE_STYLES[value] then
-    return false, "invalid sprite_style: " .. value
+    return false, "invalid sprite_style: " .. tostring(value)
   end
 
   local game = opts.game

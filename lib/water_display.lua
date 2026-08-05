@@ -120,11 +120,11 @@ function WaterDisplay.isWaterEntity(entity)
   return entity.originSurface == "WATER" or entity.spriteState == "water"
 end
 
--- True when DS billboards must not own the body (Hidden circle overlay only).
--- Silhouettes in Voxel use native pre-rendered sheets + DS billboards instead.
+-- Legacy name: previously forced the emergency 2D overlay for Hidden in Voxel.
+-- Hidden now uses a native flat water-shadow SpriteRenderer in Voxel, so this
+-- returns false. Kept for call-site / test compatibility.
 function WaterDisplay.needsOverlayPresentation(mod, entity)
-  return WaterDisplay.isWaterEntity(entity)
-    and WaterDisplay.isHiddenSilhouettes(mod)
+  return false
 end
 
 -- True when Voxel should bind a native silhouette water sheet (not tint).
@@ -133,11 +133,33 @@ function WaterDisplay.needsNativeSilhouetteSheet(mod, entity)
     and WaterDisplay.isSilhouettes(mod)
 end
 
+-- True when Voxel should bind the generic Hidden underwater shadow marker.
+function WaterDisplay.needsNativeHiddenShadow(mod, entity)
+  return WaterDisplay.isWaterEntity(entity)
+    and WaterDisplay.isHiddenSilhouettes(mod)
+end
+
+-- Either Voxel water-shadow mode (Hidden marker or Silhouette sheet).
+function WaterDisplay.needsWaterShadowPresentation(mod, entity)
+  return WaterDisplay.needsNativeSilhouetteSheet(mod, entity)
+    or WaterDisplay.needsNativeHiddenShadow(mod, entity)
+end
+
 -- Native sheets only while Dramatic Shape / Voxel camera is actually active.
--- Flat 2D keeps the existing runtime tint path.
+-- Flat 2D keeps the existing runtime tint / circle paths.
 function WaterDisplay.useNativeSilhouetteSheet(mod, entity, voxelActive)
   return voxelActive == true
     and WaterDisplay.needsNativeSilhouetteSheet(mod, entity)
+end
+
+function WaterDisplay.useNativeHiddenShadow(mod, entity, voxelActive)
+  return voxelActive == true
+    and WaterDisplay.needsNativeHiddenShadow(mod, entity)
+end
+
+function WaterDisplay.useWaterShadowPresentation(mod, entity, voxelActive)
+  return voxelActive == true
+    and WaterDisplay.needsWaterShadowPresentation(mod, entity)
 end
 
 function WaterDisplay.isVoxelCameraActive(mod)
