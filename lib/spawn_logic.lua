@@ -2308,15 +2308,24 @@ function SpawnLogic:onOptionsChanged(payload)
       if self.overlay then self.overlay:clear() end
     end
   elseif key == "sprite_style"
+      or key == "sprite_size_mode"
       or key == "use_animated_overworld_sprites" then
     -- Legacy Mon Sprites toggles map onto sprite_style via Config.spriteStyle.
+    -- sprite_size_mode swaps Original/Relative prebuilt land sheet folders.
     local world = self.mod.world
     local game = world and world.game
-    self.render:invalidateAssetCache()
+    if self.render.setRuntimeSheetSizeMode then
+      pcall(function()
+        self.render:setRuntimeSheetSizeMode(Config.spriteSizeMode(self.mod))
+      end)
+    else
+      self.render:invalidateAssetCache()
+    end
     local n = self.render:refreshAllEntitySprites(self, game)
-    self:_log("sprite_style -> %s; refreshed %d entities (no respawn)",
-              tostring(Config.spriteStyle(self.mod)), n)
-    -- Refresh active follower land/water sprite to the new style.
+    self:_log("sprite_style/size -> %s/%s; refreshed %d entities (no respawn)",
+              tostring(Config.spriteStyle(self.mod)),
+              tostring(Config.spriteSizeMode(self.mod)), n)
+    -- Refresh active follower land/water sprite to the new style / size mode.
     if self.followersWater and self.followersWater.invalidateStyle then
       pcall(function()
         self.followersWater:invalidateStyle()

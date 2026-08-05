@@ -42,3 +42,5 @@ tools/validate_water_sprites.py
 tools/validate_option_labels.py
 tools/validate_release_version.py
 tools/validate_release_version.ps1
+tools/verify_original_runtime_hashes.py
+tools/data/species_heights_m.json

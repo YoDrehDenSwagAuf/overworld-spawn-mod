@@ -62,7 +62,13 @@ function V.require(name)
 end
 
 modules.config = {
-  DEFAULTS = { sprite_style = "auto", use_animated_overworld_sprites = true },
+  DEFAULTS = { sprite_style = "pokemmo", sprite_size_mode = "original", use_animated_overworld_sprites = true },
+  normalizeSpriteSizeMode = function(v)
+    if v == "relative" then return "relative" end
+    return "original"
+  end,
+  spriteSizeMode = function() return "original" end,
+  normalizeSpriteStyle = function(v) return v or "pokemmo" end,
   get = function(_, k) return modules.config.DEFAULTS[k] end,
   spriteStyle = function() return "auto" end,
   debug = function() return false end,

@@ -122,6 +122,7 @@ end
 function FollowersWaterCompat:invalidateStyle()
   self._styleGeneration = (self._styleGeneration or 0) + 1
   self._cache.requestedStyle = nil -- force refresh on next tick
+  self._cache.sizeMode = nil
   self._cache.image = nil
   self.status.lastAction = "style_invalidated"
 end
@@ -274,14 +275,18 @@ local function applySpriteDef(entity, def)
   return true, "replaced"
 end
 
-function FollowersWaterCompat:cacheKey(entity, speciesId, variant, form, surfaceState, style, image, frames, walker)
+function FollowersWaterCompat:cacheKey(entity, speciesId, variant, form, surfaceState, style, image, frames, walker, sizeMode)
+  if sizeMode == nil then
+    sizeMode = Config.spriteSizeMode(self.mod)
+  end
   return table.concat({
     tostring(entity and (entity.id or entity.spawnId) or ""),
     tostring(speciesId or ""),
     tostring(variant or "normal"),
     tostring(form or "default"),
     tostring(surfaceState or "land"),
-    tostring(style or "auto"),
+    tostring(style or "pokemmo"),
+    tostring(sizeMode or "original"),
     tostring(image or ""),
     tostring(frames or ""),
     tostring(walker == true),
@@ -412,8 +417,10 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
   local inWater = playerInWater(player, game)
   local surfaceState = inWater and "water" or "land"
   local style = Config.spriteStyle(self.mod)
+  local sizeMode = Config.spriteSizeMode(self.mod)
   self.status.surface = surfaceState
   self.status.requestedStyle = style
+  self.status.spriteSizeMode = sizeMode
 
   local entity, mon = self:activeFollower(ow, game)
   if not entity then
@@ -422,6 +429,7 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
     self.status.lastAction = "no_follower"
     self._cache.surfaceState = surfaceState
     self._cache.requestedStyle = style
+    self._cache.sizeMode = sizeMode
     return false
   end
 
@@ -439,6 +447,7 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
      and tostring(prev.form or "default") == tostring(form)
      and prev.surfaceState == surfaceState
      and prev.requestedStyle == style
+     and (prev.sizeMode or "original") == sizeMode
      and prev.image ~= nil then
     self.status.lastAction = "cached"
     if surfaceState == "water" then
@@ -458,6 +467,7 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
       form = form,
       surfaceState = surfaceState,
       requestedStyle = style,
+      sizeMode = sizeMode,
       image = extra and extra.image or nil,
       frames = extra and extra.frames or nil,
       walker = extra and extra.walker or nil,
@@ -523,13 +533,15 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
     if applyDef[k] == nil then applyDef[k] = v end
   end
 
+  local sizeMode = Config.spriteSizeMode(self.mod)
   local nextKey = self:cacheKey(
     entity, species, variant, form, surfaceState, style,
-    applyDef.image, applyDef.frames, applyDef.walker)
+    applyDef.image, applyDef.frames, applyDef.walker, sizeMode)
   local prevKey = self:cacheKey(
     { id = prev.entityId }, prev.speciesId, prev.variant, prev.form,
     prev.surfaceState, prev.requestedStyle,
-    prev.image, prev.frames, prev.walker == true)
+    prev.image, prev.frames, prev.walker == true,
+    prev.sizeMode or sizeMode)
 
   if nextKey == prevKey then
     self.status.lastAction = "cached"

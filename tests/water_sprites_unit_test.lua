@@ -52,9 +52,19 @@ function V.require(name)
 end
 
 modules.config = {
-  DEFAULTS = { sprite_style = "auto", use_animated_overworld_sprites = true },
+  DEFAULTS = { sprite_style = "pokemmo", sprite_size_mode = "original", use_animated_overworld_sprites = true },
+  normalizeSpriteStyle = function(v)
+    if v == "followers_ex" then return "followers" end
+    if v == "auto" or v == "gold" or v == "crystal" then return "pokemmo" end
+    return v or "pokemmo"
+  end,
+  normalizeSpriteSizeMode = function(v)
+    if v == "relative" then return "relative" end
+    return "original"
+  end,
+  spriteSizeMode = function() return "original" end,
   get = function(_, k) return modules.config.DEFAULTS[k] end,
-  spriteStyle = function() return "auto" end,
+  spriteStyle = function() return "pokemmo" end,
   debug = function() return false end,
 }
 modules.tile = { CELL = 16, WIDTH = 16, HEIGHT = 16 }
@@ -184,11 +194,16 @@ end
 local keyLand = resolver:cacheKey(landEntity, {
   style = "pokemmo", speciesId = 54, variant = "normal", form = nil,
 }, "land")
-eq(keyLand, "54:normal:default:land:pokemmo", "cache key includes style+surface")
+eq(keyLand, "54:normal:default:land:pokemmo:original",
+   "cache key includes style+surface+sizeMode")
 local keyAuto = resolver:cacheKey(landEntity, {
-  style = "auto", speciesId = 54, variant = "normal", form = nil,
+  style = "followers", speciesId = 54, variant = "normal", form = nil,
 }, "land")
-check(keyLand ~= keyAuto, "pokemmo and auto use different cache keys")
+check(keyLand ~= keyAuto, "pokemmo and followers use different cache keys")
+local keyRel = resolver:cacheKey(landEntity, {
+  style = "pokemmo", speciesId = 54, variant = "normal", form = nil, sizeMode = "relative",
+}, "land")
+check(keyLand ~= keyRel, "original and relative size modes use different cache keys")
 
 local waterEntity = {
   species = "PSYDUCK",

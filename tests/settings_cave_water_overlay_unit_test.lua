@@ -16,7 +16,8 @@ local function eq(a, b, msg)
 end
 
 local savedOpts = {
-  sprite_style = "auto",
+  sprite_style = "pokemmo",
+  sprite_size_mode = "original",
   spawn_density = "normal",
   random_encounters = true,
   water_spawns = true,
@@ -74,7 +75,7 @@ for _, row in ipairs(schema) do
 end
 
 local required = {
-  "enabled", "sprite_style", "spawn_density", "random_encounters",
+  "enabled", "sprite_style", "sprite_size_mode", "spawn_density", "random_encounters",
   "water_spawns", "dev_overlay",
 }
 for _, k in ipairs(required) do
@@ -248,18 +249,19 @@ eq(Config.devOverlay(V.mod), true, "overlay on")
 print("== follower cache key ==")
 local Followers = V.require("followers_water_compat")
 local fw = Followers.new(V.mod)
-local key = fw:cacheKey({ id = "f1" }, "PIKACHU", "shiny", "default", "land", "pokemmo")
+local key = fw:cacheKey({ id = "f1" }, "PIKACHU", "shiny", "default", "land", "pokemmo", "img", 6, true, "original")
 check(key:find("pokemmo", 1, true) ~= nil, "cache key includes style")
 check(key:find("land", 1, true) ~= nil, "cache key includes surface")
 check(key:find("shiny", 1, true) ~= nil, "cache key includes variant")
+check(key:find("original", 1, true) ~= nil, "cache key includes size mode")
 fw:invalidateStyle()
 eq(fw.status.lastAction, "style_invalidated", "invalidateStyle works")
 
 -- Manifest / export version
 local mf = io.open("manifest.json", "r"):read("*a")
-check(mf:find('"1.7.1"', 1, true) ~= nil, "manifest 1.7.1")
+check(mf:find('"1.8.0"', 1, true) ~= nil, "manifest 1.8.0")
 local main = io.open("main.lua", "r"):read("*a")
-check(main:find('version = "1.7.1"', 1, true) ~= nil, "export version 1.7.1")
+check(main:find('version = "1.8.0"', 1, true) ~= nil, "export version 1.8.0")
 
 print("")
 if failures > 0 then

@@ -16,42 +16,44 @@ of the overworld I used to imagine when playing these games as a child.
 
 <!-- Optional: add a screenshot or banner here -->
 
-## Choose Your Overworld Sprite Style
+## Overworld Sprite Styles
 
 Wilds of Kanto lets you choose which overworld Pokémon sprites you prefer
 without changing the spawn or encounter system.
 
-Available styles:
-
-- **Auto** — automatically uses an installed compatible sprite pack and falls
-  back to the built-in sprites.
-- **Gold Sprites** — uses the Gold/Silver battle-front art from
-  **OtaconRevengeance**’s [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites)
-  mod (`Gold_Silver_Sprites`) when that mod is installed. Adapted as native
-  1-frame SpriteRenderer definitions (no walker sheet; no asset copy).
-- **Followers EX** — uses compatible walker sprites supplied through
-  **Followers EX / PokePC Followers** when those mods are installed.
-- **PokeMMO** — uses the animated sprite sheets bundled with Wilds of Kanto.
-- **Pokedex** — uses the original Pokédex-based images.
+- **HGSS / PokeMMO** — bundled animated HeartGold/SoulSilver-style sprites
+  and the default option.
+- **Poke Followers** — uses sprites from a compatible follower mod when
+  available.
+- **Pokedex** — uses the original Pokédex-style images.
 
 You can switch styles at any time from Wilds of Kanto **Mod Settings**.
-Existing wild Pokémon and your active Followers EX follower update immediately
-without being respawned.
+Existing wild Pokémon and your active follower update immediately without
+being respawned.
 
-**Spawn Amount**, **Random Enc**, **Water Mons**, **Dev Overlay**, and
-**Test Spawn** live in Mod Settings together with Sprite Style. The normal
-Start / Pause menu is no longer filled with Wilds quick settings.
+**Sprite Sizes**, **Spawn Amount**, **Random Enc**, **Water Mons**,
+**Dev Overlay**, and **Test Spawn** live in Mod Settings together with Sprite
+Style. The normal Start / Pause menu is no longer filled with Wilds quick
+settings.
 
 External sprite styles require their corresponding mods to be installed
 separately. Wilds of Kanto does not redistribute their assets.
 
+### Relative Pokémon Sizes
+
+The optional Relative size mode uses Pokédex height data to render smaller
+Pokémon at a reduced size inside the existing native 16×16 sprite frame.
+
+Large Pokémon keep the maximum native overworld size. This does not change
+collision, movement, spawning, Voxel rendering, or battle data.
+
+The Original mode preserves the previous sprite sizes exactly.
+
 ### Optional Sprite Mods
 
-To use an external sprite style, install the corresponding mod through the
+To use **Poke Followers**, install a compatible follower mod through the
 Gen1Recomp Mod Manager or from its official GitHub release:
 
-- [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites/releases)
-  (`Gold_Silver_Sprites`)
 - [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
   (`FOLLOWERS_EX`)
 - [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
@@ -61,6 +63,7 @@ After installation, restart Gen1Recomp and select the style from:
 
 ```text
 MOD SETTINGS -> WILDS OF KANTO -> Sprite Style
+MOD SETTINGS -> WILDS OF KANTO -> Sprite Sizes
 MOD SETTINGS -> WILDS OF KANTO -> Spawn Amount
 MOD SETTINGS -> WILDS OF KANTO -> Random Enc
 MOD SETTINGS -> WILDS OF KANTO -> Water Mons
@@ -68,13 +71,7 @@ MOD SETTINGS -> WILDS OF KANTO -> Dev Overlay
 MOD SETTINGS -> WILDS OF KANTO -> Test Spawn (OPEN)
 ```
 
-Auto preference order when multiple packs are present:
-
-1. Gold Sprites
-2. Followers EX
-3. PokeMMO (built-in)
-4. Pokedex
-5. black fallback
+Poke Followers falls back to HGSS / PokeMMO when the external pack is missing.
 
 ## Sprite Pack Shoutouts
 
@@ -97,29 +94,35 @@ assets remain owned and licensed by their respective creators.
 
 ## Sprite Styles (technical)
 
-Wilds of Kanto supports multiple overworld Pokémon sprite styles through a
-shared provider pipeline:
+Public styles map to providers as follows:
 
-- **Auto** — prefers Gold Sprites, then Followers EX, then built-in PokeMMO,
-  then Pokedex.
-- **Gold Sprites** — read-only adapter for `Gold_Silver_Sprites` battle fronts.
-- **Followers EX** — uses compatible sprites supplied by Followers EX /
-  PokePC Followers when available.
-- **PokeMMO** — uses Wilds of Kanto's built-in animated overworld sprites.
-- **Pokedex** — uses the original Pokédex-based images.
+| Visible style | Internal value | Provider chain |
+| --- | --- | --- |
+| HGSS / PokeMMO | `pokemmo` | `pokemmo` → `pokedex` → black |
+| Poke Followers | `followers` | `followers_ex` → `pokemmo` → `pokedex` → black |
+| Pokedex | `pokedex` | `pokedex` → black |
+
+Legacy save values (`auto`, `gold`, `crystal`, `followers_ex`) migrate safely
+to the public set. The Gold / Followers EX provider adapters remain registered
+for compatibility but are no longer publicly selectable.
 
 All styles use the same native Gen1Recomp SpriteRenderer pipeline and remain
 compatible with Dramatic Shape, including first-person rendering and world
 occlusion.
 
-The **PokeMMO** label refers to Wilds of Kanto’s own runtime follow-sprite
-sheets (`assets/generated/followsprites_runtime/`). It does not ship or claim
-Gold Sprites / Followers EX / PokePC assets.
+**HGSS / PokeMMO** uses Wilds of Kanto’s own runtime follow-sprite sheets:
+
+- Original sizes: `assets/generated/followsprites_runtime/`
+- Relative sizes: `assets/generated/followsprites_runtime_relative/`
+
+Relative sizing is baked into the 16×16 frames at build time (no draw-time
+scale). It is guaranteed for bundled HGSS / PokeMMO land sheets. External
+Poke Followers and Pokedex styles keep their existing provider size unless
+they already pass through the same safe 16×16 card generator. Water
+Swimming / Levitates sheets stay on the Original fit path for this release.
 
 Optional companion mods (runtime detection only — **no hard dependencies**):
 
-- [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites)
-  (`Gold_Silver_Sprites`)
 - [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
   (`FOLLOWERS_EX`) — control / pack integration; depends on Wilds and the
   PokePC sprite pack.
@@ -151,9 +154,10 @@ Normal and shiny sprite variants are supported by the asset format. Shiny
 sprites are only used during normal gameplay when the game provides a reliable
 shiny state. They remain available in the developer preview for testing.
 
-Choose **Sprite Style** in Wilds of Kanto Mod Settings (Auto / Gold Sprites /
-Followers EX / PokeMMO / Pokedex). Auto is the default. The same style is
-applied to your active Followers EX follower.
+Choose **Sprite Style** in Wilds of Kanto Mod Settings
+(HGSS / PokeMMO / Poke Followers / Pokedex). HGSS / PokeMMO is the default.
+The same style is applied to your active follower. **Sprite Sizes** defaults
+to Original so existing installs keep the previous look.
 
 If a follow sprite or mapping is missing, the mod automatically falls back to:
 
@@ -397,7 +401,8 @@ Start / Pause menu).
 | Label | Purpose | Default |
 | --- | --- | --- |
 | Show Wild Mons | Master switch for visible spawns | ON |
-| Sprite Style | Auto / Gold Sprites / Followers EX / PokeMMO / Pokedex (also applied to your active follower) | AUTO |
+| Sprite Style | HGSS / PokeMMO / Poke Followers / Pokedex (also applied to your active follower) | HGSS / PokeMMO |
+| Sprite Sizes | Original (exact previous sizes) or Relative (smaller species shrink inside 16×16) | ORIGINAL |
 | Spawn Amount | Density preset (Low / Normal / High / Very High); also scales visible water Pokémon | NORMAL |
 | Random Enc | Classic step-based random encounters (grass / cave / water). Visible overworld Pokémon stay active. | ON |
 | Water Mons | Shows compatible Pokémon on water with Swimming / Levitates sprites | ON |

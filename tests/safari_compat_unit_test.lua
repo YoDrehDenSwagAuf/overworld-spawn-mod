@@ -16,7 +16,7 @@ local function eq(a, b, msg)
 end
 
 local savedOpts = {
-  sprite_style = "auto",
+  sprite_style = "pokemmo",
   spawn_density = "normal",
   random_encounters = true,
   water_spawns = true,

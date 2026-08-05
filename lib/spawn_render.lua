@@ -495,7 +495,18 @@ function SpawnRender:invalidateAssetCache(speciesId)
     self.resolvedAssetBySpeciesId = {}
     self.runtimeImageCache = {}
     self.assetInfo = {}
+    if self.spriteResolver and self.spriteResolver.invalidateCache then
+      pcall(function() self.spriteResolver:invalidateCache() end)
+    end
   end
+end
+
+-- Switch Original / Relative prebuilt land sheet folders (no draw-time scale).
+function SpawnRender:setRuntimeSheetSizeMode(mode)
+  if not self.runtimeSheets then return false end
+  local ok, err = self.runtimeSheets:setSizeMode(mode)
+  self:invalidateAssetCache()
+  return ok, err
 end
 
 -- LOAD PHASE only. Must finish before Gen1Recomp freezes content registries.
@@ -536,8 +547,9 @@ function SpawnRender:registerContent()
   local pokemon = self.mod.content and self.mod.content.pokemon
 
   -- Build-time native sheets (preferred over battle-front bake).
+  -- Sync Original/Relative folder from sprite_size_mode before load.
   local okSheets, sheetsErr = pcall(function()
-    return self.runtimeSheets:load()
+    return self.runtimeSheets:syncFromConfig()
   end)
   if not okSheets then
     DebugLog.warn(self.mod, "runtime sheet load failed: %s", tostring(sheetsErr))

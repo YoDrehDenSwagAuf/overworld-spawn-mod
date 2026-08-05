@@ -26,7 +26,10 @@ Config.DEFAULTS = {
   wander_every_steps = 0, -- legacy; behaviours own movement now
   suppress_random_grass = true,
   sprite_opacity = 1.0,
-  sprite_style = "auto",
+  -- Public styles: pokemmo / followers / pokedex (HGSS/PokeMMO default).
+  sprite_style = "pokemmo",
+  -- original = pixel-identical prior sheets; relative = height-scaled land sheets.
+  sprite_size_mode = "original",
   -- Legacy key kept for save migration only (Mon Sprites toggle).
   use_animated_overworld_sprites = true,
   pokemon_grass_render_mode = "immersed",
@@ -267,21 +270,75 @@ function Config.waterDensityFactor(mod)
   return tonumber(Config.DEFAULTS.water_density_normal) or 1.0
 end
 
-local VALID_SPRITE_STYLES = {
-  auto = true,
-  gold = true,
-  followers_ex = true,
+-- Public selectable styles (Mod Settings).
+local PUBLIC_SPRITE_STYLES = {
   pokemmo = true,
+  followers = true,
   pokedex = true,
 }
 
-local SPRITE_STYLE_CONFIRM = {
-  auto = "AUTO",
-  gold = "GOLD",
-  followers_ex = "FOLLOWERS EX",
-  pokemmo = "POKEMMO",
-  pokedex = "POKEDEX",
+-- Accepted on read (legacy saves / external callers) before normalization.
+local VALID_SPRITE_STYLES = {
+  pokemmo = true,
+  followers = true,
+  pokedex = true,
+  -- Legacy aliases (migrated / not publicly selectable).
+  auto = true,
+  gold = true,
+  crystal = true,
+  followers_ex = true,
 }
+
+local SPRITE_STYLE_ALIASES = {
+  auto = "pokemmo",
+  gold = "pokemmo",
+  crystal = "pokemmo",
+  followers_ex = "followers",
+  followers = "followers",
+  pokemmo = "pokemmo",
+  pokedex = "pokedex",
+}
+
+local SPRITE_STYLE_CONFIRM = {
+  pokemmo = "HGSS / POKEMMO",
+  followers = "POKE FOLLOWERS",
+  pokedex = "POKEDEX",
+  -- Legacy confirm labels (migration / old menus).
+  auto = "HGSS / POKEMMO",
+  gold = "HGSS / POKEMMO",
+  crystal = "HGSS / POKEMMO",
+  followers_ex = "POKE FOLLOWERS",
+}
+
+local VALID_SPRITE_SIZE_MODES = {
+  original = true,
+  relative = true,
+}
+
+local SPRITE_SIZE_CONFIRM = {
+  original = "ORIGINAL",
+  relative = "RELATIVE",
+}
+
+function Config.normalizeSpriteStyle(value)
+  if type(value) ~= "string" or value == "" then
+    return "pokemmo"
+  end
+  local key = string.lower(value)
+  local mapped = SPRITE_STYLE_ALIASES[key]
+  if mapped then return mapped end
+  if PUBLIC_SPRITE_STYLES[key] then return key end
+  return "pokemmo"
+end
+
+function Config.normalizeSpriteSizeMode(value)
+  if type(value) ~= "string" or value == "" then
+    return "original"
+  end
+  local key = string.lower(value)
+  if VALID_SPRITE_SIZE_MODES[key] then return key end
+  return "original"
+end
 
 function Config.peekSavedOption(mod, key)
   if not mod then return nil, false end
@@ -310,12 +367,13 @@ function Config.peekSavedOption(mod, key)
 end
 
 -- Preferred public style selector. Migrates legacy Mon Sprites boolean:
---   true  -> auto
+--   true  -> pokemmo
 --   false -> pokedex
+-- Legacy style values (auto/gold/crystal/followers_ex) normalize once.
 function Config.spriteStyle(mod)
   local rawStyle, stylePresent = Config.peekSavedOption(mod, "sprite_style")
   if stylePresent and type(rawStyle) == "string" and VALID_SPRITE_STYLES[rawStyle] then
-    return rawStyle
+    return Config.normalizeSpriteStyle(rawStyle)
   end
 
   local v = nil
@@ -323,9 +381,10 @@ function Config.spriteStyle(mod)
     v = mod.options:get("sprite_style")
   end
   if type(v) == "string" and VALID_SPRITE_STYLES[v] then
-    -- Schema default is "auto". If the save never stored sprite_style but still
+    -- Schema default is pokemmo. If the save never stored sprite_style but still
     -- has legacy Mon Sprites = off, prefer pokedex once.
-    if v == "auto" and not stylePresent then
+    local normalized = Config.normalizeSpriteStyle(v)
+    if (v == "auto" or v == "pokemmo") and not stylePresent then
       local legacyRaw, legacyPresent = Config.peekSavedOption(mod, "use_animated_overworld_sprites")
       if legacyPresent and legacyRaw == false then
         return "pokedex"
@@ -339,7 +398,7 @@ function Config.spriteStyle(mod)
         end
       end
     end
-    return v
+    return normalized
   end
 
   local legacyRaw, legacyPresent = Config.peekSavedOption(mod, "use_animated_overworld_sprites")
@@ -351,16 +410,39 @@ function Config.spriteStyle(mod)
       return "pokedex"
     end
   end
-  return "auto"
+  return "pokemmo"
+end
+
+function Config.spriteSizeMode(mod)
+  local raw, present = Config.peekSavedOption(mod, "sprite_size_mode")
+  if present and type(raw) == "string" then
+    return Config.normalizeSpriteSizeMode(raw)
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local v = mod.options:get("sprite_size_mode")
+    if type(v) == "string" then
+      return Config.normalizeSpriteSizeMode(v)
+    end
+  end
+  return Config.DEFAULTS.sprite_size_mode or "original"
 end
 
 function Config.migrateSpriteStyleOption(mod)
   local style = Config.spriteStyle(mod)
+  local sizeMode = Config.spriteSizeMode(mod)
   local function write(bucket)
     if type(bucket) ~= "table" then return end
     bucket[mod.id] = bucket[mod.id] or {}
-    if bucket[mod.id].sprite_style == nil then
+    local cur = bucket[mod.id].sprite_style
+    -- Normalize legacy values in-place so dead options disappear from saves.
+    if cur == nil or (type(cur) == "string" and VALID_SPRITE_STYLES[cur]) then
       bucket[mod.id].sprite_style = style
+    end
+    if bucket[mod.id].sprite_size_mode == nil then
+      bucket[mod.id].sprite_size_mode = sizeMode
+    else
+      bucket[mod.id].sprite_size_mode = Config.normalizeSpriteSizeMode(
+        bucket[mod.id].sprite_size_mode)
     end
   end
   local world = mod.world
@@ -378,9 +460,37 @@ function Config.migrateSpriteStyleOption(mod)
   return style
 end
 
+Config.migrateSpriteSizeModeOption = Config.migrateSpriteStyleOption
+
 -- Compatibility: true when style is not the static Pokedex path.
 function Config.useAnimatedOverworldSprites(mod)
   return Config.spriteStyle(mod) ~= "pokedex"
+end
+
+local function refreshSpritesAfterOption(mod, opts)
+  opts = opts or {}
+  local game = opts.game
+  if not game and mod and mod.world then
+    game = mod.world.game
+  end
+  local render = opts.render
+  local logic = opts.logic
+  if (not render or not logic) and mod and mod.exports then
+    render = render or mod.exports.render
+    logic = logic or mod.exports.logic
+  end
+  local refreshed = 0
+  if render and type(render.setRuntimeSheetSizeMode) == "function" then
+    pcall(render.setRuntimeSheetSizeMode, render, Config.spriteSizeMode(mod))
+  end
+  if render and logic and type(render.refreshAllEntitySprites) == "function" then
+    if type(render.invalidateAssetCache) == "function" then
+      pcall(render.invalidateAssetCache, render)
+    end
+    local ok, n = pcall(render.refreshAllEntitySprites, render, logic, game)
+    if ok and type(n) == "number" then refreshed = n end
+  end
+  return refreshed, game, render, logic
 end
 
 -- Central setter used by Start Menu and any non-Mod-Manager UI path.
@@ -388,9 +498,9 @@ end
 -- opts: { game=, logic=, render=, confirm=, message= }
 function Config.setSpriteStyle(mod, value, source, opts)
   opts = opts or {}
-  value = tostring(value or "")
-  if not VALID_SPRITE_STYLES[value] then
-    return false, "invalid sprite_style: " .. value
+  value = Config.normalizeSpriteStyle(tostring(value or ""))
+  if not PUBLIC_SPRITE_STYLES[value] then
+    return false, "invalid sprite_style: " .. tostring(value)
   end
 
   local game = opts.game
@@ -418,20 +528,7 @@ function Config.setSpriteStyle(mod, value, source, opts)
     pcall(game.writeOptions, game)
   end
 
-  local render = opts.render
-  local logic = opts.logic
-  if (not render or not logic) and mod and mod.exports then
-    render = render or mod.exports.render
-    logic = logic or mod.exports.logic
-  end
-  local refreshed = 0
-  if render and logic and type(render.refreshAllEntitySprites) == "function" then
-    if type(render.invalidateAssetCache) == "function" then
-      pcall(render.invalidateAssetCache, render)
-    end
-    local ok, n = pcall(render.refreshAllEntitySprites, render, logic, game)
-    if ok and type(n) == "number" then refreshed = n end
-  end
+  local refreshed = select(1, refreshSpritesAfterOption(mod, opts))
 
   local confirmMsg = opts.message
   if not confirmMsg and opts.confirm ~= false then
@@ -452,8 +549,65 @@ function Config.setSpriteStyle(mod, value, source, opts)
   return true, value, refreshed
 end
 
+function Config.setSpriteSizeMode(mod, value, source, opts)
+  opts = opts or {}
+  value = Config.normalizeSpriteSizeMode(tostring(value or ""))
+  if not VALID_SPRITE_SIZE_MODES[value] then
+    return false, "invalid sprite_size_mode: " .. tostring(value)
+  end
+
+  local game = opts.game
+  if not game and mod and mod.world then
+    game = mod.world.game
+  end
+
+  local function write(bucket)
+    if type(bucket) ~= "table" then return end
+    bucket[mod.id] = bucket[mod.id] or {}
+    bucket[mod.id].sprite_size_mode = value
+  end
+
+  if game and game.save and game.save.options then
+    game.save.options.modOptions = game.save.options.modOptions or {}
+    write(game.save.options.modOptions)
+  end
+  if game and game.mods then
+    if game.mods.modOptions then write(game.mods.modOptions) end
+    if game.mods.loader and game.mods.loader.modOptions then
+      write(game.mods.loader.modOptions)
+    end
+  end
+  if game and type(game.writeOptions) == "function" then
+    pcall(game.writeOptions, game)
+  end
+
+  local refreshed = select(1, refreshSpritesAfterOption(mod, opts))
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "SIZES: " .. (SPRITE_SIZE_CONFIRM[value] or value:upper())
+  end
+  if confirmMsg and game and mod and mod.ui and mod.ui.TextBox and game.stack then
+    pcall(function()
+      game.stack:push(mod.ui.TextBox.new(game, confirmMsg))
+    end)
+  end
+
+  if source and mod and mod.log and type(mod.log.info) == "function" then
+    pcall(mod.log.info, mod.log,
+      "sprite_size_mode set to %s via %s (refreshed=%d)",
+      value, tostring(source), refreshed)
+  end
+
+  return true, value, refreshed
+end
+
 Config.VALID_SPRITE_STYLES = VALID_SPRITE_STYLES
+Config.PUBLIC_SPRITE_STYLES = PUBLIC_SPRITE_STYLES
 Config.SPRITE_STYLE_CONFIRM = SPRITE_STYLE_CONFIRM
+Config.VALID_SPRITE_SIZE_MODES = VALID_SPRITE_SIZE_MODES
+Config.SPRITE_SIZE_CONFIRM = SPRITE_SIZE_CONFIRM
+Config.SPRITE_STYLE_ALIASES = SPRITE_STYLE_ALIASES
 
 local VALID_SPAWN_AMOUNTS = {
   low = true,

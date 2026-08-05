@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.8.0
+
+### Overworld sprite styles + optional relative sizes
+
+- Simplified overworld sprite selection to HGSS/PokeMMO, Poke Followers and
+  Pokedex
+- Added optional relative Pokémon sprite sizing
+- Used Pokédex height data to scale smaller Pokémon within native 16×16 frames
+- Preserved the previous sprite size as the default
+- Improved runtime sheet generation and preview diagnostics
+- Added safe migration for removed sprite-style values
+
 ## 1.7.1
 
 ### PokeMMO walk frames + follower swap stability + aggressive search wander

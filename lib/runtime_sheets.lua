@@ -1,5 +1,6 @@
 -- Resolve pre-built Gen1Recomp SpriteRenderer sheets for follow-sprites.
--- Sheets live under assets/generated/followsprites_runtime/ (build-time).
+-- Sheets live under assets/generated/followsprites_runtime/ (Original) and
+-- assets/generated/followsprites_runtime_relative/ (Relative size mode).
 --
 -- Path types (do not mix):
 --   relativePath  — mod-root relative, e.g. assets/generated/.../001-normal.png
@@ -8,14 +9,22 @@
 --
 -- SpriteRenderer / Assets.image MUST receive loadPath, never a bare relativePath
 -- and never an OS absolute path.
+--
+-- Relative sizing is baked into the PNG cards at build time — never scaled at
+-- draw time. Original mode uses the prior followsprites_runtime/ folder so
+-- hashes stay pixel-identical to previous releases.
 local V = ...
 local JsonDecode = V.require("json_decode")
+local Config = V.require("config")
 
 local RuntimeSheets = {}
 RuntimeSheets.__index = RuntimeSheets
 
-RuntimeSheets.DIR_REL = "assets/generated/followsprites_runtime"
-RuntimeSheets.MANIFEST_REL = RuntimeSheets.DIR_REL .. "/manifest.json"
+RuntimeSheets.DIR_ORIGINAL = "assets/generated/followsprites_runtime"
+RuntimeSheets.DIR_RELATIVE = "assets/generated/followsprites_runtime_relative"
+-- Back-compat alias: historical constant pointed at Original sheets.
+RuntimeSheets.DIR_REL = RuntimeSheets.DIR_ORIGINAL
+RuntimeSheets.MANIFEST_REL = RuntimeSheets.DIR_ORIGINAL .. "/manifest.json"
 RuntimeSheets.FRAMES = 6
 RuntimeSheets.WALKER = true
 RuntimeSheets.SHEET_W = 16
@@ -27,6 +36,13 @@ RuntimeSheets.SHEET_H = 96
 RuntimeSheets.STAND = { down = 0, up = 1, left = 2, right = 2 }
 RuntimeSheets.WALK = { down = 3, up = 4, left = 5, right = 5 }
 
+function RuntimeSheets.dirForSizeMode(sizeMode)
+  if sizeMode == "relative" then
+    return RuntimeSheets.DIR_RELATIVE
+  end
+  return RuntimeSheets.DIR_ORIGINAL
+end
+
 function RuntimeSheets.sheetFileName(speciesId, variant)
   local n = tonumber(speciesId)
   if not n or n < 1 then return nil end
@@ -34,10 +50,10 @@ function RuntimeSheets.sheetFileName(speciesId, variant)
   return string.format("%03d-%s.png", math.floor(n), v)
 end
 
-function RuntimeSheets.sheetRelPath(speciesId, variant)
+function RuntimeSheets.sheetRelPath(speciesId, variant, sizeMode)
   local name = RuntimeSheets.sheetFileName(speciesId, variant)
   if not name then return nil end
-  return RuntimeSheets.DIR_REL .. "/" .. name
+  return RuntimeSheets.dirForSizeMode(sizeMode) .. "/" .. name
 end
 
 function RuntimeSheets.manifestKey(speciesId, variant)
@@ -55,6 +71,9 @@ function RuntimeSheets.new(mod)
   self.sheetCount = 0
   self.loadError = nil
   self._probeLog = {}
+  self.sizeMode = "original"
+  self.activeDir = RuntimeSheets.DIR_ORIGINAL
+  self.manifestRel = RuntimeSheets.DIR_ORIGINAL .. "/manifest.json"
   return self
 end
 
@@ -105,18 +124,60 @@ function RuntimeSheets:_assetPresent(rel)
   return self:_readBytes(rel) ~= nil
 end
 
+function RuntimeSheets:setSizeMode(mode)
+  mode = Config.normalizeSpriteSizeMode(mode)
+  if self.sizeMode == mode and self.ready then
+    return self.ready, self.loadError
+  end
+  self.sizeMode = mode
+  return self:load()
+end
+
+function RuntimeSheets:syncFromConfig()
+  local mode = "original"
+  if self.mod then
+    mode = Config.spriteSizeMode(self.mod)
+  end
+  return self:setSizeMode(mode)
+end
+
 function RuntimeSheets:load()
   self.manifest = nil
   self.ready = false
   self.sheetCount = 0
   self.loadError = nil
 
-  local raw = self:_readBytes(RuntimeSheets.MANIFEST_REL)
-  if type(raw) ~= "string" or raw == "" then
+  local preferred = RuntimeSheets.dirForSizeMode(self.sizeMode)
+  local candidates = { preferred }
+  -- Relative sheets may be missing on partial installs; fall back to Original.
+  if preferred ~= RuntimeSheets.DIR_ORIGINAL then
+    candidates[#candidates + 1] = RuntimeSheets.DIR_ORIGINAL
+  end
+
+  local chosenDir, chosenManifest, chosenRaw = nil, nil, nil
+  for i = 1, #candidates do
+    local dir = candidates[i]
+    local manRel = dir .. "/manifest.json"
+    local raw = self:_readBytes(manRel)
+    if type(raw) == "string" and raw ~= "" then
+      chosenDir = dir
+      chosenManifest = manRel
+      chosenRaw = raw
+      break
+    end
+  end
+
+  if not chosenRaw then
+    self.activeDir = preferred
+    self.manifestRel = preferred .. "/manifest.json"
     self.loadError = "runtime sheet manifest missing (mod.read / assets path)"
     return false, self.loadError
   end
-  local ok, data = pcall(JsonDecode.decode, raw)
+
+  self.activeDir = chosenDir
+  self.manifestRel = chosenManifest
+
+  local ok, data = pcall(JsonDecode.decode, chosenRaw)
   if not ok or type(data) ~= "table" then
     self.loadError = "runtime sheet manifest invalid JSON"
     return false, self.loadError
@@ -129,6 +190,8 @@ function RuntimeSheets:load()
   self.ready = n > 0
   if not self.ready then
     self.loadError = "runtime sheet manifest has zero sheets"
+  elseif chosenDir ~= preferred and self.sizeMode == "relative" then
+    self.loadError = "relative sheets missing; using original"
   end
   return self.ready, self.loadError
 end
@@ -156,6 +219,7 @@ function RuntimeSheets:resolveRelativePath(speciesId, variant)
   n = math.floor(n)
   local wantShiny = (variant == "shiny" or variant == "s" or variant == true)
   local order = wantShiny and { "shiny", "normal" } or { "normal" }
+  local activeDir = self.activeDir or RuntimeSheets.DIR_ORIGINAL
 
   for _, v in ipairs(order) do
     local entry, key = self:getManifestEntry(n, v)
@@ -163,14 +227,36 @@ function RuntimeSheets:resolveRelativePath(speciesId, variant)
       -- Prefer written sheets; still accept "cached" from a re-run.
       local status = entry.status
       if status == nil or status == "written" or status == "cached" then
-        if self:_assetPresent(entry.path) then
+        local path = entry.path
+        -- Manifest paths from older builds always pointed at Original.
+        -- When activeDir is Relative, rewrite the folder prefix.
+        if activeDir == RuntimeSheets.DIR_RELATIVE
+           and path:find("^assets/generated/followsprites_runtime/") then
+          path = path:gsub(
+            "^assets/generated/followsprites_runtime/",
+            RuntimeSheets.DIR_RELATIVE .. "/",
+            1)
+        end
+        if self:_assetPresent(path) then
+          return path, v, entry
+        end
+        -- Fall back to the literal manifest path (Original) if rewrite missing.
+        if path ~= entry.path and self:_assetPresent(entry.path) then
           return entry.path, v, entry
         end
       end
     end
-    local constructed = RuntimeSheets.sheetRelPath(n, v)
+    local constructed = activeDir .. "/" .. (RuntimeSheets.sheetFileName(n, v) or "")
     if constructed and self:_assetPresent(constructed) then
       return constructed, v, entry
+    end
+    -- Last resort: Original folder when Relative sheet is absent for one species.
+    if activeDir ~= RuntimeSheets.DIR_ORIGINAL then
+      local orig = RuntimeSheets.DIR_ORIGINAL .. "/"
+        .. (RuntimeSheets.sheetFileName(n, v) or "")
+      if self:_assetPresent(orig) then
+        return orig, v, entry
+      end
     end
   end
   return nil, nil, nil
@@ -266,6 +352,8 @@ function RuntimeSheets:probeRegistration(speciesId, variant)
     speciesId = n,
     requestedVariant = want,
     usedVariant = used,
+    sizeMode = self.sizeMode,
+    activeDir = self.activeDir,
     manifestKey = key,
     manifestEntryFound = entry ~= nil,
     manifestStatus = entry and entry.status or nil,
@@ -285,12 +373,13 @@ function RuntimeSheets:summary()
   return {
     ready = self.ready,
     sheetCount = self.sheetCount,
-    dir = RuntimeSheets.DIR_REL,
+    dir = self.activeDir or RuntimeSheets.DIR_REL,
+    sizeMode = self.sizeMode,
     frames = RuntimeSheets.FRAMES,
     walker = RuntimeSheets.WALKER,
     loadError = self.loadError,
     rightFacing = self.manifest and self.manifest.rightFacing or "mirror_left",
-    manifestRel = RuntimeSheets.MANIFEST_REL,
+    manifestRel = self.manifestRel or RuntimeSheets.MANIFEST_REL,
   }
 end
 

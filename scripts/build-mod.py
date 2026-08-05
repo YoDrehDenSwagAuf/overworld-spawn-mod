@@ -313,6 +313,7 @@ def verify_zip(out_zip: Path, manifest: dict) -> None:
     runtime_pngs = [
         n for n in names
         if n.startswith("assets/generated/followsprites_runtime/")
+        and not n.startswith("assets/generated/followsprites_runtime_relative/")
         and n.lower().endswith(".png")
     ]
     if len(runtime_pngs) < 151:
@@ -320,10 +321,28 @@ def verify_zip(out_zip: Path, manifest: dict) -> None:
             f"ZIP runtime sheets too few ({len(runtime_pngs)}); "
             "expected generated 16x96 SpriteRenderer sheets"
         )
-    print(f"  native runtime sheets: {len(runtime_pngs)}")
+    print(f"  native runtime sheets (original): {len(runtime_pngs)}")
     sample = "assets/generated/followsprites_runtime/001-normal.png"
     if sample not in names:
         fail(f"ZIP missing sample runtime sheet: {sample}")
+
+    relative_manifest = "assets/generated/followsprites_runtime_relative/manifest.json"
+    if relative_manifest not in names:
+        fail(f"ZIP missing relative runtime sheet manifest: {relative_manifest}")
+    relative_pngs = [
+        n for n in names
+        if n.startswith("assets/generated/followsprites_runtime_relative/")
+        and n.lower().endswith(".png")
+    ]
+    if len(relative_pngs) < 151:
+        fail(
+            f"ZIP relative runtime sheets too few ({len(relative_pngs)}); "
+            "expected height-scaled 16x96 SpriteRenderer sheets"
+        )
+    print(f"  native runtime sheets (relative): {len(relative_pngs)}")
+    relative_sample = "assets/generated/followsprites_runtime_relative/001-normal.png"
+    if relative_sample not in names:
+        fail(f"ZIP missing sample relative runtime sheet: {relative_sample}")
 
     water_map_swim = (
         "assets/enhanced_overworld/water_sprites/swimming/swimming_sprite_mapping.json"
@@ -464,19 +483,31 @@ def verify_follow_sprite_assets() -> None:
 
 
 def ensure_runtime_sheets() -> None:
-    """Build Gen1Recomp 16×96 SpriteRenderer sheets from follow-sprites."""
+    """Build Gen1Recomp 16×96 SpriteRenderer sheets from follow-sprites.
+
+    Generates Original (existing folder, pixel-identical default) and Relative
+    (height-scaled) land sheet variants. Water sheets are unchanged.
+    """
     script = ROOT / "tools" / "generate_runtime_sprite_sheets.py"
-    out_dir = ROOT / "assets" / "generated" / "followsprites_runtime"
-    manifest = out_dir / "manifest.json"
+    out_original = ROOT / "assets" / "generated" / "followsprites_runtime"
+    out_relative = ROOT / "assets" / "generated" / "followsprites_runtime_relative"
     if not script.is_file():
         fail(f"missing sheet generator: {script}")
-    print("==> generating native runtime sprite sheets")
-    subprocess.check_call([sys.executable, str(script)], cwd=str(ROOT))
-    if not manifest.is_file():
-        fail(f"runtime sheet manifest missing after generate: {manifest}")
-    sample = out_dir / "001-normal.png"
-    if not sample.is_file():
-        fail(f"runtime sheet sample missing: {sample}")
+    print("==> generating native runtime sprite sheets (original + relative)")
+    subprocess.check_call(
+        [sys.executable, str(script), "--size-mode", "both"],
+        cwd=str(ROOT),
+    )
+    for out_dir, label in (
+        (out_original, "original"),
+        (out_relative, "relative"),
+    ):
+        manifest = out_dir / "manifest.json"
+        if not manifest.is_file():
+            fail(f"runtime sheet manifest missing after generate ({label}): {manifest}")
+        sample = out_dir / "001-normal.png"
+        if not sample.is_file():
+            fail(f"runtime sheet sample missing ({label}): {sample}")
 
 
 def ensure_water_runtime_sheets() -> None:

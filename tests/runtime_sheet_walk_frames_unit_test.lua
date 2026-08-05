@@ -42,7 +42,16 @@ function V.require(name)
   modules[name] = value
   return value
 end
-modules.config = { DEFAULTS = {}, get = function() return nil end, debug = function() return false end }
+modules.config = {
+  DEFAULTS = { sprite_size_mode = "original" },
+  get = function() return nil end,
+  debug = function() return false end,
+  normalizeSpriteSizeMode = function(v)
+    if v == "relative" then return "relative" end
+    return "original"
+  end,
+  spriteSizeMode = function() return "original" end,
+}
 modules.tile = { CELL = 16 }
 
 local RuntimeSheets = V.require("runtime_sheets")

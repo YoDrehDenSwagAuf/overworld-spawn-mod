@@ -1,21 +1,37 @@
-# Manual test guide — Wilds of Kanto 1.7.1
+# Manual test guide — Wilds of Kanto 1.8.0
 
-## After installing 1.7.1
+## After installing 1.8.0
 
 1. Remove any previous Wilds of Kanto install from the Mod Manager.
-2. Install only `wilds-of-kanto-v1.7.1.zip`.
-3. Confirm the Mod Manager shows version **1.7.1**.
+2. Install only `wilds-of-kanto-v1.8.0.zip`.
+3. Confirm the Mod Manager shows version **1.8.0**.
 
 ## Settings
 
 1. Open Mod Settings → Wilds of Kanto.
 2. Confirm core options:
-   Sprite Style / Spawn Amount / Random Enc / Water Mons / Dev Overlay
-   (plus Show Wild Mons, Grass View, Idle/Roam/Chase/Hidden Mons).
-3. Confirm **Test Spawn** opens a Pokémon list (OPTIONS activate / OPEN).
-4. Open the normal Start / Pause menu — Wilds should **not** inject
+   Sprite Style / Sprite Sizes / Spawn Amount / Random Enc / Water Mons /
+   Dev Overlay (plus Show Wild Mons, Grass View, Idle/Roam/Chase/Hidden Mons).
+3. Confirm Sprite Style choices are exactly:
+   HGSS / PokeMMO, Poke Followers, Pokedex (no Auto / Gold).
+4. Confirm Sprite Sizes choices: Original (default) / Relative.
+5. Confirm **Test Spawn** opens a Pokémon list (OPTIONS activate / OPEN).
+6. Open the normal Start / Pause menu — Wilds should **not** inject
    SPRITE STYLE / SPAWN AMOUNT / RANDOM ENC / WATER MONS there.
-5. Load an older save: settings must not crash; obsolete Dev Mode keys are ignored.
+7. Load an older save with `sprite_style=auto` or `gold` or `followers_ex`:
+   no crash; values normalize; look matches previous Original sizes.
+
+## Sprite styles + sizes
+
+1. **HGSS / PokeMMO + Original**: look matches 1.7.1 exactly.
+2. **HGSS / PokeMMO + Relative**: Caterpie / Pikachu visibly smaller;
+   Charizard / Snorlax / Onix stay full native size; no jitter between frames.
+3. Switch Original ↔ Relative: sprites refresh, no respawn, no crash.
+4. **Poke Followers** without pack installed: falls back to HGSS / PokeMMO.
+5. **Pokedex**: static images, no crash, battle fronts unchanged.
+6. Active follower follows the selected style; size mode affects bundled
+   HGSS / PokeMMO land sheets only.
+7. Land → water → land: Swimming / Levitates unchanged; water chase intact.
 
 ## Safari Zone
 
@@ -38,53 +54,19 @@
 
 1. Enter Diglett Tunnel and Mt. Moon several times.
 2. Visible cave Pokémon must not appear behind walls / in cut-off pockets.
-3. Wander and aggressive cave Pokémon must stay in reachable cells.
-4. With Dev Overlay ON, HUD should report cave reachability READY (or a
-   conservative FALLBACK — never unfiltered cave).
+3. Cave wander stays on reachable cells.
 
 ## Water
 
-1. Visit Cerulean and a larger water route with Spawn Amount = Normal.
-2. Water must look clearly sparser than 1.5.x (small ponds may be empty).
-3. Compare Low vs High Spawn Amount — density should change moderately.
-4. Species still come from Surf / rod pools; Super-Rod-only stay Deep.
-5. Aggressive water Pokémon can still chase on water (outside Safari).
-
-## Dev Overlay
-
-1. Enable Dev Overlay.
-2. Labels appear above wild Pokémon (IDLE / WANDER / AGGRO / WATER * /
-   SAFARI IDLE / SAFARI WANDER / SAFARI FLEE).
-3. Facing arrows update (↑ ↓ ← →).
-4. Safari flee overlays may show STATE / STEPS while fleeing.
-5. Detail HUD can show Safari active / noticed / flee steps when focused.
-
-## Followers EX
-
-1. With Followers EX + compatible style, follower uses the selected sprite style.
-2. Enter/leave water: follower Swimming/Levitates transitions once per change.
-3. Wild collision still blocks through followers.
-4. Sprite Style = PokeMMO: follower walk frames animate while following.
-5. Style switch mid-walk must not freeze the follower on a stand frame.
-
-## PokeMMO walk animation
-
-1. Sprite Style = PokeMMO on a grass route.
-2. GRASS_WANDER Pokémon must show walk frames while moving between tiles.
-3. IDLE_LOOK still turns without walk frames.
-4. AGGRESSIVE search wander and chase must also animate walk frames.
-5. Swimming / Levitates water sheets must keep the same native walk contract.
-
-## Aggressive search wander
-
-1. Outside Safari, AGGRESSIVE Pokémon should occasionally take a step while scanning.
-2. Behaviour label stays AGGRO (not WANDER).
-3. Seeing the player still stops wander, shows one alert, then chase.
-4. Safari session must still never use normal AGGRESSIVE.
+1. Toggle Water Mons ON/OFF live.
+2. Confirm Swimming / Levitates sheets still animate.
+3. Land → water chase still reserves a free shore cell before sprite swap.
+4. Relative size mode does not alter water sprite cards in this release.
 
 ## Regression smoke
 
-1. Route grass: Idle / Wander / Aggressive unchanged outside Safari.
-2. Random Enc ON/OFF still gates classic step encounters outside Safari.
-3. Voxel / First Person: chase and Safari flee still render via SpriteRenderer.
-4. No content-registry mutation / no sprite provider rebuild required for Safari.
+1. Random Enc ON/OFF independent of visible spawns.
+2. Aggressive land chase + water chase.
+3. Cell occupancy / no stacking.
+4. Dramatic Shape / First Person / Voxel (if installed): no new render path.
+5. Battle sprites and encounter routing unchanged.

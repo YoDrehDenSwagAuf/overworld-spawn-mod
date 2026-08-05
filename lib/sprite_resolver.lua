@@ -274,14 +274,18 @@ end
 
 function SpriteResolver:cacheKey(entity, context, state)
   context = context or {}
-  local style = tostring(context.style or Config.spriteStyle(self.mod) or "auto")
+  local style = tostring(context.style or Config.spriteStyle(self.mod) or "pokemmo")
+  local sizeMode = tostring(
+    context.sizeMode
+    or (Config.spriteSizeMode and Config.spriteSizeMode(self.mod))
+    or "original")
   local speciesId = context.speciesId or resolveDex(entity, context.game, self.mod)
     or (entity and (entity.species or entity.enhancedDexId)) or "?"
   local variant = tostring(context.variant or resolveVariant(entity) or "normal")
   local form = tostring(context.form or resolveForm(entity) or "default")
   state = state or "land"
-  return string.format("%s:%s:%s:%s:%s",
-    tostring(speciesId), variant, form, state, style)
+  return string.format("%s:%s:%s:%s:%s:%s",
+    tostring(speciesId), variant, form, state, style, sizeMode)
 end
 
 function SpriteResolver:invalidateCache()

@@ -205,7 +205,8 @@ def main() -> int:
             try:
                 with Image.open(src_path) as probe:
                     tw, th = infer_tile_size(probe, layout["columns"], layout["rows"])
-                sheet = build_sheet(src_path, layout, tw, th)
+                # Water sheets stay on the Original fit path (height_scale=1.0).
+                sheet, _fit, _final = build_sheet(src_path, layout, tw, th)
                 assert sheet.size == (SHEET_W, SHEET_H), sheet.size
                 sheet.save(out_path, optimize=True)
                 written += 1

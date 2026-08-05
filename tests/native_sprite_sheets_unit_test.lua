@@ -55,9 +55,15 @@ modules.config = {
     aggressive_step_seconds = 0.18,
     pokemon_grass_render_mode = "immersed",
     grass_occlusion_px = 6,
+    sprite_size_mode = "original",
   },
   get = function(_, k) return modules.config.DEFAULTS[k] end,
   debug = function() return false end,
+  normalizeSpriteSizeMode = function(v)
+    if v == "relative" then return "relative" end
+    return "original"
+  end,
+  spriteSizeMode = function() return "original" end,
 }
 modules.tile = { CELL = 16, WIDTH = 16, HEIGHT = 16,
   pixelsForCell = function(x, y) return x * 16, y * 16 end }
@@ -157,6 +163,21 @@ eq(h, 96, "025 height")
 w, h = pngSize("assets/generated/followsprites_runtime/151-normal.png")
 eq(w, 16, "151 width")
 eq(h, 96, "151 height")
+
+-- Relative size-mode sheets exist and stay 16×96.
+w, h = pngSize("assets/generated/followsprites_runtime_relative/025-normal.png")
+eq(w, 16, "relative 025 width 16")
+eq(h, 96, "relative 025 height 96")
+check(sheets:setSizeMode("relative") == true, "switch to relative size mode")
+eq(sheets.sizeMode, "relative", "sizeMode relative")
+local relPath = select(1, sheets:resolveRelativePath(25, "normal"))
+check(relPath and relPath:find("followsprites_runtime_relative", 1, true),
+      "relative mode resolves relative folder")
+check(sheets:setSizeMode("original") == true, "switch back to original")
+local origPath = select(1, sheets:resolveRelativePath(25, "normal"))
+check(origPath and origPath:find("followsprites_runtime/", 1, true)
+      and not origPath:find("relative", 1, true),
+      "original mode resolves original folder")
 
 -- love.filesystem.getInfo(relative) alone must NOT be required for success.
 -- Simulate: relative getInfo would miss, but mod.read still finds the file.

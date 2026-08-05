@@ -57,6 +57,7 @@ end
 modules.config = {
   DEFAULTS = {
     sprite_style = "pokemmo",
+    sprite_size_mode = "original",
     use_animated_overworld_sprites = true,
     wild_step_seconds = 0.28,
     aggressive_step_seconds = 0.18,
@@ -74,6 +75,11 @@ modules.config = {
   },
   get = function(_, k) return modules.config.DEFAULTS[k] end,
   spriteStyle = function() return savedOpts.sprite_style or "pokemmo" end,
+  normalizeSpriteSizeMode = function(v)
+    if v == "relative" then return "relative" end
+    return "original"
+  end,
+  spriteSizeMode = function() return savedOpts.sprite_size_mode or "original" end,
   useAnimatedOverworldSprites = function() return true end,
   debug = function() return false end,
   devOverlay = function() return false end,

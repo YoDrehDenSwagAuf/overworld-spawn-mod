@@ -1626,12 +1626,23 @@ end
 T.check(styleOpt ~= nil, "sprite_style option present")
 T.check(legacyAnimOpt == nil, "legacy Mon Sprites option removed")
 T.eq(styleOpt.type, "choice", "sprite_style is choice")
-T.eq(styleOpt.default, "auto", "sprite_style defaults auto")
+T.eq(styleOpt.default, "pokemmo", "sprite_style defaults pokemmo")
 T.eq(styleOpt.label, "Sprite Style", "sprite_style label")
 T.check(#styleOpt.label <= 14, "sprite_style label <= 14 chars")
-T.eq(Config.DEFAULTS.sprite_style, "auto", "DEFAULTS sprite_style auto")
-T.eq(Config.spriteStyle(modApi), "auto", "spriteStyle helper auto")
-T.eq(Config.useAnimatedOverworldSprites(modApi), true, "animated helper true for auto")
+T.eq(Config.DEFAULTS.sprite_style, "pokemmo", "DEFAULTS sprite_style pokemmo")
+T.eq(Config.spriteStyle(modApi), "pokemmo", "spriteStyle helper pokemmo")
+T.eq(Config.useAnimatedOverworldSprites(modApi), true, "animated helper true for pokemmo")
+T.eq(Config.DEFAULTS.sprite_size_mode, "original", "DEFAULTS sprite_size_mode original")
+T.eq(Config.spriteSizeMode(modApi), "original", "spriteSizeMode helper original")
+
+local sizeOpt
+for _, row in ipairs(schema) do
+  if row.key == "sprite_size_mode" then sizeOpt = row end
+end
+T.check(sizeOpt ~= nil, "sprite_size_mode option present")
+T.eq(sizeOpt.default, "original", "sprite_size_mode defaults original")
+T.eq(sizeOpt.label, "Sprite Sizes", "sprite_size_mode label")
+T.check(#sizeOpt.label <= 14, "sprite_size_mode label <= 14")
 
 local animSys = exports.animated
 T.check(animSys.loaded == true, "animated system loaded at mod init")
@@ -1695,10 +1706,27 @@ logic:onOptionsChanged({
   mod = modApi.id, key = "sprite_style", value = "pokemmo",
 })
 T.eq(Config.spriteStyle(modApi), "pokemmo", "sprite_style pokemmo")
+-- Legacy auto normalizes to pokemmo (no crash, no public Auto option).
 run.loader.modOptions["overworld_wild_spawns"].sprite_style = "auto"
+T.eq(Config.spriteStyle(modApi), "pokemmo", "legacy auto normalizes to pokemmo")
 logic:onOptionsChanged({
-  mod = modApi.id, key = "sprite_style", value = "auto",
+  mod = modApi.id, key = "sprite_style", value = "pokemmo",
 })
+
+-- Relative size mode switches sheet folder without respawn.
+run.loader.modOptions["overworld_wild_spawns"].sprite_size_mode = "relative"
+T.eq(Config.spriteSizeMode(modApi), "relative", "sprite_size_mode relative")
+logic:onOptionsChanged({
+  mod = modApi.id, key = "sprite_size_mode", value = "relative",
+})
+T.check(exports.render.runtimeSheets.sizeMode == "relative"
+        or exports.render.runtimeSheets.activeDir:find("relative", 1, true),
+        "runtime sheets switched toward relative")
+run.loader.modOptions["overworld_wild_spawns"].sprite_size_mode = "original"
+logic:onOptionsChanged({
+  mod = modApi.id, key = "sprite_size_mode", value = "original",
+})
+T.eq(Config.spriteSizeMode(modApi), "original", "sprite_size_mode restored original")
 
 -- HUD mentions sprite style / follow sprites
 local linesAnim = Diagnostics.hudLines(logic)
@@ -1718,11 +1746,11 @@ for _, row in ipairs(listed) do
 end
 T.check(sawPokemmo and sawPokedex, "builtin providers listed")
 T.check(exports.getSpriteProvider("pokemmo") ~= nil, "getSpriteProvider pokemmo")
-T.check(exports.getSpriteProvider("gold") ~= nil, "getSpriteProvider gold")
-T.check(SpriteProviders.STYLE_CHAINS.auto[1] == "gold", "auto chain starts gold")
-T.check(SpriteProviders.STYLE_CHAINS.auto[2] == "followers_ex", "auto chain then followers")
-T.check(SpriteProviders.STYLE_CHAINS.auto[3] == "pokemmo", "auto chain then pokemmo")
-T.check(SpriteProviders.AUTO_PROVIDER_ORDER[1] == "gold", "AUTO_PROVIDER_ORDER gold first")
+T.check(exports.getSpriteProvider("gold") ~= nil, "getSpriteProvider gold (compat adapter)")
+T.check(exports.getSpriteProvider("followers_ex") ~= nil, "getSpriteProvider followers_ex")
+T.check(SpriteProviders.STYLE_CHAINS.pokemmo[1] == "pokemmo", "pokemmo chain starts pokemmo")
+T.check(SpriteProviders.STYLE_CHAINS.followers[1] == "followers_ex", "followers chain uses followers_ex provider")
+T.check(SpriteProviders.STYLE_CHAINS.pokedex[1] == "pokedex", "pokedex chain")
 T.check(type(exports.setSpriteStyle) == "function", "setSpriteStyle export")
 T.check(exports.spriteStyleMenu ~= nil, "spriteStyleMenu export")
 T.eq(exports.spriteStyleMenu._registered, true, "SPRITE STYLE menu registered once")
@@ -1732,20 +1760,29 @@ for _, choice in ipairs(styleOpt.choices) do
   styleChoices[choice[2]] = choice[1]
   T.check(#choice[1] <= 14, "style choice label <= 14: " .. tostring(choice[1]))
 end
-T.check(styleChoices.gold == "Gold Sprites", "Gold Sprites choice present")
-T.eq(#("Gold Sprites"), 12, "Gold Sprites length")
+T.check(styleChoices.pokemmo == "HGSS / PokeMMO", "HGSS / PokeMMO choice present")
+T.check(styleChoices.followers == "Poke Followers", "Poke Followers choice present")
+T.check(styleChoices.pokedex == "Pokedex", "Pokedex choice present")
+T.check(styleChoices.auto == nil, "Auto removed from public choices")
+T.check(styleChoices.gold == nil, "Gold removed from public choices")
+T.check(styleChoices.followers_ex == nil, "followers_ex removed from public choices")
+T.eq(#("HGSS / PokeMMO"), 14, "HGSS / PokeMMO length")
+T.eq(#("Poke Followers"), 14, "Poke Followers length")
 T.eq(#("SPRITE STYLE"), 12, "SPRITE STYLE menu length")
 
--- Shared setter writes the same sprite_style key
+-- Shared setter writes the same sprite_style key; legacy values migrate.
 mockGame.save.options = mockGame.save.options or {}
 mockGame.save.options.modOptions = mockGame.save.options.modOptions or {}
 mockGame.mods = mockGame.mods or { modOptions = {} }
 local setOk = exports.setSpriteStyle("gold", "test", { confirm = false, game = mockGame })
-T.check(setOk == true, "setSpriteStyle gold ok")
-T.eq(Config.spriteStyle(modApi), "gold", "setSpriteStyle persisted gold")
-setOk = exports.setSpriteStyle("auto", "test", { confirm = false, game = mockGame })
-T.check(setOk == true, "setSpriteStyle auto ok")
-T.eq(Config.spriteStyle(modApi), "auto", "setSpriteStyle restored auto")
+T.check(setOk == true, "setSpriteStyle gold migrates ok")
+T.eq(Config.spriteStyle(modApi), "pokemmo", "setSpriteStyle gold -> pokemmo")
+setOk = exports.setSpriteStyle("followers_ex", "test", { confirm = false, game = mockGame })
+T.check(setOk == true, "setSpriteStyle followers_ex migrates ok")
+T.eq(Config.spriteStyle(modApi), "followers", "setSpriteStyle followers_ex -> followers")
+setOk = exports.setSpriteStyle("pokemmo", "test", { confirm = false, game = mockGame })
+T.check(setOk == true, "setSpriteStyle pokemmo ok")
+T.eq(Config.spriteStyle(modApi), "pokemmo", "setSpriteStyle restored pokemmo")
 
 -- Mod disable clears entities.
 run.loader.modOptions["overworld_wild_spawns"].enabled = false
