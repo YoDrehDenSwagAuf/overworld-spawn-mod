@@ -206,9 +206,9 @@ function VoxelAdapter:updateEntity(entity)
     or "LEGACY_PNG"
   entity.voxelScale = 1
 
-  -- Water silhouette / hidden-circle presentation needs Love draw tint / circle
-  -- (DS billboards ignore setColor). Keep entity in ow.entities for collision,
-  -- but force the overlay body path so Entity:draw owns presentation.
+  -- Hidden Silhouettes only: force overlay so Entity:draw paints the circle
+  -- (DS billboards would otherwise show the Pokémon body). Voxel Silhouettes
+  -- use native pre-rendered sheets on the normal DS billboard path.
   local WaterDisplay = V.require("water_display")
   local waterPresentation = WaterDisplay.needsOverlayPresentation(self.mod, entity)
 
@@ -242,6 +242,22 @@ function VoxelAdapter:updateEntity(entity)
     return true
   end
   entity.waterPresentationForced = nil
+
+  -- Voxel silhouettes: ensure native silhouette sheet is bound once when the
+  -- camera becomes Voxel (or mode changes). No respawn; at most one rebind.
+  if WaterDisplay.needsNativeSilhouetteSheet(self.mod, entity) then
+    local needRebind = (entity.waterVoxelActive ~= true)
+      or (entity.waterSilhouetteSheet ~= true)
+    if needRebind and entity.render and entity.render.applyProviderSprite then
+      local game = self.mod.world and self.mod.world.game
+      pcall(entity.render.applyProviderSprite, entity.render, entity, game)
+    end
+  elseif entity.waterSilhouetteSheet == true and entity.render
+     and entity.render.applyProviderSprite then
+    -- Left Voxel or left silhouettes mode: restore colour water sheet.
+    local game = self.mod.world and self.mod.world.game
+    pcall(entity.render.applyProviderSprite, entity.render, entity, game)
+  end
 
   entity.worldRenderer = VoxelAdapter.WORLD_RENDERER
 

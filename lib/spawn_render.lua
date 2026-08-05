@@ -1704,8 +1704,10 @@ function Entity:draw(camX, camY)
       d.postVoxelBodyDrawCalls = (d.postVoxelBodyDrawCalls or 0) + 1
     end
     local opacity = Config.get(self.mod, "sprite_opacity") or 1
+    -- Flat 2D silhouettes: runtime tint. Voxel silhouettes: baked sheet (no tint).
     local silhouette = WaterDisplay.isSilhouettes(self.mod)
       and WaterDisplay.isWaterEntity(self)
+      and self.waterSilhouetteSheet ~= true
     local player = silhouette and WaterDisplay.resolvePlayer(self.mod) or nil
 
     local function drawBody()
@@ -1933,6 +1935,12 @@ function SpawnRender:applyProviderSprite(entity, game)
   local variant = AnimatedSprites.resolveRuntimeVariant(entity)
   local species = entity.species or entity.enhancedDexId
   local map = game and game.overworld and game.overworld.map
+  local WaterDisplay = V.require("water_display")
+  local voxelActive = WaterDisplay.isVoxelCameraActive(self.mod)
+  local waterMode = "swimming_sprites"
+  if type(Config.waterDisplayMode) == "function" then
+    waterMode = Config.waterDisplayMode(self.mod) or waterMode
+  end
   local result
   if self.spriteResolver then
     result = self.spriteResolver:resolveForEntity(entity, {
@@ -1942,6 +1950,9 @@ function SpawnRender:applyProviderSprite(entity, game)
       surface = entity.surface,
       speciesId = entity.enhancedDexId or species,
       variant = variant,
+      voxelActive = voxelActive,
+      nativeSilhouette = voxelActive
+        and WaterDisplay.needsNativeSilhouetteSheet(self.mod, entity),
     })
   else
     result = self.spriteProviders:resolve(style, species, variant, game)
@@ -1963,17 +1974,24 @@ function SpawnRender:applyProviderSprite(entity, game)
     result.spriteState = result.spriteState or "land"
   end
 
-  -- Skip rebuild when the same provider image / surface state is already bound.
+  local wantSilSheet = result.waterSilhouetteSheet == true
+  -- Skip rebuild when the same provider image / surface / water mode is bound.
   local cur = entity.sprite and entity.sprite.def
   if cur and cur.image == result.def.image
      and (cur.frames or 1) == (result.def.frames or 1)
      and (cur.walker == true) == (result.def.walker == true)
      and entity.spriteProviderId == result.providerId
      and entity.spriteState == result.spriteState
-     and entity.requestedSpriteStyle == style then
+     and entity.requestedSpriteStyle == style
+     and entity.waterDisplayMode == waterMode
+     and entity.waterSilhouetteSheet == wantSilSheet
+     and entity.waterVoxelActive == voxelActive then
     entity.requestedSpriteStyle = style
     entity.spriteFallbackStep = result.fallbackStep
     entity.spriteProviderMeta = result.meta
+    entity.waterDisplayMode = waterMode
+    entity.waterSilhouetteSheet = wantSilSheet
+    entity.waterVoxelActive = voxelActive
     if self.spriteResolver then
       self.spriteResolver:applyEntityMeta(entity, result)
     end
@@ -2045,17 +2063,25 @@ function SpawnRender:applyProviderSprite(entity, game)
   -- Never mark them as the deprecated enhanced-atlas body path.
   entity.usingEnhancedSprite = false
   entity.worldSprite = nil
+  entity.waterDisplayMode = waterMode
+  entity.waterSilhouetteSheet = wantSilSheet
+  entity.waterVoxelActive = voxelActive
   if self.spriteResolver then
     self.spriteResolver:applyEntityMeta(entity, result)
   end
   if result.meta then
     entity.runtimeLoadPath = result.meta.loadPath
     entity.runtimeRelativePath = result.meta.relativePath
+    if result.meta.silhouetteFallback then
+      entity.waterSilhouetteFallback = true
+    end
   end
 
   if nativeSheet then
     if result.spriteKind == "swimming" or result.spriteKind == "levitates" then
-      entity.spriteSource = "WATER_" .. string.upper(result.spriteKind)
+      entity.spriteSource = wantSilSheet
+        and ("WATER_" .. string.upper(result.spriteKind) .. "_SILHOUETTE")
+        or ("WATER_" .. string.upper(result.spriteKind))
     elseif result.providerId == "followers_ex" then
       entity.spriteSource = "FOLLOWERS_EX"
     else

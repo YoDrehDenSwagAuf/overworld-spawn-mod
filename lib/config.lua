@@ -70,7 +70,9 @@ Config.DEFAULTS = {
   land_water_chase_shore_max = 1,
   land_water_chase_player_max = 5,
   water_aggressive_sight_range = 5,
-  enable_cave_spawns = true,
+  enable_cave_spawns = true, -- internal master; public choice is cave_spawns
+  -- Public "Cave Spawns": reachable (default) | mixed (~20% scenery).
+  cave_spawns = "reachable",
   -- Public developer overlay (behaviour + facing labels).
   dev_overlay = false,
   -- Internal-only (no longer public options). Kept as defaults for code paths.
@@ -806,6 +808,111 @@ end
 
 -- Alias used by menus / docs.
 Config.setWaterDisplayMode = Config.setWaterMons
+
+local VALID_CAVE_MODES = {
+  reachable = true,
+  mixed = true,
+}
+
+local CAVE_MODE_CONFIRM = {
+  reachable = "REACHABLE ONLY",
+  mixed = "MIXED",
+}
+
+Config.VALID_CAVE_MODES = VALID_CAVE_MODES
+Config.CAVE_MODE_CONFIRM = CAVE_MODE_CONFIRM
+
+local function coerceCaveMode(value)
+  if value == true or value == "true" or value == "on" or value == "ON"
+     or value == "strict" or value == "reachable_only" then
+    return "reachable"
+  end
+  if value == false or value == "false" or value == "off" or value == "OFF"
+     or value == "classic" then
+    return "mixed"
+  end
+  if type(value) == "string" and VALID_CAVE_MODES[value] then
+    return value
+  end
+  return nil
+end
+
+function Config.caveSpawnMode(mod)
+  local raw, present = Config.peekSavedOption(mod, "cave_spawns")
+  if present then
+    local mode = coerceCaveMode(raw)
+    if mode then return mode end
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local v = mod.options:get("cave_spawns")
+    local mode = coerceCaveMode(v)
+    if mode then return mode end
+  end
+  return coerceCaveMode(Config.DEFAULTS.cave_spawns) or "reachable"
+end
+
+function Config.caveSpawnsMixed(mod)
+  return Config.caveSpawnMode(mod) == "mixed"
+end
+
+function Config.caveSpawnsEnabled(mod)
+  if Config.get(mod, "enable_cave_spawns") == false then return false end
+  return true
+end
+
+function Config.migrateCaveSpawnMode(mod)
+  local mode = Config.caveSpawnMode(mod)
+  local function write(bucket)
+    if type(bucket) ~= "table" then return end
+    bucket[mod.id] = bucket[mod.id] or {}
+    local cur = bucket[mod.id].cave_spawns
+    if cur == nil or not VALID_CAVE_MODES[cur] then
+      bucket[mod.id].cave_spawns = mode
+    end
+  end
+  local world = mod.world
+  local game = world and world.game
+  if game and game.save and game.save.options then
+    game.save.options.modOptions = game.save.options.modOptions or {}
+    write(game.save.options.modOptions)
+  end
+  if game and game.mods then
+    if game.mods.modOptions then write(game.mods.modOptions) end
+    if game.mods.loader and game.mods.loader.modOptions then
+      write(game.mods.loader.modOptions)
+    end
+  end
+  return mode
+end
+
+function Config.setCaveSpawnMode(mod, value, source, opts)
+  opts = opts or {}
+  local mode = coerceCaveMode(value)
+  if not mode then
+    return false, "invalid cave_spawns: " .. tostring(value)
+  end
+  local game = resolveGame(mod, opts)
+  writeOptionBucket(mod, game, "cave_spawns", mode)
+
+  local logic = opts.logic
+  if not logic and mod and mod.exports then
+    logic = mod.exports.logic
+  end
+  if logic and type(logic.applyCaveSpawnMode) == "function" then
+    pcall(logic.applyCaveSpawnMode, logic, mode, source)
+  elseif logic and type(logic.onOptionsChanged) == "function" then
+    pcall(logic.onOptionsChanged, logic, {
+      mod = mod.id, key = "cave_spawns", value = mode, source = source,
+    })
+  end
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "CAVE: " .. (CAVE_MODE_CONFIRM[mode] or mode:upper())
+  end
+  confirmText(game, mod, confirmMsg)
+  return true, mode
+end
 
 function Config.pokemonGrassRenderMode(mod)
   local GrassOcclusion = V.require("grass_occlusion")

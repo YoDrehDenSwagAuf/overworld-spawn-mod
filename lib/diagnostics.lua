@@ -638,7 +638,12 @@ function Diagnostics.hudLines(logic)
       Config.waterMinSpacing(logic.mod))
     if logic.caveReachability then
       local CaveReachability = V.require("cave_reachability")
-      for _, line in ipairs(CaveReachability.hudLines(logic.caveReachability)) do
+      for _, line in ipairs(CaveReachability.hudLines(logic.caveReachability, {
+        caveMode = logic.caveMode or Config.caveSpawnMode(logic.mod),
+        mapTarget = logic.targetSpawnCount,
+        reachableTarget = logic.caveReachableTarget,
+        sceneryTarget = logic.caveSceneryTarget,
+      })) do
         lines[#lines + 1] = line
       end
     end

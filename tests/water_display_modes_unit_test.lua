@@ -165,14 +165,18 @@ eq(WaterDisplay.silhouetteSink(V.mod), 3, "sink 3px in silhouettes")
 eq(WaterDisplay.silhouetteSink(V.mod, farEnt), 3, "water entity gets sink")
 eq(WaterDisplay.silhouetteSink(V.mod, { surface = "GRASS" }), 0,
    "land entity never gets silhouette sink")
-check(WaterDisplay.needsOverlayPresentation(V.mod, farEnt) == true,
-      "silhouettes need overlay")
+check(WaterDisplay.needsOverlayPresentation(V.mod, farEnt) == false,
+      "silhouettes do not force overlay (native sheets in Voxel)")
+check(WaterDisplay.needsNativeSilhouetteSheet(V.mod, farEnt) == true,
+      "silhouettes need native sheet flag")
 savedOpts.water_spawns = "swimming_sprites"
 check(WaterDisplay.needsOverlayPresentation(V.mod, farEnt) == false,
       "swimming does not force overlay")
 savedOpts.water_spawns = "hidden_silhouettes"
 check(WaterDisplay.needsOverlayPresentation(V.mod, farEnt) == true,
       "hidden needs overlay")
+check(WaterDisplay.needsNativeSilhouetteSheet(V.mod, farEnt) == false,
+      "hidden does not use native silhouette sheet")
 
 -- ------- shouldSuppressClassicEncounter -------
 local SpawnLogic = V.require("spawn_logic")

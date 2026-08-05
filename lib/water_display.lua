@@ -120,12 +120,44 @@ function WaterDisplay.isWaterEntity(entity)
   return entity.originSurface == "WATER" or entity.spriteState == "water"
 end
 
--- True when DS billboards must not own the body (Love tint / circle draw).
+-- True when DS billboards must not own the body (Hidden circle overlay only).
+-- Silhouettes in Voxel use native pre-rendered sheets + DS billboards instead.
 function WaterDisplay.needsOverlayPresentation(mod, entity)
-  if not WaterDisplay.isWaterEntity(entity) then return false end
-  local m = WaterDisplay.mode(mod)
-  return m == WaterDisplay.MODE.SILHOUETTES
-    or m == WaterDisplay.MODE.HIDDEN_SILHOUETTES
+  return WaterDisplay.isWaterEntity(entity)
+    and WaterDisplay.isHiddenSilhouettes(mod)
+end
+
+-- True when Voxel should bind a native silhouette water sheet (not tint).
+function WaterDisplay.needsNativeSilhouetteSheet(mod, entity)
+  return WaterDisplay.isWaterEntity(entity)
+    and WaterDisplay.isSilhouettes(mod)
+end
+
+-- Native sheets only while Dramatic Shape / Voxel camera is actually active.
+-- Flat 2D keeps the existing runtime tint path.
+function WaterDisplay.useNativeSilhouetteSheet(mod, entity, voxelActive)
+  return voxelActive == true
+    and WaterDisplay.needsNativeSilhouetteSheet(mod, entity)
+end
+
+function WaterDisplay.isVoxelCameraActive(mod)
+  local world = mod and mod.world
+  local ow = world and world.overworld and world:overworld()
+  if not ow then return false end
+  -- Prefer VoxelAdapter when attached to logic exports.
+  local logic = mod.exports and mod.exports.logic
+  local voxel = logic and logic.voxel
+  if voxel and type(voxel.isVoxelCameraActive) == "function" then
+    local ok, active = pcall(voxel.isVoxelCameraActive, voxel)
+    if ok then return active == true end
+  end
+  if ow.cameraMode == "VOXEL" or ow.cameraMode == "voxel" then
+    return true
+  end
+  if ow.renderer == "DRAMATIC_SHAPE" or ow.worldRenderer == "DRAMATIC_SHAPE" then
+    return true
+  end
+  return false
 end
 
 local function chebyshevTiles(entity, player)
@@ -173,7 +205,9 @@ end
 function WaterDisplay.silhouetteSink(mod, entity)
   if not WaterDisplay.isSilhouettes(mod) then return 0 end
   if entity and not WaterDisplay.isWaterEntity(entity) then return 0 end
-  -- When called without entity (tests / helpers), mode alone is enough.
+  -- Native voxel silhouette sheets already bake the under-water sink.
+  if entity and entity.waterSilhouetteSheet == true then return 0 end
+  -- Flat 2D tint path: runtime sink. Tests without entity use mode alone.
   return tonumber(WaterDisplay.SILHOUETTE.sinkPx) or 3
 end
 

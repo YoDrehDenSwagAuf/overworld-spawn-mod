@@ -2,7 +2,7 @@
 
 ## 1.8.0
 
-### Water Pokémon display modes
+### Water Pokémon display modes + cave reachability
 
 - Replaced the Water Mons on/off toggle with five presentation modes:
   **Swim Sprites** (default), **Hid Silhouette**, **Silhouettes**,
@@ -10,17 +10,18 @@
 - **Swim Sprites** preserves the previous swimming / levitates behaviour 100%
 - **Hid Silhouette** keeps water AI / chase / collision, draws only a small
   dark animated circle on the water surface (no Pokémon sprite)
-- **Silhouettes** uses the active Sprite Style provider unchanged, then applies
-  a temporary dark blue-teal draw tint at draw time (no new assets / sheets /
-  providers). Sits ~3px deeper; brightens slightly within 1–2 tiles
-- **Classic Enc** removes visible water mons and keeps vanilla water / fishing
-  random encounters even when Random Enc is OFF for land
-- **Disabled** removes visible water mons and suppresses water / fishing
-  encounters
-- Legacy save values migrate: `true` → `swimming_sprites`, `false` →
-  `classic_encounters`
-- Land Pokémon, sprite providers, spawn density, Safari, cave, follower, and
-  Dramatic Shape paths are unchanged for Swim Sprites
+- **Silhouettes** Flat 2D: temporary dark blue-teal draw tint + proximity
+  brightness + sink. Voxel: native pre-rendered 16×96 silhouette sheets for
+  correct Dramatic Shape depth / occlusion (no runtime tint, no emergency body)
+- Fixed Water Silhouettes in Voxel mode using native pre-rendered sheets
+- Preserved the existing Flat 2D water presentation
+- Prevented normal Water sprites from leaking into Voxel silhouette modes
+- **Classic Enc** / **Disabled** water RNG overrides unchanged
+- Added **Cave Spawns** choice: **Reachable Only** (default) / **Mixed**
+- Restricted normal cave spawns to player-reachable areas (not mere walkability)
+- Mixed allows ~20% atmospheric scenery in inaccessible cave pockets
+- Prevented unreachable scenery Pokémon from chasing through walls
+- Legacy Water Mons: `true` → `swimming_sprites`, `false` → `classic_encounters`
 
 ## 1.7.1
 

@@ -12,6 +12,7 @@ local SpawnFx = V.require("spawn_fx")
 local Surface = V.require("surface")
 local WaterSpawn = V.require("water_spawn")
 local SafariCompat = V.require("safari_compat")
+local Grass = V.require("grass")
 
 local BehaviorTick = {}
 BehaviorTick.__index = BehaviorTick
@@ -127,7 +128,36 @@ function BehaviorTick:step(ctx)
   end
   logic.safariStatus = SafariCompat.status(game, ow, ow.map and ow.map.id)
 
-  local function behaviorCtx(extraDt)
+  -- Rebuild cave reachability when the player warps into a new component.
+  if logic.caveReachability and ow.map and ow.player then
+    local CaveReachability = V.require("cave_reachability")
+    if CaveReachability.needsRebuild(logic.caveReachability, ow.map, ow.player) then
+      logic.caveReachability = CaveReachability.build(ow.map, ow.player)
+      if logic.caveMode == "mixed" then
+        local caveAll = Grass.caveCells(ow.map)
+        local reachable, unreachable = CaveReachability.partitionCells(
+          caveAll, ow.map, logic.caveReachability)
+        logic.eligibleCache = reachable
+        logic.caveSceneryCache = unreachable
+      else
+        local filtered = select(1, CaveReachability.filterCells(
+          Grass.caveCells(ow.map), logic.caveReachability))
+        logic.eligibleCache = filtered
+        logic.caveSceneryCache = {}
+      end
+    end
+  end
+
+  local function behaviorCtx(extraDt, entity)
+    local caveCells = logic.caveReachability
+      and logic.caveReachability.status ~= "FAILED"
+      and logic.caveReachability.reachable
+      or nil
+    if entity and entity.caveScenery and entity.caveHomeCells then
+      caveCells = entity.caveHomeCells
+    elseif entity and entity.caveHomeCells then
+      caveCells = entity.caveHomeCells
+    end
     return {
       map = ow.map,
       entities = ow.entities,
@@ -146,10 +176,9 @@ function BehaviorTick:step(ctx)
       game = game,
       logic = logic,
       occupancy = occupancy,
-      reachableCaveCells = logic.caveReachability
-        and logic.caveReachability.status ~= "FAILED"
-        and logic.caveReachability.reachable
-        or nil,
+      reachableCaveCells = caveCells,
+      -- Scenery cannot aggro / battle across components.
+      suppressAggressive = entity and entity.caveScenery == true,
       hasWaterSprite = function(e)
         return logic:_entityHasCompatibleWaterSprite(e)
       end,
@@ -210,7 +239,11 @@ function BehaviorTick:step(ctx)
         entity.visibleSprite = true
         pcall(function() logic:_attach(entity) end)
       elseif fxEvent == "spawn_done" then
-        entity.canTriggerBattle = true
+        if not entity.caveScenery then
+          entity.canTriggerBattle = true
+        else
+          entity.canTriggerBattle = false
+        end
         entity.hiddenBody = false
         pcall(function() logic:_attach(entity) end)
       end
@@ -220,9 +253,9 @@ function BehaviorTick:step(ctx)
         -- Spawn pop in progress: no wander/chase planning.
         -- Contact during an in-progress chase step still needs the busy branch.
         if bx and (bx.chasing or bx.state == Behavior.STATE.CHASING) then
-          local event = Behavior.tick(entity, behaviorCtx(0))
+          local event = Behavior.tick(entity, behaviorCtx(0, entity))
           if event == "contact" or event == "battle_pending" then
-            if SpawnFx.canBattle(entity) then
+            if SpawnFx.canBattle(entity) and not entity.caveScenery then
               logic:_startBattle(record)
             end
           end
@@ -232,13 +265,13 @@ function BehaviorTick:step(ctx)
         if bx and (bx.state == Behavior.STATE.ALERT
                    or bx.state == Behavior.STATE.PLAYER_NOTICED)
            and Behavior.isSafariFlee(bx.behavior) then
-          local event = Behavior.tick(entity, behaviorCtx(0))
+          local event = Behavior.tick(entity, behaviorCtx(0, entity))
           if event == "alert" then
             logic:_onAggressiveAlert(entity, record)
           end
         end
       else
-        local event = Behavior.tick(entity, behaviorCtx(alreadyMoved and 0 or dt))
+        local event = Behavior.tick(entity, behaviorCtx(alreadyMoved and 0 or dt, entity))
         if event == "alert" then
           logic:_onAggressiveAlert(entity, record)
         elseif event == "entered_water" then
@@ -266,7 +299,7 @@ function BehaviorTick:step(ctx)
           DebugLog.info(self.mod, "land→water chase id=%s species=%s",
                         tostring(id), tostring(record.species))
         elseif event == "contact" or event == "battle_pending" then
-          if SpawnFx.canBattle(entity) then
+          if SpawnFx.canBattle(entity) and not entity.caveScenery then
             logic:_startBattle(record)
           end
         elseif event == "flee_start" or event == "flee_done" then

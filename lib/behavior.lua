@@ -1972,6 +1972,17 @@ function Behavior.tick(entity, ctx)
   ctx.rng = rng
   local t = now()
 
+  -- Cave scenery (Mixed unreachable): never aggro / chase through walls.
+  if ctx.suppressAggressive or entity.caveScenery then
+    bx.sightDisabled = true
+    bx.playerDetected = false
+    bx.chasing = false
+    if bx.behavior == Behavior.AGGRESSIVE then
+      bx.behavior = Behavior.IDLE_LOOK
+      entity.behavior = Behavior.IDLE_LOOK
+    end
+  end
+
   if Behavior.isHidden(bx.behavior) then
     bx.state = Behavior.STATE.HIDDEN
     if t >= (bx.shakeNextAt or 0) then

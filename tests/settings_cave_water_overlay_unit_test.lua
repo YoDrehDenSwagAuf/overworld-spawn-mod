@@ -75,7 +75,7 @@ end
 
 local required = {
   "enabled", "sprite_style", "spawn_density", "random_encounters",
-  "water_spawns", "dev_overlay",
+  "water_spawns", "cave_spawns", "dev_overlay",
 }
 for _, k in ipairs(required) do
   check(byKey[k] ~= nil, "core option present: " .. k)

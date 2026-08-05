@@ -52,9 +52,14 @@ function V.require(name)
 end
 
 modules.config = {
-  DEFAULTS = { sprite_style = "auto", use_animated_overworld_sprites = true },
+  DEFAULTS = {
+    sprite_style = "auto",
+    use_animated_overworld_sprites = true,
+    water_spawns = "swimming_sprites",
+  },
   get = function(_, k) return modules.config.DEFAULTS[k] end,
   spriteStyle = function() return "auto" end,
+  waterDisplayMode = function() return "swimming_sprites" end,
   debug = function() return false end,
 }
 modules.tile = { CELL = 16, WIDTH = 16, HEIGHT = 16 }

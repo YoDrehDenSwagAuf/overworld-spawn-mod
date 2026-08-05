@@ -69,6 +69,17 @@ return {
     description = "How water Pokémon appear: swimming sprites (default), hidden dark circles, tinted silhouettes, classic random encounters only, or fully disabled.",
   },
   {
+    key = "cave_spawns",
+    label = "Cave Spawns",
+    type = "choice",
+    default = "reachable",
+    choices = {
+      { "Reachable Only", "reachable" },
+      { "Mixed", "mixed" },
+    },
+    description = "Cave Pokémon spawn only on tiles the player can reach, or Mixed (~20% atmospheric scenery in inaccessible cave pockets).",
+  },
+  {
     key = "pokemon_grass_render_mode",
     label = "Grass View",
     type = "choice",

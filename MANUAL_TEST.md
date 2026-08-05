@@ -42,12 +42,25 @@ available), and with Sprite Style Auto / Followers EX / PokeMMO / Gold / Pokedex
 
 ### Silhouettes
 
-1. Active Sprite Style provider unchanged (no forced PokeMMO / Follower / Gold).
-2. Water body is a dark blue-teal silhouette (shape readable, species not obvious).
-3. Sits a few pixels lower than Swim Sprites.
-4. Within ~1–2 tiles of the player the silhouette brightens slightly but stays
-   detail-free; farther away it is fully dark.
-5. Land Pokémon never receive the tint.
+**Flat 2D**
+1. Active Sprite Style / water kind unchanged; runtime dark blue-teal tint.
+2. Sits a few pixels lower; proximity brightening within ~1–2 tiles.
+3. Land Pokémon never receive the tint.
+
+**Voxel / First Person**
+1. Native pre-rendered silhouette sheets (not tint / not emergency overlay).
+2. Depth / object occlusion like normal water Pokémon.
+3. No coloured water sprite leaking through.
+4. Under-water sink is baked into the sheet (~2–3 px).
+5. Water Idle / Wander / Aggressive still animate and chase.
+
+### Cave Spawns
+
+1. Default **Reachable Only**: no Pokémon behind walls / on decorative plateaus.
+2. **Mixed**: most on reachable paths; up to ~20% atmospheric scenery in
+   inaccessible pockets (0 scenery when total target &lt; 3).
+3. Scenery never aggros through walls or starts battles.
+4. Dev Overlay: `CAVE · REACHABLE` / `CAVE · SCENERY`.
 
 ### Classic Enc
 

@@ -264,6 +264,20 @@ current map's water encounter table appear on connected water and keep
 `WATER_IDLE` / `WATER_WANDER` / `WATER_AGGRESSIVE`. Legacy hidden grass/cave
 markers remain optional via Hidden Mons.
 
+In Voxel mode, full Pokémon silhouettes use native pre-rendered water
+silhouette sheets for correct depth and object occlusion. Hidden silhouettes
+remain simple animated water markers.
+
+## Cave Spawns
+
+- **Reachable Only** keeps visible cave Pokémon on areas the player can
+  actually enter.
+- **Mixed** keeps most Pokémon on reachable paths, while allowing a small
+  number of atmospheric Pokémon in inaccessible cave sections.
+
+Scenery Pokémon cannot attack the player through walls or start encounters
+from unreachable areas.
+
 ## Water Spawn Variety
 
 Visible water Pokémon are selected from the current area's Surf and fishing encounter tables.
@@ -413,6 +427,7 @@ Start / Pause menu).
 | Spawn Amount | Density preset (Low / Normal / High / Very High); also scales visible water Pokémon | NORMAL |
 | Random Enc | Classic step-based random encounters (grass / cave / water). Visible overworld Pokémon stay active. | ON |
 | Water Mons | Swim Sprites (default) / Hid Silhouette / Silhouettes / Classic Enc / Disabled | SWIM SPRITES |
+| Cave Spawns | Reachable Only (default) / Mixed (~20% scenery) | REACHABLE ONLY |
 | Grass View | Immersed in tall grass, or fully Above | IMMERSED |
 | Idle Mons | Allow Idle Look behaviour | ON |
 | Roam Mons | Allow wandering inside encounter regions | ON |

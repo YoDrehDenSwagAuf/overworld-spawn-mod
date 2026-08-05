@@ -93,6 +93,22 @@ function DevOverlay.labelLines(entity)
   local line2 = DevOverlay.facingLabel(facing)
   local bx = entity and entity.behaviorState
   local beh = entity and (entity.behavior or entity.behaviour)
+
+  -- Cave reachability tags (Reachable / Scenery).
+  if entity and (entity.caveReachClass or entity.caveScenery) then
+    local faceWord = tostring(facing or "down"):upper()
+    local behShort = meta.label
+    if entity.caveScenery
+       or entity.caveReachClass == "UNREACHABLE_VALID" then
+      return "CAVE · SCENERY",
+             (behShort .. " · " .. faceWord),
+             { 0.55, 0.40, 0.75, 1 }
+    elseif entity.caveReachClass == "REACHABLE" then
+      return "CAVE · REACHABLE",
+             (behShort .. " · " .. faceWord),
+             meta.color
+    end
+  end
   -- Safari flee overlay: SAFARI FLEE · LEFT / STATE: FLEEING / STEPS: 2/4
   if beh == Behavior.SAFARI_FLEE or beh == "SAFARI_FLEE" then
     local faceWord = tostring(facing or "down"):upper()
