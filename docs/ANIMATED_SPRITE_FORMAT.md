@@ -111,9 +111,11 @@ store file paths and dimensions.
 
 ## Runtime
 
-- Option `sprite_style` (default `auto`) selects Gold Sprites / Followers EX /
-  PokeMMO / Pokedex. Auto order: gold → followers_ex → pokemmo → pokedex.
-  Legacy `use_animated_overworld_sprites` migrates to `auto` / `pokedex`.
+- Option `sprite_style` (default `pokemmo`) selects HGSS / PokeMMO /
+  Poke Followers / Pokedex. Visible `followers` maps to provider `followers_ex`.
+  Legacy values `auto` / `gold` / `crystal` / `followers_ex` migrate onto the
+  public three-choice set. Legacy `use_animated_overworld_sprites` migrates to
+  `pokemmo` / `pokedex`.
 - Cache keys: `speciesId:variant` (images), `speciesId:variant:anim:dir:frame` (quads)
 - Fallback: follow variant → follow normal → legacy Pokédex PNG → black
 - Runtime shiny support: **NOT AVAILABLE** for Gen1 wild spawns (preview may force shiny)

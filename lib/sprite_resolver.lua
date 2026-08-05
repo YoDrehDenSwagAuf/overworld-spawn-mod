@@ -154,8 +154,52 @@ function SpriteResolver:resolveWaterSprite(entity, context)
   local steps = {}
   local fallbackStep = 0
   local WaterDisplay = V.require("water_display")
+  local WaterShadowRenderer = V.require("water_shadow_renderer")
   local wantSilhouette = context.nativeSilhouette == true
     or (context.voxelActive == true and WaterDisplay.isSilhouettes(self.mod))
+  local wantHiddenShadow = context.nativeHiddenShadow == true
+    or (context.voxelActive == true and WaterDisplay.isHiddenSilhouettes(self.mod))
+
+  -- Voxel Hidden Silhouettes: generic flat underwater shadow marker.
+  -- Flat 2D Hidden keeps the procedural circle (Entity:draw) and never asks
+  -- for this sheet.
+  if wantHiddenShadow then
+    fallbackStep = fallbackStep + 1
+    local def = WaterShadowRenderer.hiddenDef(self.mod)
+    local meta = {
+      providerId = "water_hidden_shadow",
+      requestedStyle = style,
+      fallbackStep = fallbackStep,
+      usedVariant = variant,
+      loadPath = def.image,
+      relativePath = WaterShadowRenderer.HIDDEN_RELATIVE,
+      bodyRenderer = "NATIVE_SPRITE_RENDERER",
+      waterSource = "hidden_shadow",
+      frames = 6,
+      walker = true,
+      waterDisplayMode = (type(Config.waterDisplayMode) == "function"
+        and Config.waterDisplayMode(self.mod)) or "hidden_silhouettes",
+      voxelActive = true,
+      shadowRendererMode = WaterShadowRenderer.MODE.FLAT_WORLD,
+      waterFlatShadow = true,
+      waterShadowKind = "hidden",
+    }
+    local result = {
+      def = def,
+      meta = meta,
+      providerId = "water_hidden_shadow",
+      fallbackStep = fallbackStep,
+      steps = steps,
+      spriteState = "water",
+      spriteKind = "hidden_shadow",
+      waterOverride = true,
+      waterHiddenShadow = true,
+      waterFlatShadow = true,
+      shadowRendererMode = WaterShadowRenderer.MODE.FLAT_WORLD,
+    }
+    steps[#steps + 1] = { providerId = "water_hidden_shadow", ok = true }
+    return result
+  end
 
   -- 1) Provider water (skip when Voxel silhouettes need Wilds silhouette sheets).
   if not wantSilhouette and self.spriteProviders then
@@ -218,6 +262,10 @@ function SpriteResolver:resolveWaterSprite(entity, context)
       if waterDef.silhouette then
         providerTag = providerTag .. "_silhouette"
       end
+      local shadowMode = WaterShadowRenderer.MODE.NONE
+      if waterDef.silhouette and context.voxelActive == true then
+        shadowMode = WaterShadowRenderer.MODE.FLAT_WORLD
+      end
       local meta = {
         providerId = providerTag,
         requestedStyle = style,
@@ -236,15 +284,22 @@ function SpriteResolver:resolveWaterSprite(entity, context)
         waterDisplayMode = (type(Config.waterDisplayMode) == "function"
           and Config.waterDisplayMode(self.mod)) or "swimming_sprites",
         voxelActive = context.voxelActive == true,
+        shadowRendererMode = shadowMode,
+        waterFlatShadow = waterDef.silhouette == true and context.voxelActive == true,
+        waterShadowKind = waterDef.silhouette and "silhouette" or nil,
       }
+      local def = {
+        image = waterDef.image,
+        frames = waterDef.frames,
+        walker = true,
+        trueColor = true,
+        id = waterDef.id,
+      }
+      if meta.waterFlatShadow then
+        WaterShadowRenderer.tagDef(def, "silhouette")
+      end
       local result = {
-        def = {
-          image = waterDef.image,
-          frames = waterDef.frames,
-          walker = true,
-          trueColor = true,
-          id = waterDef.id,
-        },
+        def = def,
         meta = meta,
         providerId = providerTag,
         fallbackStep = fallbackStep,
@@ -253,6 +308,8 @@ function SpriteResolver:resolveWaterSprite(entity, context)
         spriteKind = waterDef.kind,
         waterOverride = true,
         waterSilhouetteSheet = waterDef.silhouette == true,
+        waterFlatShadow = meta.waterFlatShadow == true,
+        shadowRendererMode = shadowMode,
       }
       steps[#steps + 1] = {
         providerId = result.providerId, ok = true, kind = waterDef.kind,
@@ -300,7 +357,7 @@ end
 
 function SpriteResolver:cacheKey(entity, context, state)
   context = context or {}
-  local style = tostring(context.style or Config.spriteStyle(self.mod) or "auto")
+  local style = tostring(context.style or Config.spriteStyle(self.mod) or "pokemmo")
   local speciesId = context.speciesId or resolveDex(entity, context.game, self.mod)
     or (entity and (entity.species or entity.enhancedDexId)) or "?"
   local variant = tostring(context.variant or resolveVariant(entity) or "normal")
@@ -308,6 +365,8 @@ function SpriteResolver:cacheKey(entity, context, state)
   state = state or "land"
   local waterMode = "na"
   local voxel = "flat"
+  local shadowMode = "none"
+  local imagePath = "na"
   if state == "water" then
     if type(Config.waterDisplayMode) == "function" then
       waterMode = tostring(Config.waterDisplayMode(self.mod) or "swimming_sprites")
@@ -316,10 +375,19 @@ function SpriteResolver:cacheKey(entity, context, state)
     end
     if context.voxelActive == true then
       voxel = "voxel"
+      local WaterShadowRenderer = V.require("water_shadow_renderer")
+      if waterMode == "hidden_silhouettes" then
+        shadowMode = WaterShadowRenderer.MODE.FLAT_WORLD
+        imagePath = WaterShadowRenderer.HIDDEN_RELATIVE
+      elseif waterMode == "silhouettes" then
+        shadowMode = WaterShadowRenderer.MODE.FLAT_WORLD
+        imagePath = "silhouette"
+      end
     end
   end
-  return string.format("%s:%s:%s:%s:%s:%s:%s",
-    tostring(speciesId), variant, form, state, style, waterMode, voxel)
+  return string.format("%s:%s:%s:%s:%s:%s:%s:%s:%s",
+    tostring(speciesId), variant, form, state, style, waterMode, voxel,
+    shadowMode, imagePath)
 end
 
 function SpriteResolver:invalidateCache()

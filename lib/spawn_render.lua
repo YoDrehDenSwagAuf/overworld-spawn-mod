@@ -1662,10 +1662,13 @@ function Entity:draw(camX, camY)
     return
   end
 
-  -- Hidden water silhouettes: circle marker only (no Pokémon sprite).
+  -- Hidden water silhouettes (Flat 2D only): circle marker, no Pokémon sprite.
+  -- Voxel Hidden uses the native flat underwater shadow sheet on the DS path
+  -- (waterHiddenShadow) — do not paint the 2D circle as an overlay.
   if WaterDisplay.isHiddenSilhouettes(self.mod)
      and WaterDisplay.isWaterEntity(self)
-     and not self.hiddenEncounter then
+     and not self.hiddenEncounter
+     and not (self.waterHiddenShadow == true and self.waterVoxelActive == true) then
     WaterDisplay.drawHiddenCircle(self, camX, camY, {
       player = WaterDisplay.resolvePlayer(self.mod),
     })
@@ -1941,6 +1944,8 @@ function SpawnRender:applyProviderSprite(entity, game)
   if type(Config.waterDisplayMode) == "function" then
     waterMode = Config.waterDisplayMode(self.mod) or waterMode
   end
+  local WaterShadowRenderer = V.require("water_shadow_renderer")
+  local shadowMode = WaterShadowRenderer.shadowModeFor(self.mod, entity, voxelActive)
   local result
   if self.spriteResolver then
     result = self.spriteResolver:resolveForEntity(entity, {
@@ -1953,6 +1958,8 @@ function SpawnRender:applyProviderSprite(entity, game)
       voxelActive = voxelActive,
       nativeSilhouette = voxelActive
         and WaterDisplay.needsNativeSilhouetteSheet(self.mod, entity),
+      nativeHiddenShadow = voxelActive
+        and WaterDisplay.needsNativeHiddenShadow(self.mod, entity),
     })
   else
     result = self.spriteProviders:resolve(style, species, variant, game)
@@ -1975,6 +1982,11 @@ function SpawnRender:applyProviderSprite(entity, game)
   end
 
   local wantSilSheet = result.waterSilhouetteSheet == true
+  local wantHiddenShadow = result.waterHiddenShadow == true
+  local wantFlatShadow = result.waterFlatShadow == true
+  local resultShadowMode = result.shadowRendererMode
+    or (result.meta and result.meta.shadowRendererMode)
+    or shadowMode
   -- Skip rebuild when the same provider image / surface / water mode is bound.
   local cur = entity.sprite and entity.sprite.def
   if cur and cur.image == result.def.image
@@ -1985,12 +1997,18 @@ function SpawnRender:applyProviderSprite(entity, game)
      and entity.requestedSpriteStyle == style
      and entity.waterDisplayMode == waterMode
      and entity.waterSilhouetteSheet == wantSilSheet
+     and entity.waterHiddenShadow == wantHiddenShadow
+     and entity.waterFlatShadow == wantFlatShadow
+     and entity.shadowRendererMode == resultShadowMode
      and entity.waterVoxelActive == voxelActive then
     entity.requestedSpriteStyle = style
     entity.spriteFallbackStep = result.fallbackStep
     entity.spriteProviderMeta = result.meta
     entity.waterDisplayMode = waterMode
     entity.waterSilhouetteSheet = wantSilSheet
+    entity.waterHiddenShadow = wantHiddenShadow
+    entity.waterFlatShadow = wantFlatShadow
+    entity.shadowRendererMode = resultShadowMode
     entity.waterVoxelActive = voxelActive
     if self.spriteResolver then
       self.spriteResolver:applyEntityMeta(entity, result)
@@ -2065,6 +2083,9 @@ function SpawnRender:applyProviderSprite(entity, game)
   entity.worldSprite = nil
   entity.waterDisplayMode = waterMode
   entity.waterSilhouetteSheet = wantSilSheet
+  entity.waterHiddenShadow = wantHiddenShadow
+  entity.waterFlatShadow = wantFlatShadow
+  entity.shadowRendererMode = resultShadowMode
   entity.waterVoxelActive = voxelActive
   if self.spriteResolver then
     self.spriteResolver:applyEntityMeta(entity, result)
@@ -2078,7 +2099,9 @@ function SpawnRender:applyProviderSprite(entity, game)
   end
 
   if nativeSheet then
-    if result.spriteKind == "swimming" or result.spriteKind == "levitates" then
+    if wantHiddenShadow then
+      entity.spriteSource = "WATER_HIDDEN_SHADOW"
+    elseif result.spriteKind == "swimming" or result.spriteKind == "levitates" then
       entity.spriteSource = wantSilSheet
         and ("WATER_" .. string.upper(result.spriteKind) .. "_SILHOUETTE")
         or ("WATER_" .. string.upper(result.spriteKind))

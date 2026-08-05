@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.9.0
+
+### Sprite Style simplification + Voxel water shadows
+
+- Simplified Sprite Style options to HGSS/PokeMMO, Poke Followers and Pokedex
+- Set HGSS/PokeMMO as the default sprite style
+- Fixed Hidden Silhouettes being invisible in Voxel mode
+- Added a generic question-mark-free underwater shadow marker
+- Changed Voxel Silhouettes to render as flat underwater shadows
+- Preserved Flat 2D water presentation
+
 ## 1.8.0
 
 ### Water Pokémon display modes + cave reachability

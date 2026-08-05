@@ -33,38 +33,41 @@ SpriteProviders.ID = {
   BLACK = "black",
 }
 
+-- Public styles (Mod Settings). "followers" is the visible value; the
+-- provider id remains "followers_ex".
 SpriteProviders.STYLE = {
+  POKEMMO = "pokemmo",
+  FOLLOWERS = "followers",
+  POKEDEX = "pokedex",
+  -- Compat aliases (normalized away by Config.normalizeSpriteStyle).
   AUTO = "auto",
   GOLD = "gold",
   FOLLOWERS_EX = "followers_ex",
-  POKEMMO = "pokemmo",
-  POKEDEX = "pokedex",
 }
 
--- Central Auto order: prefer separately installed external packs first.
-local AUTO_PROVIDER_ORDER = {
-  "gold",
-  "followers_ex",
-  "pokemmo",
-  "pokedex",
-}
-
--- Explicit style → try order (before black). Auto uses AUTO_PROVIDER_ORDER.
+-- Explicit style → provider try order (before black).
+-- Public "followers" maps to the followers_ex provider, then HGSS/PokeMMO.
 local STYLE_CHAINS = {
-  auto = AUTO_PROVIDER_ORDER,
-  gold = { "gold", "pokemmo", "pokedex" },
-  followers_ex = { "followers_ex", "pokemmo", "pokedex" },
   pokemmo = { "pokemmo", "pokedex" },
+  followers = { "followers_ex", "pokemmo", "pokedex" },
   pokedex = { "pokedex" },
+  -- Legacy aliases kept for direct resolve / old call sites.
+  auto = { "pokemmo", "pokedex" },
+  gold = { "pokemmo", "pokedex" },
+  followers_ex = { "followers_ex", "pokemmo", "pokedex" },
 }
 
 local VALID_STYLES = {
+  pokemmo = true,
+  followers = true,
+  pokedex = true,
   auto = true,
   gold = true,
   followers_ex = true,
-  pokemmo = true,
-  pokedex = true,
 }
+
+-- Back-compat export (no longer used as a public Auto preference order).
+local AUTO_PROVIDER_ORDER = STYLE_CHAINS.auto
 
 local FOLLOWERS_MOD_ID = "FOLLOWERS_EX"
 local POKEPC_MOD_ID = "PokePCFollowers_VoxelMerge"
@@ -914,10 +917,25 @@ end
 -- Resolution with style chains + shiny fallback
 ------------------------------------------------------------------------
 
+function SpriteProviders:normalizeStyle(style)
+  if type(Config.normalizeSpriteStyle) == "function" then
+    return Config.normalizeSpriteStyle(style)
+  end
+  style = tostring(style or "pokemmo")
+  if style == "followers_ex" then return "followers" end
+  if style == "auto" or style == "gold" or style == "crystal" then
+    return "pokemmo"
+  end
+  if VALID_STYLES[style] and (style == "pokemmo" or style == "followers"
+      or style == "pokedex") then
+    return style
+  end
+  return "pokemmo"
+end
+
 function SpriteProviders:chainForStyle(style)
-  style = tostring(style or "auto")
-  if not VALID_STYLES[style] then style = "auto" end
-  return STYLE_CHAINS[style] or STYLE_CHAINS.auto
+  style = self:normalizeStyle(style)
+  return STYLE_CHAINS[style] or STYLE_CHAINS.pokemmo
 end
 
 function SpriteProviders:providerAvailable(id, game)
@@ -953,8 +971,7 @@ end
 -- Preferred auto shiny order is encoded by walking the chain with per-provider
 -- shiny→normal attempts (followers shiny, followers normal, pokemmo shiny, ...).
 function SpriteProviders:resolve(style, speciesId, variant, game)
-  style = tostring(style or Config.spriteStyle(self.mod) or "auto")
-  if not VALID_STYLES[style] then style = "auto" end
+  style = self:normalizeStyle(style or Config.spriteStyle(self.mod) or "pokemmo")
 
   local chain = self:chainForStyle(style)
   local steps = {}
@@ -1023,7 +1040,7 @@ function SpriteProviders:resolve(style, speciesId, variant, game)
 end
 
 function SpriteProviders:activeProviderForStyle(style, game)
-  style = tostring(style or "auto")
+  style = self:normalizeStyle(style or "pokemmo")
   local chain = self:chainForStyle(style)
   for _, id in ipairs(chain) do
     if self:providerAvailable(id, game) then
@@ -1062,10 +1079,9 @@ function SpriteProviders:diagnostics(style, game, entity)
     return lines, installed, ok, reason
   end
 
-  local goldLines, goldInstalled, goldOk =
-    installedStatus(GOLD_MOD_ID, SpriteProviders.ID.GOLD, "Gold Sprites")
+  style = self:normalizeStyle(style)
   local followersLines, followersInstalled, followersOk =
-    installedStatus(FOLLOWERS_MOD_ID, SpriteProviders.ID.FOLLOWERS_EX, "Followers EX")
+    installedStatus(FOLLOWERS_MOD_ID, SpriteProviders.ID.FOLLOWERS_EX, "Poke Followers")
   local pokepcInstalled = false
   if self.mod and self.mod.find then
     pokepcInstalled = self.mod:find(POKEPC_MOD_ID) ~= nil
@@ -1085,15 +1101,11 @@ function SpriteProviders:diagnostics(style, game, entity)
   local lines = {
     ("Requested style: %s"):format(tostring(style):upper()),
   }
-  for _, line in ipairs(goldLines) do lines[#lines + 1] = line end
   for _, line in ipairs(followersLines) do lines[#lines + 1] = line end
   lines[#lines + 1] = ("PokePC provider: %s"):format(
     pokepcInstalled and "INSTALLED" or "NOT INSTALLED")
 
-  if style == "gold" and not goldOk then
-    lines[#lines + 1] = "Gold provider: NOT INSTALLED"
-    lines[#lines + 1] = "Provider unavailable: YES"
-  elseif style == "followers_ex" and not followersOk then
+  if style == "followers" and not followersOk then
     lines[#lines + 1] = "Provider unavailable: YES"
   end
 
@@ -1105,10 +1117,7 @@ function SpriteProviders:diagnostics(style, game, entity)
   if ver then
     lines[#lines + 1] = ("Provider version: %s"):format(tostring(ver))
   end
-  if style == "gold" then
-    lines[#lines + 1] = ("Provider installed: %s"):format(
-      (goldInstalled or goldOk) and "YES" or "NO")
-  elseif style == "followers_ex" then
+  if style == "followers" then
     lines[#lines + 1] = ("Provider installed: %s"):format(
       (followersInstalled or followersOk) and "YES" or "NO")
   end
@@ -1129,9 +1138,7 @@ function SpriteProviders:diagnostics(style, game, entity)
       tostring(entity.spriteFallbackStep or (last and last.fallbackStep) or "?"))
   end
 
-  if style == "gold" and not goldOk then
-    lines[#lines + 1] = "Fallback reason: provider unavailable"
-  elseif style == "followers_ex" and not followersOk then
+  if style == "followers" and not followersOk then
     lines[#lines + 1] = "Fallback reason: provider missing"
   elseif last and last.meta and last.meta.shinyFallback then
     lines[#lines + 1] = "Fallback reason: shiny unavailable"

@@ -17,7 +17,7 @@ end
 
 local modRoot = "."
 local fakeMods = {}
-local savedOpts = { sprite_style = "auto" }
+local savedOpts = { sprite_style = "pokemmo" }
 local modules = {}
 local fsPaths = {}
 
@@ -73,14 +73,24 @@ end
 
 modules.config = {
   DEFAULTS = {
-    sprite_style = "auto",
+    sprite_style = "pokemmo",
     use_animated_overworld_sprites = true,
     grass_occlusion_px = 6,
     min_sprite_size = 16,
   },
   VALID_SPRITE_STYLES = {
-    auto = true, gold = true, followers_ex = true, pokemmo = true, pokedex = true,
+    pokemmo = true, followers = true, pokedex = true,
   },
+  normalizeSpriteStyle = function(value)
+    if value == "followers_ex" then return "followers" end
+    if value == "auto" or value == "gold" or value == "crystal" then
+      return "pokemmo"
+    end
+    if value == "pokemmo" or value == "followers" or value == "pokedex" then
+      return value
+    end
+    return "pokemmo"
+  end,
   get = function(_, k)
     if savedOpts[k] ~= nil then return savedOpts[k] end
     return modules.config.DEFAULTS[k]
@@ -90,9 +100,9 @@ modules.config = {
     local v = savedOpts.sprite_style
     if v == nil then
       if savedOpts.use_animated_overworld_sprites == false then return "pokedex" end
-      return "auto"
+      return "pokemmo"
     end
-    return v
+    return modules.config.normalizeSpriteStyle(v)
   end,
   useAnimatedOverworldSprites = function(mod)
     return modules.config.spriteStyle(mod) ~= "pokedex"
@@ -135,35 +145,37 @@ check(render.runtimeSheets:load() == true, "runtime sheets load for pokemmo prov
 local SpriteProviders = assert(loadfile("lib/sprite_providers.lua"))(V)
 local providers = SpriteProviders.new(V.mod, render)
 
--- Label length budget
+-- Label length budget (public three-choice set)
 eq(#("Sprite Style"), 12, "Sprite Style label <= 14")
-eq(#("Gold Sprites"), 12, "Gold Sprites choice <= 14")
-eq(#("Followers EX"), 12, "Followers EX choice <= 14")
-eq(#("PokeMMO"), 7, "PokeMMO choice <= 14")
+eq(#("HGSS / PokeMMO"), 14, "HGSS / PokeMMO choice <= 14")
+eq(#("Poke Followers"), 14, "Poke Followers choice <= 14")
 eq(#("Pokedex"), 7, "Pokedex choice <= 14")
-eq(#("Auto"), 4, "Auto choice <= 14")
 eq(#("SPRITE STYLE"), 12, "SPRITE STYLE menu <= 14")
-eq(#("GOLD SPRITES"), 12, "GOLD SPRITES menu <= 14")
-eq(#("FOLLOWERS EX"), 12, "FOLLOWERS EX menu <= 14")
-eq(#("POKEMMO"), 7, "POKEMMO menu <= 14")
+eq(#("HGSS / POKEMMO"), 14, "HGSS / POKEMMO menu <= 14")
+eq(#("POKE FOLLOWERS"), 14, "POKE FOLLOWERS menu <= 14")
 eq(#("POKEDEX"), 7, "POKEDEX menu <= 14")
-eq(#("AUTO"), 4, "AUTO menu <= 14")
 
--- Built-in registration
+-- Built-in registration (compat providers may remain)
 check(providers:get("pokemmo") ~= nil, "pokemmo provider registered")
 check(providers:get("pokedex") ~= nil, "pokedex provider registered")
-check(providers:get("gold") ~= nil, "gold adapter registered")
+check(providers:get("gold") ~= nil, "gold adapter still registered (compat)")
 check(providers:get("followers_ex") ~= nil, "followers_ex adapter registered")
 check(providers:get("black") ~= nil, "black provider registered")
 
--- Central AUTO order
-eq(SpriteProviders.AUTO_PROVIDER_ORDER[1], "gold", "AUTO order starts gold")
-eq(SpriteProviders.AUTO_PROVIDER_ORDER[2], "followers_ex", "AUTO then followers_ex")
-eq(SpriteProviders.AUTO_PROVIDER_ORDER[3], "pokemmo", "AUTO then pokemmo")
-eq(SpriteProviders.AUTO_PROVIDER_ORDER[4], "pokedex", "AUTO then pokedex")
-eq(SpriteProviders.STYLE_CHAINS.auto[1], "gold", "STYLE_CHAINS.auto uses AUTO order")
-eq(SpriteProviders.STYLE_CHAINS.gold[1], "gold", "gold chain starts gold")
-eq(SpriteProviders.STYLE_CHAINS.gold[2], "pokemmo", "gold falls to pokemmo")
+-- Public style chains
+eq(SpriteProviders.STYLE_CHAINS.pokemmo[1], "pokemmo", "pokemmo chain starts pokemmo")
+eq(SpriteProviders.STYLE_CHAINS.pokemmo[2], "pokedex", "pokemmo falls to pokedex")
+eq(SpriteProviders.STYLE_CHAINS.followers[1], "followers_ex",
+   "followers style maps to followers_ex provider")
+eq(SpriteProviders.STYLE_CHAINS.followers[2], "pokemmo",
+   "followers falls to HGSS/PokeMMO")
+eq(SpriteProviders.STYLE_CHAINS.pokedex[1], "pokedex", "pokedex chain")
+eq(providers:normalizeStyle("auto"), "pokemmo", "auto normalizes to pokemmo")
+eq(providers:normalizeStyle("gold"), "pokemmo", "gold normalizes to pokemmo")
+eq(providers:normalizeStyle("crystal"), "pokemmo", "crystal normalizes to pokemmo")
+eq(providers:normalizeStyle("followers_ex"), "followers",
+   "followers_ex normalizes to followers")
+eq(providers:normalizeStyle("unknown"), "pokemmo", "unknown normalizes to pokemmo")
 
 local pokemmoOk = select(1, providers:providerAvailable("pokemmo", nil))
 check(pokemmoOk == true, "pokemmo available with runtime sheets")
@@ -174,13 +186,13 @@ check(goldOk == false, "gold unavailable without pack")
 local followersOk = select(1, providers:providerAvailable("followers_ex", nil))
 check(followersOk == false, "followers_ex unavailable without pack")
 
--- Auto without external mods -> PokeMMO (skips gold + followers)
+-- Legacy auto / gold resolve to HGSS/PokeMMO
 local r = providers:resolve("auto", 25, "normal", {
   data = { pokemon = { PIKACHU = { dex = 25, spriteFront = "assets/front/25.png" } } },
 })
-eq(r.providerId, "pokemmo", "auto without externals -> pokemmo")
+eq(r.providerId, "pokemmo", "auto migrates resolve -> pokemmo")
 check(r.def and r.def.frames == 6 and r.def.walker == true, "pokemmo def is walker sheet")
-eq(r.fallbackStep, 3, "auto skipped gold+followers then used pokemmo (step 3)")
+eq(r.fallbackStep, 1, "pokemmo is first step after auto→pokemmo normalize")
 
 -- Explicit pokemmo
 r = providers:resolve("pokemmo", 1, "normal", nil)
@@ -194,73 +206,25 @@ eq(r.providerId, "pokedex", "explicit pokedex")
 check(r.def and r.def.frames == 1, "pokedex is 1-frame")
 check(r.def.walker ~= true, "pokedex is not walker")
 
--- Explicit gold without provider -> pokemmo fallback
+-- Legacy gold style → pokemmo chain
 r = providers:resolve("gold", 25, "normal", {
   data = { pokemon = { PIKACHU = { dex = 25 } } },
 })
-eq(r.providerId, "pokemmo", "explicit gold without pack -> pokemmo")
+eq(r.providerId, "pokemmo", "legacy gold style -> pokemmo")
 
--- Explicit followers_ex without provider -> pokemmo fallback
+-- Explicit followers without provider -> pokemmo fallback
+r = providers:resolve("followers", 25, "normal", {
+  data = { pokemon = { PIKACHU = { dex = 25 } } },
+})
+eq(r.providerId, "pokemmo", "followers without pack -> pokemmo")
+
+-- Legacy followers_ex setting value also works
 r = providers:resolve("followers_ex", 25, "normal", {
   data = { pokemon = { PIKACHU = { dex = 25 } } },
 })
-eq(r.providerId, "pokemmo", "explicit followers_ex without pack -> pokemmo")
+eq(r.providerId, "pokemmo", "legacy followers_ex without pack -> pokemmo")
 
--- Register fake gold provider
-local goldCalls = 0
-local goldMissing = {}
-check(providers:register({
-  id = "gold",
-  modId = "Gold_Silver_Sprites",
-  isAvailable = function() return true, "test gold" end,
-  resolve = function(_, speciesId, variant)
-    goldCalls = goldCalls + 1
-    local key = tostring(speciesId)
-    if goldMissing[key] or key == "MISSING" or key == "999" then
-      return nil, nil, "missing gold species"
-    end
-    if variant == "shiny" then
-      return nil, nil, "gold shiny unavailable"
-    end
-    return {
-      image = "mods/Gold_Silver_Sprites/gold/battle/front/" .. string.lower(key) .. ".png",
-      frames = 1,
-      trueColor = true,
-    }, {
-      usedVariant = "normal",
-      providerMod = "Gold_Silver_Sprites",
-      providerVersion = "1.0.1",
-      frames = 1,
-      walker = false,
-    }, nil
-  end,
-}) == true, "can register gold override")
-
-r = providers:resolve("auto", "PIKACHU", "normal", nil)
-eq(r.providerId, "gold", "auto with gold provider -> gold")
-eq(r.fallbackStep, 1, "gold is first auto step")
-check(r.def.frames == 1 and r.def.walker ~= true, "gold def is 1-frame non-walker")
-check(r.def.image:find("gold/battle/front/pikachu", 1, true), "gold uses battle front path")
-
-r = providers:resolve("gold", "PIKACHU", "normal", nil)
-eq(r.providerId, "gold", "explicit gold with provider")
-
--- Missing gold species -> next provider (pokemmo) when followers absent
-goldMissing.MISSING = true
-r = providers:resolve("gold", "MISSING", "normal", {
-  data = { pokemon = { MISSING = { dex = 25 } } },
-})
-eq(r.providerId, "pokemmo", "missing gold species -> pokemmo")
-
--- Gold shiny unavailable -> gold normal
-r = providers:resolve("auto", "PIKACHU", "shiny", nil)
-eq(r.providerId, "gold", "shiny falls back within gold provider")
-eq(r.meta.usedVariant, "normal", "shiny -> normal on gold")
-check(r.meta.shinyFallback == true, "shinyFallback flagged for gold")
-
--- Auto without gold, with followers -> followers
-providers:unregister("gold")
-providers:register(providers:_makeGoldProvider()) -- restore unavailable builtin
+-- Register fake followers_ex provider (public style = followers)
 check(providers:register({
   id = "followers_ex",
   modId = "PokePCFollowers_VoxelMerge",
@@ -282,21 +246,21 @@ check(providers:register({
   end,
 }) == true, "can register followers_ex override")
 
-r = providers:resolve("auto", "PIKACHU", "normal", nil)
-eq(r.providerId, "followers_ex", "auto without gold, with followers -> followers_ex")
-eq(r.fallbackStep, 2, "followers is second auto step when gold missing")
+r = providers:resolve("followers", "PIKACHU", "normal", nil)
+eq(r.providerId, "followers_ex", "followers style uses followers_ex provider")
+eq(r.fallbackStep, 1, "followers_ex is first step for followers style")
 
 r = providers:resolve("followers_ex", "PIKACHU", "normal", nil)
-eq(r.providerId, "followers_ex", "explicit followers with provider")
+eq(r.providerId, "followers_ex", "legacy followers_ex value still resolves")
 
 -- Missing species in followers -> pokemmo
-r = providers:resolve("followers_ex", "MISSING", "normal", {
+r = providers:resolve("followers", "MISSING", "normal", {
   data = { pokemon = { MISSING = { dex = 25 } } },
 })
 eq(r.providerId, "pokemmo", "followers miss with resolvable dex -> pokemmo")
 
 -- Shiny unavailable on followers -> followers normal
-r = providers:resolve("followers_ex", "PIKACHU", "shiny", nil)
+r = providers:resolve("followers", "PIKACHU", "shiny", nil)
 eq(r.providerId, "followers_ex", "shiny falls back within followers provider")
 eq(r.meta.usedVariant, "normal", "shiny -> normal on same provider")
 check(r.meta.shinyFallback == true, "shinyFallback flagged")
@@ -331,7 +295,7 @@ local entity = {
 }
 local beforePx, beforePy, beforeBeh = entity.px, entity.py, entity.behavior
 local beforeId = entity.id
-r = providers:resolve("auto", entity.species, "normal", nil)
+r = providers:resolve("followers", entity.species, "normal", nil)
 local newSprite = SpriteRendererStub.new(r.def, entity.spawnId)
 entity.sprite = newSprite
 entity.spriteProviderId = r.providerId
@@ -351,24 +315,24 @@ check(providers:unregister("followers_ex") == true, "can unregister non-core ove
 providers:register(providers:_makeFollowersExProvider())
 
 -- Diagnostics lines
-local lines = providers:diagnostics("auto", nil, entity)
+local lines = providers:diagnostics("pokemmo", nil, entity)
 local joined = table.concat(lines, "\n")
-check(joined:find("Requested style: AUTO", 1, true), "HUD requested style")
-check(joined:find("Gold Sprites:", 1, true), "HUD gold status")
-check(joined:find("Followers EX:", 1, true), "HUD followers status")
+check(joined:find("Requested style: POKEMMO", 1, true), "HUD requested style")
+check(joined:find("Poke Followers:", 1, true), "HUD followers status")
 check(joined:find("Quick menu: READY", 1, true), "HUD quick menu")
 check(joined:find("Body renderer: NATIVE_SPRITE_RENDERER", 1, true), "HUD body renderer")
 
-lines = providers:diagnostics("gold", nil, entity)
+lines = providers:diagnostics("followers", nil, entity)
 joined = table.concat(lines, "\n")
-check(joined:find("Requested style: GOLD", 1, true), "HUD gold requested")
-check(joined:find("Gold provider: NOT INSTALLED", 1, true)
-      or joined:find("Gold Sprites: NOT INSTALLED", 1, true),
-      "HUD gold not installed")
-check(joined:find("Fallback reason: provider unavailable", 1, true),
-      "HUD gold fallback reason")
+check(joined:find("Requested style: FOLLOWERS", 1, true), "HUD followers requested")
+check(joined:find("Provider unavailable: YES", 1, true)
+      or joined:find("Poke Followers: NOT INSTALLED", 1, true)
+      or joined:find("Poke Followers: UNAVAILABLE", 1, true),
+      "HUD followers not installed")
+check(joined:find("Fallback reason: provider missing", 1, true),
+      "HUD followers fallback reason")
 
--- Gold path discovery via filesystem probe
+-- Gold path discovery via filesystem probe (compat adapter still works)
 fsPaths["mods/Gold_Silver_Sprites/gold/battle/front/bulbasaur.png"] = true
 fsPaths["mods/Gold_Silver_Sprites/gold/battle/front/pikachu.png"] = true
 fsPaths["mods/Gold_Silver_Sprites/gold/battle/front/mew.png"] = true
@@ -377,20 +341,26 @@ local goldProvider = providers:_makeGoldProvider()
 providers:register(goldProvider)
 goldOk = select(1, goldProvider:isAvailable(nil))
 check(goldOk == true, "gold available when fronts exist")
-r = goldProvider:resolve("PIKACHU", "normal", {
+local gdef = goldProvider:resolve("PIKACHU", "normal", {
   data = { pokemon = { PIKACHU = { dex = 25 } } },
 })
-check(r ~= nil and r.image, "gold resolve returns def")
-eq(r.frames, 1, "gold frames=1 from release format")
-check(r.walker ~= true, "gold walker=false")
-check(r.trueColor == true, "gold trueColor")
-eq(r.image, "mods/Gold_Silver_Sprites/gold/battle/front/pikachu.png", "gold image path")
+check(gdef ~= nil and gdef.image, "gold resolve returns def")
+eq(gdef.frames, 1, "gold frames=1 from release format")
+check(gdef.walker ~= true, "gold walker=false")
+check(gdef.trueColor == true, "gold trueColor")
+eq(gdef.image, "mods/Gold_Silver_Sprites/gold/battle/front/pikachu.png", "gold image path")
 
 -- Config migration helpers (real config module)
 modules.config = nil
 local Config = V.require("config")
 savedOpts = {}
-eq(Config.spriteStyle(V.mod), "auto", "missing style defaults auto")
+eq(Config.spriteStyle(V.mod), "pokemmo", "missing style defaults pokemmo")
+eq(Config.normalizeSpriteStyle("auto"), "pokemmo", "migrate auto")
+eq(Config.normalizeSpriteStyle("gold"), "pokemmo", "migrate gold")
+eq(Config.normalizeSpriteStyle("crystal"), "pokemmo", "migrate crystal")
+eq(Config.normalizeSpriteStyle("followers_ex"), "followers", "migrate followers_ex")
+eq(Config.normalizeSpriteStyle("followers"), "followers", "followers stays")
+eq(Config.normalizeSpriteStyle("weird"), "pokemmo", "migrate unknown")
 savedOpts = { use_animated_overworld_sprites = false }
 V.mod.world = {
   game = {
@@ -404,7 +374,7 @@ savedOpts = { use_animated_overworld_sprites = true }
 V.mod.world.game.save.options.modOptions.overworld_wild_spawns = savedOpts
 V.mod.world.game.mods.modOptions.overworld_wild_spawns = savedOpts
 V.mod.world.game.mods.loader.modOptions.overworld_wild_spawns = savedOpts
-eq(Config.spriteStyle(V.mod), "auto", "legacy true migrates to auto")
+eq(Config.spriteStyle(V.mod), "pokemmo", "legacy true migrates to pokemmo")
 savedOpts = { sprite_style = "pokemmo", use_animated_overworld_sprites = false }
 V.mod.world.game.save.options.modOptions.overworld_wild_spawns = savedOpts
 V.mod.world.game.mods.modOptions.overworld_wild_spawns = savedOpts
@@ -414,7 +384,12 @@ savedOpts = { sprite_style = "gold" }
 V.mod.world.game.save.options.modOptions.overworld_wild_spawns = savedOpts
 V.mod.world.game.mods.modOptions.overworld_wild_spawns = savedOpts
 V.mod.world.game.mods.loader.modOptions.overworld_wild_spawns = savedOpts
-eq(Config.spriteStyle(V.mod), "gold", "gold is a valid sprite_style")
+eq(Config.spriteStyle(V.mod), "pokemmo", "saved gold migrates to pokemmo")
+savedOpts = { sprite_style = "followers_ex" }
+V.mod.world.game.save.options.modOptions.overworld_wild_spawns = savedOpts
+V.mod.world.game.mods.modOptions.overworld_wild_spawns = savedOpts
+V.mod.world.game.mods.loader.modOptions.overworld_wild_spawns = savedOpts
+eq(Config.spriteStyle(V.mod), "followers", "saved followers_ex migrates to followers")
 
 -- setSpriteStyle writes the same key used by Mod Settings
 local refreshed = 0
@@ -432,11 +407,11 @@ local okSet = Config.setSpriteStyle(V.mod, "gold", "start_menu", {
   render = fakeRender,
   confirm = false,
 })
-check(okSet == true, "setSpriteStyle accepts gold")
+check(okSet == true, "setSpriteStyle accepts legacy gold (normalizes)")
 eq(V.mod.world.game.save.options.modOptions.overworld_wild_spawns.sprite_style,
-   "gold", "start menu writes save sprite_style")
+   "pokemmo", "legacy gold writes pokemmo")
 eq(V.mod.world.game.mods.modOptions.overworld_wild_spawns.sprite_style,
-   "gold", "start menu writes mod-manager cache")
+   "pokemmo", "legacy gold writes mod-manager cache pokemmo")
 eq(refreshed, 1, "setSpriteStyle refreshes sprites once")
 
 okSet = Config.setSpriteStyle(V.mod, "pokemmo", "mod_settings", {
@@ -448,6 +423,16 @@ okSet = Config.setSpriteStyle(V.mod, "pokemmo", "mod_settings", {
 check(okSet == true, "setSpriteStyle accepts pokemmo from mod settings path")
 eq(V.mod.world.game.save.options.modOptions.overworld_wild_spawns.sprite_style,
    "pokemmo", "mod settings path writes same sprite_style key")
+
+okSet = Config.setSpriteStyle(V.mod, "followers", "mod_settings", {
+  game = V.mod.world.game,
+  logic = fakeLogic,
+  render = fakeRender,
+  confirm = false,
+})
+check(okSet == true, "setSpriteStyle accepts followers")
+eq(V.mod.world.game.save.options.modOptions.overworld_wild_spawns.sprite_style,
+   "followers", "followers written as public value")
 
 -- Menu module registers screens once and does NOT inject Start Menu rows.
 local SpriteStyleMenu = assert(loadfile("lib/sprite_style_menu.lua"))(V)
@@ -494,19 +479,25 @@ eq(wraps, 0, "start menu hook not registered by sprite style menu")
 check(screens >= 4, "style/spawn/random/water screens registered")
 eq(menu._registered, true, "menu marked registered")
 
--- options.lua includes gold
+-- options.lua exposes exactly the three public styles
 local schema = assert(loadfile("options.lua"))()
 local styleOpt
 for _, row in ipairs(schema) do
   if row.key == "sprite_style" then styleOpt = row end
 end
 check(styleOpt ~= nil, "options has sprite_style")
-local sawGold = false
+eq(styleOpt.default, "pokemmo", "options default is pokemmo")
+eq(#styleOpt.choices, 3, "exactly three public sprite styles")
+local saw = {}
 for _, choice in ipairs(styleOpt.choices) do
   check(#choice[1] <= 14, "choice label <= 14: " .. tostring(choice[1]))
-  if choice[2] == "gold" then sawGold = true end
+  saw[choice[2]] = choice[1]
 end
-check(sawGold, "options sprite_style includes gold")
+check(saw.pokemmo == "HGSS / PokeMMO", "options includes HGSS / PokeMMO")
+check(saw.followers == "Poke Followers", "options includes Poke Followers")
+check(saw.pokedex == "Pokedex", "options includes Pokedex")
+check(saw.auto == nil and saw.gold == nil and saw.followers_ex == nil,
+      "legacy styles removed from public options")
 
 -- No hard dependency cycle in manifest
 local manifest = assert(io.open("manifest.json", "r")):read("*a")

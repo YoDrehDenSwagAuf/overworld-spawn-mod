@@ -25,7 +25,7 @@
 
 Test each Water Mons mode on a water route (Cerulean / Route 19 / 21) with
 Spawn Amount = Normal. Repeat briefly on Flat and Voxel (and First Person if
-available), and with Sprite Style Auto / Followers EX / PokeMMO / Gold / Pokedex.
+available), and with Sprite Style HGSS/PokeMMO / Poke Followers / Pokedex.
 
 ### Swim Sprites (default)
 
@@ -35,10 +35,17 @@ available), and with Sprite Style Auto / Followers EX / PokeMMO / Gold / Pokedex
 
 ### Hid Silhouette
 
+**Flat 2D**
 1. No Pokémon sprite on water — only a small dark circle on the surface.
 2. Circle drifts slightly; keeps the same tile / chase / collision behaviour.
 3. Touching still starts the normal wild battle with the real species.
 4. Land Pokémon remain full sprites.
+
+**Voxel / First Person**
+1. Generic flat underwater shadow marker (no question mark, no Pokémon body).
+2. Lies nearly horizontal under the water surface (~1–2 px sink).
+3. Moves with the entity; no upright trainer billboard / no 2D HUD overlay.
+4. Water Idle / Wander / Aggressive chase and encounter behaviour unchanged.
 
 ### Silhouettes
 
@@ -48,10 +55,11 @@ available), and with Sprite Style Auto / Followers EX / PokeMMO / Gold / Pokedex
 3. Land Pokémon never receive the tint.
 
 **Voxel / First Person**
-1. Native pre-rendered silhouette sheets (not tint / not emergency overlay).
+1. Native pre-rendered silhouette sheets drawn as flat underwater shadows
+   (local WaterShadowRenderer transform; not upright trainer lean).
 2. Depth / object occlusion like normal water Pokémon.
 3. No coloured water sprite leaking through.
-4. Under-water sink is baked into the sheet (~2–3 px).
+4. Under-water sink ~2–3 px; animation + facing/mirroring still work.
 5. Water Idle / Wander / Aggressive still animate and chase.
 
 ### Cave Spawns
@@ -125,12 +133,12 @@ available), and with Sprite Style Auto / Followers EX / PokeMMO / Gold / Pokedex
 1. With Followers EX + compatible style, follower uses the selected sprite style.
 2. Enter/leave water: follower Swimming/Levitates transitions once per change.
 3. Wild collision still blocks through followers.
-4. Sprite Style = PokeMMO: follower walk frames animate while following.
+4. Sprite Style = HGSS / PokeMMO: follower walk frames animate while following.
 5. Style switch mid-walk must not freeze the follower on a stand frame.
 
 ## PokeMMO walk animation
 
-1. Sprite Style = PokeMMO on a grass route.
+1. Sprite Style = HGSS / PokeMMO on a grass route.
 2. GRASS_WANDER Pokémon must show walk frames while moving between tiles.
 3. IDLE_LOOK still turns without walk frames.
 4. AGGRESSIVE search wander and chase must also animate walk frames.

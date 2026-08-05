@@ -226,10 +226,16 @@ check(WaterDisplay.useNativeSilhouetteSheet(V.mod, waterEnt, true),
 check(not WaterDisplay.useNativeSilhouetteSheet(V.mod, waterEnt, false),
       "flat silhouettes keep tint path")
 savedOpts.water_spawns = "hidden_silhouettes"
-check(WaterDisplay.needsOverlayPresentation(V.mod, waterEnt),
-      "hidden still forces overlay")
+check(not WaterDisplay.needsOverlayPresentation(V.mod, waterEnt),
+      "hidden no longer forces emergency overlay")
+check(WaterDisplay.needsNativeHiddenShadow(V.mod, waterEnt),
+      "hidden needs native flat shadow marker")
 check(not WaterDisplay.needsNativeSilhouetteSheet(V.mod, waterEnt),
       "hidden does not use native silhouette sheet")
+local hiddenAsset = "assets/generated/water_hidden_runtime/hidden-water-shadow.png"
+local hf = io.open(hiddenAsset, "rb")
+check(hf ~= nil, "hidden water shadow asset exists")
+if hf then hf:close() end
 
 -- ------- Silhouette assets exist -------
 local sil = "assets/generated/swimming_silhouette_runtime/130-normal.png"
