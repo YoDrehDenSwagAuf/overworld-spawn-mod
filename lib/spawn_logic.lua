@@ -345,6 +345,10 @@ end
 -- True when classic encounter RNG must be blocked (grass / cave / water).
 -- Active Safari sessions always suppress step encounters (independent of
 -- Random Enc) so visible Safari Pokémon can be approached safely.
+-- Water Mons modes may override Random Enc for water / fishing only:
+--   classic_encounters → never suppress water (even if Random Enc OFF)
+--   disabled           → always suppress water
+-- Land / cave remain gated solely by Random Enc (+ Safari).
 function SpawnLogic:shouldSuppressClassicEncounter(ctx)
   local game = gameOf(self.mod)
   local world = self.mod.world
@@ -353,6 +357,17 @@ function SpawnLogic:shouldSuppressClassicEncounter(ctx)
   if SafariCompat.shouldSuppressClassicEncounters(game, ow, mapId) then
     return true
   end
+
+  local WaterDisplay = V.require("water_display")
+  if WaterDisplay.isWaterTerrain(ctx) then
+    if Config.waterEncountersDisabled(self.mod) then
+      return true
+    end
+    if Config.waterClassicEncountersForced(self.mod) then
+      return false
+    end
+  end
+
   return not Config.randomEncountersEnabled(self.mod)
 end
 
@@ -1085,17 +1100,18 @@ function SpawnLogic:initializeForMap(mapId, game)
   for _, region in ipairs(self.regions) do
     self.regionCounts[region.id] = 0
   end
-  self:_log("surface=%s tiles=%d regions=%d target=%d waterTarget=%d density=%s randomEnc=%s",
+  self:_log("surface=%s tiles=%d regions=%d target=%d waterTarget=%d density=%s randomEnc=%s water=%s",
             tostring(surfaceInfo.surface), #self.eligibleCache,
             #self.regions, self.targetSpawnCount,
             self.targetWaterCount,
             tostring(Config.spawnDensity(self.mod)),
-            tostring(Config.randomEncountersEnabled(self.mod)))
+            tostring(Config.randomEncountersEnabled(self.mod)),
+            tostring(Config.waterDisplayMode(self.mod)))
   if Config.devMode(self.mod) then
     self:_log("Random Enc: %s",
               tostring(Config.randomEncountersEnabled(self.mod)))
     self:_log("Water Mons: %s cells=%d target=%d",
-              tostring(Config.waterMons(self.mod)),
+              tostring(Config.waterDisplayMode(self.mod)),
               #(self.waterCache or {}), self.targetWaterCount or 0)
     if self.shoreDistance then
       local s = WaterSpawn.summarize(
@@ -1213,7 +1229,7 @@ function SpawnLogic:initializeForMap(mapId, game)
     -- Classic surf / fishing encounters stay unchanged either way.
     if surfaceInfo.surface == Surface.WATER then
       self:_log("water map ready with %d visible water mons (Water Mons=%s target=%d)",
-                waterSpawned, tostring(Config.waterMons(self.mod)),
+                waterSpawned, tostring(Config.waterDisplayMode(self.mod)),
                 self.targetWaterCount or 0)
     else
       local record, err = self:trySpawn(game, { force = true, readinessProbe = true })
@@ -1857,8 +1873,13 @@ function SpawnLogic:applyRandomEncounters(on, source)
             tostring(enabled), tostring(not enabled), tostring(source))
 end
 
-function SpawnLogic:applyWaterMons(on, source)
+function SpawnLogic:applyWaterMons(on, source, mode)
   local game = gameOf(self.mod)
+  mode = mode or Config.waterDisplayMode(self.mod)
+  -- Prefer spawn-enabled check from mode when provided as string/bool.
+  if on == nil then
+    on = Config.waterMons(self.mod)
+  end
   if not on then
     local mapId = self.activeMapId
     if mapId then
@@ -1886,12 +1907,13 @@ function SpawnLogic:applyWaterMons(on, source)
     end
     self.targetWaterCount = 0
     self.waterZoneTargets = { near = 0, mid = 0, deep = 0, total = 0 }
-    self:_log("water_spawns OFF via %s; removed water mons", tostring(source))
+    self:_log("water_spawns %s via %s; removed water mons",
+              tostring(mode), tostring(source))
     return
   end
 
   if not self.activeMapId or not self.state.initialized then
-    self:_log("water_spawns ON via %s (deferred)", tostring(source))
+    self:_log("water_spawns %s via %s (deferred)", tostring(mode), tostring(source))
     return
   end
   local world = self.mod.world
@@ -1923,7 +1945,8 @@ function SpawnLogic:applyWaterMons(on, source)
       if not self:trySpawnWater(game, {}) then break end
     end
   end
-  self:_log("water_spawns ON target=%d via %s", self.targetWaterCount or 0, tostring(source))
+  self:_log("water_spawns %s target=%d via %s",
+            tostring(mode), self.targetWaterCount or 0, tostring(source))
 end
 
 -- Developer test spawn with explicit phase reporting. Never touches Pokédex,
@@ -2281,7 +2304,8 @@ function SpawnLogic:onOptionsChanged(payload)
     self:applyRandomEncounters(
       payload.value == true, "options_changed")
   elseif key == "water_spawns" or key == "enable_water_spawns" then
-    self:applyWaterMons(payload.value == true, "options_changed")
+    local mode = Config.waterDisplayMode(self.mod)
+    self:applyWaterMons(Config.waterMons(self.mod), "options_changed", mode)
   elseif key == "dev_overlay"
       or key == "dev_mode"
       or key == "debug_hud_always_visible"

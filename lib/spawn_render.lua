@@ -1415,6 +1415,9 @@ function Entity:calculateVisualY()
     -- Settled water sit offset.
     hopPx = hopPx
   end
+  -- Silhouette mode: sit a few pixels deeper under the surface (presentation).
+  local WaterDisplay = V.require("water_display")
+  water = water + WaterDisplay.silhouetteSink(self.mod, self)
   return (self.py or 0) + tuck + water - hopPx
 end
 
@@ -1557,7 +1560,10 @@ function Entity:_drawAnimatedSprite(camX, camY, opacity)
 
   local baseX = math.floor(self.px - (camX or 0))
   local tuck = self:_grassTuck()
-  local baseY = math.floor(self.py + tuck + (self.waterSink or 0)
+  local WaterDisplay = V.require("water_display")
+  local waterY = (self.waterSink or 0)
+    + WaterDisplay.silhouetteSink(self.mod, self)
+  local baseY = math.floor(self.py + tuck + waterY
                            - (camY or 0) - 4)
 
   -- Anchor: center X, feet on tile floor (anchorX=0.5, anchorY=1.0).
@@ -1602,7 +1608,10 @@ function Entity:_drawScaledSprite(camX, camY, opacity)
   -- Anchor: horizontally centered on the tile, feet (visible bottom) on tile floor.
   local baseX = math.floor(self.px - (camX or 0))
   local tuck = self:_grassTuck()
-  local baseY = math.floor(self.py + tuck + (self.waterSink or 0)
+  local WaterDisplay = V.require("water_display")
+  local waterY = (self.waterSink or 0)
+    + WaterDisplay.silhouetteSink(self.mod, self)
+  local baseY = math.floor(self.py + tuck + waterY
                            - (camY or 0) - 4)
 
   local renderedW = contentW * scale
@@ -1646,11 +1655,35 @@ end
 function Entity:draw(camX, camY)
   -- 2D renderer: read-only with respect to world simulation state.
   local SpawnFx = V.require("spawn_fx")
+  local WaterDisplay = V.require("water_display")
   local d = RenderDiagnostics.ensure(self)
   local skipBody = false
   if not SpawnFx.bodyVisible(self) then
     return
   end
+
+  -- Hidden water silhouettes: circle marker only (no Pokémon sprite).
+  if WaterDisplay.isHiddenSilhouettes(self.mod)
+     and WaterDisplay.isWaterEntity(self)
+     and not self.hiddenEncounter then
+    WaterDisplay.drawHiddenCircle(self, camX, camY, {
+      player = WaterDisplay.resolvePlayer(self.mod),
+    })
+    if self.render.debugMarkers and Config.devOverlay(self.mod)
+       and love and love.graphics then
+      local x = math.floor(self.px - (camX or 0))
+      local y = math.floor(self.py - (camY or 0)) - 4
+      love.graphics.setColor(1, 0.2, 0.2, 1)
+      love.graphics.rectangle("line", x, y, CELL, CELL)
+      love.graphics.setColor(1, 1, 1, 1)
+    end
+    if Config.showBehaviorOverlays(self.mod) and love and love.graphics then
+      local DevOverlay = V.require("dev_overlay")
+      DevOverlay.drawOnEntity(self, camX, camY)
+    end
+    return
+  end
+
   if self:_voxelBillboardOwnsBody() then
     -- Body belongs to Dramatic Shape SpriteBillboards — never double-draw.
     skipBody = true
@@ -1671,34 +1704,51 @@ function Entity:draw(camX, camY)
       d.postVoxelBodyDrawCalls = (d.postVoxelBodyDrawCalls or 0) + 1
     end
     local opacity = Config.get(self.mod, "sprite_opacity") or 1
-    -- Preferred: native SpriteRenderer:draw (same as trainers / flat NPC path).
-    if self.nativeSpriteRenderer and self.sprite and type(self.sprite.draw) == "function" then
-      d.legacySpriteDrawCalls = (d.legacySpriteDrawCalls or 0) + 1
-      local sprite, px, py, facing, phase, flip = self:pose()
-      if sprite then
-        if opacity < 1 and love and love.graphics and love.graphics.setColor then
-          love.graphics.setColor(1, 1, 1, opacity)
-          sprite:draw(px, py, camX, camY, facing, phase, flip)
-          love.graphics.setColor(1, 1, 1, 1)
-        else
-          sprite:draw(px, py, camX, camY, facing, phase, flip)
+    local silhouette = WaterDisplay.isSilhouettes(self.mod)
+      and WaterDisplay.isWaterEntity(self)
+    local player = silhouette and WaterDisplay.resolvePlayer(self.mod) or nil
+
+    local function drawBody()
+      -- Preferred: native SpriteRenderer:draw (same as trainers / flat NPC path).
+      if self.nativeSpriteRenderer and self.sprite and type(self.sprite.draw) == "function" then
+        d.legacySpriteDrawCalls = (d.legacySpriteDrawCalls or 0) + 1
+        local sprite, px, py, facing, phase, flip = self:pose()
+        if sprite then
+          if (not silhouette) and opacity < 1
+             and love and love.graphics and love.graphics.setColor then
+            love.graphics.setColor(1, 1, 1, opacity)
+            sprite:draw(px, py, camX, camY, facing, phase, flip)
+            love.graphics.setColor(1, 1, 1, 1)
+          else
+            sprite:draw(px, py, camX, camY, facing, phase, flip)
+          end
         end
+      elseif love and love.graphics and self.sprite and type(self.sprite.draw) == "function"
+             and (self.final2DScale or 1) == 1 then
+        d.legacySpriteDrawCalls = (d.legacySpriteDrawCalls or 0) + 1
+        local sprite, px, py, facing, phase, flip = self:pose()
+        if sprite then
+          if (not silhouette) and opacity < 1 then
+            love.graphics.setColor(1, 1, 1, opacity)
+          end
+          sprite:draw(px, py, camX, camY, facing, phase, flip)
+          if (not silhouette) and opacity < 1 then
+            love.graphics.setColor(1, 1, 1, 1)
+          end
+        end
+      elseif self.usingEnhancedSprite and not self.nativeSpriteRenderer then
+        -- Deprecated multi-frame atlas path (kept for option-off / tests).
+        self:_drawAnimatedSprite(camX, camY, opacity)
+      else
+        d.legacySpriteDrawCalls = (d.legacySpriteDrawCalls or 0) + 1
+        self:_drawScaledSprite(camX, camY, opacity)
       end
-    elseif love and love.graphics and self.sprite and type(self.sprite.draw) == "function"
-           and (self.final2DScale or 1) == 1 then
-      d.legacySpriteDrawCalls = (d.legacySpriteDrawCalls or 0) + 1
-      local sprite, px, py, facing, phase, flip = self:pose()
-      if sprite then
-        if opacity < 1 then love.graphics.setColor(1, 1, 1, opacity) end
-        sprite:draw(px, py, camX, camY, facing, phase, flip)
-        if opacity < 1 then love.graphics.setColor(1, 1, 1, 1) end
-      end
-    elseif self.usingEnhancedSprite and not self.nativeSpriteRenderer then
-      -- Deprecated multi-frame atlas path (kept for option-off / tests).
-      self:_drawAnimatedSprite(camX, camY, opacity)
+    end
+
+    if silhouette then
+      WaterDisplay.withSilhouetteTint(self, player, drawBody)
     else
-      d.legacySpriteDrawCalls = (d.legacySpriteDrawCalls or 0) + 1
-      self:_drawScaledSprite(camX, camY, opacity)
+      drawBody()
     end
 
     -- Spatial emergency overlay only: world billboards get DS tall-grass.

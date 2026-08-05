@@ -67,7 +67,8 @@ local SpawnFx = V.require("spawn_fx")
 eq(Config.DEFAULTS.random_encounters, true, "default random_encounters is true")
 check(Config.randomEncountersEnabled(V.mod) == true, "randomEncountersEnabled defaults ON")
 eq(Config.spawnAmount(V.mod), "normal", "spawnAmount defaults to normal")
-check(Config.waterMons(V.mod) == true, "waterMons defaults ON")
+check(Config.waterMons(V.mod) == true, "waterMons defaults ON (spawn-enabled)")
+eq(Config.waterDisplayMode(V.mod), "swimming_sprites", "waterDisplayMode defaults swimming")
 
 local schema = assert(loadfile("options.lua"))()
 local byKey = {}
@@ -86,6 +87,9 @@ eq(byKey.random_encounters.type, "toggle", "random_encounters is toggle")
 check(byKey.sprite_style ~= nil, "Sprite Style remains in Mod Settings")
 check(byKey.water_spawns ~= nil, "water_spawns present in Mod Settings")
 eq(byKey.water_spawns.label, "Water Mons", "Water Mons label")
+eq(byKey.water_spawns.type, "choice", "water_spawns is choice")
+eq(byKey.water_spawns.default, "swimming_sprites", "water_spawns default swimming_sprites")
+eq(#byKey.water_spawns.choices, 5, "five water display modes")
 check(byKey.dev_overlay ~= nil, "dev_overlay present in Mod Settings")
 eq(byKey.dev_overlay.default, false, "dev_overlay defaults OFF")
 eq(byKey.dev_overlay.label, "Dev Overlay", "Dev Overlay label")
@@ -137,11 +141,21 @@ eq(Config.spawnAmount(V.mod), "high", "spawnAmount reads high")
 Config.setWaterMons(V.mod, false, "start_menu", {
   game = V.mod.world.game, confirm = false,
 })
-check(Config.waterMons(V.mod) == false, "waterMons OFF")
+check(Config.waterMons(V.mod) == false, "legacy false → spawn disabled")
+eq(Config.waterDisplayMode(V.mod), "classic_encounters", "legacy false → classic_encounters")
 Config.setWaterMons(V.mod, true, "start_menu", {
   game = V.mod.world.game, confirm = false,
 })
-check(Config.waterMons(V.mod) == true, "waterMons ON")
+check(Config.waterMons(V.mod) == true, "legacy true → spawn enabled")
+eq(Config.waterDisplayMode(V.mod), "swimming_sprites", "legacy true → swimming_sprites")
+Config.setWaterMons(V.mod, "silhouettes", "start_menu", {
+  game = V.mod.world.game, confirm = false,
+})
+eq(Config.waterDisplayMode(V.mod), "silhouettes", "set silhouettes mode")
+Config.setWaterMons(V.mod, "swimming_sprites", "start_menu", {
+  game = V.mod.world.game, confirm = false,
+})
+eq(Config.waterDisplayMode(V.mod), "swimming_sprites", "restore swimming_sprites")
 
 -- ------- No HIDDEN_IDLE -------
 check(Behavior.HIDDEN_IDLE == nil, "HIDDEN_IDLE constant removed")
@@ -221,7 +235,7 @@ check(#SpriteStyleMenu.LABEL_RANDOM <= 14, "RANDOM ENC <= 14")
 check(#SpriteStyleMenu.LABEL_WATER <= 14, "WATER MONS <= 14")
 eq(#SpriteStyleMenu.SPAWN_CHOICES, 4, "four spawn choices")
 eq(#SpriteStyleMenu.RANDOM_CHOICES, 2, "two random choices")
-eq(#SpriteStyleMenu.WATER_CHOICES, 2, "two water choices")
+eq(#SpriteStyleMenu.WATER_CHOICES, 5, "five water choices")
 
 -- Density still works.
 local tLow = SpawnRegions.targetCount({
@@ -238,7 +252,7 @@ check(tHigh > tLow, "high density > low density")
 local mf = io.open("manifest.json", "r")
 local mft = mf:read("*a")
 mf:close()
-check(mft:find('"version"%s*:%s*"1%.7%.1"') ~= nil, "manifest version 1.7.1")
+check(mft:find('"version"%s*:%s*"1%.8%.0"') ~= nil, "manifest version 1.8.0")
 
 -- Start menu no longer injects Wilds gameplay settings.
 do

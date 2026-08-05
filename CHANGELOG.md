@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.8.0
+
+### Water Pokémon display modes
+
+- Replaced the Water Mons on/off toggle with five presentation modes:
+  **Swim Sprites** (default), **Hid Silhouette**, **Silhouettes**,
+  **Classic Enc**, **Disabled**
+- **Swim Sprites** preserves the previous swimming / levitates behaviour 100%
+- **Hid Silhouette** keeps water AI / chase / collision, draws only a small
+  dark animated circle on the water surface (no Pokémon sprite)
+- **Silhouettes** uses the active Sprite Style provider unchanged, then applies
+  a temporary dark blue-teal draw tint at draw time (no new assets / sheets /
+  providers). Sits ~3px deeper; brightens slightly within 1–2 tiles
+- **Classic Enc** removes visible water mons and keeps vanilla water / fishing
+  random encounters even when Random Enc is OFF for land
+- **Disabled** removes visible water mons and suppresses water / fishing
+  encounters
+- Legacy save values migrate: `true` → `swimming_sprites`, `false` →
+  `classic_encounters`
+- Land Pokémon, sprite providers, spawn density, Safari, cave, follower, and
+  Dramatic Shape paths are unchanged for Swim Sprites
+
 ## 1.7.1
 
 ### PokeMMO walk frames + follower swap stability + aggressive search wander

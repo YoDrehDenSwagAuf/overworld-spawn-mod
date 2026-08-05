@@ -49,8 +49,11 @@ SpriteStyleMenu.RANDOM_CHOICES = {
 }
 
 SpriteStyleMenu.WATER_CHOICES = {
-  { label = "ON", value = true },
-  { label = "OFF", value = false },
+  { label = "SWIM SPRITES", value = "swimming_sprites" },
+  { label = "HID SILHOUETTE", value = "hidden_silhouettes" },
+  { label = "SILHOUETTES", value = "silhouettes" },
+  { label = "CLASSIC ENC", value = "classic_encounters" },
+  { label = "DISABLED", value = "disabled" },
 }
 
 local STYLE_CONFIRM = {
@@ -242,7 +245,7 @@ end
 
 function SpriteStyleMenu:_openWaterMenu(game)
   local mod = self.mod
-  local current = Config.waterMons(mod)
+  local current = Config.waterDisplayMode(mod)
   local items = {}
   for _, choice in ipairs(SpriteStyleMenu.WATER_CHOICES) do
     items[#items + 1] = {

@@ -1,10 +1,10 @@
-# Manual test guide — Wilds of Kanto 1.7.1
+# Manual test guide — Wilds of Kanto 1.8.0
 
-## After installing 1.7.1
+## After installing 1.8.0
 
 1. Remove any previous Wilds of Kanto install from the Mod Manager.
-2. Install only `wilds-of-kanto-v1.7.1.zip`.
-3. Confirm the Mod Manager shows version **1.7.1**.
+2. Install only `wilds-of-kanto-v1.8.0.zip`.
+3. Confirm the Mod Manager shows version **1.8.0**.
 
 ## Settings
 
@@ -12,10 +12,56 @@
 2. Confirm core options:
    Sprite Style / Spawn Amount / Random Enc / Water Mons / Dev Overlay
    (plus Show Wild Mons, Grass View, Idle/Roam/Chase/Hidden Mons).
-3. Confirm **Test Spawn** opens a Pokémon list (OPTIONS activate / OPEN).
-4. Open the normal Start / Pause menu — Wilds should **not** inject
+3. Confirm **Water Mons** is a five-way choice:
+   Swim Sprites / Hid Silhouette / Silhouettes / Classic Enc / Disabled
+   (default **Swim Sprites**).
+4. Confirm **Test Spawn** opens a Pokémon list (OPTIONS activate / OPEN).
+5. Open the normal Start / Pause menu — Wilds should **not** inject
    SPRITE STYLE / SPAWN AMOUNT / RANDOM ENC / WATER MONS there.
-5. Load an older save: settings must not crash; obsolete Dev Mode keys are ignored.
+6. Load an older save: Water Mons `true`/`false` must migrate without crash
+   (`true` → Swim Sprites, `false` → Classic Enc).
+
+## Water display modes
+
+Test each Water Mons mode on a water route (Cerulean / Route 19 / 21) with
+Spawn Amount = Normal. Repeat briefly on Flat and Voxel (and First Person if
+available), and with Sprite Style Auto / Followers EX / PokeMMO / Gold / Pokedex.
+
+### Swim Sprites (default)
+
+1. Full Swimming / Levitates sprites, animations, Water Chase, Water Idle,
+   Water Wander — identical to 1.7.x.
+2. Land Pokémon, followers, Safari, cave unchanged.
+
+### Hid Silhouette
+
+1. No Pokémon sprite on water — only a small dark circle on the surface.
+2. Circle drifts slightly; keeps the same tile / chase / collision behaviour.
+3. Touching still starts the normal wild battle with the real species.
+4. Land Pokémon remain full sprites.
+
+### Silhouettes
+
+1. Active Sprite Style provider unchanged (no forced PokeMMO / Follower / Gold).
+2. Water body is a dark blue-teal silhouette (shape readable, species not obvious).
+3. Sits a few pixels lower than Swim Sprites.
+4. Within ~1–2 tiles of the player the silhouette brightens slightly but stays
+   detail-free; farther away it is fully dark.
+5. Land Pokémon never receive the tint.
+
+### Classic Enc
+
+1. No visible water Pokémon.
+2. Classic surf / fishing encounters still roll.
+3. With **Random Enc = OFF**, land classic rolls stay off, but water / fishing
+   rolls remain on.
+4. Land visible spawns unchanged.
+
+### Disabled
+
+1. No visible water Pokémon.
+2. No water / fishing classic encounters (even if Random Enc is ON).
+3. Land Random Enc and land visible spawns unchanged.
 
 ## Safari Zone
 
@@ -42,13 +88,14 @@
 4. With Dev Overlay ON, HUD should report cave reachability READY (or a
    conservative FALLBACK — never unfiltered cave).
 
-## Water
+## Water density / chase
 
 1. Visit Cerulean and a larger water route with Spawn Amount = Normal.
 2. Water must look clearly sparser than 1.5.x (small ponds may be empty).
 3. Compare Low vs High Spawn Amount — density should change moderately.
 4. Species still come from Surf / rod pools; Super-Rod-only stay Deep.
-5. Aggressive water Pokémon can still chase on water (outside Safari).
+5. Aggressive water Pokémon can still chase on water (outside Safari) in
+   Swim Sprites / Hid Silhouette / Silhouettes.
 
 ## Dev Overlay
 
@@ -58,6 +105,7 @@
 3. Facing arrows update (↑ ↓ ← →).
 4. Safari flee overlays may show STATE / STEPS while fleeing.
 5. Detail HUD can show Safari active / noticed / flee steps when focused.
+6. HUD Water Mons line shows the mode string (e.g. `silhouettes`).
 
 ## Followers EX
 
@@ -73,18 +121,13 @@
 2. GRASS_WANDER Pokémon must show walk frames while moving between tiles.
 3. IDLE_LOOK still turns without walk frames.
 4. AGGRESSIVE search wander and chase must also animate walk frames.
-5. Swimming / Levitates water sheets must keep the same native walk contract.
+5. Swimming / Levitates water sheets must keep the same native walk contract
+   under Swim Sprites.
 
 ## Aggressive search wander
 
 1. Outside Safari, AGGRESSIVE Pokémon should occasionally take a step while scanning.
-2. Behaviour label stays AGGRO (not WANDER).
-3. Seeing the player still stops wander, shows one alert, then chase.
-4. Safari session must still never use normal AGGRESSIVE.
-
-## Regression smoke
-
-1. Route grass: Idle / Wander / Aggressive unchanged outside Safari.
-2. Random Enc ON/OFF still gates classic step encounters outside Safari.
-3. Voxel / First Person: chase and Safari flee still render via SpriteRenderer.
-4. No content-registry mutation / no sprite provider rebuild required for Safari.
+2. Sight / chase must still work after a search step.
+3. Voxel and Flat must both keep chase behaviour.
+4. Land→water chase entry still works when a Swimming / Levitates sprite exists
+   and Water Mons is a spawn-enabled mode.
