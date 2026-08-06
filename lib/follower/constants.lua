@@ -3,6 +3,9 @@
 local Constants = {}
 
 Constants.STATE_KEY = "__wildsUnifiedFollowerState"
+-- Control engine owns shouldSpawn/update/onMapEntered when installed.
+-- Separate from STATE_KEY so lifecycle and control engine do not fight.
+Constants.CONTROL_ENGINE_STATE_KEY = "__wildsFollowerControlEngine"
 Constants.FOLLOWER_STATE_VERSION = 1
 
 -- External mod IDs (detection only; no hard dependency).
