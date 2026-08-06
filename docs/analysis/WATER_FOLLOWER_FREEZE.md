@@ -53,9 +53,28 @@ fallback may use global `getActiveFollowerMon` instead of `entity.pokepcMon`.
 
 ## Fix (implemented)
 
+### Phase A — surface-aware cells (necessary, not sufficient)
+
 1. `ControlEngine:isFollowerCellAllowed` — land vs water for `primary` / `party_trailer` only
-2. Surface-aware `_walkableBehind` / `_seedTrailBehind` / `syncTrailers` (no global walkability patch)
-3. `ControlEngine.advanceTrailerStep` replaces stock `NPC:update` on trailers (water-safe interpolation)
-4. Hide `trainer_trailer` while surfing; restore on land
-5. Per-entity water/land sprite cache in `FollowersWaterCompat` (`_entityCaches[entityIdentity]`) using `entity.pokepcMon`
-6. Tests: `tests/follower_water_movement_unit_test.lua`
+2. Surface-aware `_walkableBehind` / `_seedTrailBehind` / `syncTrailers`
+3. Hide `trainer_trailer` while surfing; restore on land
+4. Per-entity water sprite cache in `FollowersWaterCompat`
+
+### Phase B — update ownership (actual remaining freeze)
+
+Stock `PikachuFollower.update` early-returns when `shouldSpawn` is false
+(surfing / pack). Trailer sync previously ran only from a wrap of that
+function, and trailer step advance depended on `npc:update` / catch-up.
+
+**Confirmed architecture fix:**
+
+1. `ControlEngine:update(game, ow)` is the sole per-logic-frame owner of
+   `syncPlayerControlVisual` + `syncTrailers` + `advanceAllTrailers`
+2. Installed via `OverworldController.update` wrap (after vanilla), not via
+   `PikachuFollower.update`
+3. Trailer `npc.update` is a no-op — ControlEngine advances interpolation
+4. `shouldSpawnStockFollower` stays false on Surf; `shouldUpdateWildsTrailers`
+   stays true
+5. Surf trail anchor is always `ow.player` (never frozen Yellow stock Pikachu)
+6. Tests: `tests/follower_water_movement_unit_test.lua`,
+   `tests/follower_control_update_unit_test.lua`

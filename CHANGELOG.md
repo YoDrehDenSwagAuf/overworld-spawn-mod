@@ -6,13 +6,17 @@
 
 - Fixed pack/trailer freeze on Surf: trail goals and steps are surface-aware for
   Pokémon follower roles only (`primary`, `party_trailer`)
-- Trailer `NPC:update` no longer uses land walkability; steps advance via
-  `ControlEngine.advanceTrailerStep`
+- **Decoupled trailer ticks from `PikachuFollower.update`:** `ControlEngine:update`
+  runs from an `OverworldController.update` wrap every logic frame (including Surf)
+- Trailer `npc.update` is a no-op; `advanceTrailerStep` runs once per control update
+- `shouldSpawn` may suppress stock Pikachu while surfing without stopping Wilds trailers
+- Surf trail anchor is always the player (Yellow stock Pikachu is not used on water)
 - Trainer trailers are hidden while surfing and restored on land (no swim)
 - `FollowersWaterCompat` updates every Pokémon trailer with a per-entity cache
   and `entity.pokepcMon` species (no shared active-entity overwrite)
 - Sprite rebind preserves `moving` / `targetX` / `targetY` / `progress`
-- Tests: `tests/follower_water_movement_unit_test.lua`
+- Tests: `tests/follower_water_movement_unit_test.lua`,
+  `tests/follower_control_update_unit_test.lua`
 
 ### Unified follower core — standalone (PR 1 follow-up)
 

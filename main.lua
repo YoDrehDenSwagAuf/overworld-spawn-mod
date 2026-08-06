@@ -331,6 +331,9 @@ return function(mod)
   mod.exports.syncTrailers = function(game, ow, opts)
     return follower:syncTrailers(game, ow, opts)
   end
+  mod.exports.updateFollowers = function(game, ow, opts)
+    return follower:update(game, ow, opts)
+  end
   mod.exports.resolveFollowerSprite = function(opts)
     return follower.spriteService:resolveFollowerSprite(opts or {})
   end

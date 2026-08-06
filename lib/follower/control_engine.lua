@@ -3,10 +3,12 @@
 -- Credits: masterwebx / Followers EX ControlEngine concepts adapted for Wilds;
 -- assets via Wilds sprite service (no PokePCFollowers_VoxelMerge dependency).
 --
--- Ownership: install() is the sole PikachuFollower hook owner for
--- shouldSpawn / update / onMapEntered when the control engine is installed.
--- Lifecycle must NOT also wrap update/onMapEntered/shouldSpawn in that case;
--- talk wrapping may remain on lifecycle.
+-- Ownership:
+--   * Trailer movement: ControlEngine:update via OverworldController.update
+--     (fallback: PikachuFollower.update wrap when OW wrap unavailable).
+--   * Stock PikachuFollower: shouldSpawn / onMapEntered / talk only.
+-- Lifecycle must NOT also wrap update/onMapEntered/shouldSpawn when the
+-- control engine is installed.
 local V = ...
 local Constants = V.require("follower/constants")
 
@@ -99,6 +101,20 @@ function ControlEngine.new(mod, deps)
   self._optCache = {}
   self._eventOff = {}
   self._talkWrapped = false
+  self._owUpdateWrapped = false
+  self._inControlUpdate = false
+  -- "overworld" = OverworldController.update owns trailer ticks;
+  -- "pikachu_follower" = fallback when OW wrap is unavailable.
+  self._trailerUpdateOwner = nil
+  self.diag = {
+    wrappedUpdateCalls = 0,
+    syncTrailersCalls = 0,
+    advanceTrailerStepCalls = 0,
+    controlUpdateCalls = 0,
+    overworldUpdateCalls = 0,
+    lastSource = nil,
+    lastSurfing = false,
+  }
   return self
 end
 
@@ -515,11 +531,35 @@ function ControlEngine:forceYellowStockPikachuArt(ow, game)
 end
 
 function ControlEngine:_trailAnchor(game, ow, player)
+  -- Surf: always follow the moving player. Stock Yellow Pikachu is suppressed
+  -- while surfing and must never be a frozen trail anchor.
+  if self:_playerSurfing(ow, game) then
+    return player
+  end
   if self:yellowStockFollowActive(game) then
     local stock = self:_findStockPikachu(ow)
-    if stock then return stock end
+    if stock and not stock.frozen and (stock.cellX ~= nil) then
+      return stock
+    end
   end
   return player
+end
+
+--- Stock PikachuFollower spawn gate (may be false while surfing).
+-- Must NOT gate Wilds trailer updates.
+function ControlEngine:shouldSpawnStockFollower(game, ow)
+  return self:_shouldSpawnStockFollower(game, ow)
+end
+
+--- Wilds trailers / control visuals must keep ticking even when stock is off.
+function ControlEngine:shouldUpdateWildsTrailers(game, ow)
+  if not (ow and ow.map and ow.player) then return false end
+  local mode = self:controlMode(game)
+  if mode == "pokemon" or mode == "lead_trainer" or mode == "pack"
+      or mode == "follow" then
+    return true
+  end
+  return type(ow.pokepcTrailers) == "table" and #ow.pokepcTrailers > 0
 end
 
 function ControlEngine:partyTrailMons(game)
@@ -763,12 +803,12 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
     end
   end
 
-  -- Surface-aware step: stock NPC:update rejects water targets via land
-  -- walkability. Trailers always advance through our interpolator instead.
-  npc.update = function(self, map, entities)
-    ControlEngine.advanceTrailerStep(self, map, entities)
-  end
+  -- ControlEngine owns trailer interpolation exclusively. Exclude trailers
+  -- from the stock NPC auto-step so OverworldController's npc loop cannot
+  -- double-advance (or reject) water steps.
+  npc.update = function() end
   npc._wildsFollowerStep = true
+  npc._wildsFollowerStepOwned = true
   return npc
 end
 
@@ -897,13 +937,18 @@ end
 
 --- Advance a trailer step without stock NPC land-walkability rejection.
 -- Uses the same fields as NPC movement (target/moving/progress/px/py).
-function ControlEngine.advanceTrailerStep(npc, _map, _entities)
-  if not npc or not npc.moving then return end
+-- Timing: one progress tick per ControlEngine:update (logic frame), matching
+-- stock NPC:update — not present/render FPS.
+function ControlEngine.advanceTrailerStep(npc, _map, _entities, diag)
+  if not npc or not npc.moving then return false end
   local toX, toY = npc.targetX, npc.targetY
   if toX == nil or toY == nil then
     npc.moving = false
     npc.progress = 0
-    return
+    return false
+  end
+  if diag then
+    diag.advanceTrailerStepCalls = (diag.advanceTrailerStepCalls or 0) + 1
   end
   local frames = tonumber(npc.stepFrames) or 16
   if frames < 1 then frames = 1 end
@@ -927,6 +972,7 @@ function ControlEngine.advanceTrailerStep(npc, _map, _entities)
     npc.walkFlip = npc.stepFlip == true
     npc.flip = npc.stepFlip == true
   end
+  return true
 end
 
 function ControlEngine:_seedTrailBehind(ow, anchor, facing, n, game, role)
@@ -976,6 +1022,7 @@ end
 function ControlEngine:syncTrailers(game, ow, opts)
   opts = opts or {}
   if not ow or not ow.player or not ow.map then return end
+  self.diag.syncTrailersCalls = (self.diag.syncTrailersCalls or 0) + 1
   local mode = self:controlMode(game)
   local want = {}
   local surfing = self:_playerSurfing(ow, game)
@@ -1001,6 +1048,14 @@ function ControlEngine:syncTrailers(game, ow, opts)
   end
 
   local trailers = ow.pokepcTrailers or {}
+  -- Reassert movement ownership on hot-reloaded / legacy trailer instances.
+  for _, npc in ipairs(trailers) do
+    if npc and npc.pokepcTrailer then
+      npc.update = function() end
+      npc._wildsFollowerStepOwned = true
+      npc._wildsFollowerStep = true
+    end
+  end
   local dirty = compositionDirty(trailers, want)
     or not trailersAliveInWorld(ow, trailers)
 
@@ -1179,14 +1234,96 @@ function ControlEngine:syncTrailers(game, ow, opts)
             npc.stepFrames = stepLen
             npc.moving = true
             npc.progress = 0
-            if opts.catchUp and npc.update then
-              npc:update(ow.map, ow.entities)
-            end
+            -- First-frame burn happens in ControlEngine:update via
+            -- advanceTrailerStep (npc.update is intentionally a no-op).
           end
         end
       end
     end
   end
+end
+
+--- Advance every Wilds trailer exactly once (logic-frame semantics).
+function ControlEngine:advanceAllTrailers(ow)
+  if not ow then return 0 end
+  local n = 0
+  for _, trailer in ipairs(ow.pokepcTrailers or {}) do
+    if ControlEngine.advanceTrailerStep(trailer, ow.map, ow.entities, self.diag) then
+      n = n + 1
+    end
+  end
+  return n
+end
+
+function ControlEngine:_traceSurf(game, ow)
+  local surfing = self:_playerSurfing(ow, game)
+  self.diag.lastSurfing = surfing
+  if not surfing then
+    self.diag._surfFrames = 0
+    return
+  end
+  self.diag._surfFrames = (self.diag._surfFrames or 0) + 1
+  -- Rate-limited diagnostic snapshot (every ~30 logic frames while surfing).
+  if self.diag._surfFrames % 30 ~= 1 then return end
+  local p = ow.player
+  local t = (ow.pokepcTrailers or {})[1]
+  local head = ow.pokepcTrailHead
+  local goal = (ow.pokepcTrailCells or {})[1]
+  logInfo(self.mod,
+    "surf-trace owner=%s ctrl=%s sync=%s adv=%s wrap=%s p=%s,%s tgt=%s,%s "
+      .. "t=%s,%s tt=%s,%s mov=%s prog=%s head=%s,%s goal=%s,%s",
+    tostring(self._trailerUpdateOwner),
+    tostring(self.diag.controlUpdateCalls),
+    tostring(self.diag.syncTrailersCalls),
+    tostring(self.diag.advanceTrailerStepCalls),
+    tostring(self.diag.wrappedUpdateCalls),
+    tostring(p and p.cellX), tostring(p and p.cellY),
+    tostring(p and p.targetX), tostring(p and p.targetY),
+    tostring(t and t.cellX), tostring(t and t.cellY),
+    tostring(t and t.targetX), tostring(t and t.targetY),
+    tostring(t and t.moving), tostring(t and t.progress),
+    tostring(head and head.x), tostring(head and head.y),
+    tostring(goal and goal.x), tostring(goal and goal.y))
+end
+
+--- Sole per-frame owner for Wilds trailer sync + step advance.
+-- Prefer calling from OverworldController.update (after vanilla) so player
+-- targetX/Y for this logic frame are already committed.
+function ControlEngine:update(game, ow, opts)
+  opts = opts or {}
+  if self._inControlUpdate then return false, "reentrant" end
+  game = game or self:_game()
+  ow = ow or (game and game.overworld)
+  if not self:shouldUpdateWildsTrailers(game, ow) and not opts.force then
+    return false, "skip"
+  end
+
+  self._inControlUpdate = true
+  self.diag.controlUpdateCalls = (self.diag.controlUpdateCalls or 0) + 1
+  self.diag.lastSource = opts.source or "direct"
+
+  local ok, err = pcall(function()
+    if self:isPokemonFront(game) then
+      self:_removeStockPikachu(ow)
+    end
+    self:forceYellowStockPikachuArt(ow, game)
+    self:syncPlayerControlVisual(game, ow)
+    if self._pendingMapTrailerSync or opts.mapEnter then
+      self._pendingMapTrailerSync = false
+      self:syncTrailers(game, ow, { mapEnter = true })
+    else
+      self:syncTrailers(game, ow, {})
+    end
+    self:advanceAllTrailers(ow)
+    self:_traceSurf(game, ow)
+  end)
+
+  self._inControlUpdate = false
+  if not ok then
+    logWarn(self.mod, "ControlEngine:update failed: %s", tostring(err))
+    return false, err
+  end
+  return true
 end
 
 function ControlEngine:_removeStockPikachu(ow)
@@ -1302,6 +1439,52 @@ function ControlEngine:_restoreTalkWrap()
   self._talkOrigInteract = nil
 end
 
+--- Wrap OverworldController.update so trailer ticks are independent of
+-- PikachuFollower.shouldSpawn / stock follower presence.
+function ControlEngine:_installOverworldUpdateWrap()
+  local OverworldState = tryRequire("src.world.OverworldController")
+  if not (OverworldState and type(OverworldState.update) == "function") then
+    return false
+  end
+  if OverworldState._wildsControlEngineUpdateWrap == OverworldState.update then
+    self._owUpdateWrapped = true
+    return true
+  end
+  local engine = self
+  local origUpdate = OverworldState.update
+  local function owUpdateWrap(owSelf, dt, ...)
+    local a, b, c, d, e = origUpdate(owSelf, dt, ...)
+    engine.diag.overworldUpdateCalls = (engine.diag.overworldUpdateCalls or 0) + 1
+    -- After vanilla: player.targetX/Y for this logic frame are committed,
+    -- and stock npc:update has already run (trailer.update is a no-op).
+    pcall(function()
+      engine:update(engine:_game(), owSelf, {
+        dt = dt,
+        source = "overworld",
+      })
+    end)
+    return a, b, c, d, e
+  end
+  OverworldState.update = owUpdateWrap
+  OverworldState._wildsControlEngineUpdateWrap = owUpdateWrap
+  self._owOrigUpdate = origUpdate
+  self._owUpdateWrapped = true
+  return true
+end
+
+function ControlEngine:_restoreOverworldUpdateWrap()
+  local OverworldState = tryRequire("src.world.OverworldController")
+  if not OverworldState then return end
+  if self._owUpdateWrapped and OverworldState._wildsControlEngineUpdateWrap
+     and OverworldState.update == OverworldState._wildsControlEngineUpdateWrap
+     and self._owOrigUpdate then
+    OverworldState.update = self._owOrigUpdate
+    OverworldState._wildsControlEngineUpdateWrap = nil
+  end
+  self._owUpdateWrapped = false
+  self._owOrigUpdate = nil
+end
+
 --- Install PikachuFollower hooks. Idempotent; restores previous on reinstall.
 -- Returns false, "no_engine" when NPC/PikachuFollower are unavailable (tests).
 function ControlEngine:install()
@@ -1326,40 +1509,10 @@ function ControlEngine:install()
   if not prevShouldSpawn then
     _, prevShouldSpawn = captureUpvalue(PF.update, "shouldSpawn")
   end
+  engine._prevShouldSpawn = prevShouldSpawn
 
   local function newShouldSpawn(game, ow)
-    local mode = engine:controlMode(game)
-    if mode == "pokemon" or mode == "lead_trainer" or mode == "pack" then
-      return false
-    end
-    -- Pack trailers own the field (except Yellow stock talkable Pikachu).
-    if mode == "follow" and engine:followerCount(game) > 0
-       and not engine:yellowStockFollowActive(game) then
-      return false
-    end
-
-    -- Standalone Red/Blue/Yellow follow (count 0, or Yellow stock): spawn when
-    -- SPRITE_PIKACHU is registered and a healthy selection exists. Do not rely
-    -- solely on vanilla shouldSpawn (Yellow-Pikachu-only).
-    local save = game and game.save
-    if not (save and ow) then return false end
-    if not save.party or #save.party == 0 then return false end
-    if save.onBike then return false end
-    if ow.player and ow.player.surfing then return false end
-
-    local hasSprite = false
-    if engine.spriteService and engine.spriteService.hasSpritePikachu then
-      hasSprite = engine.spriteService:hasSpritePikachu(game) == true
-    end
-    if not hasSprite then
-      local sprites = game.data and game.data.sprites
-      hasSprite = sprites ~= nil and sprites[Constants.SPRITE_ID] ~= nil
-    end
-    if not hasSprite then return false end
-
-    local mon = engine:getActiveFollowerMon(game)
-    if mon and (tonumber(mon.hp) or 0) > 0 then return true end
-    return false
+    return engine:_shouldSpawnStockFollower(game, ow)
   end
 
   patchUpvalue(PF.update, "shouldSpawn", newShouldSpawn)
@@ -1369,21 +1522,23 @@ function ControlEngine:install()
   local origOnMap = PF.onMapEntered
   local origStarterInParty = PF.starterInParty
 
+  -- Prefer OverworldController.update as the sole trailer tick owner.
+  local owWrapOk = self:_installOverworldUpdateWrap()
+  self._trailerUpdateOwner = owWrapOk and "overworld" or "pikachu_follower"
+
   local function wrappedUpdate(game, ow, ...)
+    engine.diag.wrappedUpdateCalls = (engine.diag.wrappedUpdateCalls or 0) + 1
     local result = origFollowerUpdate and origFollowerUpdate(game, ow, ...)
+    -- Stock-only duties while overworld owns trailer movement.
     if engine:isPokemonFront(game) then
       pcall(function() engine:_removeStockPikachu(ow) end)
     end
     pcall(function() engine:forceYellowStockPikachuArt(ow, game) end)
-    pcall(function() engine:syncPlayerControlVisual(game, ow) end)
-    if engine._pendingMapTrailerSync then
-      engine._pendingMapTrailerSync = false
+    -- Fallback only: when OverworldController.update wrap is unavailable,
+    -- keep trailers alive via this path (including while surfing).
+    if engine._trailerUpdateOwner ~= "overworld" then
       pcall(function()
-        engine:syncTrailers(game, ow, { mapEnter = true, catchUp = true })
-      end)
-    else
-      pcall(function()
-        engine:syncTrailers(game, ow, { catchUp = true })
+        engine:update(game, ow, { source = "pikachu_follower" })
       end)
     end
     return result
@@ -1413,6 +1568,11 @@ function ControlEngine:install()
   PF.starterInParty = wrappedStarterInParty
 
   pcall(function() self:_installTalkWrap() end)
+  -- Re-assert OW wrap after talk wrap / late loads.
+  pcall(function() self:_installOverworldUpdateWrap() end)
+  if self._owUpdateWrapped then
+    self._trailerUpdateOwner = "overworld"
+  end
 
   local mod = self.mod
   if mod and mod.events and mod.events.on then
@@ -1468,6 +1628,8 @@ function ControlEngine:install()
       PF.starterInParty = origStarterInParty
     end
     engine:_restoreTalkWrap()
+    engine:_restoreOverworldUpdateWrap()
+    engine._trailerUpdateOwner = nil
     if rawget(PF, Constants.CONTROL_ENGINE_STATE_KEY) == restoreState then
       rawset(PF, Constants.CONTROL_ENGINE_STATE_KEY, nil)
     end
@@ -1480,16 +1642,57 @@ function ControlEngine:install()
   self._installed = true
 
   pcall(function() self:alignSaveFromOptions(self:_game()) end)
-  logInfo(self.mod, "control engine installed (hooks owned by ControlEngine)")
+  logInfo(self.mod,
+    "control engine installed (trailer owner=%s)",
+    tostring(self._trailerUpdateOwner))
   return true, "installed"
+end
+
+--- Stock PikachuFollower spawn decision. False while surfing / bike / pack
+-- modes — this must never stop ControlEngine:update for Wilds trailers.
+function ControlEngine:_shouldSpawnStockFollower(game, ow)
+  local mode = self:controlMode(game)
+  if mode == "pokemon" or mode == "lead_trainer" or mode == "pack" then
+    return false
+  end
+  -- Pack trailers own the field (except Yellow stock talkable Pikachu).
+  if mode == "follow" and self:followerCount(game) > 0
+     and not self:yellowStockFollowActive(game) then
+    return false
+  end
+
+  -- Standalone Red/Blue/Yellow follow (count 0, or Yellow stock): spawn when
+  -- SPRITE_PIKACHU is registered and a healthy selection exists. Do not rely
+  -- solely on vanilla shouldSpawn (Yellow-Pikachu-only).
+  local save = game and game.save
+  if not (save and ow) then return false end
+  if not save.party or #save.party == 0 then return false end
+  if save.onBike then return false end
+  if ow.player and ow.player.surfing then return false end
+
+  local hasSprite = false
+  if self.spriteService and self.spriteService.hasSpritePikachu then
+    hasSprite = self.spriteService:hasSpritePikachu(game) == true
+  end
+  if not hasSprite then
+    local sprites = game.data and game.data.sprites
+    hasSprite = sprites ~= nil and sprites[Constants.SPRITE_ID] ~= nil
+  end
+  if not hasSprite then return false end
+
+  local mon = self:getActiveFollowerMon(game)
+  if mon and (tonumber(mon.hp) or 0) > 0 then return true end
+  return false
 end
 
 function ControlEngine:restore()
   if self._restoreState and type(self._restoreState.restore) == "function" then
     pcall(self._restoreState.restore)
   end
+  self:_restoreOverworldUpdateWrap()
   self._installed = false
   self._restoreState = nil
+  self._trailerUpdateOwner = nil
 end
 
 return ControlEngine

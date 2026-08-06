@@ -337,11 +337,16 @@ function Follower:syncTrailers(game, ow, opts)
   return self.control:syncTrailers(game, ow, opts)
 end
 
+function Follower:update(game, ow, opts)
+  return self.control:update(game, ow, opts)
+end
+
 function Follower:snapshot()
   local snap = self.state:snapshot()
   snap.installed = self._installed
   snap.hooksInstalled = self.lifecycle._installed == true
   snap.controlEngine = self.control._installed == true
+  snap.trailerUpdateOwner = self.control._trailerUpdateOwner
   snap.supported = self._supported
   snap.followControl = self.settings:followControl()
   snap.trainerTrail = self.settings:trainerTrail()
