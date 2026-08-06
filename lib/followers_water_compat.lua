@@ -79,12 +79,21 @@ local function speciesKeyOf(entity, mon)
   return nil
 end
 
+local function entityIdentity(entity)
+  if not entity then return "" end
+  return tostring(entity.pokepcTrailerId or entity.id or entity.spawnId or entity)
+end
+
 function FollowersWaterCompat.new(mod, opts)
   opts = opts or {}
   local self = setmetatable({}, FollowersWaterCompat)
   self.mod = mod
   self.resolveWaterSprite = opts.resolveWaterSprite
   self.resolveLandSprite = opts.resolveLandSprite
+  -- Per-entity cache keyed by entityIdentity. Pack trailers must not share
+  -- a single global water/land sprite cache.
+  self._entityCaches = {}
+  -- Legacy single-slot mirror of the first updated trailer (HUD / tests).
   self._cache = {
     entityId = nil,
     speciesId = nil,
@@ -135,9 +144,56 @@ end
 
 function FollowersWaterCompat:invalidateStyle()
   self._styleGeneration = (self._styleGeneration or 0) + 1
+  self._entityCaches = {}
   self._cache.requestedStyle = nil -- force refresh on next tick
   self._cache.image = nil
   self.status.lastAction = "style_invalidated"
+end
+
+function FollowersWaterCompat:_cacheFor(entity)
+  local id = entityIdentity(entity)
+  if id == "" then return nil, id end
+  local caches = self._entityCaches
+  if not caches[id] then
+    caches[id] = {
+      entityId = id,
+      speciesId = nil,
+      variant = nil,
+      form = nil,
+      surfaceState = nil,
+      requestedStyle = nil,
+      image = nil,
+      frames = nil,
+      walker = nil,
+    }
+  end
+  return caches[id], id
+end
+
+--- Resolve the mon table for one trailer. Pack trailers use entity.pokepcMon;
+-- only the primary/stock follower may fall back to the global active selection.
+function FollowersWaterCompat:monForEntity(entity, game)
+  if not entity then return nil end
+  if entity.pokepcMon and entity.pokepcMon.species then
+    return entity.pokepcMon
+  end
+  local role = entity.wildsFollowerRole
+  local isPrimary = role == "primary"
+    or (entity.pikachuFollower == true and entity.pokepcTrailer ~= true)
+  if not isPrimary then
+    return nil
+  end
+  local wildsExports = self.mod and self.mod.exports
+  if wildsExports and type(wildsExports.getActiveFollowerMon) == "function" then
+    local ok, got = pcall(wildsExports.getActiveFollowerMon, game, true)
+    if ok and got then return got end
+  end
+  local api = self:publicApi()
+  if api and type(api.getActiveFollowerMon) == "function" then
+    local ok, got = pcall(api.getActiveFollowerMon, game)
+    if ok and got then return got end
+  end
+  return nil
 end
 
 -- Verified Followers EX / PokePC public export used by Wilds:
@@ -220,12 +276,14 @@ local function applySpriteDef(entity, def)
   end
 
   -- Snapshot Followers-owned pose / movement fields before any swap.
+  -- Sprite rebind must never reset trailer motion (water freeze regression).
   local preserved = {
     facing = entity.facing,
     phase = entity.phase,
     flip = entity.flip,
     stepFlip = entity.stepFlip,
     walkFlip = entity.walkFlip,
+    walkPhase = entity.walkPhase,
     movement = entity.movement,
     position = entity.position,
     cellX = entity.cellX,
@@ -235,11 +293,15 @@ local function applySpriteDef(entity, def)
     targetX = entity.targetX,
     targetY = entity.targetY,
     moving = entity.moving,
+    progress = entity.progress,
+    stepFrames = entity.stepFrames,
+    hopStep = entity.hopStep,
     passable = entity.passable,
     pokepcShiny = entity.pokepcShiny,
     pokepcTrailer = entity.pokepcTrailer,
     pokepcTrailerKind = entity.pokepcTrailerKind,
     pokepcMon = entity.pokepcMon,
+    wildsFollowerRole = entity.wildsFollowerRole,
     form = entity.form,
   }
 
@@ -266,6 +328,7 @@ local function applySpriteDef(entity, def)
   entity.flip = preserved.flip
   entity.stepFlip = preserved.stepFlip
   entity.walkFlip = preserved.walkFlip
+  entity.walkPhase = preserved.walkPhase
   entity.movement = preserved.movement
   entity.position = preserved.position
   entity.cellX = preserved.cellX
@@ -275,6 +338,9 @@ local function applySpriteDef(entity, def)
   entity.targetX = preserved.targetX
   entity.targetY = preserved.targetY
   entity.moving = preserved.moving
+  entity.progress = preserved.progress
+  entity.stepFrames = preserved.stepFrames
+  entity.hopStep = preserved.hopStep
   entity.passable = preserved.passable
   if preserved.pokepcShiny ~= nil then entity.pokepcShiny = preserved.pokepcShiny end
   if preserved.pokepcTrailer ~= nil then entity.pokepcTrailer = preserved.pokepcTrailer end
@@ -282,6 +348,9 @@ local function applySpriteDef(entity, def)
     entity.pokepcTrailerKind = preserved.pokepcTrailerKind
   end
   if preserved.pokepcMon ~= nil then entity.pokepcMon = preserved.pokepcMon end
+  if preserved.wildsFollowerRole ~= nil then
+    entity.wildsFollowerRole = preserved.wildsFollowerRole
+  end
   if preserved.form ~= nil then entity.form = preserved.form end
   if renderDef.pokepcShiny and entity.pokepcShiny == nil then
     entity.pokepcShiny = true
@@ -416,43 +485,49 @@ function FollowersWaterCompat:activeFollower(ow, game)
   return best, mon
 end
 
-function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
-  resolveWaterSprite = resolveWaterSprite or self.resolveWaterSprite
-  local ex, exId = findExports(self.mod)
-  local wildsApi = wildsFollowerApi(self.mod)
-  if not ex and not wildsApi then
-    self.status.detected = false
-    self.status.surface = "n/a"
-    self.status.waterSprite = "n/a"
-    self.status.spriteKind = "n/a"
-    self.status.activeProvider = "n/a"
-    self._activeEntity = nil
+--- Update one Pokémon follower entity for the current surface.
+-- Returns true when SpriteRenderer.new ran for this entity.
+function FollowersWaterCompat:tickEntity(game, ow, entity, surfaceState, style, resolveWaterSprite, exId)
+  if not entity or entity.pokepcTrailerKind == "trainer" then
+    return false
+  end
+  if entity.wildsFollowerRole == "trainer_trailer" then
     return false
   end
 
-  local player = ow and ow.player
-  local inWater = playerInWater(player, game)
-  local surfaceState = inWater and "water" or "land"
-  local style = Config.spriteStyle(self.mod)
-  self.status.surface = surfaceState
-  self.status.requestedStyle = style
-
-  local entity, mon = self:activeFollower(ow, game)
-  if not entity then
-    self.status.waterSprite = "n/a"
-    self.status.spriteKind = "n/a"
-    self.status.lastAction = "no_follower"
-    self._cache.surfaceState = surfaceState
-    self._cache.requestedStyle = style
-    return false
-  end
-
+  local mon = self:monForEntity(entity, game)
   local species = speciesKeyOf(entity, mon)
-  local shiny = mon and monShiny(mon) or (entity.pokepcShiny == true)
+  local shiny = (mon and monShiny(mon)) or (entity.pokepcShiny == true)
   local variant = shiny and "shiny" or "normal"
   local form = entity.form or (mon and mon.form) or "default"
-  local entityId = tostring(entity.id or entity.spawnId or "")
-  local prev = self._cache
+  local prev, entityId = self:_cacheFor(entity)
+  if not prev then return false end
+
+  local function remember(extra)
+    prev.entityId = entityId
+    prev.speciesId = tostring(species or "")
+    prev.variant = variant
+    prev.form = form
+    prev.surfaceState = surfaceState
+    prev.requestedStyle = style
+    prev.image = extra and extra.image or nil
+    prev.frames = extra and extra.frames or nil
+    prev.walker = extra and extra.walker or nil
+    -- Mirror first trailer into legacy _cache for HUD/tests.
+    if self._activeEntity == nil or self._activeEntity == entity then
+      self._cache = {
+        entityId = prev.entityId,
+        speciesId = prev.speciesId,
+        variant = prev.variant,
+        form = prev.form,
+        surfaceState = prev.surfaceState,
+        requestedStyle = prev.requestedStyle,
+        image = prev.image,
+        frames = prev.frames,
+        walker = prev.walker,
+      }
+    end
+  end
 
   -- Stable identity cache: no resolve / no SpriteRenderer while nothing changed.
   if prev.entityId == entityId
@@ -464,26 +539,19 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
      and prev.image ~= nil then
     self.status.lastAction = "cached"
     if surfaceState == "water" then
-      self.status.spriteKind = self.status.spriteKind ~= "n/a" and self.status.spriteKind or "water"
+      entity.spriteState = "water"
+      entity.wildsFollowerWater = true
+      if self.status.spriteKind == "n/a" then
+        self.status.spriteKind = "water"
+      end
+      self.status.waterSprite = "YES"
     else
+      entity.spriteState = "land"
+      entity.wildsFollowerWater = false
       self.status.waterSprite = "n/a"
       self.status.spriteKind = "land"
     end
     return false
-  end
-
-  local function remember(extra)
-    self._cache = {
-      entityId = entityId,
-      speciesId = tostring(species or ""),
-      variant = variant,
-      form = form,
-      surfaceState = surfaceState,
-      requestedStyle = style,
-      image = extra and extra.image or nil,
-      frames = extra and extra.frames or nil,
-      walker = extra and extra.walker or nil,
-    }
   end
 
   local def, meta
@@ -555,6 +623,11 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
 
   if nextKey == prevKey then
     self.status.lastAction = "cached"
+    remember({
+      image = applyDef.image,
+      frames = applyDef.frames,
+      walker = applyDef.walker == true,
+    })
     return false
   end
 
@@ -617,6 +690,58 @@ function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
     walker = applyDef.walker == true,
   })
   return false
+end
+
+function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
+  resolveWaterSprite = resolveWaterSprite or self.resolveWaterSprite
+  local ex, exId = findExports(self.mod)
+  local wildsApi = wildsFollowerApi(self.mod)
+  if not ex and not wildsApi then
+    self.status.detected = false
+    self.status.surface = "n/a"
+    self.status.waterSprite = "n/a"
+    self.status.spriteKind = "n/a"
+    self.status.activeProvider = "n/a"
+    self._activeEntity = nil
+    return false
+  end
+
+  local player = ow and ow.player
+  local inWater = playerInWater(player, game)
+  local surfaceState = inWater and "water" or "land"
+  local style = Config.spriteStyle(self.mod)
+  self.status.surface = surfaceState
+  self.status.requestedStyle = style
+
+  local followers = self:collectFollowerEntities(ow)
+  if #followers == 0 then
+    self.status.detected = false
+    self.status.waterSprite = "n/a"
+    self.status.spriteKind = "n/a"
+    self.status.lastAction = "no_follower"
+    self._activeEntity = nil
+    self._cache.surfaceState = surfaceState
+    self._cache.requestedStyle = style
+    return false
+  end
+
+  self.status.detected = true
+  self._activeEntity = followers[1]
+  self._activeEntityId = entityIdentity(followers[1])
+
+  local anyReplaced = false
+  local waterYes = 0
+  for _, entity in ipairs(followers) do
+    local replaced = self:tickEntity(
+      game, ow, entity, surfaceState, style, resolveWaterSprite, exId)
+    if replaced then anyReplaced = true end
+    if entity.wildsFollowerWater == true then waterYes = waterYes + 1 end
+  end
+
+  if surfaceState == "water" then
+    self.status.waterSprite = (waterYes > 0) and "YES" or self.status.waterSprite
+  end
+  return anyReplaced
 end
 
 function FollowersWaterCompat:hudLines()

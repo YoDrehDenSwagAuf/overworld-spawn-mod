@@ -2,6 +2,18 @@
 
 ## 1.10.0
 
+### Follower water movement (PR #38 follow-up)
+
+- Fixed pack/trailer freeze on Surf: trail goals and steps are surface-aware for
+  Pokémon follower roles only (`primary`, `party_trailer`)
+- Trailer `NPC:update` no longer uses land walkability; steps advance via
+  `ControlEngine.advanceTrailerStep`
+- Trainer trailers are hidden while surfing and restored on land (no swim)
+- `FollowersWaterCompat` updates every Pokémon trailer with a per-entity cache
+  and `entity.pokepcMon` species (no shared active-entity overwrite)
+- Sprite rebind preserves `moving` / `targetX` / `targetY` / `progress`
+- Tests: `tests/follower_water_movement_unit_test.lua`
+
 ### Unified follower core — standalone (PR 1 follow-up)
 
 - Wilds no longer requires Followers EX or PokéPC Followers to run

@@ -762,6 +762,13 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
       return 0
     end
   end
+
+  -- Surface-aware step: stock NPC:update rejects water targets via land
+  -- walkability. Trailers always advance through our interpolator instead.
+  npc.update = function(self, map, entities)
+    ControlEngine.advanceTrailerStep(self, map, entities)
+  end
+  npc._wildsFollowerStep = true
   return npc
 end
 
@@ -771,17 +778,107 @@ local function behindOffset(facing, steps)
   return dx * steps, dy * steps
 end
 
-function ControlEngine:_walkableBehind(ow, px, py, facing, steps)
+function ControlEngine:_playerSurfing(ow, game)
+  local player = ow and ow.player
+  if not player then return false end
+  if player.surfing == true or player.isSurfing == true then return true end
+  if player.surface == "water" or player.surface == "WATER" then return true end
+  if game and game.player and game.player.surfing == true then return true end
+  return false
+end
+
+function ControlEngine:_trailSurface(ow, game)
+  if self:_playerSurfing(ow, game) then return "water" end
+  return "land"
+end
+
+local function isWaterMapCell(map, x, y)
+  if not (map and map.isWaterCell) then return false end
+  local ok, water = pcall(map.isWaterCell, map, x, y)
+  return ok and water == true
+end
+
+local function isLandWalkable(map, x, y)
+  if not (map and map.isWalkableCell) then return false end
+  local ok, walk = pcall(map.isWalkableCell, map, x, y)
+  return ok and walk == true
+end
+
+--- Surface-aware cell check for Wilds Pokémon trailers only.
+-- Never used for trainers/wilds/global NPC collision.
+-- context.surface: "land" | "water" | "land_to_water" | "water_to_land"
+-- context.role: wildsFollowerRole override when entity is not yet created
+function ControlEngine:isFollowerCellAllowed(game, ow, entity, x, y, context)
+  context = context or {}
+  if not (ow and ow.map) then return false end
+  local map = ow.map
+  if type(map.inBounds) == "function" then
+    local ok, inside = pcall(map.inBounds, map, x, y)
+    if not (ok and inside) then return false end
+  end
+
+  local role = context.role
+    or (entity and entity.wildsFollowerRole)
+    or (entity and entity.pokepcTrailerKind == "trainer" and "trainer_trailer")
+    or (entity and (entity.pikachuFollower == true or entity.wildsFollower == true)
+        and "primary")
+    or "party_trailer"
+
+  -- Water exception only for Pokémon follower roles.
+  local pokemonRole = (role == "primary" or role == "party_trailer")
+  if not pokemonRole then
+    return isLandWalkable(map, x, y)
+  end
+
+  local surface = context.surface or self:_trailSurface(ow, game)
+  if surface == "water" or surface == "land_to_water" then
+    -- Surf path: water cells the player can occupy, plus shore land for entry.
+    if isWaterMapCell(map, x, y) then return true end
+    if isLandWalkable(map, x, y) then return true end
+    return false
+  end
+
+  if surface == "water_to_land" then
+    if isLandWalkable(map, x, y) then return true end
+    if isWaterMapCell(map, x, y) then return true end
+    return false
+  end
+
+  -- Land: normal walkability. Allow current water cell so a surfing trailer
+  -- can step onto shore without freezing when the player exits water.
+  if isLandWalkable(map, x, y) then return true end
+  if entity and (entity.wildsFollowerWater == true or entity.spriteState == "water")
+      and isWaterMapCell(map, x, y) then
+    return true
+  end
+  return false
+end
+
+function ControlEngine:_walkableBehind(ow, px, py, facing, steps, entity, game, role, occupied)
+  local surface = self:_trailSurface(ow, game)
+  local ctx = { surface = surface, role = role }
   local ox, oy = behindOffset(facing, steps)
   local bx, by = px + ox, py + oy
-  if ow.map:inBounds(bx, by) and ow.map:isWalkableCell(bx, by) then
+  local function free(x, y)
+    if occupied and occupied[x .. "," .. y] then return false end
+    return self:isFollowerCellAllowed(game, ow, entity, x, y, ctx)
+  end
+  if free(bx, by) then
     return bx, by
   end
   bx, by = px, py
-  for s = steps, 1, -1 do
+  for s = math.max(steps, 1), 1, -1 do
     local sx, sy = behindOffset(facing, s)
     local tx, ty = px + sx, py + sy
-    if ow.map:inBounds(tx, ty) and ow.map:isWalkableCell(tx, ty) then
+    if free(tx, ty) then
+      return tx, ty
+    end
+  end
+  -- Prefer any free cell further back along the trail axis.
+  for s = steps + 1, steps + 6 do
+    local sx, sy = behindOffset(facing, s)
+    local tx, ty = px + sx, py + sy
+    if free(tx, ty) then
       return tx, ty
     end
   end
@@ -798,14 +895,53 @@ local function placeTrailerAt(npc, x, y, facing)
   if facing then npc.facing = facing end
 end
 
-function ControlEngine:_seedTrailBehind(ow, anchor, facing, n)
+--- Advance a trailer step without stock NPC land-walkability rejection.
+-- Uses the same fields as NPC movement (target/moving/progress/px/py).
+function ControlEngine.advanceTrailerStep(npc, _map, _entities)
+  if not npc or not npc.moving then return end
+  local toX, toY = npc.targetX, npc.targetY
+  if toX == nil or toY == nil then
+    npc.moving = false
+    npc.progress = 0
+    return
+  end
+  local frames = tonumber(npc.stepFrames) or 16
+  if frames < 1 then frames = 1 end
+  npc.progress = (tonumber(npc.progress) or 0) + 1
+  local fromX = tonumber(npc.cellX) or 0
+  local fromY = tonumber(npc.cellY) or 0
+  local t = npc.progress / frames
+  if t > 1 then t = 1 end
+  npc.px = (fromX + (toX - fromX) * t) * 16
+  npc.py = (fromY + (toY - fromY) * t) * 16
+  if npc.progress >= frames then
+    npc.cellX, npc.cellY = toX, toY
+    npc.px, npc.py = toX * 16, toY * 16
+    npc.targetX, npc.targetY = nil, nil
+    npc.moving = false
+    npc.progress = 0
+    npc.hopStep = nil
+    if npc.stepFlip ~= nil then
+      npc.stepFlip = not npc.stepFlip
+    end
+    npc.walkFlip = npc.stepFlip == true
+    npc.flip = npc.stepFlip == true
+  end
+end
+
+function ControlEngine:_seedTrailBehind(ow, anchor, facing, n, game, role)
   local goals = {}
+  local occupied = {}
   local px = anchor.cellX or 0
   local py = anchor.cellY or 0
   facing = facing or anchor.facing or "down"
+  role = role or "party_trailer"
+  -- Anchor cell is occupied by the player / stock leader.
+  occupied[px .. "," .. py] = true
   for i = 1, n do
-    local bx, by = self:_walkableBehind(ow, px, py, facing, i)
+    local bx, by = self:_walkableBehind(ow, px, py, facing, i, nil, game, role, occupied)
     goals[i] = { x = bx, y = by }
+    occupied[bx .. "," .. by] = true
   end
   return goals
 end
@@ -842,6 +978,8 @@ function ControlEngine:syncTrailers(game, ow, opts)
   if not ow or not ow.player or not ow.map then return end
   local mode = self:controlMode(game)
   local want = {}
+  local surfing = self:_playerSurfing(ow, game)
+  local surface = surfing and "water" or "land"
 
   -- Solo "pokemon" with a pack size still trails party mons (no trainer NPC).
   if mode == "pokemon" and self:followerCount(game) > 0 then
@@ -852,7 +990,10 @@ function ControlEngine:syncTrailers(game, ow, opts)
     for _, entry in ipairs(self:partyTrailMons(game)) do
       want[#want + 1] = { kind = "mon", mon = entry.mon }
     end
-    want[#want + 1] = { kind = "trainer", mon = nil }
+    -- Trainer trailers must not swim: hide while surfing, restore on land.
+    if not surfing then
+      want[#want + 1] = { kind = "trainer", mon = nil }
+    end
   elseif mode == "follow" or mode == "pack" then
     for _, entry in ipairs(self:partyTrailMons(game)) do
       want[#want + 1] = { kind = "mon", mon = entry.mon }
@@ -870,6 +1011,13 @@ function ControlEngine:syncTrailers(game, ow, opts)
   local stepClock = p.stepFramesCur or p.stepFrames
     or (anchor and (anchor.stepFramesCur or anchor.stepFrames)) or 16
 
+  -- Surface transition: reseed once so trail goals leave the frozen shore cell.
+  local prevSurface = ow._wildsFollowerTrailSurface
+  if prevSurface ~= surface then
+    mapEnter = true
+    ow._wildsFollowerTrailSurface = surface
+  end
+
   if not dirty and self:yellowStockFollowActive(game) and anchor ~= p
      and #trailers > 0 then
     local t1 = trailers[1]
@@ -882,9 +1030,17 @@ function ControlEngine:syncTrailers(game, ow, opts)
   if dirty then
     self:removeTrailers(ow)
     trailers = {}
-    local goals = self:_seedTrailBehind(ow, anchor, facing, #want)
+    local goals = self:_seedTrailBehind(ow, anchor, facing, #want, game, "party_trailer")
     for i, spec in ipairs(want) do
-      local cell = goals[i] or { x = anchor.cellX, y = anchor.cellY }
+      local role = (spec.kind == "trainer") and "trainer_trailer" or "party_trailer"
+      local cell = goals[i]
+      if not cell or not self:isFollowerCellAllowed(game, ow, nil, cell.x, cell.y, {
+        surface = surface, role = role,
+      }) then
+        local bx, by = self:_walkableBehind(ow, anchor.cellX or 0, anchor.cellY or 0,
+                                           facing, i, nil, game, role)
+        cell = { x = bx, y = by }
+      end
       local bx, by = cell.x, cell.y
       local okNpc, npc = pcall(function()
         return self:makeTrailer(game, ow, bx, by, facing, spec.kind, spec.mon, i)
@@ -904,9 +1060,18 @@ function ControlEngine:syncTrailers(game, ow, opts)
     ow.pokepcTrailCells = goals
     ow.pokepcTrailHead = { x = anchor.cellX, y = anchor.cellY }
   elseif mapEnter and #trailers > 0 then
-    local goals = self:_seedTrailBehind(ow, anchor, facing, #trailers)
+    local goals = self:_seedTrailBehind(ow, anchor, facing, #trailers, game, "party_trailer")
     for i, npc in ipairs(trailers) do
-      local g = goals[i] or { x = anchor.cellX, y = anchor.cellY }
+      local role = npc.wildsFollowerRole or "party_trailer"
+      local g = goals[i]
+      if not g or not self:isFollowerCellAllowed(game, ow, npc, g.x, g.y, {
+        surface = surface, role = role,
+      }) then
+        local bx, by = self:_walkableBehind(ow, anchor.cellX or 0, anchor.cellY or 0,
+                                           facing, i, npc, game, role)
+        g = { x = bx, y = by }
+        goals[i] = g
+      end
       placeTrailerAt(npc, g.x, g.y, facing)
       if want[i] and want[i].kind == "mon" then
         npc.pokepcMon = want[i].mon
@@ -929,8 +1094,13 @@ function ControlEngine:syncTrailers(game, ow, opts)
       head.ledgeHop = nil
       head.x, head.y = destX, destY
     else
-      head.ledgeHop = self:ledgeStep(game, ow, head.x, head.y, stepDir)
-                      and stepDir or nil
+      -- Ledge hops are land-only; skip on water.
+      if surface ~= "water" then
+        head.ledgeHop = self:ledgeStep(game, ow, head.x, head.y, stepDir)
+                        and stepDir or nil
+      else
+        head.ledgeHop = nil
+      end
       local goals = ow.pokepcTrailCells or {}
       for i = #trailers, 2, -1 do
         local prev = goals[i - 1]
@@ -951,10 +1121,19 @@ function ControlEngine:syncTrailers(game, ow, opts)
   local goals = ow.pokepcTrailCells or {}
   for i, npc in ipairs(trailers) do
     if npc.moving then
-      -- NPC:update owns px/py mid-step; do not overwrite.
+      -- Trailer update owns px/py mid-step; do not overwrite.
     else
       local cell = goals[i] or { x = anchor.cellX, y = anchor.cellY }
       local gx, gy = cell.x, cell.y
+      local role = npc.wildsFollowerRole or "party_trailer"
+      if not self:isFollowerCellAllowed(game, ow, npc, gx, gy, {
+        surface = surface, role = role,
+      }) then
+        -- Goal invalid for this surface: re-pick a valid cell behind the player.
+        gx, gy = self:_walkableBehind(ow, anchor.cellX or 0, anchor.cellY or 0,
+                                      facing, i, npc, game, role)
+        goals[i] = { x = gx, y = gy }
+      end
       if npc.cellX ~= gx or npc.cellY ~= gy then
         local far = math.abs((npc.cellX or 0) - gx) + math.abs((npc.cellY or 0) - gy)
         if far > 6 then
@@ -965,27 +1144,44 @@ function ControlEngine:syncTrailers(game, ow, opts)
           elseif npc.cellX > gx then dir = "left"
           elseif npc.cellY < gy then dir = "down"
           else dir = "up" end
-          npc.facing = dir
-          npc.hopStep = nil
-          npc.targetX = npc.cellX + (dir == "right" and 1 or dir == "left" and -1 or 0)
-          npc.targetY = npc.cellY + (dir == "down" and 1 or dir == "up" and -1 or 0)
-          if self:ledgeStep(game, ow, npc.cellX, npc.cellY, dir)
-             and Collision and Collision.DELTA and Collision.DELTA[dir] then
-            local d = Collision.DELTA[dir]
-            npc.targetX = npc.cellX + d[1] * 2
-            npc.targetY = npc.cellY + d[2] * 2
-            goals[i] = { x = npc.targetX, y = npc.targetY }
-            npc.hopStep = true
-          end
-          local stepLen = stepClock
-          if far > 1 and not npc.hopStep then
-            stepLen = math.max(1, math.floor(stepLen / 2))
-          end
-          npc.stepFrames = stepLen
-          npc.moving = true
-          npc.progress = 0
-          if opts.catchUp and npc.update then
-            npc:update(ow.map, ow.entities)
+          local stepX = npc.cellX + (dir == "right" and 1 or dir == "left" and -1 or 0)
+          local stepY = npc.cellY + (dir == "down" and 1 or dir == "up" and -1 or 0)
+          if not self:isFollowerCellAllowed(game, ow, npc, stepX, stepY, {
+            surface = surface, role = role,
+          }) then
+            -- Adjacent step blocked: warp-distance catch-up only when far.
+            if far > 2 then
+              placeTrailerAt(npc, gx, gy, dir)
+            end
+          else
+            npc.facing = dir
+            npc.hopStep = nil
+            npc.targetX = stepX
+            npc.targetY = stepY
+            if surface ~= "water"
+               and self:ledgeStep(game, ow, npc.cellX, npc.cellY, dir)
+               and Collision and Collision.DELTA and Collision.DELTA[dir] then
+              local d = Collision.DELTA[dir]
+              local hx, hy = npc.cellX + d[1] * 2, npc.cellY + d[2] * 2
+              if self:isFollowerCellAllowed(game, ow, npc, hx, hy, {
+                surface = surface, role = role,
+              }) then
+                npc.targetX = hx
+                npc.targetY = hy
+                goals[i] = { x = hx, y = hy }
+                npc.hopStep = true
+              end
+            end
+            local stepLen = stepClock
+            if far > 1 and not npc.hopStep then
+              stepLen = math.max(1, math.floor(stepLen / 2))
+            end
+            npc.stepFrames = stepLen
+            npc.moving = true
+            npc.progress = 0
+            if opts.catchUp and npc.update then
+              npc:update(ow.map, ow.entities)
+            end
           end
         end
       end

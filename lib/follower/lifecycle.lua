@@ -91,6 +91,9 @@ function Lifecycle:markEntity(npc, mon)
   npc.wildsFollower = true
   npc.isFollower = true
   npc.follower = true
+  if npc.wildsFollowerRole == nil and npc.pokepcTrailer ~= true then
+    npc.wildsFollowerRole = "primary"
+  end
   if mon then
     npc._wildsFollowerSpecies = mon.species
     npc._wildsFollowerFingerprint = self.selection.monFingerprint(mon)
