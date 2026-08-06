@@ -256,45 +256,46 @@ core (`lib/follower/`) when Followers EX is not driving trailers.
 
 Do not mix private Followers tables into Wilds water spawn/aggro fixes.
 
-## 19b. Unified follower core (`lib/follower/`)
+## Unified follower core (`lib/follower/`)
 
-PR 1 module layout:
+Standalone module layout (no Followers EX / PokéPC required):
 
 ```text
 lib/follower/
-  init.lua           - install / exports / default sprite refresh handler
-  constants.lua      - state key, save keys, external mod IDs
-  state.lua          - selection persistence (no renderer)
-  selection.lua      - party resolve, fingerprint, health, select API
-  lifecycle.lua      - spawn/despawn, map, bike/surf, hooks, sprite refresh
-  interaction.lua    - talk (face player, textbox; no sprite resolve)
-  compatibility.lua  - external detection, migration, single-owner guard
-  diagnostics.lua    - HUD lines
+  init.lua             - install / exports / wiring
+  constants.lua        - state keys, save keys, external mod IDs
+  state.lua            - selection persistence
+  selection.lua        - party resolve, fingerprint (+ species), health
+  settings.lua         - Control Mode / Trainer Trail / Followers + migration
+  sprite_service.lua   - resolveFollowerSprite + SPRITE_PIKACHU registration
+  control_engine.lua   - pack/trailers/modes (Followers EX concepts)
+  lifecycle.lua        - fallback hooks, party submenu, sprite refresh
+  interaction.lua      - talk helpers
+  compatibility.lua    - legacy mod detect / restore / migrate
+  diagnostics.lua      - HUD lines
 ```
 
-**Ownership**
+**Ownership:** Wilds always owns runtime. Legacy mods → migrate + warn.
 
-- Runtime key: `PikachuFollower.__wildsUnifiedFollowerState`
-- Save version: `follower_state_version = 1`
-- Wilds owns selection always; owns entity lifecycle unless `FOLLOWERS_EX`
-  control engine is active (then entity create/remove is deferred; no second
-  entity; warning logged).
+**Settings (Wilds Mod Settings):**
 
-**Sprite refresh (PR 2 hook)**
+| Label | Key | Values |
+|-------|-----|--------|
+| Control Mode | `follow_control` | trainer / pokemon |
+| Trainer Trail | `trainer_trail` | off / on |
+| Followers | `follower_count` | 0–6 |
 
-```lua
-follower.lifecycle:setSpriteRefreshHandler(handler)
-follower.lifecycle:requestFollowerSpriteRefresh(reason, ctx)
-```
+Engine mapping: trainer→`follow`; pokemon+trail→`lead_trainer`;
+pokemon+count>0→`pack`; pokemon+count0→`pokemon`.
 
-Default handler reuses existing Wilds providers + `FollowersWaterCompat`.
-No global `game.data.sprites[SPRITE_PIKACHU]` mutation per update.
+**Not duplicated:** `show_in_menu`, `wilds_grass_lift` (use Grass View),
+`wilds_town_spawns` (future Wilds feature).
 
-**Migration (once)**
+**Sprite refresh / PR 2:** `resolveFollowerSprite({ species, shiny, form,
+surface, style, role, game })`.
 
-Imports `selected_mon` / `selected_slot` / `followerPartyIndex` into Wilds
-keys; never deletes legacy saves. See
-`docs/analysis/FOLLOWER_INTEGRATION_PR1.md`.
+See `docs/analysis/STANDALONE_CRASH.md` and
+`docs/analysis/FOLLOWER_FEATURE_INVENTORY.md`.
 
 ## 20. Cave support
 

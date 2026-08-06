@@ -84,11 +84,14 @@ return function(mod)
   local devOverlay = DevOverlay.new(mod, logic)
   logic:attachDevTools(hud, overlay, browser, behaviorTick, devOverlay)
 
-  -- Unified follower core (selection / lifecycle / talk). Sprite refresh
-  -- reuses existing Wilds providers + FollowersWaterCompat (resolver = PR 2).
+  -- Unified follower core (standalone). Register SPRITE_PIKACHU before freeze.
   local Follower = V.require("follower/init")
   local follower = Follower.new(mod, { logic = logic, render = render })
   logic.follower = follower
+  local sprOk, sprErr = follower:registerContent()
+  if not sprOk then
+    DebugLog.warn(mod, "follower SPRITE_PIKACHU registration: %s", tostring(sprErr))
+  end
   follower:install({ game = mod.world and mod.world.game })
 
   -- Register public UI / present surfaces (safe even when Dev Overlay is off;
@@ -309,6 +312,27 @@ return function(mod)
   end
   mod.exports.followerSnapshot = function()
     return follower:snapshot()
+  end
+  mod.exports.setControlMode = function(game, mode)
+    return follower:setControlMode(game, mode)
+  end
+  mod.exports.controlMode = function(game)
+    return follower:controlMode(game)
+  end
+  mod.exports.setFollowerCount = function(game, n)
+    return follower:setFollowerCount(game, n)
+  end
+  mod.exports.followerCount = function(game)
+    return follower:followerCount(game)
+  end
+  mod.exports.syncAll = function(game, ow)
+    return follower:syncAll(game, ow)
+  end
+  mod.exports.syncTrailers = function(game, ow, opts)
+    return follower:syncTrailers(game, ow, opts)
+  end
+  mod.exports.resolveFollowerSprite = function(opts)
+    return follower.spriteService:resolveFollowerSprite(opts or {})
   end
   mod.exports.hud = hud
   mod.exports.overlay = overlay

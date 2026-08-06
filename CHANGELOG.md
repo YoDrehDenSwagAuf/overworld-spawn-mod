@@ -2,20 +2,28 @@
 
 ## 1.10.0
 
-### Unified follower core (PR 1)
+### Unified follower core — standalone (PR 1 follow-up)
+
+- Wilds no longer requires Followers EX or PokéPC Followers to run
+- Registered `SPRITE_PIKACHU` at load from built-in HGSS/PokeMMO walker sheets
+  (fixes standalone crash when companion mods are absent)
+- Ported Followers EX ControlEngine concepts into `lib/follower/control_engine.lua`
+  (control modes, trainer trail, follower count 0–6, pack trailers)
+- Added Wilds Mod Settings: Control Mode, Trainer Trail, Followers
+- Migrates legacy FOLLOWERS_EX / pokepc* / selected_mon settings once
+- PokéPC party selection, fingerprint (now includes species), talk, and
+  persistence remain built-in
+- Legacy companion mods are detected for migration only; Wilds owns runtime
+- Reuses existing Wilds runtime walker sheets (no PokéPC asset copy required)
+- Prepared `resolveFollowerSprite` for the shared resolver (PR 2)
+- Box LEADER UI and town-borrow spawns remain documented follow-ups
+
+### Earlier 1.10.0 draft notes
 
 - Integrated PokéPC follower selection and persistence into Wilds
 - Integrated Followers EX follower lifecycle concepts (single-follower owner)
-- Added a single follower owner to prevent duplicate entities and hooks
 - Added Red, Blue and Yellow follower compatibility
-- Added migration for existing follower selection data (`selected_mon`,
-  `selected_slot`, `followerPartyIndex`) without deleting legacy keys
-- Improved follower lifecycle stability across map transitions (no selection
-  reset; no global `SPRITE_PIKACHU` mutation per update)
-- Prepared the follower system for a shared sprite resolver via
-  `requestFollowerSpriteRefresh` / `setSpriteRefreshHandler`
-- Existing Sprite Style selection and water follower presentation unchanged
-- Documented the safe-location sprite reset root cause (full resolver = PR 2)
+- Documented the safe-location sprite reset root cause
 - Credits: masterwebx / Followers EX, gamecorner-033 / PokéPC Followers
 
 ## 1.9.0

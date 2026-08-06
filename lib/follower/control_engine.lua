@@ -1136,13 +1136,33 @@ function ControlEngine:install()
     if mode == "pokemon" or mode == "lead_trainer" or mode == "pack" then
       return false
     end
+    -- Pack trailers own the field (except Yellow stock talkable Pikachu).
     if mode == "follow" and engine:followerCount(game) > 0
        and not engine:yellowStockFollowActive(game) then
       return false
     end
-    if type(prevShouldSpawn) == "function" then
-      return prevShouldSpawn(game, ow)
+
+    -- Standalone Red/Blue/Yellow follow (count 0, or Yellow stock): spawn when
+    -- SPRITE_PIKACHU is registered and a healthy selection exists. Do not rely
+    -- solely on vanilla shouldSpawn (Yellow-Pikachu-only).
+    local save = game and game.save
+    if not (save and ow) then return false end
+    if not save.party or #save.party == 0 then return false end
+    if save.onBike then return false end
+    if ow.player and ow.player.surfing then return false end
+
+    local hasSprite = false
+    if engine.spriteService and engine.spriteService.hasSpritePikachu then
+      hasSprite = engine.spriteService:hasSpritePikachu(game) == true
     end
+    if not hasSprite then
+      local sprites = game.data and game.data.sprites
+      hasSprite = sprites ~= nil and sprites[Constants.SPRITE_ID] ~= nil
+    end
+    if not hasSprite then return false end
+
+    local mon = engine:getActiveFollowerMon(game)
+    if mon and (tonumber(mon.hp) or 0) > 0 then return true end
     return false
   end
 

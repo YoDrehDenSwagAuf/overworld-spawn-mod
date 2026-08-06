@@ -1,17 +1,21 @@
--- Wilds unified follower system (PR 1).
+-- Wilds unified follower system (standalone).
 --
--- Owns: selection, persistence, lifecycle, talk (when not deferred).
--- Does not own: wild spawn, water renderer, sprite style menu, shared resolver (PR 2).
+-- Owns: selection, persistence, control modes, trailers, talk, sprite refresh.
+-- No Followers EX / PokéPC runtime dependency.
 --
 -- Concepts adapted from:
---   * PokéPC Followers (gamecorner-033) — selection, fingerprint, talk, party UI
---   * Followers EX (masterwebx) — map-enter stability, single-owner discipline
+--   * PokéPC Followers (gamecorner-033) — selection, fingerprint, talk
+--   * Followers EX (masterwebx) — ControlEngine pack / modes / trailers
+-- Assets: Wilds HGSS/PokeMMO runtime sheets (no external sprite pack required).
 local V = ...
 local Constants = V.require("follower/constants")
 local State = V.require("follower/state")
 local Selection = V.require("follower/selection")
 local Compatibility = V.require("follower/compatibility")
 local Lifecycle = V.require("follower/lifecycle")
+local SpriteService = V.require("follower/sprite_service")
+local Settings = V.require("follower/settings")
+local ControlEngine = V.require("follower/control_engine")
 local FollowerDiagnostics = V.require("follower/diagnostics")
 local DebugLog = V.require("debug_log")
 local Config = V.require("config")
@@ -27,7 +31,7 @@ end
 
 local function supportedVersion()
   local GV = tryRequire("src.core.GameVersion")
-  if not (GV and GV.get) then return true end -- unit tests / no engine
+  if not (GV and GV.get) then return true end
   local ok, v = pcall(GV.get)
   if not ok or v == nil then return true end
   return v == "red" or v == "blue" or v == "yellow"
@@ -40,16 +44,27 @@ function Follower.new(mod, opts)
   self.state = State.new(mod)
   self.selection = Selection.new(mod, self.state)
   self.compat = Compatibility.new(mod, self.state)
-  self.lifecycle = Lifecycle.new(mod, self.state, self.selection)
+  self.settings = Settings.new(mod)
   self.logic = opts.logic
   self.render = opts.render
+  self.spriteService = SpriteService.new(mod, {
+    render = opts.render,
+    logic = opts.logic,
+  })
+  self.lifecycle = Lifecycle.new(mod, self.state, self.selection)
+  self.control = ControlEngine.new(mod, {
+    spriteService = self.spriteService,
+    settings = self.settings,
+    selection = self.selection,
+    render = opts.render,
+  })
   self._installed = false
   self._supported = supportedVersion()
+  -- Wilds is always the runtime owner after this follow-up.
+  self.state.ownerMode = Constants.OWNER.wilds
   return self
 end
 
---- Default sprite refresh: reuse existing Wilds land/water integration.
---- No map-specific decisions; no new asset paths in lifecycle.
 function Follower:installDefaultSpriteRefreshHandler()
   local follower = self
   self.lifecycle:setSpriteRefreshHandler(function(reason, ctx)
@@ -58,15 +73,25 @@ function Follower:installDefaultSpriteRefreshHandler()
     local ow = ctx.ow or (game and game.overworld)
     local mon = ctx.mon or follower.selection:getActiveFollowerMon(game, false)
     local entity = ctx.entity
-    if not entity and ow then
-      local PF = tryRequire("src.world.PikachuFollower")
-      if PF and PF.current then
-        local ok, npc = pcall(PF.current, ow)
-        if ok then entity = npc end
+    local surface = ctx.surface or follower.state.surface or "land"
+
+    if mon and follower.spriteService then
+      local resolved = follower.spriteService:resolveFollowerSprite({
+        species = mon.species,
+        shiny = mon.shiny == true or mon.isShiny == true,
+        form = mon.form,
+        surface = surface,
+        style = Config.spriteStyle(follower.mod),
+        role = "primary",
+        game = game,
+      })
+      if resolved and entity then
+        follower.lifecycle:applyLocalSpriteDef(entity, resolved)
+        follower.lifecycle:markEntity(entity, mon)
       end
     end
 
-    -- Prefer FollowersWaterCompat when available (existing Wilds path).
+    -- Water compat still ticks for surfing presentation.
     local logic = follower.logic
     if logic and logic.followersWater and logic.followersWater.tick
         and logic.resolveWaterSprite then
@@ -74,32 +99,17 @@ function Follower:installDefaultSpriteRefreshHandler()
         if reason and tostring(reason):find("style", 1, true) then
           logic.followersWater:invalidateStyle()
         end
-        logic.followersWater:tick(game, ow, function(speciesId, shiny, form, opts)
-          return logic:resolveWaterSprite(speciesId, shiny, form, opts)
+        logic.followersWater:tick(game, ow, function(speciesId, shiny, form, o)
+          return logic:resolveWaterSprite(speciesId, shiny, form, o)
         end)
       end)
-      return
     end
-
-    -- Standalone fallback: resolve land sheet via Wilds providers and apply locally.
-    if not (mon and entity and logic and logic.render and logic.render.spriteProviders) then
-      return
-    end
-    local style = Config.spriteStyle(follower.mod)
-    local shiny = mon.shiny == true or mon.isShiny == true
-    local variant = shiny and "shiny" or "normal"
-    local result = logic.render.spriteProviders:resolve(style, mon.species, variant, game)
-    if not (result and result.image) then return end
-    local def = {
-      id = Constants.SPRITE_ID,
-      image = result.image,
-      frames = result.frames or 6,
-      walker = result.walker ~= false,
-      trueColor = result.trueColor,
-    }
-    follower.lifecycle:applyLocalSpriteDef(entity, def)
-    follower.lifecycle:markEntity(entity, mon)
   end)
+end
+
+--- LOAD PHASE: register SPRITE_PIKACHU before content freeze.
+function Follower:registerContent()
+  return self.spriteService:registerLoadPhaseSprites()
 end
 
 function Follower:install(opts)
@@ -110,59 +120,118 @@ function Follower:install(opts)
     return false, "unsupported"
   end
 
-  local ownerMode, detected = self.compat:resolveOwnerMode()
   local game = opts.game
+  self.state.ownerMode = Constants.OWNER.wilds
 
-  -- Migrate legacy selection once (never deletes old keys).
-  self.compat:migrateSelection(game, self.selection)
-
-  if ownerMode == Constants.OWNER.external then
-    self.compat:logExternalOwnerWarning(detected)
-    -- Selection + party UI still available; no second entity / hooks.
-    self.lifecycle:installPartySubmenu()
-    self:installDefaultSpriteRefreshHandler()
-    self._installed = true
-    DebugLog.info(self.mod,
-      "follower core deferred entity ownership to external mod (%s)",
-      tostring(detected))
-    return true, "deferred_external"
+  -- Detect legacy mods for migration only — never defer runtime ownership.
+  self.compat:detectExternalMods()
+  if #(self.state.externalMods or {}) > 0 then
+    local msg = "[Wilds] Legacy follower mod detected. Settings and selection were imported; Wilds now owns follower runtime."
+    if self.mod and self.mod.log and self.mod.log.info then
+      pcall(function() self.mod.log:info("%s", msg) end)
+    end
+    DebugLog.info(self.mod, "%s", msg)
+    -- Best-effort: restore PokéPC / EX hooks so they do not double-run.
+    self.compat:restorePokePcIfPresent()
+    self.compat:restoreFollowersExIfPresent()
   end
 
-  -- Absorb PokéPC lifecycle if present so Wilds is the sole wrapper.
-  self.compat:restorePokePcIfPresent()
+  self.settings:migrateFromLegacy(game)
+  self.compat:migrateSelection(game, self.selection)
+  self.settings:alignSave(game)
+
+  -- Ensure sprite id exists (also called from registerContent during load).
+  pcall(function() self.spriteService:registerLoadPhaseSprites() end)
 
   self:installDefaultSpriteRefreshHandler()
-  local ok, reason = self.lifecycle:installHooks()
+
+  -- Control engine owns shouldSpawn / update / onMapEntered / trailers.
+  local okEngine, engineReason = self.control:install()
+  if not okEngine then
+    -- Engine modules unavailable (unit tests / early load): fall back to
+    -- lifecycle-only hooks so selection UI still works when possible.
+    DebugLog.info(self.mod, "control engine deferred (%s); lifecycle fallback",
+                  tostring(engineReason))
+    self.lifecycle:installHooks()
+  end
+
+  -- Party FOLLOWER submenu (selection). Lifecycle does not wrap update when
+  -- control engine installed.
   self.lifecycle:installPartySubmenu()
+  self:_installPartyLeaderItems()
+
   self._installed = true
-  DebugLog.info(self.mod, "follower core installed (owner=wilds reason=%s)",
-                tostring(reason))
-  return ok, reason
+  DebugLog.info(self.mod, "follower standalone core installed (engine=%s)",
+                tostring(okEngine))
+  return true, okEngine and "control_engine" or engineReason
+end
+
+function Follower:_installPartyLeaderItems()
+  -- Extend party submenu with LEADER (sets controlled mon) when hooks exist.
+  local mod = self.mod
+  local selection = self.selection
+  local control = self.control
+  if not (mod and mod.hooks and mod.hooks.wrap) then return end
+  if self._leaderMenuWrapped then return end
+  pcall(function()
+    mod.hooks:wrap("ui.party.submenu", function(next, game, items, mon, ctx)
+      local out = next(game, items, mon, ctx)
+      if type(out) ~= "table" or (ctx and ctx.battle)
+          or not selection.healthy(mon) then
+        return out
+      end
+      -- Avoid duplicating if already present.
+      local hasLeader = false
+      for _, row in ipairs(out) do
+        if row and (row.label == "LEADER" or row.label == "FOLLOWER"
+            or row.label == "FOLLOWING") then
+          hasLeader = true
+        end
+      end
+      if not hasLeader then
+        out[#out + 1] = {
+          label = "LEADER",
+          onSelect = function(selected, selectedGame)
+            local party = selectedGame and selectedGame.save
+              and selectedGame.save.party or {}
+            for i, m in ipairs(party) do
+              if m == selected then
+                control:setLeaderParty(selectedGame, i)
+                selection:selectFollower(selected, selectedGame, {})
+                control:syncAll(selectedGame, selectedGame.overworld)
+                break
+              end
+            end
+          end,
+        }
+      end
+      return out
+    end)
+  end)
+  self._leaderMenuWrapped = true
 end
 
 function Follower:reassertAfterModsLoaded(game)
-  local ownerMode, detected = self.compat:resolveOwnerMode()
-  self.compat:migrateSelection(game, self.selection)
-  if ownerMode == Constants.OWNER.external then
-    -- External loaded after us: tear down our hooks if we installed them.
-    if self.lifecycle._installed then
-      self.lifecycle:restoreHooks()
-    end
-    self.compat:logExternalOwnerWarning(detected)
-    self.state.ownerMode = Constants.OWNER.external
-    return "deferred_external"
-  end
-  -- External gone / PokéPC only: ensure Wilds hooks are outermost.
+  self.state.ownerMode = Constants.OWNER.wilds
+  self.compat:detectExternalMods()
   self.compat:restorePokePcIfPresent()
-  if not self.lifecycle._installed then
-    self.lifecycle:installHooks()
+  self.compat:restoreFollowersExIfPresent()
+  self.settings:migrateFromLegacy(game)
+  self.compat:migrateSelection(game, self.selection)
+  self.settings:alignSave(game)
+
+  if not self.control._installed then
+    local ok = self.control:install()
+    if not ok and not self.lifecycle._installed then
+      self.lifecycle:installHooks()
+    end
   else
-    -- Re-install so our wrappers stay outermost after late companion wraps.
-    self.lifecycle:restoreHooks()
-    self.lifecycle:installHooks()
+    -- Re-install outermost after late companion wraps.
+    self.control:restore()
+    self.control:install()
   end
   self.lifecycle:installPartySubmenu()
-  self.state.ownerMode = Constants.OWNER.wilds
+  self:_installPartyLeaderItems()
   self._installed = true
   return "wilds"
 end
@@ -173,29 +242,66 @@ function Follower:onMapEntered(ev)
     game = self.mod.world.game
   end
   local ow = game and game.overworld
-  self.lifecycle:onMapEntered(game, ow)
+  -- Control engine map.entered event also runs; keep selection reconciled.
+  self.selection:reconcile(game)
+  if not self.control._installed then
+    self.lifecycle:onMapEntered(game, ow)
+  end
 end
 
 function Follower:onSaveLoaded()
   local game = self.mod and self.mod.world and self.mod.world.game
+  self.settings:alignSave(game)
   self.lifecycle:onSaveLoaded(game)
+  if self.control._installed then
+    pcall(function()
+      self.control:alignSaveFromOptions(game)
+      self.control:syncAll(game, game and game.overworld)
+    end)
+  end
 end
 
 function Follower:onOptionsChanged(payload)
-  if payload and payload.key == "sprite_style" then
-    self.lifecycle:requestFollowerSpriteRefresh("style_changed", {
-      game = self.mod and self.mod.world and self.mod.world.game,
+  if not payload then return end
+  local key = payload.key
+  self.settings:onOptionsChanged(payload)
+  if key == "follow_control" or key == "trainer_trail" or key == "follower_count"
+      or key == "sprite_style" then
+    local game = self.mod and self.mod.world and self.mod.world.game
+    self.settings:alignSave(game)
+    if self.control._installed then
+      self.control:onOptionsChanged(payload)
+      pcall(function()
+        self.control:syncAll(game, game and game.overworld)
+      end)
+    end
+    self.lifecycle:requestFollowerSpriteRefresh("options:" .. tostring(key), {
+      game = game,
     })
   end
 end
 
 function Follower:getActiveFollowerMon(game, needHealthy)
+  if self.control and self.control.getActiveFollowerMon then
+    local mon = self.control:getActiveFollowerMon(game)
+    if mon then
+      if needHealthy == false or (tonumber(mon.hp) or 0) > 0 then
+        return mon
+      end
+    end
+  end
   return self.selection:getActiveFollowerMon(game, needHealthy)
 end
 
 function Follower:selectFollower(mon, game, quiet)
   return self.selection:selectFollower(mon, game, {
     onSelected = function(selected, slot, g)
+      if self.control and self.control.setLeaderParty then
+        self.control:setLeaderParty(g, slot)
+        pcall(function()
+          self.control:syncAll(g, g and g.overworld)
+        end)
+      end
       self.lifecycle:requestFollowerSpriteRefresh("party_select", {
         game = g,
         ow = g and g.overworld,
@@ -207,11 +313,41 @@ function Follower:selectFollower(mon, game, quiet)
   })
 end
 
+function Follower:setControlMode(game, mode)
+  return self.control:setControlMode(game, mode)
+end
+
+function Follower:controlMode(game)
+  return self.control:controlMode(game)
+end
+
+function Follower:setFollowerCount(game, n)
+  return self.control:setFollowerCount(game, n)
+end
+
+function Follower:followerCount(game)
+  return self.control:followerCount(game)
+end
+
+function Follower:syncAll(game, ow)
+  return self.control:syncAll(game, ow)
+end
+
+function Follower:syncTrailers(game, ow, opts)
+  return self.control:syncTrailers(game, ow, opts)
+end
+
 function Follower:snapshot()
   local snap = self.state:snapshot()
   snap.installed = self._installed
   snap.hooksInstalled = self.lifecycle._installed == true
+  snap.controlEngine = self.control._installed == true
   snap.supported = self._supported
+  snap.followControl = self.settings:followControl()
+  snap.trainerTrail = self.settings:trainerTrail()
+  snap.followerCount = self.settings:followerCount()
+  snap.engineMode = self.settings:engineMode()
+  snap.spriteRegistered = self.spriteService._registered == true
   return snap
 end
 
@@ -220,6 +356,7 @@ function Follower:hudLines()
 end
 
 function Follower:restore()
+  if self.control then self.control:restore() end
   self.lifecycle:restoreHooks()
   self._installed = false
 end
@@ -229,5 +366,8 @@ Follower.State = State
 Follower.Selection = Selection
 Follower.Compatibility = Compatibility
 Follower.Lifecycle = Lifecycle
+Follower.SpriteService = SpriteService
+Follower.Settings = Settings
+Follower.ControlEngine = ControlEngine
 
 return Follower

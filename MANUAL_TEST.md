@@ -138,15 +138,18 @@ available), and with Sprite Style HGSS/PokeMMO / Poke Followers / Pokedex.
 6. With Followers EX installed: only one follower entity; log line
    `[Wilds] External follower mod detected; integrated follower core remains owner.`
 
-## Unified follower core (no Followers EX)
+## Unified follower core (standalone — no companion mods)
 
-1. Red / Blue / Yellow: party submenu FOLLOWER selects a healthy mon.
-2. Selection survives Route → house / Pokémon Center → Route and save/load.
-3. Two identical species: selecting one keeps that individual (fingerprint).
-4. Fainted / removed selection falls back to first healthy; empty party despawns.
-5. Bike / Surf despawns; return to land restores without duplicate entity.
-6. Talk once: faces player; Yellow Pikachu keeps vanilla talk.
-7. No per-frame SpriteRenderer.new; party change at most one rebind.
+1. Red / Blue / Yellow with **only** Wilds installed: game boots to overworld.
+2. Party submenu FOLLOWER selects a healthy mon; FOLLOWING marks active.
+3. Mod Settings: Control Mode, Trainer Trail, Followers 0–6 apply live.
+4. Trainer control + count 1: one follower behind the player.
+5. Pokémon control + Trainer Trail: player is mon, trainer trails.
+6. Follower Count 3 / 6: pack trailers; no duplicate entities.
+7. Selection survives Route → house / Center → Route and save/load.
+8. Bike / Surf: no crash, no leftover trailers; return to land restores.
+9. Talk once on primary follower; Yellow Pikachu keeps vanilla talk when relevant.
+10. Legacy Followers EX / PokéPC: migration warning; prefer disabling them.
 
 ## PokeMMO walk animation
 

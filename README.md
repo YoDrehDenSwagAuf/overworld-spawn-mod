@@ -25,9 +25,9 @@ Available styles:
 
 - **HGSS / PokeMMO** (default) — uses the animated sprite sheets bundled with
   Wilds of Kanto.
-- **Poke Followers** — uses compatible walker sprites supplied through
-  **Followers EX / PokePC Followers** when those mods are installed. Falls back
-  to HGSS / PokeMMO when the follower provider is unavailable.
+- **Poke Followers** — uses compatible walker sprites when a Followers-style
+  provider is available; otherwise falls back to HGSS / PokeMMO (built-in).
+  Followers EX / PokéPC are **not required**.
 - **Pokedex** — uses the original Pokédex-based images.
 
 You can switch styles at any time from Wilds of Kanto **Mod Settings**.
@@ -36,20 +36,25 @@ being respawned.
 
 ### Party follower selection (integrated)
 
-Wilds of Kanto now includes an integrated follower core (PR 1):
+PokéPC follower selection and Followers EX control features are built directly
+into Wilds of Kanto.
 
-- Choose a party Pokémon as your active follower from the party submenu
-  (**FOLLOWER** / **FOLLOWING**)
-- Selection persists across maps and save/load (fingerprint + slot)
+- No additional follower mods are required
+- Choose a party Pokémon as your active follower (**FOLLOWER** / **FOLLOWING**)
+- **Control Mode** (Trainer / Pokémon), **Trainer Trail**, and **Followers**
+  (0–6) live in Wilds Mod Settings
+- Selection persists across maps and save/load
 - Red, Blue and Yellow are supported
 - Existing Sprite Style selection is unchanged
 - A shared sprite resolver ships in a separate follow-up PR
 
-When Followers EX is also installed, Wilds detects it, avoids a second
-follower entity, migrates saved selection when possible, and logs:
+Legacy Followers EX / PokéPC installs are detected for settings migration only.
+Wilds owns the follower runtime. Prefer disabling those mods to avoid duplicate
+hooks:
 
 ```text
-[Wilds] External follower mod detected; integrated follower core remains owner.
+[Wilds] Legacy follower mod detected. Settings and selection were imported;
+Wilds now owns follower runtime.
 ```
 
 **Spawn Amount**, **Random Enc**, **Water Mons**, **Dev Overlay**, and
@@ -92,13 +97,13 @@ available to the community:
   [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites) mod.
 - **masterwebx** — creator of
   [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
-  (lifecycle / map-enter concepts adapted into the unified follower core).
+  (control modes, pack trailers, ControlEngine concepts adapted into Wilds).
 - **gamecorner-033** — creator/maintainer of
   [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
   (party selection, fingerprint persistence, and talk behaviour adapted into
   Wilds; overworld art credited there to ShockSlayer / Pokémon Crystal Clear).
-- **TRW / DAX** — acknowledged in the upstream follower lineage where credited
-  by Followers EX / PokéPC Followers.
+- **TRW / DAX / Antigravity** — acknowledged in the upstream follower lineage
+  where credited by Followers EX / PokéPC Followers.
 - **DramaticShape** — Dramatic Shape Voxel Mod compatibility work that keeps
   native SpriteRenderer sheets working in orbit / first-person views.
 
@@ -122,13 +127,12 @@ The **HGSS / PokeMMO** label refers to Wilds of Kanto’s own runtime follow-spr
 sheets (`assets/generated/followsprites_runtime/`). It does not ship or claim
 Followers EX / PokePC assets.
 
-Optional companion mods (runtime detection only — **no hard dependencies**):
+Optional companion mods (runtime detection / migration only — **not required**):
 
 - [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
-  (`FOLLOWERS_EX`) — control / pack integration; depends on Wilds and the
-  PokePC sprite pack.
-- PokePC Followers Voxel Merge (`PokePCFollowers_VoxelMerge`) — walker sheet
-  assets used by Followers EX.
+  (`FOLLOWERS_EX`) — legacy; settings migrate into Wilds
+- PokePC Followers Voxel Merge (`PokePCFollowers_VoxelMerge`) — legacy sprite
+  pack / selection; Wilds ships its own walker sheets
 
 Companion mods can also register a provider at runtime:
 
@@ -582,10 +586,11 @@ luajit mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
 python3 tools/modkit.py validate mods/overworld_wild_spawns
 ```
 
-Follower core (no engine required):
+Follower core (no engine / no companion mods required):
 
 ```sh
 lua tests/follower_core_unit_test.lua
+lua tests/follower_standalone_boot_test.lua
 lua tests/followers_water_compat_unit_test.lua
 ```
 

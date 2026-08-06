@@ -11,9 +11,24 @@ local function healthy(mon)
   return type(mon) == "table" and (tonumber(mon.hp) or 0) > 0
 end
 
--- Fingerprint from stable engine fields (PokéPC). Species alone is insufficient
--- when the party has duplicates.
+-- Fingerprint from stable engine fields. Species alone is insufficient when
+-- the party has duplicates; include species + OT + DVs + catchRate.
 local function monFingerprint(mon)
+  if type(mon) ~= "table" then return nil end
+  local dvs = type(mon.dvs) == "table" and mon.dvs or {}
+  return table.concat({
+    tostring(mon.species or ""),
+    tostring(mon.otId or -1),
+    tostring(dvs.attack or -1),
+    tostring(dvs.defense or -1),
+    tostring(dvs.speed or -1),
+    tostring(dvs.special or -1),
+    tostring(mon.catchRate or -1),
+  }, ":")
+end
+
+-- Legacy PokéPC key without species (ot:dvs:catchRate).
+local function monFingerprintLegacy(mon)
   if type(mon) ~= "table" then return nil end
   local dvs = type(mon.dvs) == "table" and mon.dvs or {}
   return table.concat({
@@ -24,6 +39,14 @@ local function monFingerprint(mon)
     tostring(dvs.special or -1),
     tostring(mon.catchRate or -1),
   }, ":")
+end
+
+local function fingerprintsMatch(stored, mon)
+  if not stored or not mon then return false end
+  if monFingerprint(mon) == stored then return true end
+  -- Accept legacy keys missing species.
+  if monFingerprintLegacy(mon) == stored then return true end
+  return false
 end
 
 function Selection.new(mod, state)
@@ -55,15 +78,16 @@ function Selection:getActiveFollowerMon(game, needHealthy)
 
   if selKey then
     local atSlot = selSlot and party[selSlot]
-    if atSlot and monFingerprint(atSlot) == selKey
+    if atSlot and fingerprintsMatch(selKey, atSlot)
         and (not needHealthy or healthy(atSlot)) then
       return atSlot, selSlot
     end
     for i, mon in ipairs(party) do
-      if monFingerprint(mon) == selKey and (not needHealthy or healthy(mon)) then
-        -- Slot drifted (sort/swap); refresh stored slot hint.
-        if i ~= selSlot then
-          self.state:setSelection(selKey, i)
+      if fingerprintsMatch(selKey, mon) and (not needHealthy or healthy(mon)) then
+        -- Slot drifted (sort/swap); refresh stored slot hint + upgrade key.
+        local key = monFingerprint(mon)
+        if key and (i ~= selSlot or key ~= selKey) then
+          self.state:setSelection(key, i)
         end
         return mon, i
       end

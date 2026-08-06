@@ -80,26 +80,23 @@ function Compatibility:pokePcLifecycleActive()
   return false, hit
 end
 
---- Decide owner mode. Wilds prefers ownership; defers entity control when
---- Followers EX control engine is already driving trailers.
+--- Decide owner mode. Wilds always owns runtime after standalone follow-up.
+--- External mods are migration sources only.
 function Compatibility:resolveOwnerMode()
   self:detectExternalMods()
+  self.state.ownerMode = Constants.OWNER.wilds
   if self:followersExActive() then
-    self.state.ownerMode = Constants.OWNER.external
     return self.state.ownerMode, "FOLLOWERS_EX"
   end
   local pokeActive = self:pokePcLifecycleActive()
   if pokeActive then
-    -- PokéPC lifecycle will be restored then replaced by Wilds.
-    self.state.ownerMode = Constants.OWNER.wilds
     return self.state.ownerMode, "PokePCFollowers_VoxelMerge"
   end
-  self.state.ownerMode = Constants.OWNER.wilds
   return self.state.ownerMode, nil
 end
 
 function Compatibility:logExternalOwnerWarning(detectedId)
-  local msg = "[Wilds] External follower mod detected; integrated follower core remains owner."
+  local msg = "[Wilds] Legacy follower mod detected. Settings and selection were imported; Wilds now owns follower runtime."
   if detectedId then
     msg = msg .. " (" .. tostring(detectedId) .. ")"
   end
@@ -202,6 +199,26 @@ function Compatibility:restorePokePcIfPresent()
   if prev and type(prev.restore) == "function" then
     local ok = pcall(prev.restore)
     return ok == true
+  end
+  return false
+end
+
+--- Best-effort: disable Followers EX control engine if it exposes restore/uninstall.
+function Compatibility:restoreFollowersExIfPresent()
+  local hit = self:findMod(Constants.FOLLOWERS_EX_ID)
+  if not hit or not hit.exports then return false end
+  local ex = hit.exports
+  if type(ex.restore) == "function" then
+    local ok = pcall(ex.restore)
+    return ok == true
+  end
+  -- No public restore: leave markers; Wilds re-wraps outermost on mods.loaded.
+  -- Document that users should disable FOLLOWERS_EX when using standalone Wilds.
+  if self.mod and self.mod.log and self.mod.log.warn then
+    pcall(function()
+      self.mod.log:warn(
+        "[Wilds] FOLLOWERS_EX is installed; disable it to avoid duplicate follower hooks. Wilds owns runtime.")
+    end)
   end
   return false
 end

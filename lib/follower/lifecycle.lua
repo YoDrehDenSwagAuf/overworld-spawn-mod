@@ -167,8 +167,9 @@ function Lifecycle:shouldSpawn(game, ow)
   if save.onBike then return false end
   local player = ow.player
   if player and player.surfing then return false end
-  if self.state.ownerMode == Constants.OWNER.external then
-    -- External engine owns entities; Wilds must not drive stock spawn.
+  -- Crash guard: never spawn without a registered SPRITE_PIKACHU.
+  local sprites = game.data and game.data.sprites
+  if not (sprites and sprites[Constants.SPRITE_ID]) then
     return false
   end
   return self.selection:getActiveFollowerMon(game, true) ~= nil
@@ -229,9 +230,8 @@ end
 
 function Lifecycle:installHooks()
   if self._installed then return true, "already" end
-  if self.state.ownerMode == Constants.OWNER.external then
-    return false, "external_owner"
-  end
+  -- When control engine owns PikachuFollower hooks, lifecycle must not wrap them.
+  -- Callers (Follower:install) skip this when control engine succeeds.
 
   local PF = tryRequire("src.world.PikachuFollower")
   if not PF then return false, "no_pikachu_follower" end

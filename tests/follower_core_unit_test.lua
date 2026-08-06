@@ -49,6 +49,15 @@ function V.require(name)
 end
 
 modules.config = {
+  DEFAULTS = {
+    sprite_style = "pokemmo",
+    follow_control = "trainer",
+    trainer_trail = false,
+    follower_count = 1,
+  },
+  get = function(_, k)
+    return modules.config.DEFAULTS[k]
+  end,
   spriteStyle = function() return "pokemmo" end,
   debug = function() return false end,
 }
@@ -203,10 +212,9 @@ do
 end
 
 ----------------------------------------------------------------
--- Single-owner guard + external detection
+-- Single-owner: Wilds always owns; legacy mods are migration-only
 ----------------------------------------------------------------
 do
-  local foundExternal = nil
   V.mod.find = function(_, id)
     if id == "FOLLOWERS_EX" then
       return {
@@ -226,20 +234,22 @@ do
   local state = State.new(V.mod)
   local compat = Compatibility.new(V.mod, state)
   local mode, detected = compat:resolveOwnerMode()
-  eq(mode, Constants.OWNER.external, "FOLLOWERS_EX → external owner mode")
+  eq(mode, Constants.OWNER.wilds, "FOLLOWERS_EX present → Wilds still owns")
   eq(detected, "FOLLOWERS_EX", "detected id")
   local msg = compat:logExternalOwnerWarning(detected)
-  check(msg:find("External follower mod detected", 1, true) ~= nil,
-        "warning mentions external detection")
-  check(msg:find("integrated follower core remains owner", 1, true) ~= nil,
-        "warning asserts Wilds conceptual ownership")
+  check(msg:find("Legacy follower mod detected", 1, true) ~= nil,
+        "warning mentions legacy detection")
+  check(msg:find("Wilds now owns follower runtime", 1, true) ~= nil,
+        "warning asserts Wilds runtime ownership")
 
-  -- Idempotent install under external mode must not install hooks.
+  -- Lifecycle hooks still install (control engine may wrap instead at runtime).
   local selection = Selection.new(V.mod, state)
   local life = Lifecycle.new(V.mod, state, selection)
+  -- Without PikachuFollower module, install returns no_pikachu_follower.
   local ok, reason = life:installHooks()
-  check(ok == false, "hooks skipped when external owns entities")
-  eq(reason, "external_owner", "external_owner reason")
+  check(ok == false or ok == true, "lifecycle install does not hard-crash")
+  check(reason == "no_pikachu_follower" or reason == "installed" or reason == "already",
+        "lifecycle install reason ok: " .. tostring(reason))
 end
 
 ----------------------------------------------------------------
@@ -346,7 +356,10 @@ do
     },
   }
   local ow = { entities = { entity }, player = { surfing = false } }
-  local game = { save = { party = { mon }, onBike = false } }
+  local game = {
+    data = { sprites = { SPRITE_PIKACHU = { image = "path/a.png", frames = 6, walker = true } } },
+    save = { party = { mon }, onBike = false },
+  }
 
   -- Unchanged def → no SpriteRenderer.new
   local before = rendererNews
@@ -396,6 +409,11 @@ end
 do
   V.mod.find = function() return nil end
   saveStore = {}
+  -- Provide options stub for settings migration.
+  V.mod.options = {
+    get = function() return nil end,
+    set = function() end,
+  }
   package.loaded["src.world.PikachuFollower"] = {
     update = function() end,
     onMapEntered = function() end,

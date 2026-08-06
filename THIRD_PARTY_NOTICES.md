@@ -22,11 +22,13 @@ See the asset-specific documentation and credits for details.
   / [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
   remain owned by those projects. Wilds only consumes them through a runtime
   provider when installed; it does not redistribute those assets.
-- Selection, fingerprint, talk, and single-follower lifecycle **concepts**
-  adapted from PokéPC Followers (gamecorner-033) and Followers EX (masterwebx)
-  are implemented under `lib/follower/` in this repository. Upstream assets
-  are not copied. See `docs/analysis/FOLLOWER_INTEGRATION_PR1.md`.
-- TRW / DAX and other original authors named in upstream follower credits
+- Selection, fingerprint, talk, control modes, pack trailers, and lifecycle
+  **concepts** adapted from PokéPC Followers (gamecorner-033) and Followers EX
+  (masterwebx) live under `lib/follower/`. Upstream assets are not copied;
+  Wilds reuses its own HGSS/PokeMMO runtime walker sheets for standalone use.
+- ShockSlayer / Pokémon Crystal Clear overworld art remains credited via the
+  PokéPC lineage when that style is used from an optional companion pack.
+- TRW / DAX / Antigravity and other authors named in upstream follower credits
   remain credited there; Wilds does not relicense their work.
 - Optional battle-front art from
   [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites)

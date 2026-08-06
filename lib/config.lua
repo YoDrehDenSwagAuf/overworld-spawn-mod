@@ -27,6 +27,10 @@ Config.DEFAULTS = {
   suppress_random_grass = true,
   sprite_opacity = 1.0,
   sprite_style = "pokemmo",
+  -- Follower control (built-in; replaces FOLLOWERS_EX options).
+  follow_control = "trainer", -- trainer | pokemon
+  trainer_trail = false,
+  follower_count = 1, -- 0–6 extra party trailers
   -- Legacy key kept for save migration only (Mon Sprites toggle).
   use_animated_overworld_sprites = true,
   pokemon_grass_render_mode = "immersed",
