@@ -22,6 +22,11 @@ Config.DEFAULTS = {
   min_player_distance = 3,
   max_player_distance = 16,
   despawn_distance = 22,
+  -- Outdoor connection streaming (route↔town seams). Keep near origin-map
+  -- wilds temporarily; hard-despawn beyond this Chebyshev radius.
+  connection_keep_radius = 10,
+  connection_hard_despawn_radius = 18,
+  connection_max_age_steps = 48,
   min_spawn_separation = 3,
   wander_every_steps = 0, -- legacy; behaviours own movement now
   suppress_random_grass = true,

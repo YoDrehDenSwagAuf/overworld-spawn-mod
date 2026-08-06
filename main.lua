@@ -119,9 +119,12 @@ return function(mod)
       logic:_restoreVanillaEncounters("map.entered error")
     end
     pcall(function() follower:onMapEntered(ev) end)
-    -- Re-assert selected sprite style after companion mods retarget wilds
-    -- (Followers EX map.entered may run after ours depending on registration).
-    render._pendingSpriteRefresh = true
+    -- Soft outdoor connections must not force a full wild sprite refresh
+    -- (that looks like a mass respawn). Warps still re-assert style.
+    local soft = logic.lastTransition and logic.lastTransition.kind == "connection"
+    if not soft then
+      render._pendingSpriteRefresh = true
+    end
   end)
 
   mod.events:on("map.exited", function(ev)

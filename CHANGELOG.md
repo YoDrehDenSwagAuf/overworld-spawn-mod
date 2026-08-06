@@ -2,6 +2,19 @@
 
 ## 1.10.0
 
+### Outdoor connection streaming
+
+- Distinguished outdoor **connection** transitions from warp / door / teleport / boot
+- Soft Route↔Town (and outdoor↔outdoor) handoff: no full wilds reset at the seam
+- Near origin-map wilds stay visible across the border; far ones despawn by keep/hard radius
+- Follower trailers are reattached and rebated on connection (no `SpriteRenderer.new` / no flicker)
+- Map-ID alone no longer forces follower recreation
+- Safe interiors (Centers, houses, caves, fly/teleport, save load) keep full cleanup
+- No new town wild spawns in this change
+- Dev Overlay shows transition kind, kept/despawned wilds, follower reuse / renderer rebuilds
+- Tests: `tests/connection_transition_unit_test.lua`
+- Docs: `docs/CONNECTION_TRANSITIONS.md`
+
 ### Follower water movement (PR #38 follow-up)
 
 - Fixed pack/trailer freeze on Surf: trail goals and steps are surface-aware for

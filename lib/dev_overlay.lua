@@ -241,6 +241,31 @@ function DevOverlay:collectEntities(ctx)
   return list
 end
 
+function DevOverlay.transitionLines(logic)
+  local lines = {}
+  if not logic then return lines end
+  local stats = logic.transitionStats or {}
+  local ctx = logic.lastTransition
+  local kind = stats.kind or (ctx and ctx.kind) or "-"
+  lines[#lines + 1] = "Transition: " .. tostring(kind)
+  lines[#lines + 1] = "From Map: " .. tostring(stats.fromMapId or (ctx and ctx.fromMapId) or "-")
+  lines[#lines + 1] = "To Map: " .. tostring(stats.toMapId or (ctx and ctx.toMapId) or "-")
+  lines[#lines + 1] = "Wilds kept: " .. tostring(stats.wildsKept or 0)
+  lines[#lines + 1] = "Wilds despawned: " .. tostring(stats.wildsDespawned or 0)
+  local follower = logic.follower
+  local diag = follower and follower.control and follower.control.diag
+  if diag then
+    lines[#lines + 1] = "Followers reused: " .. tostring(diag.followersReused or 0)
+    lines[#lines + 1] = "Followers recreated: " .. tostring(diag.followersRecreated or 0)
+    lines[#lines + 1] = "Renderer rebuilds: " .. tostring(diag.spriteRendererNews or 0)
+  else
+    lines[#lines + 1] = "Followers reused: -"
+    lines[#lines + 1] = "Followers recreated: -"
+    lines[#lines + 1] = "Renderer rebuilds: -"
+  end
+  return lines
+end
+
 function DevOverlay:draw(_canvas, ctx)
   if not (love and love.graphics and love.graphics.print) then return end
   local cam = ctx and ctx.cam
@@ -248,6 +273,16 @@ function DevOverlay:draw(_canvas, ctx)
     local world = self.mod.world
     local ow = world and world.overworld and world:overworld()
     cam = ow and ow.camera
+  end
+
+  -- Corner transition diagnostics (dev overlay only).
+  local tlines = DevOverlay.transitionLines(self.logic)
+  if #tlines > 0 then
+    love.graphics.setColor(0.95, 0.95, 0.85, 0.9)
+    for i, ln in ipairs(tlines) do
+      love.graphics.print(ln, 8, 8 + (i - 1) * 12)
+    end
+    love.graphics.setColor(1, 1, 1, 1)
   end
 
   local entities = self:collectEntities(ctx)

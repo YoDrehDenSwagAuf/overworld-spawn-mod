@@ -25,6 +25,9 @@ local CellOccupancy = V.require("cell_occupancy")
 local FollowersWaterCompat = V.require("followers_water_compat")
 local CaveReachability = V.require("cave_reachability")
 local SafariCompat = V.require("safari_compat")
+local MapTransition = V.require("map_transition")
+local MapNeighbors = V.require("map_neighbors")
+local WildTransition = V.require("wild_transition")
 
 local SpawnLogic = {}
 SpawnLogic.__index = SpawnLogic
@@ -98,6 +101,11 @@ function SpawnLogic.new(mod, render)
   self._lastStepDiag = nil
   self.occupancy = CellOccupancy.new()
   self.followersWater = FollowersWaterCompat.new(mod)
+  self._exitStash = nil
+  self.lastTransition = nil
+  self.transitionStats = MapTransition.emptyStats()
+  self._softNeighborSet = nil
+  self._connectionStreaming = false
   -- Land style resolver bound after self exists (closure over logic).
   self.followersWater.resolveLandSprite = function(speciesId, isShiny, form, opts)
     opts = opts or {}
@@ -1697,6 +1705,7 @@ function SpawnLogic:trySpawn(game, opts)
   self.entities[id] = entity
   self.byMap[mapId] = self.byMap[mapId] or {}
   self.byMap[mapId][#self.byMap[mapId] + 1] = id
+  WildTransition.tagNewSpawn(entity, record, mapId)
   self:_recountRegions()
   self:_validateNoCellOverlap(ow)
 
@@ -1955,6 +1964,7 @@ function SpawnLogic:trySpawnWater(game, opts)
   self.entities[id] = entity
   self.byMap[mapId] = self.byMap[mapId] or {}
   self.byMap[mapId][#self.byMap[mapId] + 1] = id
+  WildTransition.tagNewSpawn(entity, record, mapId)
   self:_noteRecentWaterSpecies(species)
   self:_recountWaterZones()
   self:_validateNoCellOverlap(ow)
@@ -2365,11 +2375,122 @@ function SpawnLogic:testSpawn(species, opts)
   return result
 end
 
-function SpawnLogic:onMapEntered(ev)
+function SpawnLogic:_hardMapCleanup(mapId, reason)
+  if mapId then self:_clearMap(mapId) end
+  if self.overlay then self.overlay:clear() end
+  for _, entity in pairs(self.entities or {}) do
+    if entity then Behavior.clearSafariFlee(entity) end
+  end
+  self.safariStatus = SafariCompat.STATUS.INACTIVE
+  if self.state then
+    self.state.safariCompat = SafariCompat.STATUS.INACTIVE
+    self.state.safariActive = false
+  end
+  self._connectionStreaming = false
+  self._softNeighborSet = nil
+  if reason then
+    self:_restoreVanillaEncounters(reason)
+  end
+end
+
+function SpawnLogic:initializeForMapSoft(mapId, game, ctx)
+  -- Same region/spawn setup as a normal enter, but existing neighbor wilds are
+  -- already rebased and must not be cleared (initializeForMap never clears).
+  local ok = self:initializeForMap(mapId, game)
+  if ctx and ctx.stats then
+    self.transitionStats = ctx.stats
+    self.lastTransition = ctx
+  end
+  self._connectionStreaming = true
+  if ctx and ctx.neighborSet then
+    self._softNeighborSet = ctx.neighborSet
+  end
+  return ok
+end
+
+function SpawnLogic:_onConnectionEntered(ctx, ev)
+  local mapId = ctx.toMapId
+  self.activeMapId = mapId
+  self.stepsOnMap = 0
+  self.pendingBattle = nil
+  self._connectionStreaming = true
+  self._softNeighborSet = ctx.neighborSet
+  self.lastTransition = ctx
+  self.transitionStats = ctx.stats
+
+  -- Rebase + reattach origin wilds; do not wipe ow.entities wholesale.
+  WildTransition.rebaseAll(self, ctx)
+  WildTransition.pruneAfterTransition(self, ctx)
+  self.transitionStats = ctx.stats
+
+  if self.overlay then self.overlay:clear() end
+
+  if self.render and self.render.ensureStyleOwnedMakeEntity then
+    local game = gameOf(self.mod)
+    pcall(function() self.render:ensureStyleOwnedMakeEntity(game) end)
+  end
+
+  if not self:featureActive() then
+    self.state:reset("disabled")
+    self.state.updateCallbackRegistered = true
+    return
+  end
+
+  local game = gameOf(self.mod)
+  ctx.game = game
+  -- Towns / cities: keep neighbor wilds only — never initialize town spawns.
+  if not WildTransition.allowsNewSpawns(game, mapId) then
+    self.grassCache = nil
+    self.eligibleCache = nil
+    self.regions = {}
+    self.regionQuotas = {}
+    self.regionCounts = {}
+    self.targetSpawnCount = 0
+    self.surfaceInfo = nil
+    self.state.mapId = mapId
+    self.state.mapType = EncounterIndex.mapTypeOf(game, mapId)
+    self.state.mapName = EncounterIndex.mapLabel(game, mapId)
+    self.state.phase = "connection_stream"
+    self.state.initialized = true
+    self.state.mapSupported = true
+    self.state.fallbackToVanilla = true
+    self.state.updateCallbackRegistered = true
+    self.state.pipelineVerified = true
+    if self.hud then self.hud:markMapEnter() end
+    self:_log("connection enter %s→%s soft keep=%d despawn=%d (no town spawns)",
+              tostring(ctx.fromMapId), tostring(mapId),
+              ctx.stats.wildsKept or 0, ctx.stats.wildsDespawned or 0)
+    return
+  end
+
+  local ok, err = pcall(self.initializeForMapSoft, self, mapId, game, ctx)
+  if not ok then
+    self:_warn("initializeForMapSoft error: %s", tostring(err))
+    DebugLog.error(self.mod, "initializeForMapSoft error: %s", tostring(err))
+    self.state:markError(err)
+    if self.hud then self.hud:markMapEnter() end
+  else
+    self:_log("connection enter %s→%s soft keep=%d despawn=%d rebased=%d",
+              tostring(ctx.fromMapId), tostring(mapId),
+              ctx.stats.wildsKept or 0, ctx.stats.wildsDespawned or 0,
+              ctx.stats.wildsRebased or 0)
+  end
+end
+
+function SpawnLogic:_onHardMapEntered(ctx, ev)
   local mapId = ev.mapId
-  if self.activeMapId and self.activeMapId ~= mapId then
+  if ctx and ctx.fromMapId and ctx.fromMapId ~= mapId then
+    self:_clearMap(ctx.fromMapId)
+  elseif self.activeMapId and self.activeMapId ~= mapId then
     self:_clearMap(self.activeMapId)
   end
+  -- Also drop any deferred soft leftovers.
+  for id, record in pairs(self.spawns) do
+    if record and record.mapId and record.mapId ~= mapId then
+      self:_despawn(id, true)
+    end
+  end
+
   self.activeMapId = mapId
   self.stepsOnMap = 0
   self.grassCache = nil
@@ -2380,12 +2501,20 @@ function SpawnLogic:onMapEntered(ev)
   self.targetSpawnCount = 0
   self.surfaceInfo = nil
   self.pendingBattle = nil
+  self._connectionStreaming = false
+  self._softNeighborSet = nil
+  self.lastTransition = ctx
+  self.transitionStats = ctx and ctx.stats or MapTransition.emptyStats()
+  if self.transitionStats then
+    self.transitionStats.kind = ctx and ctx.kind
+    self.transitionStats.fromMapId = ctx and ctx.fromMapId
+    self.transitionStats.toMapId = mapId
+  end
 
   self:_clearMap(mapId)
   if self.overlay then self.overlay:clear() end
   self:_restoreVanillaEncounters("map enter before init")
 
-  -- Re-assert style-owned makeEntity wrap before any spawn (Followers may wrap later).
   if self.render and self.render.ensureStyleOwnedMakeEntity then
     local world = self.mod.world
     local game = world and world.game
@@ -2414,10 +2543,59 @@ function SpawnLogic:onMapEntered(ev)
   end
 end
 
+function SpawnLogic:onMapEntered(ev)
+  local mapId = ev.mapId
+  local game = gameOf(self.mod)
+  local world = self.mod.world
+  local ow = world and world.overworld and world:overworld()
+  local fromMapId = (self._exitStash and self._exitStash.mapId)
+                 or self.activeMapId
+  local ctx = MapTransition.buildContext({
+    fromMapId = fromMapId,
+    toMapId = mapId,
+    game = game,
+    ow = ow,
+    stash = self._exitStash,
+    reason = ev and (ev.reason or ev.kind or ev.transition),
+  })
+  ctx.game = game
+  ctx.stats.kind = ctx.kind
+  ctx.stats.fromMapId = fromMapId
+  ctx.stats.toMapId = mapId
+  self.lastTransition = ctx
+  self.transitionStats = ctx.stats
+
+  if MapTransition.isSoft(ctx) then
+    self:_onConnectionEntered(ctx, ev)
+  else
+    self:_onHardMapEntered(ctx, ev)
+  end
+  self._exitStash = nil
+end
+
 function SpawnLogic:onMapExited(ev)
-  if ev.mapId then self:_clearMap(ev.mapId) end
+  local mapId = ev and ev.mapId
+  local game = gameOf(self.mod)
+  self._exitStash = MapTransition.captureExit(self, ev)
+
+  -- Defer cleanup for outdoor maps that may soft-connect; hard-clear others.
+  local defer = mapId and MapNeighbors.isOutdoorMap(game, mapId)
+    and not MapNeighbors.isSafeInteriorMap(game, mapId)
+
+  if defer then
+    if self.overlay then self.overlay:clear() end
+    if self.activeMapId == mapId then
+      self.activeMapId = nil
+      self.grassCache = nil
+      -- Do not restore vanilla / reset state yet — connection enter may keep
+      -- origin wilds. Hard enter will clear via _onHardMapEntered.
+    end
+    return
+  end
+
+  self:_hardMapCleanup(mapId, nil)
+  if mapId then self:_clearMap(mapId) end
   if self.overlay then self.overlay:clear() end
-  -- Safari flee state must not leak onto the next map.
   for _, entity in pairs(self.entities or {}) do
     if entity then Behavior.clearSafariFlee(entity) end
   end
@@ -2426,13 +2604,14 @@ function SpawnLogic:onMapExited(ev)
     self.state.safariCompat = SafariCompat.STATUS.INACTIVE
     self.state.safariActive = false
   end
-  if self.activeMapId == ev.mapId then
+  if self.activeMapId == mapId then
     self.activeMapId = nil
     self.grassCache = nil
     self:_restoreVanillaEncounters("map exited")
     self.state:reset("map exited")
     self.state.updateCallbackRegistered = true
   end
+  self._exitStash = nil
 end
 
 function SpawnLogic:onMapReloaded(ev)
@@ -2679,10 +2858,14 @@ end
 function SpawnLogic:_despawnFar(ow)
   -- Despawn only entities far behind the player so long routes can refill
   -- ahead without popping in nearby. Never larger than map span.
+  -- During connection streaming, neighbor wilds use WildTransition radii.
   local maxDist = Config.DEFAULTS.despawn_distance
                   or Config.DEFAULTS.max_player_distance
   local mapSpan = math.max(ow.map.widthCells or 0, ow.map.heightCells or 0)
   maxDist = math.min(math.max(maxDist, 16), math.max(mapSpan, 16))
+  if self._connectionStreaming then
+    maxDist = math.max(maxDist, WildTransition.hardDespawnRadius(self.mod))
+  end
   local player = ow.player
   if not player then return end
   local doomed = {}
@@ -2693,7 +2876,9 @@ function SpawnLogic:_despawnFar(ow)
       if entity and entity.behaviorState and entity.behaviorState.chasing then
         -- keep
       else
-        local d = Grass.chebyshev(record.x, record.y, player.cellX, player.cellY)
+        local x = (entity and entity.cellX) or record.x
+        local y = (entity and entity.cellY) or record.y
+        local d = Grass.chebyshev(x, y, player.cellX, player.cellY)
         if d > maxDist then
           doomed[#doomed + 1] = id
         end
@@ -2763,15 +2948,24 @@ function SpawnLogic:onStepped(ev)
   self.stepsOnMap = self.stepsOnMap + 1
 
   if ow then
+    if self._connectionStreaming then
+      WildTransition.streamStep(self, ow)
+    end
     self:_despawnFar(ow)
     self:_wander(ow)
   end
 
   if not self.state.initialized then return end
 
+  -- Soft connection into towns/cities: never refill/create town wilds.
+  local game = gameOf(self.mod)
+  if self._connectionStreaming
+     and game and not WildTransition.allowsNewSpawns(game, ev.mapId) then
+    return
+  end
+
   local every = Config.refillSteps(self.mod)
   if self.stepsOnMap % every == 0 then
-    local game = gameOf(self.mod)
     if game then
       local surface = self.surfaceInfo and self.surfaceInfo.surface
       if surface ~= Surface.WATER then

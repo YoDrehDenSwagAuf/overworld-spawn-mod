@@ -57,6 +57,7 @@ function Follower.new(mod, opts)
     settings = self.settings,
     selection = self.selection,
     render = opts.render,
+    logic = opts.logic,
   })
   self._installed = false
   self._supported = supportedVersion()
@@ -246,6 +247,15 @@ function Follower:onMapEntered(ev)
   self.selection:reconcile(game)
   if not self.control._installed then
     self.lifecycle:onMapEntered(game, ow)
+  else
+    -- Soft outdoor connections: reuse trailers (SpawnLogic sets lastTransition).
+    local logic = self.logic
+    local ctx = logic and logic.lastTransition
+    if ctx and ctx.kind == "connection" then
+      pcall(function()
+        self.control:onConnectionTransition(game, ow, ctx)
+      end)
+    end
   end
 end
 

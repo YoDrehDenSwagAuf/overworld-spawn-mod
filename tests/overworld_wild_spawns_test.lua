@@ -453,8 +453,11 @@ mockOw.entities = { mockPlayer }
 logic:onMapEntered({ mapId = "ROUTE_TEST" })
 T.check(logic:countOnMap("ROUTE_TEST") > 0, "spawns after re-enter")
 logic:onMapExited({ mapId = "ROUTE_TEST" })
-T.eq(logic:countOnMap("ROUTE_TEST"), 0, "map exit removes entities")
-T.check(not exports.canSuppressVanilla(), "vanilla restored after map exit")
+-- Outdoor exits defer cleanup until the next enter classifies connection vs warp.
+T.check(logic._exitStash ~= nil, "outdoor exit stashes for soft handoff")
+logic:onMapEntered({ mapId = "PLAYER_HOUSE", reason = "door" })
+T.eq(logic:countOnMap("ROUTE_TEST"), 0, "door/warp enter removes route entities")
+T.check(not exports.canSuppressVanilla(), "vanilla restored after hard enter")
 
 mockOw.entities = { mockPlayer }
 logic:onMapEntered({ mapId = "ROUTE_TEST" })

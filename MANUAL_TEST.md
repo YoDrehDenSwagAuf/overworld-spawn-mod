@@ -151,6 +151,21 @@ available), and with Sprite Style HGSS/PokeMMO / Poke Followers / Pokedex.
 9. Talk once on primary follower; Yellow Pikachu keeps vanilla talk when relevant.
 10. Legacy Followers EX / PokéPC: migration warning; prefer disabling them.
 
+## Outdoor connection transitions (Route ↔ Town)
+
+With Dev Overlay on, walk these seams with 1 / 3 / 6 followers:
+
+1. **Route 1 → Viridian City** (walk): no follower flicker; nearby Route wilds
+   stay visible at the border; Dev Overlay shows `Transition: connection`.
+2. **Viridian → Route 1**: same soft handoff; followers keep moving.
+3. **Route 21 (Surf) → Pallet Town**: nearby water wilds may remain near the
+   shore; no new town spawns; followers stay on water sprites until land.
+4. **Pallet → Route 21**: reverse soft handoff.
+5. **Route → Pokémon Center / house / cave / Fly**: wilds clear fully; no
+   Route wilds inside the Center; followers still work.
+6. Confirm far border wilds eventually despawn (walk away), not instantly at
+   the seam.
+
 ## PokeMMO walk animation
 
 1. Sprite Style = HGSS / PokeMMO on a grass route.

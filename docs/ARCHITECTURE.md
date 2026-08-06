@@ -32,6 +32,9 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `lib/encounter_pick.lua` | Weighted table picks |
 | `lib/encounter_index.lua` | Preview location index |
 | `lib/spawn_logic.lua` | Lifecycle, spawn, battle |
+| `lib/map_transition.lua` | TransitionContext (connection / warp / door / teleport / boot) |
+| `lib/map_neighbors.lua` | Map connection read + coordinate rebase |
+| `lib/wild_transition.lua` | Soft wild keep / stream across outdoor seams |
 | `lib/spawn_render.lua` | Sprite register + entities + pose/draw |
 | `lib/spawn_state.lua` | Fail-safe readiness flags |
 | `lib/diagnostics.lua` | HUD snapshot / renderer source lines |

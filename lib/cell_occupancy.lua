@@ -393,6 +393,30 @@ function CellOccupancy:releaseEntity(entity)
   return true
 end
 
+-- Atomically move an entity's occupancy to a new cell (connection rebase).
+-- Fails without mutating when the target is held by another owner.
+function CellOccupancy:rebaseEntity(entity, newX, newY)
+  local owner = entityToken(entity)
+  if not owner or newX == nil or newY == nil then
+    return false, "bad_args"
+  end
+  if self:isOccupied(newX, newY, entity) then
+    self.stats.conflicts = (self.stats.conflicts or 0) + 1
+    return false, "occupied"
+  end
+  if self:isReserved(newX, newY, entity) then
+    self.stats.conflicts = (self.stats.conflicts or 0) + 1
+    return false, "reserved"
+  end
+  self:cancelMove(entity)
+  self:_clearOwnerCell(owner)
+  self:_setOccupied(newX, newY, owner, "entity", entity)
+  if entity then
+    entity.cellX, entity.cellY = newX, newY
+  end
+  return true
+end
+
 local function absorbEntity(self, entity, kind)
   if not CellOccupancy.isBlockingEntity(entity) then return end
   local owner = entityToken(entity)

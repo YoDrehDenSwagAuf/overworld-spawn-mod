@@ -98,6 +98,8 @@ function ControlEngine.new(mod, deps)
   self._installed = false
   self._restoreState = nil
   self._pendingMapTrailerSync = false
+  self._pendingConnectionTrailerSync = false
+  self._connectionOffset = nil
   self._optCache = {}
   self._eventOff = {}
   self._talkWrapped = false
@@ -114,6 +116,11 @@ function ControlEngine.new(mod, deps)
     overworldUpdateCalls = 0,
     lastSource = nil,
     lastSurfing = false,
+    makeTrailerCalls = 0,
+    spriteRendererNews = 0,
+    followersReused = 0,
+    followersRecreated = 0,
+    connectionSyncs = 0,
   }
   return self
 end
@@ -703,6 +710,87 @@ function ControlEngine:removeTrailers(ow)
   ow.pokepcTrailCells = {}
 end
 
+local function shiftCoord(v, delta)
+  if v == nil then return nil end
+  return v + delta
+end
+
+function ControlEngine:_rebaseTrailerEntity(npc, offset)
+  if not npc or not offset then return end
+  local dx = tonumber(offset.x) or 0
+  local dy = tonumber(offset.y) or 0
+  if dx == 0 and dy == 0 then return end
+  npc.cellX = shiftCoord(npc.cellX, dx)
+  npc.cellY = shiftCoord(npc.cellY, dy)
+  npc.targetX = shiftCoord(npc.targetX, dx)
+  npc.targetY = shiftCoord(npc.targetY, dy)
+  if npc.px ~= nil then npc.px = npc.px + dx * 16 end
+  if npc.py ~= nil then npc.py = npc.py + dy * 16 end
+end
+
+function ControlEngine:_rebaseTrailMeta(ow, offset)
+  if not ow or not offset then return end
+  local dx = tonumber(offset.x) or 0
+  local dy = tonumber(offset.y) or 0
+  if dx == 0 and dy == 0 then return end
+  if ow.pokepcTrailHead then
+    ow.pokepcTrailHead.x = shiftCoord(ow.pokepcTrailHead.x, dx)
+    ow.pokepcTrailHead.y = shiftCoord(ow.pokepcTrailHead.y, dy)
+  end
+  if ow.pokepcTrailCells then
+    for _, cell in ipairs(ow.pokepcTrailCells) do
+      if cell then
+        cell.x = shiftCoord(cell.x, dx)
+        cell.y = shiftCoord(cell.y, dy)
+      end
+    end
+  end
+end
+
+-- Re-insert existing trailer entity refs into engine lists after setMap.
+-- Does not create NPCs or SpriteRenderers.
+function ControlEngine:_reattachTrailers(ow)
+  if not ow then return 0 end
+  ow.npcs = ow.npcs or {}
+  ow.entities = ow.entities or {}
+  local trailers = ow.pokepcTrailers or {}
+  local attached = 0
+  for _, npc in ipairs(trailers) do
+    if npc and npc.pokepcTrailer then
+      local inNpcs, inEnts = false, false
+      for _, n in ipairs(ow.npcs) do
+        if n == npc then inNpcs = true; break end
+      end
+      for _, e in ipairs(ow.entities) do
+        if e == npc then inEnts = true; break end
+      end
+      if not inNpcs then table.insert(ow.npcs, npc) end
+      if not inEnts then table.insert(ow.entities, npc) end
+      npc.update = function() end
+      npc._wildsFollowerStepOwned = true
+      npc._wildsFollowerStep = true
+      attached = attached + 1
+    end
+  end
+  return attached
+end
+
+function ControlEngine:onConnectionTransition(game, ow, ctx)
+  game = game or self:_game()
+  ow = ow or (game and game.overworld)
+  local offset = ctx and ctx.connectionOffset or { x = 0, y = 0 }
+  self._connectionOffset = offset
+  self._pendingConnectionTrailerSync = true
+  self._pendingMapTrailerSync = false
+  if ow and ow.pokepcTrailers and ctx and ctx.stash and ctx.stash.trailers
+     and #(ow.pokepcTrailers) == 0 and #(ctx.stash.trailers) > 0 then
+    ow.pokepcTrailers = ctx.stash.trailers
+    ow.pokepcTrailCells = ctx.stash.trailCells or ow.pokepcTrailCells
+    ow.pokepcTrailHead = ctx.stash.trailHead or ow.pokepcTrailHead
+  end
+  pcall(function() self:syncPlayerControlVisual(game, ow) end)
+end
+
 function ControlEngine:ledgeStep(game, ow, cx, cy, dir)
   local Collision = tryRequire("src.world.Collision")
   if not (game and ow and ow.map and dir and Collision and Collision.DELTA
@@ -754,6 +842,7 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
     and self:_isYellow()
     and mon and mon.species == "PIKACHU") and true or false
 
+  self.diag.makeTrailerCalls = (self.diag.makeTrailerCalls or 0) + 1
   if kind == "trainer" then
     -- Walk sheets are DMG greyscale; trueColor would draw raw greys.
     local def = self:_trainerWalkDef(game)
@@ -766,7 +855,10 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
         source = def.source,
         paletteSource = def.paletteSource,
       }, npc.id)
-      if ok and sprite then npc.sprite = sprite end
+      if ok and sprite then
+        npc.sprite = sprite
+        self.diag.spriteRendererNews = (self.diag.spriteRendererNews or 0) + 1
+      end
     end
   else
     local species = mon and mon.species or "CHARMANDER"
@@ -789,7 +881,10 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
         trueColor = resolved.trueColor ~= false,
         pokepcShiny = npc.pokepcShiny,
       }, npc.id)
-      if ok and sprite then npc.sprite = sprite end
+      if ok and sprite then
+        npc.sprite = sprite
+        self.diag.spriteRendererNews = (self.diag.spriteRendererNews or 0) + 1
+      end
     end
     npc._wildsFollowerSpecies = species
   end
@@ -1056,8 +1151,35 @@ function ControlEngine:syncTrailers(game, ow, opts)
       npc._wildsFollowerStep = true
     end
   end
+
+  local connectionTransition = opts.connectionTransition == true
+  local offset = opts.offset or self._connectionOffset
+  -- Outdoor connection: reattach + rebase. Map-ID alone must not rebuild.
+  if connectionTransition then
+    self.diag.connectionSyncs = (self.diag.connectionSyncs or 0) + 1
+    if offset then
+      for _, npc in ipairs(trailers) do
+        self:_rebaseTrailerEntity(npc, offset)
+      end
+      self:_rebaseTrailMeta(ow, offset)
+    end
+    local attached = self:_reattachTrailers(ow)
+    trailers = ow.pokepcTrailers or trailers
+    if compositionDirty(trailers, want) then
+      self.diag.followersRecreated = (self.diag.followersRecreated or 0) + 1
+      connectionTransition = false
+      opts.mapEnter = true
+    else
+      self.diag.followersReused = (self.diag.followersReused or 0) + attached
+      self._connectionOffset = nil
+      opts.mapEnter = false
+    end
+  end
+
   local dirty = compositionDirty(trailers, want)
-    or not trailersAliveInWorld(ow, trailers)
+  if not connectionTransition then
+    dirty = dirty or not trailersAliveInWorld(ow, trailers)
+  end
 
   local p = ow.player
   local anchor = self:_trailAnchor(game, ow, p)
@@ -1114,6 +1236,7 @@ function ControlEngine:syncTrailers(game, ow, opts)
     ow.pokepcTrailers = trailers
     ow.pokepcTrailCells = goals
     ow.pokepcTrailHead = { x = anchor.cellX, y = anchor.cellY }
+    self.diag.followersRecreated = (self.diag.followersRecreated or 0) + #trailers
   elseif mapEnter and #trailers > 0 then
     local goals = self:_seedTrailBehind(ow, anchor, facing, #trailers, game, "party_trailer")
     for i, npc in ipairs(trailers) do
@@ -1308,7 +1431,23 @@ function ControlEngine:update(game, ow, opts)
     end
     self:forceYellowStockPikachuArt(ow, game)
     self:syncPlayerControlVisual(game, ow)
-    if self._pendingMapTrailerSync or opts.mapEnter then
+    local logic = self.deps and self.deps.logic
+    local ctx = logic and logic.lastTransition
+    local softConn = ctx and ctx.kind == "connection" and not ctx._followerSyncDone
+    if self._pendingConnectionTrailerSync or opts.connectionTransition or softConn then
+      self._pendingConnectionTrailerSync = false
+      self._pendingMapTrailerSync = false
+      if ctx then
+        ctx._followerSyncDone = true
+        if not self._connectionOffset and ctx.connectionOffset then
+          self._connectionOffset = ctx.connectionOffset
+        end
+      end
+      self:syncTrailers(game, ow, {
+        connectionTransition = true,
+        offset = opts.offset or self._connectionOffset,
+      })
+    elseif self._pendingMapTrailerSync or opts.mapEnter then
       self._pendingMapTrailerSync = false
       self:syncTrailers(game, ow, { mapEnter = true })
     else
@@ -1588,6 +1727,8 @@ function ControlEngine:install()
         local game = engine:_game()
         local ow = game and game.overworld
         pcall(function() engine:syncPlayerControlVisual(game, ow) end)
+        -- Decision happens in update() after SpawnLogic sets lastTransition
+        -- (this listener may run before main's map.entered handler).
         engine._pendingMapTrailerSync = true
       end)
     end)
