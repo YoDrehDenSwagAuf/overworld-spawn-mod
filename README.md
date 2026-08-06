@@ -31,8 +31,26 @@ Available styles:
 - **Pokedex** — uses the original Pokédex-based images.
 
 You can switch styles at any time from Wilds of Kanto **Mod Settings**.
-Existing wild Pokémon and your active Followers EX follower update immediately
-without being respawned.
+Existing wild Pokémon and your active follower update immediately without
+being respawned.
+
+### Party follower selection (integrated)
+
+Wilds of Kanto now includes an integrated follower core (PR 1):
+
+- Choose a party Pokémon as your active follower from the party submenu
+  (**FOLLOWER** / **FOLLOWING**)
+- Selection persists across maps and save/load (fingerprint + slot)
+- Red, Blue and Yellow are supported
+- Existing Sprite Style selection is unchanged
+- A shared sprite resolver ships in a separate follow-up PR
+
+When Followers EX is also installed, Wilds detects it, avoids a second
+follower entity, migrates saved selection when possible, and logs:
+
+```text
+[Wilds] External follower mod detected; integrated follower core remains owner.
+```
 
 **Spawn Amount**, **Random Enc**, **Water Mons**, **Dev Overlay**, and
 **Test Spawn** live in Mod Settings together with Sprite Style. The normal
@@ -73,11 +91,14 @@ available to the community:
 - **OtaconRevengeance** — creator of the
   [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites) mod.
 - **masterwebx** — creator of
-  [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex).
+  [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
+  (lifecycle / map-enter concepts adapted into the unified follower core).
 - **gamecorner-033** — creator/maintainer of
   [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
-  (walker sheet provider used by Followers EX; overworld art credited there to
-  ShockSlayer / Pokémon Crystal Clear).
+  (party selection, fingerprint persistence, and talk behaviour adapted into
+  Wilds; overworld art credited there to ShockSlayer / Pokémon Crystal Clear).
+- **TRW / DAX** — acknowledged in the upstream follower lineage where credited
+  by Followers EX / PokéPC Followers.
 - **DramaticShape** — Dramatic Shape Voxel Mod compatibility work that keeps
   native SpriteRenderer sheets working in orbit / first-person views.
 
@@ -559,6 +580,13 @@ Headless validation (after bootstrap):
 cd .deps/gen1recomp
 luajit mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
 python3 tools/modkit.py validate mods/overworld_wild_spawns
+```
+
+Follower core (no engine required):
+
+```sh
+lua tests/follower_core_unit_test.lua
+lua tests/followers_water_compat_unit_test.lua
 ```
 
 ## Contributing and bug reports

@@ -12,6 +12,7 @@
 --   lib/sprite_resolver.lua - land vs water SpriteRenderer def selection
 --   lib/cell_occupancy.lua  - atomic spawn / move cell reservations
 --   lib/followers_water_compat.lua - optional Followers EX water sprites
+--   lib/follower/           - unified follower core (selection/lifecycle/talk)
 --   lib/diagnostics.lua     - status derivation for HUD/logs
 --   options.lua             - Mod Manager option schema
 --
@@ -83,6 +84,13 @@ return function(mod)
   local devOverlay = DevOverlay.new(mod, logic)
   logic:attachDevTools(hud, overlay, browser, behaviorTick, devOverlay)
 
+  -- Unified follower core (selection / lifecycle / talk). Sprite refresh
+  -- reuses existing Wilds providers + FollowersWaterCompat (resolver = PR 2).
+  local Follower = V.require("follower/init")
+  local follower = Follower.new(mod, { logic = logic, render = render })
+  logic.follower = follower
+  follower:install({ game = mod.world and mod.world.game })
+
   -- Register public UI / present surfaces (safe even when Dev Overlay is off;
   -- availability / menu rows gate on the live option). Still LOAD PHASE.
   hud:register()
@@ -107,6 +115,7 @@ return function(mod)
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("map.entered error")
     end
+    pcall(function() follower:onMapEntered(ev) end)
     -- Re-assert selected sprite style after companion mods retarget wilds
     -- (Followers EX map.entered may run after ours depending on registration).
     render._pendingSpriteRefresh = true
@@ -156,6 +165,7 @@ return function(mod)
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("save.loaded error")
     end
+    pcall(function() follower:onSaveLoaded() end)
   end)
 
   mod.events:on("save.created", function()
@@ -174,6 +184,14 @@ return function(mod)
     Config.migrateCaveSpawnMode(mod)
     Config.migrateDevOverlayOption(mod)
     render:finalizeSpriteProviders(mod.world and mod.world.game)
+    pcall(function()
+      local game = mod.world and mod.world.game
+      follower:reassertAfterModsLoaded(game)
+      if not follower.lifecycle._installed
+         and follower.state.ownerMode ~= "external" then
+        follower.lifecycle:installHooks()
+      end
+    end)
     if Config.devOverlay(mod) then
       local game = mod.world and mod.world.game
       if game then
@@ -197,6 +215,7 @@ return function(mod)
     Config.migrateSpriteStyleOption(mod)
     local game = mod.world and mod.world.game
     render:finalizeSpriteProviders(game)
+    pcall(function() follower:reassertAfterModsLoaded(game) end)
   end)
 
   -- ------- hooks (installed while enabled; suppress is fail-safe gated)
@@ -265,6 +284,7 @@ return function(mod)
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("options_changed error")
     end
+    pcall(function() follower:onOptionsChanged(payload) end)
     if payload and payload.mod == mod.id and payload.key == "enabled" then
       syncFeatureState()
     end
@@ -275,11 +295,21 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "1.9.0"
+  mod.exports.version = "1.10.0"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated
   mod.exports.spriteProviders = render.spriteProviders
+  mod.exports.follower = follower
+  mod.exports.getActiveFollowerMon = function(game, needHealthy)
+    return follower:getActiveFollowerMon(game, needHealthy ~= false)
+  end
+  mod.exports.selectFollower = function(mon, game, quiet)
+    return follower:selectFollower(mon, game, quiet)
+  end
+  mod.exports.followerSnapshot = function()
+    return follower:snapshot()
+  end
   mod.exports.hud = hud
   mod.exports.overlay = overlay
   mod.exports.devOverlay = devOverlay

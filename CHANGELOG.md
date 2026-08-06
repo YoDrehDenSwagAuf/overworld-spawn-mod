@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.10.0
+
+### Unified follower core (PR 1)
+
+- Integrated PokéPC follower selection and persistence into Wilds
+- Integrated Followers EX follower lifecycle concepts (single-follower owner)
+- Added a single follower owner to prevent duplicate entities and hooks
+- Added Red, Blue and Yellow follower compatibility
+- Added migration for existing follower selection data (`selected_mon`,
+  `selected_slot`, `followerPartyIndex`) without deleting legacy keys
+- Improved follower lifecycle stability across map transitions (no selection
+  reset; no global `SPRITE_PIKACHU` mutation per update)
+- Prepared the follower system for a shared sprite resolver via
+  `requestFollowerSpriteRefresh` / `setSpriteRefreshHandler`
+- Existing Sprite Style selection and water follower presentation unchanged
+- Documented the safe-location sprite reset root cause (full resolver = PR 2)
+- Credits: masterwebx / Followers EX, gamecorner-033 / PokéPC Followers
+
 ## 1.9.0
 
 ### Sprite Style simplification + Voxel water shadows

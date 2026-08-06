@@ -135,6 +135,18 @@ available), and with Sprite Style HGSS/PokeMMO / Poke Followers / Pokedex.
 3. Wild collision still blocks through followers.
 4. Sprite Style = HGSS / PokeMMO: follower walk frames animate while following.
 5. Style switch mid-walk must not freeze the follower on a stand frame.
+6. With Followers EX installed: only one follower entity; log line
+   `[Wilds] External follower mod detected; integrated follower core remains owner.`
+
+## Unified follower core (no Followers EX)
+
+1. Red / Blue / Yellow: party submenu FOLLOWER selects a healthy mon.
+2. Selection survives Route → house / Pokémon Center → Route and save/load.
+3. Two identical species: selecting one keeps that individual (fingerprint).
+4. Fainted / removed selection falls back to first healthy; empty party despawns.
+5. Bike / Surf despawns; return to land restores without duplicate entity.
+6. Talk once: faces player; Yellow Pikachu keeps vanilla talk.
+7. No per-frame SpriteRenderer.new; party change at most one rebind.
 
 ## PokeMMO walk animation
 

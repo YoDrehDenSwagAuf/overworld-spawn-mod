@@ -20,6 +20,7 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `lib/movement.lua` | Tile-step movement + NPC walkPhase/stepFlip |
 | `lib/cell_occupancy.lua` | Atomic spawn / move cell reservations |
 | `lib/followers_water_compat.lua` | Optional Followers EX water sprite swaps |
+| `lib/follower/` | Unified follower core (selection / lifecycle / talk) |
 | `lib/grass_occlusion.lua` | Flat feet-overdraw + above-lift helpers |
 | `lib/voxel_adapter.lua` | DS hooks; emergency overlay filter |
 | `lib/surface.lua` | GRASS / CAVE / WATER surface resolve |

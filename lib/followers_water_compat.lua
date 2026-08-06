@@ -1,14 +1,17 @@
--- Optional Followers EX / PokePC sprite-style + water compatibility.
+-- Followers EX / PokePC / Wilds unified follower sprite-style + water compatibility.
 --
--- Ownership stays with Followers EX (spawn, queue, pathing, battle).
--- Wilds only swaps the native SpriteDef on the existing follower entity when:
+-- Entity ownership:
+--   * Followers EX control engine (when active) owns trailers / pack pathing.
+--   * Otherwise Wilds `lib/follower/` owns the single PikachuFollower entity.
+-- This module only swaps the native SpriteDef on the existing follower entity when:
 --   * the selected Sprite Style changes
 --   * the follower species / shiny / form changes
 --   * the player transitions land ↔ water
 --
 -- Never reads private Followers tables. Detection uses:
 --   * mod.find("FOLLOWERS_EX"|"PokePCFollowers_VoxelMerge").exports
---   * public markers on ow.entities (pokepcTrailer, pikachuFollower, sprite ids)
+--   * mod.exports.getActiveFollowerMon (Wilds unified selection)
+--   * public markers on ow.entities (pokepcTrailer, pikachuFollower, wildsFollower)
 --   * optional ow.pokepcTrailers list published on the shared overworld
 local V = ...
 local Config = V.require("config")
@@ -112,11 +115,22 @@ end
 
 function FollowersWaterCompat:isInstalled()
   local ex = select(1, findExports(self.mod))
-  return ex ~= nil
+  if ex ~= nil then return true end
+  -- Wilds unified follower core (no external mod required).
+  local exports = self.mod and self.mod.exports
+  return exports ~= nil and type(exports.getActiveFollowerMon) == "function"
 end
 
 function FollowersWaterCompat:publicApi()
   return select(1, findExports(self.mod))
+end
+
+local function wildsFollowerApi(mod)
+  local exports = mod and mod.exports
+  if exports and type(exports.getActiveFollowerMon) == "function" then
+    return exports
+  end
+  return nil
 end
 
 function FollowersWaterCompat:invalidateStyle()
@@ -153,6 +167,7 @@ local function isPokemonTrailer(entity)
   if entity.pokepcTrailer == true or entity.pikachuFollower == true then
     return true
   end
+  if entity.wildsFollower == true then return true end
   return CellOccupancy.isFollowerEntity(entity)
 end
 
@@ -345,8 +360,14 @@ function FollowersWaterCompat:activeFollower(ow, game)
 
   local api = self:publicApi()
   local mon = nil
-  -- Only verified public export: getActiveFollowerMon.
-  if api and type(api.getActiveFollowerMon) == "function" then
+  -- Prefer Wilds unified follower selection when installed.
+  local wildsExports = self.mod and self.mod.exports
+  if wildsExports and type(wildsExports.getActiveFollowerMon) == "function" then
+    local ok, got = pcall(wildsExports.getActiveFollowerMon, game, true)
+    if ok and got then mon = got end
+  end
+  -- Verified Followers EX / PokePC public export.
+  if not mon and api and type(api.getActiveFollowerMon) == "function" then
     local ok, got = pcall(api.getActiveFollowerMon, game)
     if ok then mon = got end
   end
@@ -398,7 +419,8 @@ end
 function FollowersWaterCompat:tick(game, ow, resolveWaterSprite)
   resolveWaterSprite = resolveWaterSprite or self.resolveWaterSprite
   local ex, exId = findExports(self.mod)
-  if not ex then
+  local wildsApi = wildsFollowerApi(self.mod)
+  if not ex and not wildsApi then
     self.status.detected = false
     self.status.surface = "n/a"
     self.status.waterSprite = "n/a"
