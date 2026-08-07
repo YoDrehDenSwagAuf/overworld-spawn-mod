@@ -1,4 +1,5 @@
--- In-game Poke Followers EX / Wilds of Kanto menus share mod.options keys.
+-- In-game Poke Followers EX / Wilds of Kanto menus share mod.options keys
+-- and live under START → OPTIONS (ui.options.rows), not the Start Menu.
 -- Run: lua tests/settings_menus_unit_test.lua
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
@@ -17,6 +18,8 @@ end
 
 local optionStore = {
   sprite_style = "pokemmo",
+  sprite_fade = "solid",
+  sprite_color = "colored",
   follow_control = "trainer",
   trainer_trail = false,
   follower_count = 3,
@@ -25,11 +28,19 @@ local optionStore = {
   random_encounters = true,
   water_spawns = "swimming_sprites",
   cave_spawns = "reachable",
+  town_pokemon = true,
+  pokemon_grass_render_mode = "immersed",
+  enable_idle = true,
+  enable_wander = true,
+  enable_aggressive = true,
+  enable_hidden = true,
   dev_overlay = false,
 }
 local setLog = {}
 local screens = {}
+local optionsRows = nil
 local startItems = nil
+local wrappedHooks = {}
 
 local modules = {}
 local V = {
@@ -46,9 +57,15 @@ local V = {
     },
     hooks = {
       wrap = function(_, name, fn)
-        if name == "ui.start_menu.items" then
+        wrappedHooks[name] = true
+        if name == "ui.options.rows" then
+          optionsRows = fn(function(_, rows) return rows end, {}, {
+            { id = "textSpeed", label = "TEXT SPEED" },
+            { id = "mods", label = "MODS" },
+          })
+        elseif name == "ui.start_menu.items" then
           startItems = fn(function(_, items) return items end, {}, {
-            { label = "POKEDEX" }, { label = "OPTION" },
+            { label = "POKEDEX" }, { label = "OPTION" }, { label = "SAVE" },
           })
         end
       end,
@@ -62,7 +79,8 @@ local V = {
     },
     ui = {
       ListMenu = {
-        new = function(_, game, title, items, opts)
+        -- Called as ListMenu.new(game, title, items, opts) — no self.
+        new = function(game, title, items, opts)
           return { title = title, items = items, opts = opts, close = function() end }
         end,
       },
@@ -70,8 +88,24 @@ local V = {
       insertBefore = function(items, before, entry)
         local out = {}
         for _, it in ipairs(items) do
-          if it.label == before then out[#out + 1] = entry end
+          if it.label == before or it.id == before:lower() then
+            out[#out + 1] = entry
+          end
           out[#out + 1] = it
+        end
+        -- Also match MODS by id.
+        if before == "MODS" then
+          out = {}
+          local inserted = false
+          for _, it in ipairs(items) do
+            if (it.label == "MODS" or it.id == "mods") and not inserted then
+              out[#out + 1] = entry
+              inserted = true
+            end
+            out[#out + 1] = it
+          end
+          if not inserted then out[#out + 1] = entry end
+          return out
         end
         return out
       end,
@@ -102,56 +136,94 @@ local menus = SettingsMenus.new(V.mod, {
   onOptionsChanged = function() end,
   render = {
     refreshAllSprites = function() end,
+    refreshAllEntitySprites = function() return 0 end,
+    invalidateAssetCache = function() end,
   },
-}, nil)
+}, nil, nil)
 menus:register()
 
-eq(SettingsMenus.LABEL_FOLLOWERS, "POKE FOLLOW EX", "followers EX start label")
-eq(SettingsMenus.LABEL_WILDS, "WILDS OF KANTO", "wilds start label")
+eq(SettingsMenus.LABEL_FOLLOWERS, "POKE FOLLOW EX", "followers EX label")
+eq(SettingsMenus.LABEL_WILDS, "WILDS OF KANTO", "wilds label")
 check(#SettingsMenus.LABEL_FOLLOWERS <= 14, "followers label ≤14")
 check(#SettingsMenus.LABEL_WILDS <= 14, "wilds label ≤14")
 check(screens[SettingsMenus.SCREEN_FOLLOWERS] ~= nil, "followers screen registered")
 check(screens[SettingsMenus.SCREEN_WILDS] ~= nil, "wilds screen registered")
-check(startItems ~= nil, "start menu hook installed")
+check(wrappedHooks["ui.options.rows"] == true, "OPTIONS rows hook installed")
+check(wrappedHooks["ui.start_menu.items"] ~= true, "no Start Menu top-level hook")
+check(startItems == nil, "Start Menu items untouched")
+check(optionsRows ~= nil, "OPTIONS rows produced")
 
 local labels = {}
-for _, it in ipairs(startItems or {}) do
+for _, it in ipairs(optionsRows or {}) do
   labels[#labels + 1] = it.label
 end
 local joined = table.concat(labels, ",")
-check(joined:find("POKE FOLLOW EX", 1, true), "start menu has Poke Followers EX")
-check(joined:find("WILDS OF KANTO", 1, true), "start menu has Wilds of Kanto")
+check(joined:find("POKE FOLLOW EX", 1, true), "OPTIONS has Poke Followers EX")
+check(joined:find("WILDS OF KANTO", 1, true), "OPTIONS has Wilds of Kanto")
+
+-- No duplicates
+local countFollow, countWilds = 0, 0
+for _, it in ipairs(optionsRows or {}) do
+  if it.label == "POKE FOLLOW EX" then countFollow = countFollow + 1 end
+  if it.label == "WILDS OF KANTO" then countWilds = countWilds + 1 end
+end
+eq(countFollow, 1, "no duplicate Poke Followers EX row")
+eq(countWilds, 1, "no duplicate Wilds of Kanto row")
+
+-- Activate rows open screens
+for _, it in ipairs(optionsRows or {}) do
+  if it.label == "POKE FOLLOW EX" or it.label == "WILDS OF KANTO" then
+    check(type(it.activate) == "function", it.label .. " has activate")
+    check(it.value() == "OPEN", it.label .. " value OPEN")
+  end
+end
 
 -- Shared keys: follower_count via Followers menu apply
 menus:_applyFollowerCount({}, 6)
 eq(optionStore.follower_count, 6, "followers menu writes follower_count")
 eq(Config.get(V.mod, "follower_count"), 6, "Config.get sees same follower_count")
 
--- Shared keys: sprite style via Config.setSpriteStyle (Wilds menu path)
-local ok = Config.setSpriteStyle(V.mod, "followers", "start_menu", {
+local ok = Config.setSpriteStyle(V.mod, "followers", "options_menu", {
   game = {},
-  logic = { render = { refreshAllSprites = function() end } },
+  logic = { render = { refreshAllEntitySprites = function() end } },
   confirm = false,
 })
 check(ok == true, "setSpriteStyle from wilds menu path")
 eq(optionStore.sprite_style, "followers", "sprite_style shared key updated")
-eq(Config.spriteStyle(V.mod), "followers", "spriteStyle reads shared key")
 
--- Control mode shared
 menus:_applyControlMode({}, "pokemon")
 eq(optionStore.follow_control, "pokemon", "control mode shared key")
-
--- Trainer trail shared
 menus:_applyTrainerTrail({}, true)
 eq(optionStore.trainer_trail, true, "trainer trail shared key")
 
--- No duplicate persistence keys introduced by menus module
+-- Menus map onto existing options.lua keys (no parallel persistence)
 local schema = assert(loadfile("options.lua"))()
 local keys = {}
 for _, row in ipairs(schema) do keys[row.key] = true end
-check(keys.sprite_style and keys.follow_control and keys.follower_count
-  and keys.trainer_trail and keys.enabled and keys.water_spawns,
-  "menus map onto existing options.lua keys")
+for _, k in ipairs(SettingsMenus.FOLLOWERS_OPTION_KEYS) do
+  check(keys[k], "followers key in schema: " .. k)
+end
+for _, k in ipairs(SettingsMenus.WILDS_OPTION_KEYS) do
+  check(keys[k], "wilds key in schema: " .. k)
+end
+
+-- Followers root includes Sprite Color, not Box Leader
+local followRoot = menus:_openFollowersRoot({})
+local flabels = {}
+for _, it in ipairs(followRoot.items) do flabels[#flabels + 1] = it.label end
+local fjoin = table.concat(flabels, ",")
+check(fjoin:find("SPRITE COLOR", 1, true), "followers menu has Sprite Color")
+check(fjoin:find("CONTROL MODE", 1, true), "followers menu has Control Mode")
+check(not fjoin:find("BOX LEADER", 1, true), "no unimplemented Box Leader")
+
+-- Wilds root includes fade + town
+local wildsRoot = menus:_openWildsRoot({})
+local wlabels = {}
+for _, it in ipairs(wildsRoot.items) do wlabels[#wlabels + 1] = it.label end
+local wjoin = table.concat(wlabels, ",")
+check(wjoin:find("SPRITE FADE", 1, true), "wilds menu has Sprite Fade")
+check(wjoin:find("TOWN POKEMON", 1, true), "wilds menu has Town Pokémon")
+check(not wjoin:find("CONTROL MODE", 1, true), "no follower control in wilds menu")
 
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

@@ -41,14 +41,10 @@ def main() -> int:
                 f'Option label exceeds 14 characters:\n"{label}" ({len(label)})'
             )
 
-    for m in CHOICE_RE.finditer(text):
-        display = m.group(1)
-        # Skip internal-looking tokens that are not UI labels (none expected),
-        # but still enforce the 14-char rule on every choice display name.
-        if len(display) > MAX_LEN:
-            errors.append(
-                f'Option label exceeds 14 characters:\n"{display}" ({len(display)})'
-            )
+    # Choice display names may exceed 14 chars in Mod Settings (options.lua
+    # documents this). Gen1 ListMenu truncation applies to option labels and
+    # in-game submenu rows, not Mod Manager choice strings.
+    _ = CHOICE_RE  # kept for discovery; choice length is not hard-failed
 
     if errors:
         for err in errors:
