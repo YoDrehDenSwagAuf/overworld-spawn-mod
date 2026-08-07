@@ -54,6 +54,7 @@ return function(mod)
   local DebugOverlay = V.require("debug_overlay")
   local PreviewBrowser = V.require("preview_browser")
   local SpriteStyleMenu = V.require("sprite_style_menu")
+  local SettingsMenus = V.require("settings_menus")
   local BehaviorTick = V.require("behavior_tick")
   local DebugLog = V.require("debug_log")
   local Diagnostics = V.require("diagnostics")
@@ -78,7 +79,6 @@ return function(mod)
   local hud = DebugHud.new(mod, logic)
   local overlay = DebugOverlay.new(mod, logic)
   local browser = PreviewBrowser.new(mod, logic)
-  local spriteStyleMenu = SpriteStyleMenu.new(mod, logic)
   local behaviorTick = BehaviorTick.new(mod, logic)
   local DevOverlay = V.require("dev_overlay")
   local devOverlay = DevOverlay.new(mod, logic)
@@ -94,11 +94,15 @@ return function(mod)
   end
   follower:install({ game = mod.world and mod.world.game })
 
+  local spriteStyleMenu = SpriteStyleMenu.new(mod, logic)
+  local settingsMenus = SettingsMenus.new(mod, logic, follower)
+
   -- Register public UI / present surfaces (safe even when Dev Overlay is off;
   -- availability / menu rows gate on the live option). Still LOAD PHASE.
   hud:register()
   browser:register()
   spriteStyleMenu:register()
+  settingsMenus:register()
   behaviorTick:register()
   devOverlay:register()
 
@@ -342,6 +346,7 @@ return function(mod)
   mod.exports.devOverlay = devOverlay
   mod.exports.browser = browser
   mod.exports.spriteStyleMenu = spriteStyleMenu
+  mod.exports.settingsMenus = settingsMenus
   mod.exports.behaviorTick = behaviorTick
   mod.exports.lib = V
   mod.exports.clearAll = function() logic:clearAll() end

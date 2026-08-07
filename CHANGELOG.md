@@ -2,6 +2,19 @@
 
 ## 1.10.0
 
+### Sprite defaults, built-in GSC pack, menus (PR #38 follow-up)
+
+- Poke Followers / GSC is now the default overworld sprite style
+- Added built-in GSC/Poke Followers sprite set (`assets/enhanced_overworld/poke_followers`)
+- Rebuilt HGSS/PokeMMO runtime sprites with improved detail preservation
+  (nearest-neighbor only, shared pivot, no source mutation)
+- Added **Poke Followers EX** in-game Start Menu submenu (`POKE FOLLOW EX`)
+- Added **Wilds of Kanto** in-game Start Menu submenu
+- Unified menu settings with Mod Settings (same `mod.options` keys)
+- Preserved Voxel-compatible native SpriteRenderer path
+- Existing explicit sprite-style saves are not overwritten; invalid/missing
+  values migrate to Poke Followers / GSC
+
 ### Follower water movement (PR #38 follow-up)
 
 - Fixed pack/trailer freeze on Surf: trail goals and steps are surface-aware for

@@ -26,7 +26,7 @@ Config.DEFAULTS = {
   wander_every_steps = 0, -- legacy; behaviours own movement now
   suppress_random_grass = true,
   sprite_opacity = 1.0,
-  sprite_style = "pokemmo",
+  sprite_style = "followers",
   -- Follower control (built-in; replaces FOLLOWERS_EX options).
   follow_control = "trainer", -- trainer | pokemon
   trainer_trail = false,
@@ -284,13 +284,13 @@ local VALID_SPRITE_STYLES = {
 }
 
 local SPRITE_STYLE_CONFIRM = {
+  followers = "POKE FOLLOWERS / GSC",
   pokemmo = "HGSS / POKEMMO",
-  followers = "POKE FOLLOWERS",
   pokedex = "POKEDEX",
 }
 
 -- Migrate legacy / unknown save values onto the public three-choice set.
--- Internal provider ids (followers_ex) are not public setting values.
+-- Internal provider ids (followers_ex / poke_followers) map to public "followers".
 function Config.normalizeSpriteStyle(value)
   if value == true or value == "true" or value == "on" or value == "ON" then
     return "pokemmo"
@@ -299,10 +299,10 @@ function Config.normalizeSpriteStyle(value)
     return "pokedex"
   end
   if type(value) ~= "string" then
-    return "pokemmo"
+    return "followers"
   end
   local v = value
-  if v == "followers_ex" then
+  if v == "followers_ex" or v == "poke_followers" then
     return "followers"
   end
   if v == "auto" or v == "gold" or v == "crystal" then
@@ -311,7 +311,7 @@ function Config.normalizeSpriteStyle(value)
   if VALID_SPRITE_STYLES[v] then
     return v
   end
-  return "pokemmo"
+  return "followers"
 end
 
 function Config.peekSavedOption(mod, key)
@@ -357,9 +357,9 @@ function Config.spriteStyle(mod)
   end
   if type(v) == "string" then
     local normalized = Config.normalizeSpriteStyle(v)
-    -- Schema default is "pokemmo". If the save never stored sprite_style but
+    -- Schema default is "followers". If the save never stored sprite_style but
     -- still has legacy Mon Sprites = off, prefer pokedex once.
-    if (v == "pokemmo" or v == "auto") and not stylePresent then
+    if (v == "pokemmo" or v == "auto" or v == "followers") and not stylePresent then
       local legacyRaw, legacyPresent = Config.peekSavedOption(mod, "use_animated_overworld_sprites")
       if legacyPresent and legacyRaw == false then
         return "pokedex"
@@ -385,7 +385,7 @@ function Config.spriteStyle(mod)
       return "pokedex"
     end
   end
-  return "pokemmo"
+  return "followers"
 end
 
 function Config.migrateSpriteStyleOption(mod)
@@ -419,27 +419,12 @@ function Config.useAnimatedOverworldSprites(mod)
   return Config.spriteStyle(mod) ~= "pokedex"
 end
 
--- Central setter used by Start Menu and any non-Mod-Manager UI path.
--- Mod Settings already persist sprite_style via the engine; both share this key.
--- opts: { game=, logic=, render=, confirm=, message= }
-function Config.setSpriteStyle(mod, value, source, opts)
-  opts = opts or {}
-  value = Config.normalizeSpriteStyle(value)
-  if not VALID_SPRITE_STYLES[value] then
-    return false, "invalid sprite_style: " .. tostring(value)
-  end
-
-  local game = opts.game
-  if not game and mod and mod.world then
-    game = mod.world.game
-  end
-
+local function writeOptionBucket(mod, game, key, value)
   local function write(bucket)
     if type(bucket) ~= "table" then return end
     bucket[mod.id] = bucket[mod.id] or {}
-    bucket[mod.id].sprite_style = value
+    bucket[mod.id][key] = value
   end
-
   if game and game.save and game.save.options then
     game.save.options.modOptions = game.save.options.modOptions or {}
     write(game.save.options.modOptions)
@@ -453,6 +438,40 @@ function Config.setSpriteStyle(mod, value, source, opts)
   if game and type(game.writeOptions) == "function" then
     pcall(game.writeOptions, game)
   end
+  -- Keep Mod Manager / mod.options in sync with Start Menu writers.
+  if mod and mod.options and type(mod.options.set) == "function" then
+    pcall(function() mod.options:set(key, value) end)
+  end
+end
+
+local function resolveGame(mod, opts)
+  opts = opts or {}
+  if opts.game then return opts.game end
+  if mod and mod.world then return mod.world.game end
+  return nil
+end
+
+local function confirmText(game, mod, message)
+  if not message or not game or not mod then return end
+  if mod.ui and mod.ui.TextBox and game.stack then
+    pcall(function()
+      game.stack:push(mod.ui.TextBox.new(game, message))
+    end)
+  end
+end
+
+-- Central setter used by Start Menu and any non-Mod-Manager UI path.
+-- Mod Settings already persist sprite_style via the engine; both share this key.
+-- opts: { game=, logic=, render=, confirm=, message= }
+function Config.setSpriteStyle(mod, value, source, opts)
+  opts = opts or {}
+  value = Config.normalizeSpriteStyle(value)
+  if not VALID_SPRITE_STYLES[value] then
+    return false, "invalid sprite_style: " .. tostring(value)
+  end
+
+  local game = resolveGame(mod, opts)
+  writeOptionBucket(mod, game, "sprite_style", value)
 
   local render = opts.render
   local logic = opts.logic
@@ -473,11 +492,7 @@ function Config.setSpriteStyle(mod, value, source, opts)
   if not confirmMsg and opts.confirm ~= false then
     confirmMsg = "SPRITES: " .. (SPRITE_STYLE_CONFIRM[value] or value:upper())
   end
-  if confirmMsg and game and mod and mod.ui and mod.ui.TextBox and game.stack then
-    pcall(function()
-      game.stack:push(mod.ui.TextBox.new(game, confirmMsg))
-    end)
-  end
+  confirmText(game, mod, confirmMsg)
 
   if source and mod and mod.log and type(mod.log.info) == "function" then
     pcall(mod.log.info, mod.log,
@@ -507,43 +522,6 @@ local SPAWN_AMOUNT_CONFIRM = {
 
 Config.VALID_SPAWN_AMOUNTS = VALID_SPAWN_AMOUNTS
 Config.SPAWN_AMOUNT_CONFIRM = SPAWN_AMOUNT_CONFIRM
-
-local function writeOptionBucket(mod, game, key, value)
-  local function write(bucket)
-    if type(bucket) ~= "table" then return end
-    bucket[mod.id] = bucket[mod.id] or {}
-    bucket[mod.id][key] = value
-  end
-  if game and game.save and game.save.options then
-    game.save.options.modOptions = game.save.options.modOptions or {}
-    write(game.save.options.modOptions)
-  end
-  if game and game.mods then
-    if game.mods.modOptions then write(game.mods.modOptions) end
-    if game.mods.loader and game.mods.loader.modOptions then
-      write(game.mods.loader.modOptions)
-    end
-  end
-  if game and type(game.writeOptions) == "function" then
-    pcall(game.writeOptions, game)
-  end
-end
-
-local function resolveGame(mod, opts)
-  opts = opts or {}
-  if opts.game then return opts.game end
-  if mod and mod.world then return mod.world.game end
-  return nil
-end
-
-local function confirmText(game, mod, message)
-  if not message or not game or not mod then return end
-  if mod.ui and mod.ui.TextBox and game.stack then
-    pcall(function()
-      game.stack:push(mod.ui.TextBox.new(game, message))
-    end)
-  end
-end
 
 function Config.spawnAmount(mod)
   local raw, present = Config.peekSavedOption(mod, "spawn_density")

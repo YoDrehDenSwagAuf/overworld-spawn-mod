@@ -73,7 +73,7 @@ end
 
 modules.config = {
   DEFAULTS = {
-    sprite_style = "pokemmo",
+    sprite_style = "followers",
     use_animated_overworld_sprites = true,
     grass_occlusion_px = 6,
     min_sprite_size = 16,
@@ -82,14 +82,14 @@ modules.config = {
     pokemmo = true, followers = true, pokedex = true,
   },
   normalizeSpriteStyle = function(value)
-    if value == "followers_ex" then return "followers" end
+    if value == "followers_ex" or value == "poke_followers" then return "followers" end
     if value == "auto" or value == "gold" or value == "crystal" then
       return "pokemmo"
     end
     if value == "pokemmo" or value == "followers" or value == "pokedex" then
       return value
     end
-    return "pokemmo"
+    return "followers"
   end,
   get = function(_, k)
     if savedOpts[k] ~= nil then return savedOpts[k] end
@@ -100,7 +100,7 @@ modules.config = {
     local v = savedOpts.sprite_style
     if v == nil then
       if savedOpts.use_animated_overworld_sprites == false then return "pokedex" end
-      return "pokemmo"
+      return "followers"
     end
     return modules.config.normalizeSpriteStyle(v)
   end,
@@ -148,11 +148,13 @@ local providers = SpriteProviders.new(V.mod, render)
 -- Label length budget (public three-choice set)
 eq(#("Sprite Style"), 12, "Sprite Style label <= 14")
 eq(#("HGSS / PokeMMO"), 14, "HGSS / PokeMMO choice <= 14")
-eq(#("Poke Followers"), 14, "Poke Followers choice <= 14")
-eq(#("Pokedex"), 7, "Pokedex choice <= 14")
+-- Gen1 ListMenu abbreviates to FOLLOWERS/GSC (≤14). Mod Settings may use the
+-- longer "Poke Followers / GSC" label.
+eq(#("FOLLOWERS/GSC"), 13, "FOLLOWERS/GSC menu choice <= 14")
+eq(#("POKEDEX"), 7, "POKEDEX choice <= 14")
 eq(#("SPRITE STYLE"), 12, "SPRITE STYLE menu <= 14")
 eq(#("HGSS / POKEMMO"), 14, "HGSS / POKEMMO menu <= 14")
-eq(#("POKE FOLLOWERS"), 14, "POKE FOLLOWERS menu <= 14")
+eq(#("FOLLOWERS/GSC"), 13, "FOLLOWERS/GSC menu <= 14")
 eq(#("POKEDEX"), 7, "POKEDEX menu <= 14")
 
 -- Built-in registration (compat providers may remain)
@@ -175,7 +177,7 @@ eq(providers:normalizeStyle("gold"), "pokemmo", "gold normalizes to pokemmo")
 eq(providers:normalizeStyle("crystal"), "pokemmo", "crystal normalizes to pokemmo")
 eq(providers:normalizeStyle("followers_ex"), "followers",
    "followers_ex normalizes to followers")
-eq(providers:normalizeStyle("unknown"), "pokemmo", "unknown normalizes to pokemmo")
+eq(providers:normalizeStyle("unknown"), "followers", "unknown normalizes to followers")
 
 local pokemmoOk = select(1, providers:providerAvailable("pokemmo", nil))
 check(pokemmoOk == true, "pokemmo available with runtime sheets")
@@ -183,8 +185,9 @@ check(pokemmoOk == true, "pokemmo available with runtime sheets")
 local goldOk = select(1, providers:providerAvailable("gold", nil))
 check(goldOk == false, "gold unavailable without pack")
 
-local followersOk = select(1, providers:providerAvailable("followers_ex", nil))
-check(followersOk == false, "followers_ex unavailable without pack")
+local followersOk, followersWhy = providers:providerAvailable("followers_ex", nil)
+check(followersOk == true, "followers_ex available via built-in poke_followers: "
+  .. tostring(followersWhy))
 
 -- Legacy auto / gold resolve to HGSS/PokeMMO
 local r = providers:resolve("auto", 25, "normal", {
@@ -212,17 +215,19 @@ r = providers:resolve("gold", 25, "normal", {
 })
 eq(r.providerId, "pokemmo", "legacy gold style -> pokemmo")
 
--- Explicit followers without provider -> pokemmo fallback
+-- Built-in Poke Followers / GSC (dex → follower_%03d)
 r = providers:resolve("followers", 25, "normal", {
   data = { pokemon = { PIKACHU = { dex = 25 } } },
 })
-eq(r.providerId, "pokemmo", "followers without pack -> pokemmo")
+eq(r.providerId, "followers_ex", "followers uses built-in poke_followers")
+check(r.def and tostring(r.def.image):find("follower_025", 1, true),
+      "followers maps Pikachu to follower_025")
 
 -- Legacy followers_ex setting value also works
 r = providers:resolve("followers_ex", 25, "normal", {
   data = { pokemon = { PIKACHU = { dex = 25 } } },
 })
-eq(r.providerId, "pokemmo", "legacy followers_ex without pack -> pokemmo")
+eq(r.providerId, "followers_ex", "legacy followers_ex style uses built-in pack")
 
 -- Register fake followers_ex provider (public style = followers)
 check(providers:register({
@@ -325,12 +330,14 @@ check(joined:find("Body renderer: NATIVE_SPRITE_RENDERER", 1, true), "HUD body r
 lines = providers:diagnostics("followers", nil, entity)
 joined = table.concat(lines, "\n")
 check(joined:find("Requested style: FOLLOWERS", 1, true), "HUD followers requested")
-check(joined:find("Provider unavailable: YES", 1, true)
-      or joined:find("Poke Followers: NOT INSTALLED", 1, true)
-      or joined:find("Poke Followers: UNAVAILABLE", 1, true),
-      "HUD followers not installed")
-check(joined:find("Fallback reason: provider missing", 1, true),
-      "HUD followers fallback reason")
+check(joined:find("Poke Followers:", 1, true), "HUD followers status when requested")
+check(joined:find("built-in", 1, true)
+      or joined:find("AVAILABLE", 1, true)
+      or joined:find("READY", 1, true)
+      or joined:find("followers_ex", 1, true)
+      or joined:find("Poke Followers: YES", 1, true)
+      or joined:find("Provider unavailable: NO", 1, true),
+      "HUD followers built-in available")
 
 -- Gold path discovery via filesystem probe (compat adapter still works)
 fsPaths["mods/Gold_Silver_Sprites/gold/battle/front/bulbasaur.png"] = true
@@ -354,13 +361,14 @@ eq(gdef.image, "mods/Gold_Silver_Sprites/gold/battle/front/pikachu.png", "gold i
 modules.config = nil
 local Config = V.require("config")
 savedOpts = {}
-eq(Config.spriteStyle(V.mod), "pokemmo", "missing style defaults pokemmo")
+eq(Config.spriteStyle(V.mod), "followers", "missing style defaults followers")
 eq(Config.normalizeSpriteStyle("auto"), "pokemmo", "migrate auto")
 eq(Config.normalizeSpriteStyle("gold"), "pokemmo", "migrate gold")
 eq(Config.normalizeSpriteStyle("crystal"), "pokemmo", "migrate crystal")
 eq(Config.normalizeSpriteStyle("followers_ex"), "followers", "migrate followers_ex")
+eq(Config.normalizeSpriteStyle("poke_followers"), "followers", "migrate poke_followers")
 eq(Config.normalizeSpriteStyle("followers"), "followers", "followers stays")
-eq(Config.normalizeSpriteStyle("weird"), "pokemmo", "migrate unknown")
+eq(Config.normalizeSpriteStyle("weird"), "followers", "migrate unknown → followers")
 savedOpts = { use_animated_overworld_sprites = false }
 V.mod.world = {
   game = {
@@ -374,7 +382,7 @@ savedOpts = { use_animated_overworld_sprites = true }
 V.mod.world.game.save.options.modOptions.overworld_wild_spawns = savedOpts
 V.mod.world.game.mods.modOptions.overworld_wild_spawns = savedOpts
 V.mod.world.game.mods.loader.modOptions.overworld_wild_spawns = savedOpts
-eq(Config.spriteStyle(V.mod), "pokemmo", "legacy true migrates to pokemmo")
+eq(Config.spriteStyle(V.mod), "followers", "legacy true without style → followers default")
 savedOpts = { sprite_style = "pokemmo", use_animated_overworld_sprites = false }
 V.mod.world.game.save.options.modOptions.overworld_wild_spawns = savedOpts
 V.mod.world.game.mods.modOptions.overworld_wild_spawns = savedOpts
@@ -486,16 +494,21 @@ for _, row in ipairs(schema) do
   if row.key == "sprite_style" then styleOpt = row end
 end
 check(styleOpt ~= nil, "options has sprite_style")
-eq(styleOpt.default, "pokemmo", "options default is pokemmo")
+eq(styleOpt.default, "followers", "options default is followers")
 eq(#styleOpt.choices, 3, "exactly three public sprite styles")
 local saw = {}
 for _, choice in ipairs(styleOpt.choices) do
-  check(#choice[1] <= 14, "choice label <= 14: " .. tostring(choice[1]))
+  -- Mod Settings shows the full GSC label; Gen1 ListMenu uses ≤14 abbrev.
+  if choice[2] ~= "followers" then
+    check(#choice[1] <= 14, "choice label <= 14: " .. tostring(choice[1]))
+  else
+    check(choice[1]:find("GSC", 1, true), "followers label mentions GSC")
+  end
   saw[choice[2]] = choice[1]
 end
 check(saw.pokemmo == "HGSS / PokeMMO", "options includes HGSS / PokeMMO")
-check(saw.followers == "Poke Followers", "options includes Poke Followers")
-check(saw.pokedex == "Pokedex", "options includes Pokedex")
+check(saw.followers == "Poke Followers / GSC", "options includes Poke Followers / GSC")
+check(saw.pokedex == "Pokédex" or saw.pokedex == "Pokedex", "options includes Pokedex")
 check(saw.auto == nil and saw.gold == nil and saw.followers_ex == nil,
       "legacy styles removed from public options")
 

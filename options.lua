@@ -2,7 +2,9 @@
 -- Loaded via mod.options:define() from main.lua and referenced by
 -- manifest options_schema for Mod Manager lazy-load.
 --
--- Visible labels must be <= 14 characters (Gen1Recomp truncates longer names).
+-- Visible labels for Gen1 ListMenu entries must be <= 14 characters
+-- (Gen1Recomp truncates longer names). Mod Settings choice labels may be
+-- longer when clarity requires it (e.g. "Poke Followers / GSC").
 -- Internal keys are stable so saved settings survive across releases.
 --
 -- Types match Gen1Recomp ManagerState.OPTION_TYPES: toggle, choice, number, text.
@@ -24,13 +26,13 @@ return {
     key = "sprite_style",
     label = "Sprite Style",
     type = "choice",
-    default = "pokemmo",
+    default = "followers",
     choices = {
+      { "Poke Followers / GSC", "followers" },
       { "HGSS / PokeMMO", "pokemmo" },
-      { "Poke Followers", "followers" },
-      { "Pokedex", "pokedex" },
+      { "Pokédex", "pokedex" },
     },
-    description = "Selects the overworld sprite style used by wild Pokémon and your active follower. Water Pokémon use Swimming or Levitates sprites when available. Default is HGSS / PokeMMO (built-in).",
+    description = "Overworld sprite style for wild Pokémon and followers. Poke Followers / GSC is the built-in default. Water Pokémon still use Swimming or Levitates sprites when available.",
   },
   {
     key = "follow_control",

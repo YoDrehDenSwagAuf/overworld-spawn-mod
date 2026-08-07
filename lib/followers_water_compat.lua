@@ -569,10 +569,12 @@ function FollowersWaterCompat:tickEntity(game, ow, entity, surfaceState, style, 
       allowLandFallback = false,
     })
     if not def then
-      local landDef = resolveLandDef(self, species, shiny, form, "pokemmo", game)
+      -- No swimming sheet: stay visible with the player's selected land style
+      -- (not a hard-coded HGSS fallback).
+      local landDef = resolveLandDef(self, species, shiny, form, style, game)
       if landDef then
         def = landDef
-        meta = { kind = "pokemmo_fallback" }
+        meta = { kind = "land_style_fallback" }
       end
     end
     if not def then
