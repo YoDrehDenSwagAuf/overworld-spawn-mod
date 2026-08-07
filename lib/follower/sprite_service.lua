@@ -123,6 +123,10 @@ function SpriteService:resolveFollowerSprite(opts)
     local result = providers:resolve(style, species, variant, game)
     if result and result.def and result.def.image then
       local def = result.def
+      local trueColor = def.trueColor ~= false
+      if Config.spriteTrueColor then
+        trueColor = Config.spriteTrueColor(self.mod)
+      end
       return {
         id = (role == "player_controlled") and "SPRITE_PLAYER_POKEMON"
           or (role == "party_trailer" or role == "primary") and "SPRITE_WILDS_FOLLOWER_MON"
@@ -130,7 +134,7 @@ function SpriteService:resolveFollowerSprite(opts)
         image = def.image,
         frames = def.frames or 6,
         walker = def.walker ~= false,
-        trueColor = def.trueColor ~= false,
+        trueColor = trueColor,
         providerId = result.providerId,
         role = role,
         surface = "land",

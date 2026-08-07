@@ -1706,7 +1706,20 @@ function Entity:draw(camX, camY)
     if self.worldRenderer == "DRAMATIC_SHAPE" then
       d.postVoxelBodyDrawCalls = (d.postVoxelBodyDrawCalls or 0) + 1
     end
-    local opacity = Config.get(self.mod, "sprite_opacity") or 1
+    -- Sprite Fade applies only to normal visible wild Pokémon bodies.
+    -- Never fade followers, ambient Town Pokémon, hidden markers, water
+    -- silhouettes, voxel shadow quads, or UI previews.
+    local opacity = 1.0
+    local mayFade = self.overworldWildSpawn == true
+      and self.wildsAmbientPokemon ~= true
+      and not self.hiddenEncounter
+      and self.visibleSprite ~= false
+      and not (self.wildsFollower or self.pokepcTrailer or self.pikachuFollower)
+    if mayFade and Config.spriteOpacity then
+      opacity = Config.spriteOpacity(self.mod) or 1.0
+    elseif mayFade then
+      opacity = Config.get(self.mod, "sprite_opacity") or 1
+    end
     -- Flat 2D silhouettes: runtime tint. Voxel silhouettes: baked sheet (no tint).
     local silhouette = WaterDisplay.isSilhouettes(self.mod)
       and WaterDisplay.isWaterEntity(self)

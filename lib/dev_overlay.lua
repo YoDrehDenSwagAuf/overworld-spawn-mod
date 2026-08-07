@@ -85,6 +85,13 @@ function DevOverlay.stateSuffix(entity)
 end
 
 function DevOverlay.labelLines(entity)
+  -- Ambient Town Pokémon: never show as WILD / AGGRO.
+  if entity and entity.wildsAmbientPokemon then
+    local beh = tostring(entity.ambientBehavior or "IDLE"):upper()
+    if beh ~= "WANDER" then beh = "IDLE" end
+    return "AMBIENT", beh, { 0.55, 0.85, 0.45, 1 }
+  end
+
   local meta = DevOverlay.behaviourMeta(entity.behavior or entity.behaviour)
   local line1 = meta.label
   local facing = (entity.behaviorState and entity.behaviorState.facing)
@@ -217,23 +224,30 @@ end
 
 function DevOverlay:collectEntities(ctx)
   local list = {}
+  local seen = {}
   local logic = self.logic
   if logic and logic.entities then
     for _, e in pairs(logic.entities) do
       if e and e.overworldWildSpawn and e.state ~= "removed"
          and not e.hiddenEncounter and e.visibleSprite ~= false then
         list[#list + 1] = e
+        seen[e] = true
       end
     end
   end
-  if #list == 0 then
-    local world = self.mod.world
-    local ow = world and world.overworld and world:overworld()
-    if ow and ow.entities then
-      for _, e in ipairs(ow.entities) do
-        if e and e.overworldWildSpawn and e.state ~= "removed"
+  local world = self.mod.world
+  local ow = world and world.overworld and world:overworld()
+  if ow and ow.entities then
+    local haveWilds = #list > 0
+    for _, e in ipairs(ow.entities) do
+      if e and not seen[e] then
+        if e.wildsAmbientPokemon then
+          list[#list + 1] = e
+          seen[e] = true
+        elseif (not haveWilds) and e.overworldWildSpawn and e.state ~= "removed"
            and not e.hiddenEncounter and e.visibleSprite ~= false then
           list[#list + 1] = e
+          seen[e] = true
         end
       end
     end

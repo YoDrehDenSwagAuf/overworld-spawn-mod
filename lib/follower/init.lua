@@ -266,7 +266,7 @@ function Follower:onOptionsChanged(payload)
   local key = payload.key
   self.settings:onOptionsChanged(payload)
   if key == "follow_control" or key == "trainer_trail" or key == "follower_count"
-      or key == "sprite_style" then
+      or key == "sprite_style" or key == "sprite_color" then
     local game = self.mod and self.mod.world and self.mod.world.game
     self.settings:alignSave(game)
     if self.control._installed then

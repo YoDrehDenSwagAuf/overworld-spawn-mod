@@ -65,6 +65,8 @@ return function(mod)
   Config.migrateWaterDisplayMode(mod)
   Config.migrateCaveSpawnMode(mod)
   Config.migrateDevOverlayOption(mod)
+  Config.migrateSpriteFadeOption(mod)
+  Config.migrateSpriteColorOption(mod)
 
   local render = SpawnRender.new(mod)
   -- LOAD PHASE: all sprite content registration must finish here, before
@@ -94,8 +96,14 @@ return function(mod)
   end
   follower:install({ game = mod.world and mod.world.game })
 
+  local AmbientPokemon = V.require("ambient_pokemon")
+  local ambient = AmbientPokemon.new(mod, {
+    render = render, logic = logic, follower = follower,
+  })
+  ambient:install()
+
   local spriteStyleMenu = SpriteStyleMenu.new(mod, logic)
-  local settingsMenus = SettingsMenus.new(mod, logic, follower)
+  local settingsMenus = SettingsMenus.new(mod, logic, follower, ambient)
 
   -- Register public UI / present surfaces (safe even when Dev Overlay is off;
   -- availability / menu rows gate on the live option). Still LOAD PHASE.
@@ -123,6 +131,7 @@ return function(mod)
       logic:_restoreVanillaEncounters("map.entered error")
     end
     pcall(function() follower:onMapEntered(ev) end)
+    pcall(function() ambient:onMapEntered(ev) end)
     -- Re-assert selected sprite style after companion mods retarget wilds
     -- (Followers EX map.entered may run after ours depending on registration).
     render._pendingSpriteRefresh = true
@@ -134,6 +143,7 @@ return function(mod)
       DebugLog.error(mod, "map.exited error: %s", tostring(err))
       logic:_restoreVanillaEncounters("map.exited error")
     end
+    pcall(function() ambient:onMapExited(ev) end)
   end)
 
   mod.events:on("map.reloaded", function(ev)
@@ -190,6 +200,8 @@ return function(mod)
     Config.migrateWaterDisplayMode(mod)
     Config.migrateCaveSpawnMode(mod)
     Config.migrateDevOverlayOption(mod)
+    Config.migrateSpriteFadeOption(mod)
+    Config.migrateSpriteColorOption(mod)
     render:finalizeSpriteProviders(mod.world and mod.world.game)
     pcall(function()
       local game = mod.world and mod.world.game
@@ -292,6 +304,7 @@ return function(mod)
       logic:_restoreVanillaEncounters("options_changed error")
     end
     pcall(function() follower:onOptionsChanged(payload) end)
+    pcall(function() ambient:onOptionsChanged(payload) end)
     if payload and payload.mod == mod.id and payload.key == "enabled" then
       syncFeatureState()
     end
@@ -302,12 +315,14 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "1.10.0"
+  mod.exports.version = "1.11.0"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated
   mod.exports.spriteProviders = render.spriteProviders
   mod.exports.follower = follower
+  mod.exports.ambient = ambient
+  mod.exports.isBattleableWild = Config.isBattleableWild
   mod.exports.getActiveFollowerMon = function(game, needHealthy)
     return follower:getActiveFollowerMon(game, needHealthy ~= false)
   end

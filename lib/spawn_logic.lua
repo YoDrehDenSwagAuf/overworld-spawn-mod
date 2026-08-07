@@ -2305,7 +2305,8 @@ function SpawnLogic:testSpawn(species, opts)
   pass(6, "registered")
 
   -- 7) Visible = registered + asset + non-zero opacity + on map.
-  local opacity = Config.get(self.mod, "sprite_opacity") or 1
+  local opacity = (Config.spriteOpacity and Config.spriteOpacity(self.mod))
+    or Config.get(self.mod, "sprite_opacity") or 1
   if opacity <= 0 then
     self:_removeEntity(entity)
     return fail(7, "OUTSIDE CAMERA: entity fully transparent")
@@ -2519,14 +2520,16 @@ function SpawnLogic:onOptionsChanged(payload)
       if self.overlay then self.overlay:clear() end
     end
   elseif key == "sprite_style"
-      or key == "use_animated_overworld_sprites" then
+      or key == "use_animated_overworld_sprites"
+      or key == "sprite_color" then
     -- Legacy Mon Sprites toggles map onto sprite_style via Config.spriteStyle.
     local world = self.mod.world
     local game = world and world.game
     self.render:invalidateAssetCache()
     local n = self.render:refreshAllEntitySprites(self, game)
-    self:_log("sprite_style -> %s; refreshed %d entities (no respawn)",
-              tostring(Config.spriteStyle(self.mod)), n)
+    self:_log("sprite_style/color -> %s/%s; refreshed %d entities (no respawn)",
+              tostring(Config.spriteStyle(self.mod)),
+              tostring(Config.spriteColor(self.mod)), n)
     -- Refresh active follower land/water sprite to the new style.
     if self.followersWater and self.followersWater.invalidateStyle then
       pcall(function()
@@ -2537,6 +2540,12 @@ function SpawnLogic:onOptionsChanged(payload)
         end)
       end)
     end
+  elseif key == "sprite_fade" or key == "sprite_opacity" then
+    self:_log("sprite_fade -> %s (opacity=%s)",
+              tostring(Config.spriteFade(self.mod)),
+              tostring(Config.spriteOpacity(self.mod)))
+  elseif key == "town_pokemon" then
+    self:_log("town_pokemon -> %s", tostring(Config.townPokemonEnabled(self.mod)))
   elseif key == "pokemon_grass_render_mode"
       or key == "show_pokemon_in_grass" then
     local Movement = V.require("movement")
@@ -2576,6 +2585,15 @@ function SpawnLogic:_startBattle(record)
     return false
   end
 
+  local entity = self.entities[record.id]
+  -- Ambient Town Pokémon and any non-battleable wild marker never battle.
+  if entity and Config.isBattleableWild and not Config.isBattleableWild(entity) then
+    return false
+  end
+  if entity and entity.wildsAmbientPokemon then
+    return false
+  end
+
   local game = gameOf(self.mod)
   local mapId = record.mapId or (ow.map and ow.map.id) or self.activeMapId
   local safariStatus = SafariCompat.status(game, ow, mapId)
@@ -2590,7 +2608,7 @@ function SpawnLogic:_startBattle(record)
   end
 
   record.state = Config.STATE.ENCOUNTER_STARTING
-  local entity = self.entities[record.id]
+  entity = self.entities[record.id]
   if entity then
     entity.state = Config.STATE.ENCOUNTER_STARTING
     entity.alertIcon = false
@@ -2834,9 +2852,23 @@ function SpawnLogic:onCollision(allowed, ctx)
   local world = self.mod.world
   local ow = world and world.overworld and world:overworld()
   if not ow or not ow.player or ctx.mover ~= ow.player then return allowed end
+
+  -- Ambient Town Pokémon: normal NPC collision only — never a wild battle.
+  if ctx.entity and (ctx.entity.wildsAmbientPokemon
+      or (Config.isBattleableWild and not Config.isBattleableWild(ctx.entity)
+          and ctx.entity.overworldWildSpawn ~= true)) then
+    return allowed
+  end
+
   local id, record, entity = self:_spawnAt(ctx.toX, ctx.toY)
   if record then
     entity = entity or self.entities[id]
+    if entity and entity.wildsAmbientPokemon then
+      return allowed
+    end
+    if entity and Config.isBattleableWild and not Config.isBattleableWild(entity) then
+      return allowed
+    end
     if entity and not SpawnFx.canBattle(entity) then
       return allowed
     end
