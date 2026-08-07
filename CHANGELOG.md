@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.11.0
+
+### OPTIONS menus, Sprite Color / Fade, Town Pokémon
+
+- Moved Wilds and follower settings into START → OPTIONS submenus
+- Restored follower sprite color setting (Colored / Classic)
+- Restored Wilds Sprite Fade setting (Solid / Faded; Solid = alpha 1.0)
+- Added peaceful Town Pokémon (ambient NPCs; Idle / Wander only)
+- Added ambient Pokémon interactions and text cries
+- Ambient Pokémon use the selected Sprite Style
+- Updated README for the collaborative Wilds of Kanto project
+- Both OPTIONS submenus share the same central `mod.options` keys as Mod Settings
+- No top-level START menu entries for Wilds / Followers
+
 ## 1.10.0
 
 ### Sprite defaults, built-in GSC pack, menus (PR #38 follow-up)

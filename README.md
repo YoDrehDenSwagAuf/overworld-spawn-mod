@@ -1,621 +1,115 @@
 # Wilds of Kanto
 
-Wilds of Kanto brings visible and reactive wild Pokemon into the overworld of
+Wilds of Kanto makes Kanto feel alive in
 [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
 
-Instead of every encounter existing only behind a random battle transition,
-wild Pokemon can appear directly in encounter areas, stand in tall grass,
-wander around, react to the player, or remain hidden as movement in the grass.
-
-The goal is not to replace the original Gen 1 identity. It is to add a version
-of the overworld I used to imagine when playing these games as a child.
-
-> Brings visible and reactive wild Pokemon into the Gen 1 overworld, with
-> roaming, hidden and aggressive encounters across grass, caves and other
-> supported areas.
-
-<!-- Optional: add a screenshot or banner here -->
-
-## Choose Your Overworld Sprite Style
-
-Wilds of Kanto lets you choose which overworld Pokémon sprites you prefer
-without changing the spawn or encounter system.
-
-Available styles:
-
-- **Poke Followers / GSC** (default) — built-in classic follower walker sheets
-  (`assets/enhanced_overworld/poke_followers/follower_XXX.png`). No separate
-  Followers EX / PokéPC install is required.
-- **HGSS / PokeMMO** — rebuilt animated runtime sheets from the bundled
-  follow-sprites source, with nearest-neighbor detail preservation.
-- **Pokédex** — original Pokédex-based images.
-
-You can switch styles at any time from Wilds of Kanto **Mod Settings** or the
-in-game **Wilds of Kanto** submenu. Existing wild Pokémon and followers update
-immediately without being respawned. Saves that already stored an explicit
-style keep that choice.
-
-### Party follower selection (integrated)
-
-PokéPC follower selection and Followers EX control features are built directly
-into Wilds of Kanto.
-
-- No additional follower mods are required
-- Choose a party Pokémon as your active follower (**FOLLOWER** / **FOLLOWING**)
-- **Control Mode** (Trainer / Pokémon), **Trainer Trail**, and **Followers**
-  (0–6) live in Wilds Mod Settings
-- Selection persists across maps and save/load
-- Red, Blue and Yellow are supported
-- Existing Sprite Style selection is unchanged
-- A shared sprite resolver ships in a separate follow-up PR
-
-Legacy Followers EX / PokéPC installs are detected for settings migration only.
-Wilds owns the follower runtime. Prefer disabling those mods to avoid duplicate
-hooks:
-
-```text
-[Wilds] Legacy follower mod detected. Settings and selection were imported;
-Wilds now owns follower runtime.
-```
-
-**Spawn Amount**, **Random Enc**, **Water Mons**, **Dev Overlay**, and
-**Test Spawn** live in Mod Settings together with Sprite Style. The same keys
-are also available from two in-game Start Menu submenus:
-
-```text
-START -> POKE FOLLOW EX   (Control Mode, Trainer Trail, Followers, …)
-START -> WILDS OF KANTO   (Enabled, Spawn Amount, Sprite Style, …)
-```
-
-Both menus read and write the same `mod.options` keys as Mod Settings — there
-is no second settings store.
-
-### Optional legacy sprite mods
-
-Poke Followers / GSC is built in. Optional companion mods remain supported for
-migration / advanced packs only:
-
-- [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
-- [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
-
-```text
-MOD SETTINGS -> WILDS OF KANTO -> Sprite Style
-MOD SETTINGS -> WILDS OF KANTO -> Spawn Amount
-MOD SETTINGS -> WILDS OF KANTO -> Random Enc
-MOD SETTINGS -> WILDS OF KANTO -> Water Mons
-MOD SETTINGS -> WILDS OF KANTO -> Dev Overlay
-MOD SETTINGS -> WILDS OF KANTO -> Test Spawn (OPEN)
-```
-
-Default Sprite Style is **Poke Followers / GSC**.
-
-## Sprite Pack Shoutouts
-
-A big shoutout to the creators who made the different overworld styles
-available to the community:
-
-- **OtaconRevengeance** — creator of the
-  [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites) mod.
-- **masterwebx** — creator of
-  [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
-  (control modes, pack trailers, ControlEngine concepts adapted into Wilds).
-- **gamecorner-033** — creator/maintainer of
-  [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
-  (party selection, fingerprint persistence, and talk behaviour adapted into
-  Wilds; overworld art credited there to ShockSlayer / Pokémon Crystal Clear).
-- **TRW / DAX / Antigravity** — acknowledged in the upstream follower lineage
-  where credited by Followers EX / PokéPC Followers.
-- **DramaticShape** — Dramatic Shape Voxel Mod compatibility work that keeps
-  native SpriteRenderer sheets working in orbit / first-person views.
-
-Wilds of Kanto only integrates with externally installed sprite mods. Their
-assets remain owned and licensed by their respective creators.
-
-## Sprite Styles (technical)
-
-Wilds of Kanto exposes three public overworld sprite styles:
-
-- **Poke Followers / GSC** (`followers`) — default; built-in
-  `poke_followers` sheets via the internal `followers_ex` provider, then
-  HGSS / PokeMMO, then Pokédex.
-- **HGSS / PokeMMO** (`pokemmo`) — rebuilt runtime follow-sprite sheets.
-- **Pokédex** (`pokedex`) — original Pokédex-based images.
-
-All styles use the same native Gen1Recomp SpriteRenderer pipeline and remain
-compatible with Dramatic Shape, including first-person rendering and world
-occlusion.
-
-The **HGSS / PokeMMO** label refers to Wilds of Kanto’s own runtime follow-sprite
-sheets (`assets/generated/followsprites_runtime/`). It does not ship or claim
-Followers EX / PokePC assets.
-
-Optional companion mods (runtime detection / migration only — **not required**):
-
-- [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
-  (`FOLLOWERS_EX`) — legacy; settings migrate into Wilds
-- PokePC Followers Voxel Merge (`PokePCFollowers_VoxelMerge`) — legacy sprite
-  pack / selection; Wilds ships its own walker sheets
-
-Companion mods can also register a provider at runtime:
-
-```lua
-wilds.exports.registerSpriteProvider("followers_ex", provider)
-```
-
-## Animated Overworld Pokémon
-
-Wilds of Kanto uses individual follow-sprite sheets as its preferred
-animated overworld sprite source (the **PokeMMO** style above).
-
-Each supported Pokémon can use:
-
-- directional idle sprites for down, left, right, and up;
-- directional walking sprites for down, left, right, and up;
-- visible idle direction changes while looking around;
-- walking animations while wandering or chasing the player.
-
-The sprites are matched exclusively by Pokédex / species ID, so the system
-remains independent of the selected game language.
-
-Normal and shiny sprite variants are supported by the asset format. Shiny
-sprites are only used during normal gameplay when the game provides a reliable
-shiny state. They remain available in the developer preview for testing.
-
-Choose **Sprite Style** in Mod Settings or **WILDS OF KANTO** (Poke Followers / GSC /
-HGSS / PokeMMO / Pokédex). Poke Followers / GSC is the default. The same style is
-applied to wild Pokémon and followers.
-
-If a follow sprite or mapping is missing, the mod automatically falls back to:
-
-1. the next provider in the style chain (see Sprite Styles);
-2. the previous Pokédex-based sprite;
-3. the black fallback sprite.
-
-Follow-sprites work in both the normal 2D overworld path and with Dramatic
-Shape. Idle look, wander, and aggressive chase behaviour keep the same logic as
-before; hidden grass encounters still show no Pokémon sprite. Species above 151
-may already exist in the mapping for later use, but Gen 1 gameplay only spawns
-species the current game actually supports.
-
-## What it does
-
-On maps with wild encounter data, the mod reads Gen1Recomp’s imported encounter
-tables and places tangible wild Pokemon (or hidden markers) on eligible tiles.
-
-- Species and levels come from the real encounter table for the current map
-- Spawns work without the Pokédex — Route 1 before Oak’s parcel is fine
-- Spawn density scales with encounter-area size; larger routes can hold more
-  active Pokemon, distributed across connected regions
-- Tall-grass presentation: option for fully above grass or partially immersed
-  (engine `drawCellBottom` feet overdraw, like the player)
-- Small species get nearest-neighbor sprite scaling so they stay readable
-- Real Pokemon art is preferred; **Sprite Style** selects HGSS / PokeMMO,
-  Poke Followers, or legacy Pokedex images (HGSS / PokeMMO by default)
-- Otherwise legacy species / battle PNGs are used; a black fallback sprite is
-  used when no image resolves (hidden behaviours draw no Pokemon sprite)
-- Vanilla random grass encounters remain as a fail-safe until the visible
-  system is ready; they can stay suppressed afterward via options
-- Story progress, player position, and warps are never modified
-
-## Encounter behaviors
-
-### Idle
-
-Stays in place, glances a new direction every few seconds. Walking into it can
-start a wild battle with that exact species and level.
-
-### Wander
-
-Moves randomly inside its connected encounter region (grass, cave walkables, or
-water). Contact can start a battle.
-
-### Aggressive
-
-Has a facing sight line. When it spots the player it shows an exclamation mark
-(`!`), then chases — and may leave tall grass after alerting. Contact after the
-alert starts an unavoidable battle. Sight is blocked by non-walkable tiles.
-Aggressive chase uses the same tile-step movement style as NPCs and is safe for
-optional Dramatic Shape Voxel presentation (the `!` is the engine emote, not a
-second Pokemon entity).
-
-### Hidden
-
-Shows no Pokemon sprite. On grass, the tile shakes; in caves, a dust/shadow
-marker is used instead. Stepping onto the tile starts the encounter.
-
-## Safari Pokémon Behaviour
-
-Visible Pokémon inside an active Safari Zone session never start normal
-battles.
-
-Some Safari Pokémon may notice the player, show an alert icon, and run a few
-tiles away before returning to idle or wandering behaviour. Catching them still
-uses the game's native Safari encounter system with Safari Balls, bait, rocks,
-and the normal flee mechanics.
-
-This overworld behaviour only affects movement and does not change Safari catch
-or flee rates.
-
-During an active Safari session, classic step encounters stay off so you can
-approach visible Pokémon without a random interruption. Outside the Safari Zone,
-behaviour and Random Enc are unchanged. If the native Safari battle path is
-unavailable, visible Safari spawns are disabled and Vanilla Safari is left alone.
-
-## Random Encounters
-
-Classic step-based random encounters can be enabled or disabled from Wilds of
-Kanto Mod Settings (**Random Enc**).
-
-Disabling random encounters does not remove visible overworld Pokémon. Wild
-Pokémon can still appear in the world and start battles through direct
-interaction or their normal behaviour.
-
-**Spawn Amount** and **Water Mons** are also Mod Settings. With the default
-**Swim Sprites** mode, visible water Pokémon remain active even when Random Enc
-is off. Classic surf / fishing rolls follow Random Enc, except when Water Mons
-is set to **Classic Enc** (water rolls stay on) or **Disabled** (water rolls
-off).
-
-## Visible Water Pokémon
-
-**Water Mons** chooses how water Pokémon appear:
-
-| Mode | Visible water mons | Water / fishing RNG |
-| --- | --- | --- |
-| Swim Sprites (default) | Full Swimming / Levitates sprites | Follows Random Enc |
-| Hid Silhouette | Small dark circle on the surface | Follows Random Enc |
-| Silhouettes | Dark blue-teal silhouette of the active sprite style | Follows Random Enc |
-| Classic Enc | None | Always on (even if Random Enc is off) |
-| Disabled | None | Always off |
-
-In Swim Sprites / Hid Silhouette / Silhouettes, suitable Pokémon from the
-current map's water encounter table appear on connected water and keep
-`WATER_IDLE` / `WATER_WANDER` / `WATER_AGGRESSIVE`. Legacy hidden grass/cave
-markers remain optional via Hidden Mons.
-
-### Voxel Water Presentation
-
-- **Hidden Silhouettes** use a generic flat underwater shadow marker
-  (`assets/generated/water_hidden_runtime/hidden-water-shadow.png`).
-- **Silhouettes** use the actual dark Pokémon shape as a flat underwater
-  shadow (native pre-rendered silhouette sheets + local flat world transform).
-- **Flat 2D** presentation remains unchanged (dark circle / tinted sprite).
-
-## Cave Spawns
-
-- **Reachable Only** keeps visible cave Pokémon on areas the player can
-  actually enter.
-- **Mixed** keeps most Pokémon on reachable paths, while allowing a small
-  number of atmospheric Pokémon in inaccessible cave sections.
-
-Scenery Pokémon cannot attack the player through walls or start encounters
-from unreachable areas.
-
-## Water Spawn Variety
-
-Visible water Pokémon are selected from the current area's Surf and fishing encounter tables.
-
-- Pokémon obtainable with basic fishing methods can appear closer to shore.
-- Stronger Pokémon that normally require the Super Rod only appear in deeper water farther away from land.
-- Small ponds without deep-water areas do not spawn Super-Rod-only Pokémon.
-
-Some water Pokémon can be aggressive and swim toward the player while remaining on water.
-
-Aggressive land Pokémon may also follow the player into nearby water when a compatible Swimming or Levitates sprite exists. Once in the water, they remain there and do not chase the player back onto land.
-
-## World Collision
-
-Visible wild Pokémon reserve both their current tile and movement target.
-They cannot spawn on top of another entity, walk through Pokémon, trainers,
-NPCs, or an active follower, or swap tiles during simultaneous movement.
-
-## Follower Water Sprites
-
-When a compatible follower mod is active, a follower can use Wilds of Kanto's
-Swimming or Levitates sprite while the player is surfing. Wilds only supplies
-the sprite definition; follower ownership and movement remain with the follower
-mod.
-
-## Land-to-Water Chase
-
-Aggressive land Pokémon with a compatible Swimming or Levitates sprite can
-follow the player into an unoccupied water tile. The same entity switches to
-its water sprite without respawning.
-
-## Water Pokémon Sprites
-
-Visible Pokémon on water use dedicated animated water sprites whenever
-available.
-
-Wilds of Kanto supports two built-in water sprite types:
-
-- **Swimming** — used when a dedicated swimming animation exists.
-- **Levitates** — used when a Pokémon has a levitating or flying water
-  animation.
-
-Water sprites use the same directional idle and movement animation system as
-the normal PokeMMO-style overworld sprites.
-
-If the currently selected external sprite style does not provide a compatible
-water sprite, Wilds of Kanto automatically uses its built-in Swimming or
-Levitates sprite. If neither exists for that species, the normal built-in
-PokeMMO sprite is used as a fallback.
-
-Normal and shiny variants are selected from the actual Pokémon state.
-
-Water sprites are matched by Pokédex / species ID (never localized names).
-Changing Sprite Style does not replace land art with water art — only the water
-surface state uses the water override. Rendering stays on the native
-`SpriteRenderer` path, so Dramatic Shape orbit and first-person views remain
-supported.
+Wild Pokémon appear in the overworld, react to the player, and can be followed
+by party Pokémon — without replacing the classic Gen 1 feel.
 
 ## Features
 
-- Visible wild Pokemon in supported overworld encounter areas
-- Behaviours: Idle, Wander, Aggressive, Hidden markers, Water Idle/Wander/Aggressive
-- Safari Zone: native Safari encounters, Safari Idle/Wander/Flee (no normal aggro)
-- Random Enc toggle for classic step-based encounters (default ON)
-- Visible Water Mons from Surf + fishing encounter pools (toggleable, decentered density)
-- Shore-distance water spawn zones (near / mid / deep)
-- Cave spawns / movement limited to player-reachable cells
-- Short spawn animations for visible grass and water Pokémon
-- Map-aware spawn density and connected spawn regions
-- Grass, cave (no grass graphics required), and Surf-water surfaces
-- Visible water variety uses map Surf and rod tables (not a global type list)
-- Selected Sprite Style applied to the active Followers EX follower (land + water)
-- Sprite scaling: legacy art is capped to one map tile; follow-sprite frames
-  keep native tile size with feet anchored to the tile
-- Engine tall-grass overlay with relative occlusion; Dramatic Shape uses
-  world billboards so bushes/walls occlude Pokemon like trainers
-- Fallback chain: follow-sprite → legacy PNG → black fallback
-- Dev Overlay (behaviour + facing labels) and Test Spawn selector
-- Optional coexistence with [Dramatic Shape Voxel Mod](https://github.com/DramaticShape/DramaticShapeVoxelMod)
-  (not required); wild Pokemon use native `SpriteRenderer` sheets (trainer contract) and
-  cached 16×16 billboard cards so DS depth/grass/occlusion match trainers;
-  emergency 2D overlay only if the adapter bind fails
-- Vanilla grass encounter fallback when the spawn system is not ready
+- Visible overworld Pokémon
+- Reactive encounter behaviours
+- Integrated Pokémon followers
+- Party follower selection
+- Multiple followers
+- Water Pokémon
+- Swimming / silhouettes / classic water encounters
+- Cave spawn filtering
+- Safari compatibility
+- Multiple sprite styles
+- Town / Ambient Pokémon
+- Red / Blue / Yellow
+- Dramatic Shape Voxel compatibility
 
-## Compatibility and testing status
+## Collaborators
 
-The current version has been tested primarily with Pokemon Blue.
+Active collaborators on this project:
 
-The implementation uses Gen1Recomp’s imported encounter and map data rather
-than Blue-specific hard-coded tables, so it is intended to work with the other
-supported Gen 1 games as well. However, Red and Yellow have not yet received
-the same amount of hands-on testing.
+- [YoDrehDenSwagAuf](https://github.com/YoDrehDenSwagAuf) — Wilds of Kanto /
+  overworld systems / integration
+- [masterwebx](https://github.com/masterwebx) (WEX) — Followers EX / follower
+  systems
+- [TheRhysWyrill](https://github.com/TheRhysWyrill) (TRW) — PokéPC / follower
+  selection / integration
 
-I also have not completed a full start-to-finish playthrough with the mod
-enabled. The core systems are working, but unusual maps, scripted sequences or
-late-game areas may still reveal edge cases.
+## Encounter Behaviors
 
-Bug reports are especially helpful when they include the ROM version, map name,
-screenshot and relevant debug log.
+| Behavior | Description |
+|----------|-------------|
+| **Idle** | Pokémon stands around and looks about. |
+| **Wander** | Pokémon moves within its area. |
+| **Aggressive** | Pokémon notices the trainer, reacts, and chases. |
+| **Hidden** | Pokémon stays hidden or is shown only via its marker. |
+| **Safari Flee** | Safari Zone only — Pokémon flees after being noticed. |
 
-### Water
+## Settings
 
-Surf / water encounter tables and the area's Old / Good / Super Rod fishing
-pools can produce visible water Pokemon when **Water Mons** is ON. Spawns are
-placed by shore distance (near / mid / deep). Super-Rod-only species appear
-only in deep water. They stay on connected water (`WATER_IDLE` /
-`WATER_WANDER` / `WATER_AGGRESSIVE`). Vanilla Surf / fishing random encounters
-remain controlled by **Random Enc**. Aggressive water Pokémon chase only while
-the player is surfing; they never leave the water. Compatible aggressive land
-Pokémon may follow the player into nearby water when a Swimming or Levitates
-sprite exists, then stay on water.
+Open from the pause menu:
 
-### Caves
+```text
+START → OPTIONS → Poke Followers EX
+START → OPTIONS → Wilds of Kanto
+```
 
-Cave / indoor wild maps do not require visible grass tiles. Eligible spawn
-tiles are walkable non-warp indoor cells (Gen1Recomp’s indoor encounter rule).
-Hidden encounters use a dust/shadow effect instead of grass shake. Individual
-caves may still need additional testing.
+Both menus read and write the same `mod.options` keys as Mod Settings.
+There is no second settings store.
+
+### Poke Followers EX
+
+| Setting | Values | Default | Description |
+|---------|--------|---------|-------------|
+| Control Mode | Trainer / Pokémon | Trainer | Who you control in the overworld. |
+| Trainer Trail | On / Off | Off | When controlling a Pokémon, the trainer follows behind. |
+| Followers | 0–6 | 1 | Extra party Pokémon trailing the leader. |
+| Sprite Color | Colored / Classic | Colored | Colored uses true-color sheets; Classic uses the GBC-style palette path. |
+| Leader | Party menu | — | Choose the lead follower from the party menu. |
+
+### Wilds of Kanto
+
+| Setting | Values | Default | Description |
+|---------|--------|---------|-------------|
+| Show Wild Mons | On / Off | On | Spawn visible wild Pokémon in eligible areas. |
+| Spawn Amount | Low / Normal / High / Very High | Normal | How many visible overworld Pokémon can appear. |
+| Random Enc | On / Off | On | Classic step-based random encounters. |
+| Water Mons | Swim Sprites / Hid Silhouette / Silhouettes / Classic Enc / Disabled | Swim Sprites | How water Pokémon appear. |
+| Cave Spawns | Reachable Only / Mixed | Reachable Only | Cave spawn reachability filter. |
+| Sprite Style | Poke Followers / GSC · HGSS / PokeMMO · Pokédex | Poke Followers / GSC | Overworld sprite style for wilds and followers. |
+| Sprite Fade | Solid / Faded | Solid | Opacity of normal wild sprites (Solid = fully opaque). |
+| Town Pokémon | On / Off | On | Peaceful ambient Pokémon in safe towns and interiors. |
+| Grass View | Above / Immersed | Immersed | Draw wilds above tall grass or immersed in it. |
+| Idle Mons | On / Off | On | Allow idle look behaviour. |
+| Roam Mons | On / Off | On | Allow wander behaviour. |
+| Chase Mons | On / Off | On | Allow aggressive chase behaviour. |
+| Hidden Mons | On / Off | On | Allow hidden grass / cave markers. |
+| Dev Overlay | On / Off | Off | Show behaviour labels above Pokémon. |
+
+**Test Spawn** remains available from OPTIONS / Mod Settings as an OPEN row.
 
 ## Installation
 
-1. Install [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)
-2. Import your own legally obtained Gen 1 ROM supported by Gen1Recomp
-3. Download a Wilds of Kanto release ZIP (`wilds-of-kanto-v*.zip`)
-4. Open Gen1Recomp → Mod Manager (F10) → Import the ZIP
-5. Enable **Wilds of Kanto**
-6. Reload the map / continue play if you were already in the overworld
-7. Adjust options in the Mod Manager as you like
+1. Install the latest release from
+   [GitHub Releases](https://github.com/YoDrehDenSwagAuf/overworld-spawn-mod/releases).
+2. Place the mod in your Gen1Recomp mods directory.
+3. Enable **Wilds of Kanto**.
+4. No separate Followers EX or PokéPC install is required.
 
-The ZIP root must contain `manifest.json` directly (no wrapping folder).
-Dramatic Shape Voxel Mod is optional and not required.
+Follower selection, control modes, and overworld sprites are built in.
+Legacy Followers EX / PokéPC installs are detected only for settings migration.
 
-This project does not include a ROM.
+## Compatibility
 
-## Options
+- Pokémon Red
+- Pokémon Blue
+- Pokémon Yellow
+- Dramatic Shape Voxel Mod
 
-All options are live (`mod.options_changed`); no restart is required.
-Visible labels are limited to 14 characters so Gen1Recomp does not truncate them.
+## Credits
 
-Gameplay settings live exclusively in **Mod Settings** (not duplicated in the
-Start / Pause menu).
+Short credits only — full license, asset, and third-party notices live in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-| Label | Purpose | Default |
-| --- | --- | --- |
-| Show Wild Mons | Master switch for visible spawns | ON |
-| Sprite Style | HGSS / PokeMMO / Poke Followers / Pokedex (also applied to your active follower) | HGSS / POKEMMO |
-| Spawn Amount | Density preset (Low / Normal / High / Very High); also scales visible water Pokémon | NORMAL |
-| Random Enc | Classic step-based random encounters (grass / cave / water). Visible overworld Pokémon stay active. | ON |
-| Water Mons | Swim Sprites (default) / Hid Silhouette / Silhouettes / Classic Enc / Disabled | SWIM SPRITES |
-| Cave Spawns | Reachable Only (default) / Mixed (~20% scenery) | REACHABLE ONLY |
-| Grass View | Immersed in tall grass, or fully Above | IMMERSED |
-| Idle Mons | Allow Idle Look behaviour | ON |
-| Roam Mons | Allow wandering inside encounter regions | ON |
-| Chase Mons | Allow aggressive spot / chase behaviour | ON |
-| Hidden Mons | Allow hidden grass / cave markers | ON |
-| Dev Overlay | Compact behaviour + facing label above each wild Pokémon | OFF |
+Developer documentation:
 
-**Test Spawn** opens a Pokémon list (OPTIONS activate row / Mod Settings hook)
-and spawns the selected species on a free tile next to the player. It respects
-cell occupancy and uses the current Sprite Style.
-
-Cave spawns and cave movement are limited to cells the player can actually
-reach (BFS from the player start cell). Visible water Pokémon are distributed
-more sparsely than earlier builds, with Manhattan spacing scaled by Spawn Amount.
-
-Fine-tuning that used to appear in older builds (hard caps, refill interval,
-sprite opacity, legacy aliases, strict billboard probes, and the old multi-toggle
-developer panel) is no longer in the public menu. Runtime defaults remain in code.
-Internal diagnostics may still appear while Dev Overlay is on.
-
-## Updates
-
-Wilds of Kanto supports update detection through the Gen1Recomp Mod Manager.
-
-Install the mod through the manager or import the official GitHub release ZIP.
-When a newer GitHub release is available, the Mod Manager can display and
-install the update.
-
-Official repository / releases:
-[YoDrehDenSwagAuf/overworld-spawn-mod](https://github.com/YoDrehDenSwagAuf/overworld-spawn-mod/releases)
-
-## Dev Overlay & Test Spawn
-
-**Dev Overlay** is optional and not needed for normal play. When enabled it:
-
-- Draws a compact behaviour + facing label above each visible wild Pokémon
-  (for example `AGGRO · LEFT` or `WATER IDLE` / `← LEFT`)
-- May also show the detailed diagnostics HUD (cave reachability, water target /
-  spacing, follower style status, and related spawn info)
-
-**Test Spawn** opens a Pokémon list so you can spawn a species on a free
-neighbour tile for testing. Occupancy is respected; if no free tile exists you
-get `No free spawn tile`. Test Spawn is available as its own Mod Settings /
-OPTIONS activate row and does not require Dev Overlay.
-
-Please include Dev Overlay HUD details or log lines when filing bug reports.
-## Why I made this
-
-I have always loved the original Pokemon games, and Gen1Recomp immediately
-felt like a special project. Seeing those games rebuilt as a native LÖVE2D
-experience, with a real modding platform on top, made me want to contribute
-something of my own.
-
-The Dramatic Shape Voxel Mod pushed that feeling even further. It showed how
-much new atmosphere could be added without losing the identity of the
-original games.
-
-When I played Pokemon as a child, I often imagined that the creatures were
-actually present in the routes around me: hiding in the grass, moving between
-tiles, or noticing the player before a battle began. Wilds of Kanto is my
-attempt to turn a little of that imagined version into something playable.
-
-I work as a software developer, but I am not a game developer. This is my
-first game mod, and building it has been a genuinely fun learning experience.
-
-## Related projects
-
-Wilds of Kanto is an independent fan project. It is not part of Gen1Recomp and
-not part of the Dramatic Shape Voxel Mod. It does not require the voxel mod.
-
-- [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)  
-  The native LÖVE2D recreation and modding platform that makes this mod possible.
-
-- [Dramatic Shape Voxel Mod](https://github.com/DramaticShape/DramaticShapeVoxelMod)  
-  An impressive presentation mod that turns the overworld into a 3D diorama and
-  was a major source of inspiration for this project.
-
-## Known limitations
-
-- Tested primarily with Pokemon Blue; Red and Yellow need more hands-on checks
-- No full start-to-finish playthrough with the mod enabled yet
-- Unusual maps may still have odd encounter-area edge cases
-- Sprite sizes are not always perfect because source art varies
-- Some species may use the fallback sprite when no image resolves
-- Water Idle / Wander / Aggressive are supported; classic Surf rolls follow Random Enc
-- Cave maps may still need additional verification
-- Aggressive chase uses tile steps and can struggle on complex layouts
-- Followers EX has no public API for Wilds to inject blockers into follower
-  pathfinding; Wilds still treats follower cells as occupied for its own spawns
-  and steps
-- Compatibility with other mods is not fully guaranteed
-- Temporary overworld presentation often uses battle-front art scaled to 16×16
-- Voxel billboards may not mirror custom 2D scale exactly
-
-## Documentation
-
-- [User Guide](docs/USER_GUIDE.md)
-- [Developer Guide](docs/DEVELOPER_GUIDE.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Release test checklist](docs/RELEASE_TEST.md)
-- [Manual test checklist](MANUAL_TEST.md)
-- [Changelog](CHANGELOG.md)
-
-## Building from source
-
-Requires a local Gen1Recomp checkout (provided by the bootstrap script) and
-Python 3.
-
-```sh
-./scripts/bootstrap.sh   # once — clones engine under .deps/ and links this mod
-./scripts/build-mod.py
-```
-
-Output:
-
-```text
-dist/wilds-of-kanto-v1.0.2.zip          # public release name (upload this)
-dist/overworld_wild_spawns-1.0.2.zip    # local technical-id alias
-dist/overworld_wild_spawns.zip          # local unversioned alias
-```
-
-Tag a release with `v1.0.2` to run `.github/workflows/release.yml`, which
-publishes the public ZIP as a GitHub Release asset.
-The archive root must contain the mod files directly:
-
-```text
-manifest.json
-main.lua
-options.lua
-mod.card
-assets/
-lib/
-docs/
-…
-```
-
-Do not zip the whole git repository. `tests/`, `scripts/`, `.deps/`, and
-`.git/` stay out of the package.
-
-Headless validation (after bootstrap):
-
-```sh
-cd .deps/gen1recomp
-luajit mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
-python3 tools/modkit.py validate mods/overworld_wild_spawns
-```
-
-Follower core (no engine / no companion mods required):
-
-```sh
-lua tests/follower_core_unit_test.lua
-lua tests/follower_standalone_boot_test.lua
-lua tests/followers_water_compat_unit_test.lua
-```
-
-## Contributing and bug reports
-
-Feedback and bug reports are welcome. When something looks wrong, please include:
-
-- ROM version (Red / Blue / Yellow)
-- Map name
-- Whether a save was mid-story or a new game
-- Screenshot if possible
-- Relevant `[WildsOfKanto]` debug log lines (Dev Overlay helps)
-
-## Legal
-
-This is an unofficial fan-made mod. It does not include a Pokemon ROM or
-copyrighted game data. A legally obtained ROM supported by Gen1Recomp is
-required.
-
-Original Wilds of Kanto source code is MIT-licensed (see `LICENSE`). Third-party
-sprites and derived sheets are not relicensed under MIT; see
-`THIRD_PARTY_NOTICES.md`.
-
-Pokemon and related trademarks belong to their respective owners.
-This project is not affiliated with or endorsed by Nintendo, Game Freak,
-The Pokemon Company, Gen1Recomp or Dramatic Shape.
+- [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)

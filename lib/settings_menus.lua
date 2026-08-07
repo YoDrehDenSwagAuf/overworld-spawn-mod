@@ -1,10 +1,12 @@
--- In-game OPTIONS / Start Menu submenus for Wilds.
+-- In-game OPTIONS submenus for Wilds.
 --
--- Two top-level entries share the same mod.options keys as Mod Settings:
---   FOLLOWERS EX  → follower control options
---   WILDS OF KANTO → wild spawn / sprite / overlay options
+-- START → OPTIONS →
+--   POKE FOLLOW EX  → follower control options
+--   WILDS OF KANTO  → wild spawn / sprite / ambient / overlay options
 --
--- No duplicate save keys. Labels stay ≤14 characters (Gen1Recomp truncates).
+-- Both share the same mod.options keys as Mod Settings.
+-- No duplicate save keys. No top-level START menu entries.
+-- Labels stay ≤14 characters (Gen1Recomp truncates).
 local V = ...
 local Config = V.require("config")
 local DebugLog = V.require("debug_log")
@@ -18,6 +20,10 @@ SettingsMenus.SCREEN_WILDS = "overworld_wild_spawns:wilds_menu"
 -- Gen1 ListMenu truncates past 14 characters; full names live in README.
 SettingsMenus.LABEL_FOLLOWERS = "POKE FOLLOW EX"
 SettingsMenus.LABEL_WILDS = "WILDS OF KANTO"
+
+-- OPTIONS activate-row labels (same 14-char budget).
+SettingsMenus.OPTIONS_LABEL_FOLLOWERS = "POKE FOLLOW EX"
+SettingsMenus.OPTIONS_LABEL_WILDS = "WILDS OF KANTO"
 
 local function markCurrent(label, isCurrent)
   if not isCurrent then return label end
@@ -47,11 +53,12 @@ local function optSet(mod, key, value)
   return false
 end
 
-function SettingsMenus.new(mod, logic, follower)
+function SettingsMenus.new(mod, logic, follower, ambient)
   local self = setmetatable({}, SettingsMenus)
   self.mod = mod
   self.logic = logic
   self.follower = follower
+  self.ambient = ambient
   self._registered = false
   return self
 end
@@ -143,6 +150,7 @@ function SettingsMenus:_openFollowersRoot(game)
   local control = optGet(mod, "follow_control", "trainer")
   local trail = optGet(mod, "trainer_trail", false) == true
   local count = tonumber(optGet(mod, "follower_count", 1)) or 1
+  local color = Config.spriteColor(mod)
   local items = {
     {
       label = "CONTROL MODE",
@@ -165,8 +173,16 @@ function SettingsMenus:_openFollowersRoot(game)
       end,
       right = tostring(count),
     },
+    {
+      label = "SPRITE COLOR",
+      onSelect = function()
+        mod.ui.push(game, SettingsMenus.SCREEN_FOLLOWERS .. ":color")
+      end,
+      right = (color == "classic") and "CLASSIC" or "COLORED",
+    },
   }
   -- Leader is available via party submenu; surface a hint only.
+  -- Box Leader is not implemented — do not show a dummy entry.
   items[#items + 1] = {
     label = "LEADER",
     onSelect = function()
@@ -190,10 +206,17 @@ function SettingsMenus:_openWildsRoot(game)
   local mod = self.mod
   local enabled = optGet(mod, "enabled", true) ~= false
   local style = Config.spriteStyle(mod)
+  local fade = Config.spriteFade(mod)
   local spawn = Config.spawnAmount(mod)
   local random = Config.randomEncountersEnabled(mod)
   local water = Config.waterDisplayMode(mod)
   local cave = tostring(optGet(mod, "cave_spawns", "reachable") or "reachable")
+  local town = Config.townPokemonEnabled(mod)
+  local grass = Config.pokemonGrassRenderMode(mod)
+  local idle = optGet(mod, "enable_idle", true) ~= false
+  local roam = optGet(mod, "enable_wander", true) ~= false
+  local chase = optGet(mod, "enable_aggressive", true) ~= false
+  local hidden = optGet(mod, "enable_hidden", true) ~= false
   local dev = Config.devOverlay(mod) == true
 
   local items = {
@@ -242,6 +265,55 @@ function SettingsMenus:_openWildsRoot(game)
         or "HGSS",
     },
     {
+      label = "SPRITE FADE",
+      onSelect = function()
+        mod.ui.push(game, SettingsMenus.SCREEN_WILDS .. ":fade")
+      end,
+      right = (fade == "faded") and "FADED" or "SOLID",
+    },
+    {
+      label = "TOWN POKEMON",
+      onSelect = function()
+        mod.ui.push(game, SettingsMenus.SCREEN_WILDS .. ":town")
+      end,
+      right = town and "ON" or "OFF",
+    },
+    {
+      label = "GRASS VIEW",
+      onSelect = function()
+        mod.ui.push(game, SettingsMenus.SCREEN_WILDS .. ":grass")
+      end,
+      right = (grass == "above") and "ABOVE" or "IMMERSED",
+    },
+    {
+      label = "IDLE MONS",
+      onSelect = function()
+        mod.ui.push(game, SettingsMenus.SCREEN_WILDS .. ":idle")
+      end,
+      right = idle and "ON" or "OFF",
+    },
+    {
+      label = "ROAM MONS",
+      onSelect = function()
+        mod.ui.push(game, SettingsMenus.SCREEN_WILDS .. ":roam")
+      end,
+      right = roam and "ON" or "OFF",
+    },
+    {
+      label = "CHASE MONS",
+      onSelect = function()
+        mod.ui.push(game, SettingsMenus.SCREEN_WILDS .. ":chase")
+      end,
+      right = chase and "ON" or "OFF",
+    },
+    {
+      label = "HIDDEN MONS",
+      onSelect = function()
+        mod.ui.push(game, SettingsMenus.SCREEN_WILDS .. ":hidden")
+      end,
+      right = hidden and "ON" or "OFF",
+    },
+    {
       label = "DEV OVERLAY",
       onSelect = function()
         mod.ui.push(game, SettingsMenus.SCREEN_WILDS .. ":dev")
@@ -266,6 +338,14 @@ function SettingsMenus:_openWildsRoot(game)
       if menu and menu.close then menu:close() end
     end,
   })
+end
+
+function SettingsMenus:_notifyLogic(key, value)
+  if self.logic and self.logic.onOptionsChanged then
+    pcall(self.logic.onOptionsChanged, self.logic, {
+      mod = self.mod.id, key = key, value = value, source = "options_menu",
+    })
+  end
 end
 
 function SettingsMenus:register()
@@ -316,6 +396,29 @@ function SettingsMenus:register()
         end)
     end,
   })
+  mod.content.screens:register(SettingsMenus.SCREEN_FOLLOWERS .. ":color", {
+    new = function(game)
+      return menus:_openChoice(game, "SPRITE COLOR", {
+        { label = "COLORED", value = "colored" },
+        { label = "CLASSIC", value = "classic" },
+      }, Config.spriteColor(mod), function(v)
+        Config.setSpriteColor(mod, v, "options_menu", {
+          game = game,
+          logic = menus.logic,
+          render = menus.logic and menus.logic.render,
+          confirm = true,
+        })
+        if menus.ambient and menus.ambient.refreshSprites then
+          pcall(menus.ambient.refreshSprites, menus.ambient, game)
+        end
+        if menus.follower and menus.follower.control then
+          pcall(function()
+            menus.follower.control:syncAll(game, game and game.overworld)
+          end)
+        end
+      end)
+    end,
+  })
 
   mod.content.screens:register(SettingsMenus.SCREEN_WILDS, {
     new = function(game) return menus:_openWildsRoot(game) end,
@@ -327,9 +430,7 @@ function SettingsMenus:register()
         { label = "OFF", value = false },
       }, optGet(mod, "enabled", true) ~= false, function(v)
         optSet(mod, "enabled", v == true)
-        if menus.logic and menus.logic.onOptionsChanged then
-          pcall(menus.logic.onOptionsChanged, menus.logic, { mod = mod.id })
-        end
+        menus:_notifyLogic("enabled", v == true)
       end)
     end,
   })
@@ -341,7 +442,7 @@ function SettingsMenus:register()
         { label = "HIGH", value = "high" },
         { label = "VERY HIGH", value = "very_high" },
       }, Config.spawnAmount(mod), function(v)
-        Config.setSpawnAmount(mod, v, "start_menu", {
+        Config.setSpawnAmount(mod, v, "options_menu", {
           game = game, logic = menus.logic, confirm = true,
         })
       end)
@@ -353,7 +454,7 @@ function SettingsMenus:register()
         { label = "ON", value = true },
         { label = "OFF", value = false },
       }, Config.randomEncountersEnabled(mod), function(v)
-        Config.setRandomEncounters(mod, v, "start_menu", {
+        Config.setRandomEncounters(mod, v, "options_menu", {
           game = game, logic = menus.logic, confirm = true,
         })
       end)
@@ -368,7 +469,7 @@ function SettingsMenus:register()
         { label = "CLASSIC ENC", value = "classic_encounters" },
         { label = "DISABLED", value = "disabled" },
       }, Config.waterDisplayMode(mod), function(v)
-        Config.setWaterMons(mod, v, "start_menu", {
+        Config.setWaterMons(mod, v, "options_menu", {
           game = game, logic = menus.logic, confirm = true,
         })
       end)
@@ -380,7 +481,9 @@ function SettingsMenus:register()
         { label = "REACHABLE", value = "reachable" },
         { label = "MIXED", value = "mixed" },
       }, tostring(optGet(mod, "cave_spawns", "reachable") or "reachable"), function(v)
-        optSet(mod, "cave_spawns", v)
+        Config.setCaveSpawnMode(mod, v, "options_menu", {
+          game = game, logic = menus.logic, confirm = true,
+        })
       end)
     end,
   })
@@ -391,12 +494,94 @@ function SettingsMenus:register()
         { label = "HGSS / POKEMMO", value = "pokemmo" },
         { label = "POKEDEX", value = "pokedex" },
       }, Config.spriteStyle(mod), function(v)
-        Config.setSpriteStyle(mod, v, "start_menu", {
+        Config.setSpriteStyle(mod, v, "options_menu", {
           game = game,
           logic = menus.logic,
           render = menus.logic and menus.logic.render,
           confirm = true,
         })
+        if menus.ambient and menus.ambient.refreshSprites then
+          pcall(menus.ambient.refreshSprites, menus.ambient, game)
+        end
+      end)
+    end,
+  })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":fade", {
+    new = function(game)
+      return menus:_openChoice(game, "SPRITE FADE", {
+        { label = "SOLID", value = "solid" },
+        { label = "FADED", value = "faded" },
+      }, Config.spriteFade(mod), function(v)
+        Config.setSpriteFade(mod, v, "options_menu", {
+          game = game, logic = menus.logic, confirm = true,
+        })
+      end)
+    end,
+  })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":town", {
+    new = function(game)
+      return menus:_openChoice(game, "TOWN POKEMON", {
+        { label = "ON", value = true },
+        { label = "OFF", value = false },
+      }, Config.townPokemonEnabled(mod), function(v)
+        Config.setTownPokemon(mod, v, "options_menu", {
+          game = game, ambient = menus.ambient, confirm = true,
+        })
+      end)
+    end,
+  })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":grass", {
+    new = function(game)
+      return menus:_openChoice(game, "GRASS VIEW", {
+        { label = "ABOVE", value = "above" },
+        { label = "IMMERSED", value = "immersed" },
+      }, Config.pokemonGrassRenderMode(mod), function(v)
+        optSet(mod, "pokemon_grass_render_mode", v)
+        menus:_notifyLogic("pokemon_grass_render_mode", v)
+      end)
+    end,
+  })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":idle", {
+    new = function(game)
+      return menus:_openChoice(game, "IDLE MONS", {
+        { label = "ON", value = true },
+        { label = "OFF", value = false },
+      }, optGet(mod, "enable_idle", true) ~= false, function(v)
+        optSet(mod, "enable_idle", v == true)
+        menus:_notifyLogic("enable_idle", v == true)
+      end)
+    end,
+  })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":roam", {
+    new = function(game)
+      return menus:_openChoice(game, "ROAM MONS", {
+        { label = "ON", value = true },
+        { label = "OFF", value = false },
+      }, optGet(mod, "enable_wander", true) ~= false, function(v)
+        optSet(mod, "enable_wander", v == true)
+        menus:_notifyLogic("enable_wander", v == true)
+      end)
+    end,
+  })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":chase", {
+    new = function(game)
+      return menus:_openChoice(game, "CHASE MONS", {
+        { label = "ON", value = true },
+        { label = "OFF", value = false },
+      }, optGet(mod, "enable_aggressive", true) ~= false, function(v)
+        optSet(mod, "enable_aggressive", v == true)
+        menus:_notifyLogic("enable_aggressive", v == true)
+      end)
+    end,
+  })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":hidden", {
+    new = function(game)
+      return menus:_openChoice(game, "HIDDEN MONS", {
+        { label = "ON", value = true },
+        { label = "OFF", value = false },
+      }, optGet(mod, "enable_hidden", true) ~= false, function(v)
+        optSet(mod, "enable_hidden", v == true)
+        menus:_notifyLogic("enable_hidden", v == true)
       end)
     end,
   })
@@ -407,39 +592,56 @@ function SettingsMenus:register()
         { label = "ON", value = true },
       }, Config.devOverlay(mod) == true, function(v)
         optSet(mod, "dev_overlay", v == true)
+        menus:_notifyLogic("dev_overlay", v == true)
       end)
     end,
   })
 
+  -- START → OPTIONS only (no top-level START entries).
   if mod.hooks and mod.hooks.wrap then
-    mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
-      local out = next(game, items)
+    mod.hooks:wrap("ui.options.rows", function(next, game, rows)
+      local out = next(game, rows)
       if type(out) ~= "table" then return out end
-      local function add(label, screen)
+      local function add(label, screen, id)
         local row = {
+          id = id,
           label = label,
-          onSelect = function()
+          value = function() return "OPEN" end,
+          activate = function(g)
             if mod.ui and mod.ui.push then
-              mod.ui.push(game, screen)
+              mod.ui.push(g, screen)
             end
           end,
         }
         if mod.ui and type(mod.ui.insertBefore) == "function" then
-          out = mod.ui.insertBefore(out, "OPTION", row) or out
+          out = mod.ui.insertBefore(out, "MODS", row) or out
         else
           out[#out + 1] = row
         end
       end
-      add(SettingsMenus.LABEL_FOLLOWERS, SettingsMenus.SCREEN_FOLLOWERS)
-      add(SettingsMenus.LABEL_WILDS, SettingsMenus.SCREEN_WILDS)
+      add(SettingsMenus.OPTIONS_LABEL_FOLLOWERS, SettingsMenus.SCREEN_FOLLOWERS,
+          "overworld_wild_spawns:followers_ex_open")
+      add(SettingsMenus.OPTIONS_LABEL_WILDS, SettingsMenus.SCREEN_WILDS,
+          "overworld_wild_spawns:wilds_open")
       return out
     end)
   end
 
   self._registered = true
   if Config.debug(mod) then
-    DebugLog.info(mod, "in-game FOLLOWERS EX + WILDS OF KANTO menus registered")
+    DebugLog.info(mod, "OPTIONS menus registered: POKE FOLLOW EX + WILDS OF KANTO")
   end
 end
+
+-- Keys shown in each submenu (for tests / docs).
+SettingsMenus.FOLLOWERS_OPTION_KEYS = {
+  "follow_control", "trainer_trail", "follower_count", "sprite_color",
+}
+SettingsMenus.WILDS_OPTION_KEYS = {
+  "enabled", "spawn_density", "random_encounters", "water_spawns",
+  "cave_spawns", "sprite_style", "sprite_fade", "town_pokemon",
+  "pokemon_grass_render_mode", "enable_idle", "enable_wander",
+  "enable_aggressive", "enable_hidden", "dev_overlay",
+}
 
 return SettingsMenus

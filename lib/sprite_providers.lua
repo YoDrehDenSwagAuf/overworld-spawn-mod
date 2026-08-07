@@ -95,14 +95,19 @@ local function normalizeVariant(variant)
   return AnimatedSprites.normalizeVariant(variant)
 end
 
-local function copyDef(def, spriteId)
+local function copyDef(def, spriteId, mod)
   if type(def) ~= "table" or type(def.image) ~= "string" or def.image == "" then
     return nil
+  end
+  local trueColor = def.trueColor ~= false
+  -- PokéPC color_mode semantics: Classic forces trueColor=false.
+  if mod and Config and Config.spriteTrueColor then
+    trueColor = Config.spriteTrueColor(mod)
   end
   local out = {
     image = def.image,
     frames = tonumber(def.frames) or 1,
-    trueColor = def.trueColor ~= false,
+    trueColor = trueColor,
     id = spriteId or def.id,
   }
   if def.walker then out.walker = true end
@@ -1030,6 +1035,10 @@ function SpriteProviders:resolve(style, speciesId, variant, game)
           meta.fallbackStep = fallbackStep
           meta.providerMod = meta.providerMod or provider.modId
           meta.bodyRenderer = meta.bodyRenderer or "NATIVE_SPRITE_RENDERER"
+          -- Apply shared Sprite Color (PokéPC color_mode semantics).
+          if Config.spriteTrueColor then
+            def.trueColor = Config.spriteTrueColor(self.mod)
+          end
           local result = {
             def = def,
             meta = meta,
