@@ -28,8 +28,8 @@ SpriteStyleMenu.MENU_LABEL = SpriteStyleMenu.LABEL_STYLE
 SpriteStyleMenu.LABEL_GRASS = SpriteStyleMenu.LABEL_RANDOM
 
 SpriteStyleMenu.STYLE_CHOICES = {
+  { label = "FOLLOWERS/GSC", value = "followers" },
   { label = "HGSS / POKEMMO", value = "pokemmo" },
-  { label = "POKE FOLLOWERS", value = "followers" },
   { label = "POKEDEX", value = "pokedex" },
 }
 SpriteStyleMenu.CHOICES = SpriteStyleMenu.STYLE_CHOICES
@@ -55,8 +55,8 @@ SpriteStyleMenu.WATER_CHOICES = {
 }
 
 local STYLE_CONFIRM = {
+  followers = "POKE FOLLOWERS / GSC",
   pokemmo = "HGSS / POKEMMO",
-  followers = "POKE FOLLOWERS",
   pokedex = "POKEDEX",
 }
 
@@ -79,7 +79,7 @@ local function activeFallbackLabel(menu, style, game)
   local providers = render and render.spriteProviders
   if not providers then return "HGSS / POKEMMO" end
   local id = select(1, providers:activeProviderForStyle(style, game))
-  if id == "followers_ex" then return "POKE FOLLOWERS"
+  if id == "followers_ex" then return "POKE FOLLOWERS / GSC"
   elseif id == "pokedex" then return "POKEDEX"
   elseif id == "black" then return "FALLBACK"
   end
@@ -109,7 +109,7 @@ function SpriteStyleMenu:_applyStyle(game, value)
 
   value = Config.normalizeSpriteStyle(value)
   if value == "followers" and not avail then
-    message = ("POKE FOLLOWERS\nNOT INSTALLED\nUSING %s"):format(
+    message = ("POKE FOLLOWERS / GSC\nNOT READY\nUSING %s"):format(
       activeFallbackLabel(self, "followers", game))
   end
 

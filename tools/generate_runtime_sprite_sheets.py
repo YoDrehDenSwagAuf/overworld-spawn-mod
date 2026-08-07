@@ -1,23 +1,31 @@
 #!/usr/bin/env python3
-"""Build Gen1Recomp-compatible 16×96 SpriteRenderer sheets from follow-sprites.
+"""Build Gen1Recomp-compatible SpriteRenderer sheets from HGSS follow-sprites.
 
 Verified SpriteRenderer frame tables (src/render/SpriteRenderer.lua):
 
   STAND = { down = 0, up = 1, left = 2, right = 2 }
   WALK  = { down = 3, up = 4, left = 5, right = 5 }
 
-Right-facing uses the left frames with a horizontal mirror in the engine.
+Quads are hard-coded to 16×16 px (`newQuad(0, f * 16, 16, 16, …)`).
+Larger native frames are therefore impossible without changing SpriteRenderer,
+which this project must not do. Runtime cards remain 16×16.
 
-Follow-sprite sources are 4×4 grids (rows = directions, columns = frames):
-  col 0 = idle pose
-  col 1 = idle bob (same silhouette, Y+1) — discarded for runtime walk
-  col 2 = distinct walk pose  ← used as the single native walk frame
-  col 3 = walk bob (same as col 2, Y+1)
+Source follow-sprites are typically 4×4 grids of 32×32 tiles (128×128 sheets).
+Rows = directions (down/left/right/up), columns = animation frames
+(idle, idle-bob, walk, walk-bob).
 
-``fit_to_card`` bottom-aligns feet, so bob-only columns collapse to idle.
-We therefore pick the first column whose visible content differs from idle
-(typically column 2). Extra source walk frames beyond that one pose are not
-used: Gen1Recomp SpriteRenderer only supports stand/walk (phase 0/1).
+Runtime keeps only the six frames SpriteRenderer needs:
+  idle down/up/left, walk down/up/left
+(Right is mirrored from left by the engine.)
+
+Quality rules (this rebuild):
+  * Nearest-neighbor only — never bilinear/bicubic.
+  * Shared opaque bounding box across the six needed frames (stable pivot,
+    no per-frame auto-centering → no walk jitter).
+  * Max-fit into 16×16: never upscale; skip resize when content already fits.
+  * Prefer exact ½ scale when it is essentially the maximum that fits
+    (cleaner pixels than awkward ratios like 0.53).
+  * Source under assets/enhanced_overworld/followsprites is never modified.
 
 Output:
   assets/generated/followsprites_runtime/{dex:03d}-normal.png
@@ -37,14 +45,13 @@ ROOT = Path(__file__).resolve().parents[1]
 MAPPING = ROOT / "assets/enhanced_overworld/followsprites_mapping/followsprites_mapping.json"
 OUT_DIR = ROOT / "assets/generated/followsprites_runtime"
 
-# SpriteRenderer STAND / WALK order (verified against Gen1Recomp).
 FRAME_SPECS = (
-    ("idle", "down"),   # 0
-    ("idle", "up"),     # 1
-    ("idle", "left"),   # 2
-    ("walk", "down"),   # 3
-    ("walk", "up"),     # 4
-    ("walk", "left"),   # 5
+    ("idle", "down"),
+    ("idle", "up"),
+    ("idle", "left"),
+    ("walk", "down"),
+    ("walk", "up"),
+    ("walk", "left"),
 )
 
 CARD = 16
@@ -53,12 +60,9 @@ SHEET_H = 96  # 6 × 16
 
 
 def visible_bounds(im: Image.Image) -> tuple[int, int, int, int] | None:
-    """Return (left, top, right, bottom) exclusive of fully transparent padding."""
     if im.mode != "RGBA":
         im = im.convert("RGBA")
-    alpha = im.getchannel("A")
-    bbox = alpha.getbbox()
-    return bbox
+    return im.getchannel("A").getbbox()
 
 
 def crop_tile(src: Image.Image, col: int, row: int, tw: int, th: int) -> Image.Image:
@@ -67,60 +71,17 @@ def crop_tile(src: Image.Image, col: int, row: int, tw: int, th: int) -> Image.I
     return src.crop((x0, y0, x0 + tw, y0 + th)).convert("RGBA")
 
 
-def fit_to_card(tile: Image.Image, scale: float) -> Image.Image:
-    """Nearest-neighbor scale + bottom-center paste into a 16×16 transparent card."""
-    card = Image.new("RGBA", (CARD, CARD), (0, 0, 0, 0))
-    bbox = visible_bounds(tile)
-    if bbox is None:
-        return card
-    l, t, r, b = bbox
-    content = tile.crop((l, t, r, b))
-    nw = max(1, int(round(content.width * scale)))
-    nh = max(1, int(round(content.height * scale)))
-    nw = min(nw, CARD)
-    nh = min(nh, CARD)
-    scaled = content.resize((nw, nh), Image.Resampling.NEAREST)
-    x = (CARD - nw) // 2
-    y = CARD - nh  # feet on bottom edge
-    card.paste(scaled, (x, y), scaled)
-    return card
-
-
-def common_scale(tiles: list[Image.Image]) -> float:
-    """One scale for all frames of a species so size does not jitter."""
-    max_w = 0
-    max_h = 0
-    for tile in tiles:
-        bbox = visible_bounds(tile)
-        if bbox is None:
-            continue
-        l, t, r, b = bbox
-        max_w = max(max_w, r - l)
-        max_h = max(max_h, b - t)
-    if max_w <= 0 or max_h <= 0:
-        return 1.0
-    return min(CARD / max_w, CARD / max_h, 1.0)
+def idle_col(layout: dict) -> int:
+    return int(layout.get("idleColumn", 0))
 
 
 def walk_col(layout: dict) -> int:
-    """Default walk column for layouts without per-tile inspection.
-
-    Follow-sprite sheets use columns ``[idle, idle_bob, walk, walk_bob]``.
-    Column 1 is the same silhouette as idle shifted down one pixel; after
-    ``fit_to_card`` bottom-aligns feet, idle and walk become identical and
-    SpriteRenderer phase 0/1 shows no animation. Prefer column 2 (first
-    pose-distinct walk frame). Right is still mirrored from left by the engine.
-    """
     cols = layout.get("walkColumns") or [0, 1, 2, 3]
     if len(cols) >= 3:
         return int(cols[2])
     if len(cols) >= 2:
         return int(cols[1])
     return int(cols[0]) if cols else 2
-
-
-def idle_col(layout: dict) -> int:
-    return int(layout.get("idleColumn", 0))
 
 
 def direction_row(layout: dict, direction: str) -> int:
@@ -131,7 +92,6 @@ def direction_row(layout: dict, direction: str) -> int:
 
 
 def _visible_content_key(tile: Image.Image) -> bytes:
-    """Offset-invariant fingerprint of a tile's opaque content."""
     bbox = visible_bounds(tile)
     if bbox is None:
         return b""
@@ -141,7 +101,6 @@ def _visible_content_key(tile: Image.Image) -> bytes:
 def pick_walk_column(
     src: Image.Image, layout: dict, tw: int, th: int, direction: str
 ) -> int:
-    """Pick a walk column whose silhouette differs from idle (not just a bob)."""
     cols = layout.get("walkColumns") or [0, 1, 2, 3]
     ic = idle_col(layout)
     row = direction_row(layout, direction)
@@ -152,7 +111,6 @@ def pick_walk_column(
             continue
         if _visible_content_key(crop_tile(src, col, row, tw, th)) != idle_key:
             return col
-    # Last resort: documented default (column 2 in the 4-frame follower grid).
     return walk_col(layout)
 
 
@@ -169,18 +127,102 @@ def extract_source_tiles(src: Image.Image, layout: dict, tw: int, th: int) -> li
     return tiles
 
 
-def build_sheet(src_path: Path, layout: dict, tw: int, th: int) -> Image.Image:
+def fit_shared_trim(tiles: list[Image.Image]) -> tuple[list[Image.Image], dict]:
+    """Shared-scale / shared-pivot nearest fit into CARD×CARD.
+
+    SpriteRenderer quads are hard-coded 16×16, so cards cannot be larger.
+    Within that limit we:
+      * measure one union opaque bbox across all needed frames
+      * pick one max-fit scale (never upscale; skip resize when content fits)
+      * crop each frame to its own opaque pixels, scale with that shared scale
+      * place every frame relative to the same union pivot (feet on bottom,
+        horizontally centered on the union) — no per-frame auto-centering
+    """
+    boxes = [visible_bounds(t) for t in tiles]
+    empty = [Image.new("RGBA", (CARD, CARD), (0, 0, 0, 0)) for _ in tiles]
+    if not any(boxes):
+        return empty, {
+            "method": "empty",
+            "scale": 1.0,
+            "contentWidth": 0,
+            "contentHeight": 0,
+            "resized": False,
+        }
+
+    left = min(b[0] for b in boxes if b)
+    top = min(b[1] for b in boxes if b)
+    right = max(b[2] for b in boxes if b)
+    bottom = max(b[3] for b in boxes if b)
+    cw = max(1, right - left)
+    ch = max(1, bottom - top)
+
+    scale = min(CARD / cw, CARD / ch, 1.0)
+    if 0.5 <= scale < 1.0 and cw > CARD and ch > CARD:
+        half_ok = (cw / 2) <= CARD and (ch / 2) <= CARD
+        if half_ok and abs(scale - 0.5) <= 0.08:
+            scale = 0.5
+
+    resized = scale < 0.999
+    union_nw = max(1, min(CARD, int(round(cw * scale))))
+    union_nh = max(1, min(CARD, int(round(ch * scale))))
+    origin_x = (CARD - union_nw) // 2
+    origin_y = CARD - union_nh
+
+    out: list[Image.Image] = []
+    for tile, bbox in zip(tiles, boxes):
+        card = Image.new("RGBA", (CARD, CARD), (0, 0, 0, 0))
+        if bbox is None:
+            out.append(card)
+            continue
+        fl, ft, fr, fb = bbox
+        window = tile.crop((fl, ft, fr, fb))
+        fw = max(1, fr - fl)
+        fh = max(1, fb - ft)
+        if resized:
+            nw = max(1, min(CARD, int(round(fw * scale))))
+            nh = max(1, min(CARD, int(round(fh * scale))))
+            scaled = window.resize((nw, nh), Image.Resampling.NEAREST)
+        else:
+            nw, nh = fw, fh
+            scaled = window
+        x = origin_x + int(round((fl - left) * scale))
+        y = origin_y + int(round((ft - top) * scale))
+        # Clamp so a rounding slip cannot draw outside the card.
+        x = max(0, min(CARD - nw, x))
+        y = max(0, min(CARD - nh, y))
+        card.paste(scaled, (x, y), scaled)
+        out.append(card)
+
+    return out, {
+        "method": "shared_bbox_nearest",
+        "scale": round(scale, 4),
+        "contentWidth": cw,
+        "contentHeight": ch,
+        "outWidth": union_nw,
+        "outHeight": union_nh,
+        "resized": resized,
+        "resampling": "nearest" if resized else "none",
+    }
+
+
+def build_sheet(src_path: Path, layout: dict, tw: int, th: int) -> tuple[Image.Image, dict]:
     src = Image.open(src_path).convert("RGBA")
     if tw <= 0 or th <= 0:
         tw = src.width // int(layout.get("columns", 4))
         th = src.height // int(layout.get("rows", 4))
     tiles = extract_source_tiles(src, layout, tw, th)
-    scale = common_scale(tiles)
+
+    cards, fit_meta = fit_shared_trim(tiles)
+    meta = {
+        "tileWidth": tw,
+        "tileHeight": th,
+        **fit_meta,
+    }
+
     sheet = Image.new("RGBA", (SHEET_W, SHEET_H), (0, 0, 0, 0))
-    for i, tile in enumerate(tiles):
-        card = fit_to_card(tile, scale)
+    for i, card in enumerate(cards):
         sheet.paste(card, (0, i * CARD), card)
-    return sheet
+    return sheet, meta
 
 
 def variant_meta(entry: dict, variant: str) -> dict | None:
@@ -221,7 +263,7 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
 
     manifest = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "format": "gen1recomp-sprite-renderer-sheet",
         "sheetWidth": SHEET_W,
         "sheetHeight": SHEET_H,
@@ -229,36 +271,33 @@ def main() -> int:
         "frameHeight": CARD,
         "frames": 6,
         "walker": True,
+        "rendererConstraint": (
+            "SpriteRenderer quads are fixed at 16×16; larger frames are not used."
+        ),
         "frameOrder": [
             "idle_down", "idle_up", "idle_left",
             "walk_down", "walk_up", "walk_left",
         ],
         "rightFacing": "mirror_left",
-        "rightFacingNote": (
-            "Follow-sprite right frames can be artistically distinct from "
-            "mirrored left. The native SpriteRenderer / Dramatic Shape path "
-            "mirrors left for right (trainer contract). Flat 2D may still "
-            "use dedicated right quads from the source atlas optionally."
-        ),
         "walkSourceColumn": walk_col(layout),
-        "walkSourceNote": (
-            "Per-direction walk column is the first walkColumns entry whose "
-            "visible content differs from idle (typically column 2). Column 1 "
-            "is an idle bob that collapses under bottom-align fit_to_card."
-        ),
         "idleSourceColumn": idle_col(layout),
         "discardedSourceFrames": (
-            "Per direction: idle bob (col 1), walk bob (col 3), and dedicated "
-            "right-facing row (engine mirrors left). Gen1Recomp only supports "
-            "stand/walk phase 0/1."
+            "Per direction: idle bob, walk bob, and dedicated right-facing row "
+            "(engine mirrors left). Only stand/walk phase 0/1 are kept."
         ),
-        "scale": "visible-bounds fit, nearest-neighbor, bottom-center, shared per species",
+        "scale": (
+            "Shared opaque bbox across needed frames sets one max-fit scale "
+            "(never upscale). Each frame is cropped to its own pixels, scaled "
+            "with nearest-neighbor only, and placed on the shared pivot."
+        ),
+        "resampling": "NEAREST only",
         "sheets": {},
     }
 
     written = 0
     skipped = 0
     errors = 0
+    methods: dict[str, int] = {}
 
     for key in sorted(species.keys(), key=lambda k: int(k)):
         sid = int(key)
@@ -289,11 +328,13 @@ def main() -> int:
                 errors += 1
                 continue
             try:
-                sheet = build_sheet(
+                sheet, build_meta = build_sheet(
                     src_path, layout, meta["tileWidth"], meta["tileHeight"])
                 assert sheet.size == (SHEET_W, SHEET_H), sheet.size
                 sheet.save(out_path, optimize=True)
                 written += 1
+                method = str(build_meta.get("method"))
+                methods[method] = methods.get(method, 0) + 1
                 manifest["sheets"][f"{sid}:{variant}"] = {
                     "speciesId": sid,
                     "variant": variant,
@@ -303,16 +344,21 @@ def main() -> int:
                     "status": "written",
                     "width": SHEET_W,
                     "height": SHEET_H,
+                    "tileWidth": build_meta.get("tileWidth"),
+                    "tileHeight": build_meta.get("tileHeight"),
+                    "method": method,
+                    "scale": build_meta.get("scale"),
                 }
             except Exception as exc:  # noqa: BLE001
                 print(f"error: {sid} {variant}: {exc}", file=sys.stderr)
                 errors += 1
 
+    manifest["methods"] = methods
     man_path = args.out / "manifest.json"
     man_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(
         f"runtime sheets: written={written} cached={skipped} errors={errors} "
-        f"out={args.out}"
+        f"methods={methods} out={args.out}"
     )
     return 0 if errors == 0 else 2
 

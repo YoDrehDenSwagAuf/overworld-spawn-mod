@@ -249,13 +249,53 @@ Contact: `world.stepped` tile match + `movement.collision` bump.
 
 ### Deferred: Followers EX water integration
 
-Not in this branch. Planned later as a separate step:
-
-- Followers EX owns follower movement / entity
-- Wilds exports `resolveWaterSprite(speciesId, shiny, form)`
-- Follower switches once on player land/water transition
+**Superseded.** Water follower presentation is already implemented via
+`lib/followers_water_compat.lua` + `mod.exports.resolveWaterSprite`.
+Follower movement/entity ownership is now handled by the unified follower
+core (`lib/follower/`) when Followers EX is not driving trailers.
 
 Do not mix private Followers tables into Wilds water spawn/aggro fixes.
+
+## Unified follower core (`lib/follower/`)
+
+Standalone module layout (no Followers EX / PokéPC required):
+
+```text
+lib/follower/
+  init.lua             - install / exports / wiring
+  constants.lua        - state keys, save keys, external mod IDs
+  state.lua            - selection persistence
+  selection.lua        - party resolve, fingerprint (+ species), health
+  settings.lua         - Control Mode / Trainer Trail / Followers + migration
+  sprite_service.lua   - resolveFollowerSprite + SPRITE_PIKACHU registration
+  control_engine.lua   - pack/trailers/modes (Followers EX concepts)
+  lifecycle.lua        - fallback hooks, party submenu, sprite refresh
+  interaction.lua      - talk helpers
+  compatibility.lua    - legacy mod detect / restore / migrate
+  diagnostics.lua      - HUD lines
+```
+
+**Ownership:** Wilds always owns runtime. Legacy mods → migrate + warn.
+
+**Settings (Wilds Mod Settings):**
+
+| Label | Key | Values |
+|-------|-----|--------|
+| Control Mode | `follow_control` | trainer / pokemon |
+| Trainer Trail | `trainer_trail` | off / on |
+| Followers | `follower_count` | 0–6 |
+
+Engine mapping: trainer→`follow`; pokemon+trail→`lead_trainer`;
+pokemon+count>0→`pack`; pokemon+count0→`pokemon`.
+
+**Not duplicated:** `show_in_menu`, `wilds_grass_lift` (use Grass View),
+`wilds_town_spawns` (future Wilds feature).
+
+**Sprite refresh / PR 2:** `resolveFollowerSprite({ species, shiny, form,
+surface, style, role, game })`.
+
+See `docs/analysis/STANDALONE_CRASH.md` and
+`docs/analysis/FOLLOWER_FEATURE_INVENTORY.md`.
 
 ## 20. Cave support
 
@@ -287,6 +327,8 @@ python3 tools/validate_release_version.py
 cd .deps/gen1recomp
 luajit mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
 luajit mods/overworld_wild_spawns/tests/voxel_aggressive_compat_test.lua
+# Follower core (host lua; no engine required)
+lua mods/overworld_wild_spawns/tests/follower_core_unit_test.lua
 ```
 
 ## 25. Release build

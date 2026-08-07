@@ -653,16 +653,214 @@ function SpriteProviders:_makeGoldProvider()
 end
 
 ------------------------------------------------------------------------
--- Followers EX / PokePC read-only adapter
---
--- Real API (Followers EX 1.0.19 / ControlEngine):
---   * Assets live in PokePCFollowers_VoxelMerge: assets/sprites/follower_<SPECIES>.png
---   * FOLLOWERS_EX depends on PokePC + overworld_wild_spawns (no public resolveSprite)
---   * ControlEngine discovers root via SPRITE_PIKACHU.image or mods/<id>/...
---   * SpriteRenderer def: { image, frames=6, walker=true, trueColor=true }
---   * Optional SHINY_POKEMON.exports.bakeFollowerOwSheet(path, species)
---
--- We never scan private tables; we only use documented paths + content defs.
+-- Built-in Poke Followers / GSC (provider id remains followers_ex for
+-- save / chain compatibility). Assets ship under:
+--   assets/enhanced_overworld/poke_followers/follower_%03d.png
+-- Dex id maps 1:1. External PokePC packs remain an optional override.
+------------------------------------------------------------------------
+
+local POKE_FOLLOWERS_REL = "assets/enhanced_overworld/poke_followers"
+local POKE_FOLLOWERS_PROBE = POKE_FOLLOWERS_REL .. "/follower_001.png"
+
+function SpriteProviders:_pokeFollowersPath(dex, render)
+  if type(dex) ~= "number" or dex < 1 then return nil, nil end
+  local rel = string.format("%s/follower_%03d.png", POKE_FOLLOWERS_REL, dex)
+  local via = nil
+  if render and render._modAssetPath then
+    local ok, path = pcall(render._modAssetPath, render, rel)
+    if ok and type(path) == "string" and path ~= "" then
+      via = path
+    end
+  end
+  if not via and self.mod and self.mod.assets and self.mod.assets.path then
+    local ok, path = pcall(function() return self.mod.assets:path(rel) end)
+    if ok and type(path) == "string" then via = path end
+  end
+  -- Headless / unit-test fallback: relative path from mod root.
+  if not via then via = rel end
+  return via, rel
+end
+
+function SpriteProviders:_builtinPokeFollowersReady()
+  local mod = self.mod
+  if mod and mod.read then
+    local ok, data = pcall(function() return mod:read(POKE_FOLLOWERS_PROBE) end)
+    if ok and data then return true end
+  end
+  return fsExists(POKE_FOLLOWERS_PROBE)
+end
+
+function SpriteProviders:_makeFollowersExProvider()
+  local mod = self.mod
+  local render = self.render
+  local owners = self
+  local state = {
+    root = nil,
+    source = nil,
+    exportApi = nil,
+    probed = false,
+  }
+
+  local provider = {
+    id = SpriteProviders.ID.FOLLOWERS_EX,
+    builtin = true,
+    modId = mod and mod.id or "overworld_wild_spawns",
+    _state = state,
+  }
+
+  function provider:refreshAvailability(game)
+    state.probed = true
+    if owners:_builtinPokeFollowersReady() then
+      state.root, state.source, state.exportApi = POKE_FOLLOWERS_REL, "builtin", nil
+      return true
+    end
+    local root, source, exportApi = owners:_discoverPokepcRoot(game)
+    state.root, state.source, state.exportApi = root, source, exportApi
+    return state.root ~= nil or state.exportApi ~= nil
+  end
+
+  function provider:isAvailable(game)
+    if owners:_builtinPokeFollowersReady() then
+      return true, "built-in poke_followers (GSC)"
+    end
+    if not state.probed then
+      self:refreshAvailability(game)
+    end
+    if state.exportApi then
+      return true, "followers export API (" .. tostring(state.source) .. ")"
+    end
+    if state.root and state.root ~= POKE_FOLLOWERS_REL
+       and fsExists(tostring(state.root) .. "/" .. PROBE_REL) then
+      return true, "external PokePC walker sheets at " .. tostring(state.root)
+    end
+    return false, "Poke Followers assets unavailable"
+  end
+
+  function provider:resolve(speciesId, variant, game)
+    local okAvail, why = self:isAvailable(game)
+    if not okAvail then
+      return nil, nil, why
+    end
+
+    local dex = resolveDexId(speciesId, game, mod)
+    local wantShiny = normalizeVariant(variant) == "shiny"
+
+    -- Built-in pack: dex → follower_%03d.png (no shiny sheets).
+    if owners:_builtinPokeFollowersReady() and dex then
+      if wantShiny then
+        return nil, nil, "poke_followers shiny sheet unavailable"
+      end
+      local imagePath, rel = owners:_pokeFollowersPath(dex, render)
+      if not imagePath then
+        return nil, nil, "poke_followers path unresolved for dex " .. tostring(dex)
+      end
+      -- Existence: prefer mod.read / fs when available.
+      local exists = true
+      if mod and mod.read then
+        local ok, data = pcall(function()
+          return mod:read(rel or string.format("%s/follower_%03d.png",
+            POKE_FOLLOWERS_REL, dex))
+        end)
+        exists = ok and data ~= nil
+      elseif not fsExists(rel or imagePath) and not fsExists(imagePath) then
+        exists = false
+      end
+      if not exists then
+        return nil, nil, "missing poke_followers sheet for dex " .. tostring(dex)
+      end
+      local def = {
+        image = imagePath,
+        frames = 6,
+        walker = true,
+        trueColor = true,
+        id = "SPRITE_OW_WILD_" .. tostring(dex),
+      }
+      return def, {
+        providerId = SpriteProviders.ID.FOLLOWERS_EX,
+        usedVariant = "normal",
+        loadPath = imagePath,
+        relativePath = rel,
+        frames = 6,
+        walker = true,
+        bodyRenderer = "NATIVE_SPRITE_RENDERER",
+        providerMod = "overworld_wild_spawns",
+        pack = "poke_followers",
+      }, nil
+    end
+
+    -- Optional external PokePC / export API (legacy companion mods).
+    local speciesKey = speciesKeyFromId(speciesId, game, mod)
+    if not speciesKey and type(speciesId) == "string" and not tonumber(speciesId) then
+      speciesKey = speciesId
+    end
+    if not speciesKey then
+      return nil, nil, "species key unresolved for followers path"
+    end
+
+    if state.exportApi then
+      local api = state.exportApi
+      if type(api.resolveFollowerSprite) == "function" then
+        local ok, defOrPath, meta = pcall(api.resolveFollowerSprite, speciesKey, variant, game)
+        if ok and type(defOrPath) == "table" and defOrPath.image then
+          local def = copyDef(defOrPath, "SPRITE_OW_WILD_" .. tostring(speciesKey))
+          def.frames = def.frames or 6
+          def.walker = def.walker ~= false
+          def.trueColor = true
+          return def, {
+            providerId = SpriteProviders.ID.FOLLOWERS_EX,
+            usedVariant = (meta and meta.usedVariant) or (wantShiny and "shiny" or "normal"),
+            loadPath = def.image,
+            frames = def.frames,
+            walker = true,
+            bodyRenderer = "NATIVE_SPRITE_RENDERER",
+            providerMod = state.source or POKEPC_MOD_ID,
+          }, nil
+        elseif ok and type(defOrPath) == "string" and defOrPath ~= "" and fsExists(defOrPath) then
+          local def = {
+            image = defOrPath, frames = 6, walker = true, trueColor = true,
+            id = "SPRITE_OW_WILD_" .. tostring(speciesKey),
+          }
+          return def, {
+            providerId = SpriteProviders.ID.FOLLOWERS_EX,
+            usedVariant = wantShiny and "shiny" or "normal",
+            loadPath = defOrPath, frames = 6, walker = true,
+            bodyRenderer = "NATIVE_SPRITE_RENDERER",
+            providerMod = state.source or POKEPC_MOD_ID,
+          }, nil
+        end
+      end
+    end
+
+    if not state.root then
+      return nil, nil, "no Poke Followers asset root"
+    end
+
+    local path = tostring(state.root) .. "/assets/sprites/follower_"
+      .. tostring(speciesKey) .. ".png"
+    if not fsExists(path) then
+      return nil, nil, "missing follower sheet: " .. path
+    end
+    if wantShiny then
+      return nil, nil, "followers shiny sheet path unavailable"
+    end
+    local def = {
+      image = path, frames = 6, walker = true, trueColor = true,
+      id = "SPRITE_OW_WILD_" .. tostring(speciesKey),
+    }
+    return def, {
+      providerId = SpriteProviders.ID.FOLLOWERS_EX,
+      usedVariant = "normal",
+      loadPath = path, frames = 6, walker = true,
+      bodyRenderer = "NATIVE_SPRITE_RENDERER",
+      providerMod = state.source or POKEPC_MOD_ID,
+    }, nil
+  end
+
+  return provider
+end
+
+------------------------------------------------------------------------
+-- Followers EX / PokePC root discovery (optional companion override)
 ------------------------------------------------------------------------
 
 function SpriteProviders:_discoverPokepcRoot(game)
@@ -747,171 +945,6 @@ function SpriteProviders:_discoverPokepcRoot(game)
   return nil, nil, nil
 end
 
-function SpriteProviders:_makeFollowersExProvider()
-  local mod = self.mod
-  local state = {
-    root = nil,
-    source = nil,
-    exportApi = nil,
-    probed = false,
-  }
-
-  local owners = self
-  local provider = {
-    id = SpriteProviders.ID.FOLLOWERS_EX,
-    builtin = true, -- built-in adapter; external may override via register
-    modId = POKEPC_MOD_ID,
-    _state = state,
-  }
-
-  function provider:refreshAvailability(game)
-    state.probed = true
-    local root, source, exportApi = owners:_discoverPokepcRoot(game)
-    state.root, state.source, state.exportApi = root, source, exportApi
-    return state.root ~= nil or state.exportApi ~= nil
-  end
-
-  function provider:isAvailable(game)
-    if not state.probed or (state.root == nil and state.exportApi == nil) then
-      self:refreshAvailability(game)
-    end
-    if state.exportApi then
-      return true, "followers export API (" .. tostring(state.source) .. ")"
-    end
-    if state.root and fsExists(state.root .. "/" .. PROBE_REL) then
-      return true, "PokePC walker sheets at " .. tostring(state.root)
-    end
-    -- Installed Followers EX without resolvable sheets is NOT available.
-    if mod and mod.find and mod:find(FOLLOWERS_MOD_ID) and not state.root then
-      return false, "FOLLOWERS_EX installed but sprite pack unresolved"
-    end
-    return false, "Followers EX / PokePC sprite provider not available"
-  end
-
-  function provider:resolve(speciesId, variant, game)
-    local okAvail, why = self:isAvailable(game)
-    if not okAvail then
-      return nil, nil, why
-    end
-
-    local speciesKey = speciesKeyFromId(speciesId, game, mod)
-    if not speciesKey and type(speciesId) == "string" and not tonumber(speciesId) then
-      speciesKey = speciesId
-    end
-    if not speciesKey then
-      return nil, nil, "species key unresolved for followers path"
-    end
-
-    local wantShiny = normalizeVariant(variant) == "shiny"
-
-    -- Future / optional public export API.
-    if state.exportApi then
-      local api = state.exportApi
-      if type(api.resolveFollowerSprite) == "function" then
-        local ok, defOrPath, meta = pcall(api.resolveFollowerSprite, speciesKey, variant, game)
-        if ok and type(defOrPath) == "table" and defOrPath.image then
-          local def = copyDef(defOrPath, "SPRITE_OW_WILD_" .. tostring(speciesKey))
-          def.frames = def.frames or 6
-          def.walker = def.walker ~= false
-          def.trueColor = true
-          return def, {
-            providerId = SpriteProviders.ID.FOLLOWERS_EX,
-            usedVariant = (meta and meta.usedVariant) or (wantShiny and "shiny" or "normal"),
-            loadPath = def.image,
-            frames = def.frames,
-            walker = true,
-            bodyRenderer = "NATIVE_SPRITE_RENDERER",
-            providerMod = state.source or POKEPC_MOD_ID,
-          }, nil
-        elseif ok and type(defOrPath) == "string" and defOrPath ~= "" then
-          if fsExists(defOrPath) then
-            local def = {
-              image = defOrPath, frames = 6, walker = true, trueColor = true,
-              id = "SPRITE_OW_WILD_" .. tostring(speciesKey),
-            }
-            return def, {
-              providerId = SpriteProviders.ID.FOLLOWERS_EX,
-              usedVariant = wantShiny and "shiny" or "normal",
-              loadPath = defOrPath,
-              frames = 6, walker = true,
-              bodyRenderer = "NATIVE_SPRITE_RENDERER",
-              providerMod = state.source or POKEPC_MOD_ID,
-            }, nil
-          end
-        end
-      end
-      if type(api.getFollowerSpritePath) == "function" then
-        local ok, path = pcall(api.getFollowerSpritePath, speciesKey, variant)
-        if ok and type(path) == "string" and fsExists(path) then
-          local def = {
-            image = path, frames = 6, walker = true, trueColor = true,
-            id = "SPRITE_OW_WILD_" .. tostring(speciesKey),
-          }
-          return def, {
-            providerId = SpriteProviders.ID.FOLLOWERS_EX,
-            usedVariant = wantShiny and "shiny" or "normal",
-            loadPath = path, frames = 6, walker = true,
-            bodyRenderer = "NATIVE_SPRITE_RENDERER",
-            providerMod = state.source or POKEPC_MOD_ID,
-          }, nil
-        end
-      end
-    end
-
-    if not state.root then
-      return nil, nil, "no PokePC asset root"
-    end
-
-    local path = state.root .. "/assets/sprites/follower_" .. tostring(speciesKey) .. ".png"
-    if not fsExists(path) then
-      return nil, nil, "missing follower sheet: " .. path
-    end
-
-    local usedVariant = "normal"
-    local imagePath = path
-    if wantShiny and mod and mod.find then
-      local shinyMod = mod:find("SHINY_POKEMON")
-      local bake = shinyMod and shinyMod.exports and shinyMod.exports.bakeFollowerOwSheet
-      if type(bake) == "function" then
-        local ok, baked = pcall(bake, path, speciesKey)
-        -- bakeFollowerOwSheet returns an Image, not a path — cannot feed SpriteRenderer.
-        -- Only accept string paths from future APIs; otherwise fall through to normal.
-        if ok and type(baked) == "string" and baked ~= "" and fsExists(baked) then
-          imagePath = baked
-          usedVariant = "shiny"
-        else
-          -- Requested shiny unavailable as a sheet path → signal caller to try normal.
-          return nil, nil, "followers shiny sheet path unavailable"
-        end
-      else
-        return nil, nil, "followers shiny unavailable"
-      end
-    end
-
-    local def = {
-      image = imagePath,
-      frames = 6,
-      walker = true,
-      trueColor = true,
-      id = "SPRITE_OW_WILD_" .. tostring(speciesKey),
-    }
-    if usedVariant == "shiny" then
-      def.pokepcShiny = true
-    end
-    local meta = {
-      providerId = SpriteProviders.ID.FOLLOWERS_EX,
-      usedVariant = usedVariant,
-      loadPath = imagePath,
-      frames = 6,
-      walker = true,
-      bodyRenderer = "NATIVE_SPRITE_RENDERER",
-      providerMod = state.source or POKEPC_MOD_ID,
-    }
-    return def, meta, nil
-  end
-
-  return provider
-end
 
 ------------------------------------------------------------------------
 -- Resolution with style chains + shiny fallback
@@ -921,8 +954,8 @@ function SpriteProviders:normalizeStyle(style)
   if type(Config.normalizeSpriteStyle) == "function" then
     return Config.normalizeSpriteStyle(style)
   end
-  style = tostring(style or "pokemmo")
-  if style == "followers_ex" then return "followers" end
+  style = tostring(style or "followers")
+  if style == "followers_ex" or style == "poke_followers" then return "followers" end
   if style == "auto" or style == "gold" or style == "crystal" then
     return "pokemmo"
   end
@@ -930,7 +963,7 @@ function SpriteProviders:normalizeStyle(style)
       or style == "pokedex") then
     return style
   end
-  return "pokemmo"
+  return "followers"
 end
 
 function SpriteProviders:chainForStyle(style)
@@ -971,7 +1004,7 @@ end
 -- Preferred auto shiny order is encoded by walking the chain with per-provider
 -- shiny→normal attempts (followers shiny, followers normal, pokemmo shiny, ...).
 function SpriteProviders:resolve(style, speciesId, variant, game)
-  style = self:normalizeStyle(style or Config.spriteStyle(self.mod) or "pokemmo")
+  style = self:normalizeStyle(style or Config.spriteStyle(self.mod) or "followers")
 
   local chain = self:chainForStyle(style)
   local steps = {}
@@ -1040,7 +1073,7 @@ function SpriteProviders:resolve(style, speciesId, variant, game)
 end
 
 function SpriteProviders:activeProviderForStyle(style, game)
-  style = self:normalizeStyle(style or "pokemmo")
+  style = self:normalizeStyle(style or "followers")
   local chain = self:chainForStyle(style)
   for _, id in ipairs(chain) do
     if self:providerAvailable(id, game) then

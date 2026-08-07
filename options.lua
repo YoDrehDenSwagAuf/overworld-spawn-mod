@@ -2,7 +2,9 @@
 -- Loaded via mod.options:define() from main.lua and referenced by
 -- manifest options_schema for Mod Manager lazy-load.
 --
--- Visible labels must be <= 14 characters (Gen1Recomp truncates longer names).
+-- Visible labels for Gen1 ListMenu entries must be <= 14 characters
+-- (Gen1Recomp truncates longer names). Mod Settings choice labels may be
+-- longer when clarity requires it (e.g. "Poke Followers / GSC").
 -- Internal keys are stable so saved settings survive across releases.
 --
 -- Types match Gen1Recomp ManagerState.OPTION_TYPES: toggle, choice, number, text.
@@ -24,13 +26,47 @@ return {
     key = "sprite_style",
     label = "Sprite Style",
     type = "choice",
-    default = "pokemmo",
+    default = "followers",
     choices = {
+      { "Poke Followers / GSC", "followers" },
       { "HGSS / PokeMMO", "pokemmo" },
-      { "Poke Followers", "followers" },
-      { "Pokedex", "pokedex" },
+      { "Pokédex", "pokedex" },
     },
-    description = "Selects the overworld sprite style used by wild Pokémon and your active follower. Water Pokémon use Swimming or Levitates sprites when available. Default is HGSS / PokeMMO (built-in).",
+    description = "Overworld sprite style for wild Pokémon and followers. Poke Followers / GSC is the built-in default. Water Pokémon still use Swimming or Levitates sprites when available.",
+  },
+  {
+    key = "follow_control",
+    label = "Control Mode",
+    type = "choice",
+    default = "trainer",
+    choices = {
+      { "Trainer", "trainer" },
+      { "Pokémon", "pokemon" },
+    },
+    description = "Choose whether you control the trainer or the selected Pokémon.",
+  },
+  {
+    key = "trainer_trail",
+    label = "Trainer Trail",
+    type = "toggle",
+    default = false,
+    description = "When controlling a Pokémon, the trainer follows behind.",
+  },
+  {
+    key = "follower_count",
+    label = "Followers",
+    type = "choice",
+    default = 1,
+    choices = {
+      { "0", 0 },
+      { "1", 1 },
+      { "2", 2 },
+      { "3", 3 },
+      { "4", 4 },
+      { "5", 5 },
+      { "6", 6 },
+    },
+    description = "Number of additional party Pokémon following the active leader.",
   },
   {
     key = "spawn_density",

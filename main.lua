@@ -12,6 +12,7 @@
 --   lib/sprite_resolver.lua - land vs water SpriteRenderer def selection
 --   lib/cell_occupancy.lua  - atomic spawn / move cell reservations
 --   lib/followers_water_compat.lua - optional Followers EX water sprites
+--   lib/follower/           - unified follower core (selection/lifecycle/talk)
 --   lib/diagnostics.lua     - status derivation for HUD/logs
 --   options.lua             - Mod Manager option schema
 --
@@ -53,6 +54,7 @@ return function(mod)
   local DebugOverlay = V.require("debug_overlay")
   local PreviewBrowser = V.require("preview_browser")
   local SpriteStyleMenu = V.require("sprite_style_menu")
+  local SettingsMenus = V.require("settings_menus")
   local BehaviorTick = V.require("behavior_tick")
   local DebugLog = V.require("debug_log")
   local Diagnostics = V.require("diagnostics")
@@ -77,17 +79,30 @@ return function(mod)
   local hud = DebugHud.new(mod, logic)
   local overlay = DebugOverlay.new(mod, logic)
   local browser = PreviewBrowser.new(mod, logic)
-  local spriteStyleMenu = SpriteStyleMenu.new(mod, logic)
   local behaviorTick = BehaviorTick.new(mod, logic)
   local DevOverlay = V.require("dev_overlay")
   local devOverlay = DevOverlay.new(mod, logic)
   logic:attachDevTools(hud, overlay, browser, behaviorTick, devOverlay)
+
+  -- Unified follower core (standalone). Register SPRITE_PIKACHU before freeze.
+  local Follower = V.require("follower/init")
+  local follower = Follower.new(mod, { logic = logic, render = render })
+  logic.follower = follower
+  local sprOk, sprErr = follower:registerContent()
+  if not sprOk then
+    DebugLog.warn(mod, "follower SPRITE_PIKACHU registration: %s", tostring(sprErr))
+  end
+  follower:install({ game = mod.world and mod.world.game })
+
+  local spriteStyleMenu = SpriteStyleMenu.new(mod, logic)
+  local settingsMenus = SettingsMenus.new(mod, logic, follower)
 
   -- Register public UI / present surfaces (safe even when Dev Overlay is off;
   -- availability / menu rows gate on the live option). Still LOAD PHASE.
   hud:register()
   browser:register()
   spriteStyleMenu:register()
+  settingsMenus:register()
   behaviorTick:register()
   devOverlay:register()
 
@@ -107,6 +122,7 @@ return function(mod)
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("map.entered error")
     end
+    pcall(function() follower:onMapEntered(ev) end)
     -- Re-assert selected sprite style after companion mods retarget wilds
     -- (Followers EX map.entered may run after ours depending on registration).
     render._pendingSpriteRefresh = true
@@ -156,6 +172,7 @@ return function(mod)
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("save.loaded error")
     end
+    pcall(function() follower:onSaveLoaded() end)
   end)
 
   mod.events:on("save.created", function()
@@ -174,6 +191,14 @@ return function(mod)
     Config.migrateCaveSpawnMode(mod)
     Config.migrateDevOverlayOption(mod)
     render:finalizeSpriteProviders(mod.world and mod.world.game)
+    pcall(function()
+      local game = mod.world and mod.world.game
+      follower:reassertAfterModsLoaded(game)
+      if not follower.lifecycle._installed
+         and follower.state.ownerMode ~= "external" then
+        follower.lifecycle:installHooks()
+      end
+    end)
     if Config.devOverlay(mod) then
       local game = mod.world and mod.world.game
       if game then
@@ -197,6 +222,7 @@ return function(mod)
     Config.migrateSpriteStyleOption(mod)
     local game = mod.world and mod.world.game
     render:finalizeSpriteProviders(game)
+    pcall(function() follower:reassertAfterModsLoaded(game) end)
   end)
 
   -- ------- hooks (installed while enabled; suppress is fail-safe gated)
@@ -265,6 +291,7 @@ return function(mod)
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("options_changed error")
     end
+    pcall(function() follower:onOptionsChanged(payload) end)
     if payload and payload.mod == mod.id and payload.key == "enabled" then
       syncFeatureState()
     end
@@ -275,16 +302,51 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "1.9.0"
+  mod.exports.version = "1.10.0"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated
   mod.exports.spriteProviders = render.spriteProviders
+  mod.exports.follower = follower
+  mod.exports.getActiveFollowerMon = function(game, needHealthy)
+    return follower:getActiveFollowerMon(game, needHealthy ~= false)
+  end
+  mod.exports.selectFollower = function(mon, game, quiet)
+    return follower:selectFollower(mon, game, quiet)
+  end
+  mod.exports.followerSnapshot = function()
+    return follower:snapshot()
+  end
+  mod.exports.setControlMode = function(game, mode)
+    return follower:setControlMode(game, mode)
+  end
+  mod.exports.controlMode = function(game)
+    return follower:controlMode(game)
+  end
+  mod.exports.setFollowerCount = function(game, n)
+    return follower:setFollowerCount(game, n)
+  end
+  mod.exports.followerCount = function(game)
+    return follower:followerCount(game)
+  end
+  mod.exports.syncAll = function(game, ow)
+    return follower:syncAll(game, ow)
+  end
+  mod.exports.syncTrailers = function(game, ow, opts)
+    return follower:syncTrailers(game, ow, opts)
+  end
+  mod.exports.updateFollowers = function(game, ow, opts)
+    return follower:update(game, ow, opts)
+  end
+  mod.exports.resolveFollowerSprite = function(opts)
+    return follower.spriteService:resolveFollowerSprite(opts or {})
+  end
   mod.exports.hud = hud
   mod.exports.overlay = overlay
   mod.exports.devOverlay = devOverlay
   mod.exports.browser = browser
   mod.exports.spriteStyleMenu = spriteStyleMenu
+  mod.exports.settingsMenus = settingsMenus
   mod.exports.behaviorTick = behaviorTick
   mod.exports.lib = V
   mod.exports.clearAll = function() logic:clearAll() end

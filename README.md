@@ -23,35 +23,60 @@ without changing the spawn or encounter system.
 
 Available styles:
 
-- **HGSS / PokeMMO** (default) — uses the animated sprite sheets bundled with
-  Wilds of Kanto.
-- **Poke Followers** — uses compatible walker sprites supplied through
-  **Followers EX / PokePC Followers** when those mods are installed. Falls back
-  to HGSS / PokeMMO when the follower provider is unavailable.
-- **Pokedex** — uses the original Pokédex-based images.
+- **Poke Followers / GSC** (default) — built-in classic follower walker sheets
+  (`assets/enhanced_overworld/poke_followers/follower_XXX.png`). No separate
+  Followers EX / PokéPC install is required.
+- **HGSS / PokeMMO** — rebuilt animated runtime sheets from the bundled
+  follow-sprites source, with nearest-neighbor detail preservation.
+- **Pokédex** — original Pokédex-based images.
 
-You can switch styles at any time from Wilds of Kanto **Mod Settings**.
-Existing wild Pokémon and your active Followers EX follower update immediately
-without being respawned.
+You can switch styles at any time from Wilds of Kanto **Mod Settings** or the
+in-game **Wilds of Kanto** submenu. Existing wild Pokémon and followers update
+immediately without being respawned. Saves that already stored an explicit
+style keep that choice.
+
+### Party follower selection (integrated)
+
+PokéPC follower selection and Followers EX control features are built directly
+into Wilds of Kanto.
+
+- No additional follower mods are required
+- Choose a party Pokémon as your active follower (**FOLLOWER** / **FOLLOWING**)
+- **Control Mode** (Trainer / Pokémon), **Trainer Trail**, and **Followers**
+  (0–6) live in Wilds Mod Settings
+- Selection persists across maps and save/load
+- Red, Blue and Yellow are supported
+- Existing Sprite Style selection is unchanged
+- A shared sprite resolver ships in a separate follow-up PR
+
+Legacy Followers EX / PokéPC installs are detected for settings migration only.
+Wilds owns the follower runtime. Prefer disabling those mods to avoid duplicate
+hooks:
+
+```text
+[Wilds] Legacy follower mod detected. Settings and selection were imported;
+Wilds now owns follower runtime.
+```
 
 **Spawn Amount**, **Random Enc**, **Water Mons**, **Dev Overlay**, and
-**Test Spawn** live in Mod Settings together with Sprite Style. The normal
-Start / Pause menu is no longer filled with Wilds quick settings.
+**Test Spawn** live in Mod Settings together with Sprite Style. The same keys
+are also available from two in-game Start Menu submenus:
 
-External sprite styles require their corresponding mods to be installed
-separately. Wilds of Kanto does not redistribute their assets.
+```text
+START -> POKE FOLLOW EX   (Control Mode, Trainer Trail, Followers, …)
+START -> WILDS OF KANTO   (Enabled, Spawn Amount, Sprite Style, …)
+```
 
-### Optional Sprite Mods
+Both menus read and write the same `mod.options` keys as Mod Settings — there
+is no second settings store.
 
-To use **Poke Followers**, install the corresponding mods through the
-Gen1Recomp Mod Manager or from their official GitHub releases:
+### Optional legacy sprite mods
+
+Poke Followers / GSC is built in. Optional companion mods remain supported for
+migration / advanced packs only:
 
 - [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
-  (`FOLLOWERS_EX`)
 - [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
-  (`PokePCFollowers_VoxelMerge`), required by Followers EX
-
-After installation, restart Gen1Recomp and select the style from:
 
 ```text
 MOD SETTINGS -> WILDS OF KANTO -> Sprite Style
@@ -62,8 +87,7 @@ MOD SETTINGS -> WILDS OF KANTO -> Dev Overlay
 MOD SETTINGS -> WILDS OF KANTO -> Test Spawn (OPEN)
 ```
 
-Default Sprite Style is always **HGSS / PokeMMO** (built-in) and does not
-depend on which companion mods are installed.
+Default Sprite Style is **Poke Followers / GSC**.
 
 ## Sprite Pack Shoutouts
 
@@ -73,11 +97,14 @@ available to the community:
 - **OtaconRevengeance** — creator of the
   [Gold Sprites](https://github.com/OtaconRevengeance/gold_sprites) mod.
 - **masterwebx** — creator of
-  [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex).
+  [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
+  (control modes, pack trailers, ControlEngine concepts adapted into Wilds).
 - **gamecorner-033** — creator/maintainer of
   [PokePC Followers](https://github.com/gamecorner-033/PokePCFollowers)
-  (walker sheet provider used by Followers EX; overworld art credited there to
-  ShockSlayer / Pokémon Crystal Clear).
+  (party selection, fingerprint persistence, and talk behaviour adapted into
+  Wilds; overworld art credited there to ShockSlayer / Pokémon Crystal Clear).
+- **TRW / DAX / Antigravity** — acknowledged in the upstream follower lineage
+  where credited by Followers EX / PokéPC Followers.
 - **DramaticShape** — Dramatic Shape Voxel Mod compatibility work that keeps
   native SpriteRenderer sheets working in orbit / first-person views.
 
@@ -88,10 +115,11 @@ assets remain owned and licensed by their respective creators.
 
 Wilds of Kanto exposes three public overworld sprite styles:
 
-- **HGSS / PokeMMO** (`pokemmo`) — built-in animated overworld sprites (default).
-- **Poke Followers** (`followers`) — visible setting value; resolves through the
-  internal `followers_ex` provider, then falls back to HGSS / PokeMMO.
-- **Pokedex** (`pokedex`) — original Pokédex-based images.
+- **Poke Followers / GSC** (`followers`) — default; built-in
+  `poke_followers` sheets via the internal `followers_ex` provider, then
+  HGSS / PokeMMO, then Pokédex.
+- **HGSS / PokeMMO** (`pokemmo`) — rebuilt runtime follow-sprite sheets.
+- **Pokédex** (`pokedex`) — original Pokédex-based images.
 
 All styles use the same native Gen1Recomp SpriteRenderer pipeline and remain
 compatible with Dramatic Shape, including first-person rendering and world
@@ -101,13 +129,12 @@ The **HGSS / PokeMMO** label refers to Wilds of Kanto’s own runtime follow-spr
 sheets (`assets/generated/followsprites_runtime/`). It does not ship or claim
 Followers EX / PokePC assets.
 
-Optional companion mods (runtime detection only — **no hard dependencies**):
+Optional companion mods (runtime detection / migration only — **not required**):
 
 - [Followers EX](https://github.com/masterwebx/gen1recomp-followers-ex)
-  (`FOLLOWERS_EX`) — control / pack integration; depends on Wilds and the
-  PokePC sprite pack.
-- PokePC Followers Voxel Merge (`PokePCFollowers_VoxelMerge`) — walker sheet
-  assets used by Followers EX.
+  (`FOLLOWERS_EX`) — legacy; settings migrate into Wilds
+- PokePC Followers Voxel Merge (`PokePCFollowers_VoxelMerge`) — legacy sprite
+  pack / selection; Wilds ships its own walker sheets
 
 Companion mods can also register a provider at runtime:
 
@@ -134,9 +161,9 @@ Normal and shiny sprite variants are supported by the asset format. Shiny
 sprites are only used during normal gameplay when the game provides a reliable
 shiny state. They remain available in the developer preview for testing.
 
-Choose **Sprite Style** in Wilds of Kanto Mod Settings (HGSS / PokeMMO /
-Poke Followers / Pokedex). HGSS / PokeMMO is the default. The same style is
-applied to your active Followers EX follower.
+Choose **Sprite Style** in Mod Settings or **WILDS OF KANTO** (Poke Followers / GSC /
+HGSS / PokeMMO / Pokédex). Poke Followers / GSC is the default. The same style is
+applied to wild Pokémon and followers.
 
 If a follow sprite or mapping is missing, the mod automatically falls back to:
 
@@ -559,6 +586,14 @@ Headless validation (after bootstrap):
 cd .deps/gen1recomp
 luajit mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
 python3 tools/modkit.py validate mods/overworld_wild_spawns
+```
+
+Follower core (no engine / no companion mods required):
+
+```sh
+lua tests/follower_core_unit_test.lua
+lua tests/follower_standalone_boot_test.lua
+lua tests/followers_water_compat_unit_test.lua
 ```
 
 ## Contributing and bug reports

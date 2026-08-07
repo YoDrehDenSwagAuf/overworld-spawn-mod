@@ -31,11 +31,13 @@ end
 
 -- Public markers / flags that identify blocking world entities.
 -- Followers EX trailers use pokepcTrailer + passable=true; classic Yellow uses
--- pikachuFollower. We never read private Followers tables.
+-- pikachuFollower. Wilds unified follower marks wildsFollower / isFollower.
+-- We never read private Followers tables.
 function CellOccupancy.isFollowerEntity(entity)
   if not entity then return false end
   if entity.pokepcTrailer == true then return true end
   if entity.pikachuFollower == true then return true end
+  if entity.wildsFollower == true then return true end
   if entity.isFollower == true or entity.follower == true then return true end
   local sprite = entity.sprite
   local def = sprite and sprite.def

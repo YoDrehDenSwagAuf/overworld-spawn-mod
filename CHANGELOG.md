@@ -1,5 +1,60 @@
 # Changelog
 
+## 1.10.0
+
+### Sprite defaults, built-in GSC pack, menus (PR #38 follow-up)
+
+- Poke Followers / GSC is now the default overworld sprite style
+- Added built-in GSC/Poke Followers sprite set (`assets/enhanced_overworld/poke_followers`)
+- Rebuilt HGSS/PokeMMO runtime sprites with improved detail preservation
+  (nearest-neighbor only, shared pivot, no source mutation)
+- Added **Poke Followers EX** in-game Start Menu submenu (`POKE FOLLOW EX`)
+- Added **Wilds of Kanto** in-game Start Menu submenu
+- Unified menu settings with Mod Settings (same `mod.options` keys)
+- Preserved Voxel-compatible native SpriteRenderer path
+- Existing explicit sprite-style saves are not overwritten; invalid/missing
+  values migrate to Poke Followers / GSC
+
+### Follower water movement (PR #38 follow-up)
+
+- Fixed pack/trailer freeze on Surf: trail goals and steps are surface-aware for
+  Pokémon follower roles only (`primary`, `party_trailer`)
+- **Decoupled trailer ticks from `PikachuFollower.update`:** `ControlEngine:update`
+  runs from an `OverworldController.update` wrap every logic frame (including Surf)
+- Trailer `npc.update` is a no-op; `advanceTrailerStep` runs once per control update
+- `shouldSpawn` may suppress stock Pikachu while surfing without stopping Wilds trailers
+- Surf trail anchor is always the player (Yellow stock Pikachu is not used on water)
+- Trainer trailers are hidden while surfing and restored on land (no swim)
+- `FollowersWaterCompat` updates every Pokémon trailer with a per-entity cache
+  and `entity.pokepcMon` species (no shared active-entity overwrite)
+- Sprite rebind preserves `moving` / `targetX` / `targetY` / `progress`
+- Tests: `tests/follower_water_movement_unit_test.lua`,
+  `tests/follower_control_update_unit_test.lua`
+
+### Unified follower core — standalone (PR 1 follow-up)
+
+- Wilds no longer requires Followers EX or PokéPC Followers to run
+- Registered `SPRITE_PIKACHU` at load from built-in HGSS/PokeMMO walker sheets
+  (fixes standalone crash when companion mods are absent)
+- Ported Followers EX ControlEngine concepts into `lib/follower/control_engine.lua`
+  (control modes, trainer trail, follower count 0–6, pack trailers)
+- Added Wilds Mod Settings: Control Mode, Trainer Trail, Followers
+- Migrates legacy FOLLOWERS_EX / pokepc* / selected_mon settings once
+- PokéPC party selection, fingerprint (now includes species), talk, and
+  persistence remain built-in
+- Legacy companion mods are detected for migration only; Wilds owns runtime
+- Reuses existing Wilds runtime walker sheets (no PokéPC asset copy required)
+- Prepared `resolveFollowerSprite` for the shared resolver (PR 2)
+- Box LEADER UI and town-borrow spawns remain documented follow-ups
+
+### Earlier 1.10.0 draft notes
+
+- Integrated PokéPC follower selection and persistence into Wilds
+- Integrated Followers EX follower lifecycle concepts (single-follower owner)
+- Added Red, Blue and Yellow follower compatibility
+- Documented the safe-location sprite reset root cause
+- Credits: masterwebx / Followers EX, gamecorner-033 / PokéPC Followers
+
 ## 1.9.0
 
 ### Sprite Style simplification + Voxel water shadows

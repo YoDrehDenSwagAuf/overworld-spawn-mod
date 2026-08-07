@@ -723,6 +723,11 @@ function Diagnostics.hudLines(logic)
       end
     end
   end
+  if logic.follower and logic.follower.hudLines then
+    for _, line in ipairs(logic.follower:hudLines()) do
+      lines[#lines + 1] = line
+    end
+  end
   if logic.followersWater and logic.followersWater.hudLines then
     for _, line in ipairs(logic.followersWater:hudLines()) do
       lines[#lines + 1] = line
