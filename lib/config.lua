@@ -25,12 +25,17 @@ Config.DEFAULTS = {
   min_spawn_separation = 3,
   wander_every_steps = 0, -- legacy; behaviours own movement now
   suppress_random_grass = true,
-  sprite_opacity = 1.0,
+  sprite_opacity = 1.0, -- legacy numeric; prefer sprite_fade
+  sprite_fade = "solid", -- solid | faded (public Sprite Fade)
+  sprite_fade_alpha = 0.72, -- Faded look (pre-1.0.0 "Faint")
+  sprite_color = "colored", -- colored | classic (PokéPC color_mode semantics)
   sprite_style = "followers",
   -- Follower control (built-in; replaces FOLLOWERS_EX options).
   follow_control = "trainer", -- trainer | pokemon
   trainer_trail = false,
   follower_count = 1, -- 0–6 extra party trailers
+  -- Peaceful ambient NPCs in towns / safe interiors (not wild battles).
+  town_pokemon = true,
   -- Legacy key kept for save migration only (Mon Sprites toggle).
   use_animated_overworld_sprites = true,
   pokemon_grass_render_mode = "immersed",
@@ -953,6 +958,311 @@ function Config.refillSteps(mod)
   local v = Config.get(mod, "spawn_refill_interval")
   if v == nil then v = Config.get(mod, "spawn_every_steps") end
   return tonumber(v) or Config.DEFAULTS.spawn_every_steps
+end
+
+-- ------- Sprite Fade (Solid / Faded)
+
+local VALID_SPRITE_FADE = { solid = true, faded = true }
+local SPRITE_FADE_CONFIRM = { solid = "SOLID", faded = "FADED" }
+Config.VALID_SPRITE_FADE = VALID_SPRITE_FADE
+Config.SPRITE_FADE_CONFIRM = SPRITE_FADE_CONFIRM
+Config.SPRITE_FADE_ALPHA = Config.DEFAULTS.sprite_fade_alpha or 0.72
+
+local function coerceSpriteFade(value)
+  if value == "solid" or value == "SOLID" or value == 1 or value == 1.0
+     or value == "1" or value == "1.0" then
+    return "solid"
+  end
+  if value == "faded" or value == "FADED" or value == "tucked" or value == "faint"
+     or value == 0.88 or value == 0.72 or value == "0.88" or value == "0.72" then
+    return "faded"
+  end
+  if type(value) == "number" then
+    if value >= 0.999 then return "solid" end
+    if value > 0 then return "faded" end
+  end
+  if type(value) == "string" and VALID_SPRITE_FADE[value] then
+    return value
+  end
+  return nil
+end
+
+function Config.spriteFade(mod)
+  local raw, present = Config.peekSavedOption(mod, "sprite_fade")
+  if present then
+    local mode = coerceSpriteFade(raw)
+    if mode then return mode end
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local v = mod.options:get("sprite_fade")
+    local mode = coerceSpriteFade(v)
+    if mode then return mode end
+  end
+  -- Legacy numeric sprite_opacity (pre-1.0.0 public option).
+  local legacy, legPresent = Config.peekSavedOption(mod, "sprite_opacity")
+  if legPresent then
+    local mode = coerceSpriteFade(legacy)
+    if mode then return mode end
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local legacyOpt = mod.options:get("sprite_opacity")
+    local mode = coerceSpriteFade(legacyOpt)
+    if mode then return mode end
+  end
+  return coerceSpriteFade(Config.DEFAULTS.sprite_fade) or "solid"
+end
+
+function Config.spriteOpacity(mod)
+  if Config.spriteFade(mod) == "faded" then
+    return tonumber(Config.DEFAULTS.sprite_fade_alpha) or 0.72
+  end
+  return 1.0
+end
+
+function Config.migrateSpriteFadeOption(mod)
+  local mode = Config.spriteFade(mod)
+  local function write(bucket)
+    if type(bucket) ~= "table" then return end
+    bucket[mod.id] = bucket[mod.id] or {}
+    if bucket[mod.id].sprite_fade == nil
+       or not VALID_SPRITE_FADE[bucket[mod.id].sprite_fade] then
+      bucket[mod.id].sprite_fade = mode
+    end
+    -- Keep legacy numeric in sync for old readers; do not delete.
+    if bucket[mod.id].sprite_opacity == nil then
+      bucket[mod.id].sprite_opacity = (mode == "faded")
+        and (tonumber(Config.DEFAULTS.sprite_fade_alpha) or 0.72) or 1.0
+    end
+  end
+  local world = mod.world
+  local game = world and world.game
+  if game and game.save and game.save.options then
+    game.save.options.modOptions = game.save.options.modOptions or {}
+    write(game.save.options.modOptions)
+  end
+  if game and game.mods then
+    if game.mods.modOptions then write(game.mods.modOptions) end
+    if game.mods.loader and game.mods.loader.modOptions then
+      write(game.mods.loader.modOptions)
+    end
+  end
+  return mode
+end
+
+function Config.setSpriteFade(mod, value, source, opts)
+  opts = opts or {}
+  local mode = coerceSpriteFade(value)
+  if not mode then
+    return false, "invalid sprite_fade: " .. tostring(value)
+  end
+  local game = resolveGame(mod, opts)
+  local alpha = (mode == "faded")
+    and (tonumber(Config.DEFAULTS.sprite_fade_alpha) or 0.72) or 1.0
+  writeOptionBucket(mod, game, "sprite_fade", mode)
+  writeOptionBucket(mod, game, "sprite_opacity", alpha)
+
+  local logic = opts.logic
+  if not logic and mod and mod.exports then
+    logic = mod.exports.logic
+  end
+  if logic and type(logic.onOptionsChanged) == "function" then
+    pcall(logic.onOptionsChanged, logic, {
+      mod = mod.id, key = "sprite_fade", value = mode, source = source,
+    })
+  end
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "FADE: " .. (SPRITE_FADE_CONFIRM[mode] or mode:upper())
+  end
+  confirmText(game, mod, confirmMsg)
+  return true, mode
+end
+
+-- ------- Sprite Color (Colored / Classic) — PokéPC color_mode semantics
+
+local VALID_SPRITE_COLOR = { colored = true, classic = true }
+local SPRITE_COLOR_CONFIRM = { colored = "COLORED", classic = "CLASSIC" }
+Config.VALID_SPRITE_COLOR = VALID_SPRITE_COLOR
+Config.SPRITE_COLOR_CONFIRM = SPRITE_COLOR_CONFIRM
+
+local function coerceSpriteColor(value)
+  if value == "colored" or value == "COLORED" or value == "color"
+     or value == "true_color" or value == "trueColor" or value == true then
+    return "colored"
+  end
+  if value == "classic" or value == "CLASSIC" or value == "gbc"
+     or value == "original" or value == "ORIGINAL" or value == false then
+    return "classic"
+  end
+  if type(value) == "string" and VALID_SPRITE_COLOR[value] then
+    return value
+  end
+  return nil
+end
+
+function Config.spriteColor(mod)
+  local raw, present = Config.peekSavedOption(mod, "sprite_color")
+  if present then
+    local mode = coerceSpriteColor(raw)
+    if mode then return mode end
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local v = mod.options:get("sprite_color")
+    local mode = coerceSpriteColor(v)
+    if mode then return mode end
+  end
+  -- Legacy PokéPC / companion key color_mode ("gbc" = classic).
+  local legacy, legPresent = Config.peekSavedOption(mod, "color_mode")
+  if legPresent then
+    if legacy == "gbc" then return "classic" end
+    local mode = coerceSpriteColor(legacy)
+    if mode then return mode end
+    if legacy ~= nil then return "colored" end
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local cm = mod.options:get("color_mode")
+    if cm == "gbc" then return "classic" end
+  end
+  -- Legacy boolean / string aliases.
+  for _, key in ipairs({ "colored_sprites", "true_color", "trueColor" }) do
+    local lr, lp = Config.peekSavedOption(mod, key)
+    if lp then
+      local mode = coerceSpriteColor(lr)
+      if mode then return mode end
+    end
+  end
+  return coerceSpriteColor(Config.DEFAULTS.sprite_color) or "colored"
+end
+
+--- trueColor flag for shared SpriteRenderer defs (PokéPC semantics).
+function Config.spriteTrueColor(mod)
+  return Config.spriteColor(mod) ~= "classic"
+end
+
+function Config.migrateSpriteColorOption(mod)
+  local mode = Config.spriteColor(mod)
+  local function write(bucket)
+    if type(bucket) ~= "table" then return end
+    bucket[mod.id] = bucket[mod.id] or {}
+    if bucket[mod.id].sprite_color == nil
+       or not VALID_SPRITE_COLOR[bucket[mod.id].sprite_color] then
+      bucket[mod.id].sprite_color = mode
+    end
+    -- Do not delete legacy keys.
+  end
+  local world = mod.world
+  local game = world and world.game
+  if game and game.save and game.save.options then
+    game.save.options.modOptions = game.save.options.modOptions or {}
+    write(game.save.options.modOptions)
+  end
+  if game and game.mods then
+    if game.mods.modOptions then write(game.mods.modOptions) end
+    if game.mods.loader and game.mods.loader.modOptions then
+      write(game.mods.loader.modOptions)
+    end
+  end
+  return mode
+end
+
+function Config.setSpriteColor(mod, value, source, opts)
+  opts = opts or {}
+  local mode = coerceSpriteColor(value)
+  if not mode then
+    return false, "invalid sprite_color: " .. tostring(value)
+  end
+  local game = resolveGame(mod, opts)
+  writeOptionBucket(mod, game, "sprite_color", mode)
+
+  local render = opts.render
+  local logic = opts.logic
+  if (not render or not logic) and mod and mod.exports then
+    render = render or mod.exports.render
+    logic = logic or mod.exports.logic
+  end
+  local refreshed = 0
+  if render and logic and type(render.refreshAllEntitySprites) == "function" then
+    if type(render.invalidateAssetCache) == "function" then
+      pcall(render.invalidateAssetCache, render)
+    end
+    local ok, n = pcall(render.refreshAllEntitySprites, render, logic, game)
+    if ok and type(n) == "number" then refreshed = n end
+  end
+  if mod and mod.exports and mod.exports.ambient
+     and type(mod.exports.ambient.refreshSprites) == "function" then
+    pcall(mod.exports.ambient.refreshSprites, mod.exports.ambient, game)
+  end
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "COLOR: " .. (SPRITE_COLOR_CONFIRM[mode] or mode:upper())
+  end
+  confirmText(game, mod, confirmMsg)
+  return true, mode, refreshed
+end
+
+-- ------- Town Pokémon (ambient NPCs)
+
+function Config.townPokemonEnabled(mod)
+  local raw, present = Config.peekSavedOption(mod, "town_pokemon")
+  if present then
+    return raw == true
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local v = mod.options:get("town_pokemon")
+    if v ~= nil then return v == true end
+  end
+  -- Do not treat Followers EX wilds_town_spawns (battleable borrow) as this.
+  return Config.DEFAULTS.town_pokemon == true
+end
+
+function Config.setTownPokemon(mod, value, source, opts)
+  opts = opts or {}
+  local on = (value == true or value == "on" or value == "ON" or value == "true")
+  if value == false or value == "off" or value == "OFF" or value == "false" then
+    on = false
+  elseif value ~= true and value ~= "on" and value ~= "ON" and value ~= "true" then
+    if type(value) ~= "boolean" then
+      return false, "invalid town_pokemon: " .. tostring(value)
+    end
+  end
+  local game = resolveGame(mod, opts)
+  writeOptionBucket(mod, game, "town_pokemon", on)
+
+  local ambient = opts.ambient
+  if not ambient and mod and mod.exports then
+    ambient = mod.exports.ambient
+  end
+  if ambient and type(ambient.onTownPokemonToggled) == "function" then
+    pcall(ambient.onTownPokemonToggled, ambient, on, game)
+  end
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "TOWN: " .. (on and "ON" or "OFF")
+  end
+  confirmText(game, mod, confirmMsg)
+  return true, on
+end
+
+--- Central battleability helper for wild / ambient entities.
+function Config.isBattleableWild(entity)
+  if not entity then return false end
+  if entity.wildsAmbientPokemon == true then return false end
+  if entity.wildsBattleable == false then return false end
+  if entity.wildsEncounterEnabled == false then return false end
+  if entity.wildsAggressive == false and entity.overworldWildSpawn ~= true then
+    -- Ambient-style NPC without wild spawn marker.
+    if entity.wildsAmbientPokemon then return false end
+  end
+  if entity.overworldWildSpawn == true then
+    if entity.hiddenEncounter == true and entity.visibleSprite == false then
+      return true -- hidden markers are still battleable on contact
+    end
+    return entity.state ~= "REMOVED" and entity.state ~= Config.STATE.REMOVED
+  end
+  return false
 end
 
 return Config

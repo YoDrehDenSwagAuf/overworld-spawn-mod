@@ -12,6 +12,15 @@
 -- ui.options.rows activate hook (see lib/preview_browser.lua).
 --
 -- All options are live-toggleable through Mod Manager (mod.options_changed).
+--
+-- UI submenu mapping (both write the SAME mod.options keys):
+--   Poke Followers EX → follow_control, trainer_trail, follower_count,
+--                       sprite_color  (+ Leader via party menu hint)
+--   Wilds of Kanto    → enabled, spawn_density, random_encounters,
+--                       water_spawns, cave_spawns, sprite_style, sprite_fade,
+--                       town_pokemon, pokemon_grass_render_mode,
+--                       enable_idle, enable_wander, enable_aggressive,
+--                       enable_hidden, dev_overlay
 
 return {
   -- ------- Core gameplay
@@ -33,6 +42,28 @@ return {
       { "Pokédex", "pokedex" },
     },
     description = "Overworld sprite style for wild Pokémon and followers. Poke Followers / GSC is the built-in default. Water Pokémon still use Swimming or Levitates sprites when available.",
+  },
+  {
+    key = "sprite_fade",
+    label = "Sprite Fade",
+    type = "choice",
+    default = "solid",
+    choices = {
+      { "Solid", "solid" },
+      { "Faded", "faded" },
+    },
+    description = "Opacity of normal visible wild Pokémon. Solid is fully opaque. Faded uses the classic semi-transparent wild look. Does not affect followers, Town Pokémon, silhouettes, or UI.",
+  },
+  {
+    key = "sprite_color",
+    label = "Sprite Color",
+    type = "choice",
+    default = "colored",
+    choices = {
+      { "Colored", "colored" },
+      { "Classic", "classic" },
+    },
+    description = "Colored draws follower/wild sheets as true-color. Classic uses the GBC-style palette path (PokéPC color_mode semantics).",
   },
   {
     key = "follow_control",
@@ -112,6 +143,13 @@ return {
       { "Mixed", "mixed" },
     },
     description = "Cave Pokémon spawn only on tiles the player can reach, or Mixed (~20% atmospheric scenery in inaccessible cave pockets).",
+  },
+  {
+    key = "town_pokemon",
+    label = "Town Pokémon",
+    type = "toggle",
+    default = true,
+    description = "Adds peaceful Pokémon to safe towns and interiors. They behave like NPCs and cannot start battles.",
   },
   {
     key = "pokemon_grass_render_mode",
