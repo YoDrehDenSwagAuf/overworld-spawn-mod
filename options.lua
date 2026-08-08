@@ -14,8 +14,8 @@
 -- All options are live-toggleable through Mod Manager (mod.options_changed).
 --
 -- UI submenu mapping (both write the SAME mod.options keys):
---   Poke Followers EX → follow_control, trainer_trail, follower_count,
---                       sprite_color  (+ Leader via party menu hint)
+--   Poke Followers EX → follow_control, trainer_trail, follower_count
+--                       (+ Leader via party menu hint)
 --   Wilds of Kanto    → enabled, spawn_density, random_encounters,
 --                       water_spawns, cave_spawns, sprite_style, sprite_fade,
 --                       town_pokemon, pokemon_grass_render_mode,
@@ -53,17 +53,6 @@ return {
       { "Faded", "faded" },
     },
     description = "Opacity of normal visible wild Pokémon. Solid is fully opaque. Faded uses the classic semi-transparent wild look. Does not affect followers, Town Pokémon, silhouettes, or UI.",
-  },
-  {
-    key = "sprite_color",
-    label = "Sprite Color",
-    type = "choice",
-    default = "colored",
-    choices = {
-      { "Colored", "colored" },
-      { "Classic", "classic" },
-    },
-    description = "Colored draws follower/wild sheets as true-color. Classic uses the GBC-style palette path (PokéPC color_mode semantics).",
   },
   {
     key = "follow_control",

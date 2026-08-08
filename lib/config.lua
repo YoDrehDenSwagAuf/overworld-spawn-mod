@@ -28,7 +28,8 @@ Config.DEFAULTS = {
   sprite_opacity = 1.0, -- legacy numeric; prefer sprite_fade
   sprite_fade = "solid", -- solid | faded (public Sprite Fade)
   sprite_fade_alpha = 0.72, -- Faded look (pre-1.0.0 "Faint")
-  sprite_color = "colored", -- colored | classic (PokéPC color_mode semantics)
+  -- sprite_color removed: sheets always render true-color (24-bit PNG packs
+  -- must never be force-baked to the 4-shade DMG ramp).
   sprite_style = "followers",
   -- Follower control (built-in; replaces FOLLOWERS_EX options).
   follow_control = "trainer", -- trainer | pokemon
@@ -1079,77 +1080,34 @@ function Config.setSpriteFade(mod, value, source, opts)
   return true, mode
 end
 
--- ------- Sprite Color (Colored / Classic) — PokéPC color_mode semantics
+-- ------- Sprite Color (removed)
+--
+-- The Colored/Classic choice was removed: follower, wild, ambient, and
+-- party-icon sheets ALWAYS render as true-color. Legacy "classic" saves are
+-- ignored and rewritten to "colored" on migration, so old 24-bit PNG packs
+-- (e.g. the built-in Poke Followers / GSC sheets, which are 8-bit RGBA) are
+-- never force-baked through the 4-shade DMG gray ramp.
 
-local VALID_SPRITE_COLOR = { colored = true, classic = true }
 local SPRITE_COLOR_CONFIRM = { colored = "COLORED", classic = "CLASSIC" }
-Config.VALID_SPRITE_COLOR = VALID_SPRITE_COLOR
 Config.SPRITE_COLOR_CONFIRM = SPRITE_COLOR_CONFIRM
 
-local function coerceSpriteColor(value)
-  if value == "colored" or value == "COLORED" or value == "color"
-     or value == "true_color" or value == "trueColor" or value == true then
-    return "colored"
-  end
-  if value == "classic" or value == "CLASSIC" or value == "gbc"
-     or value == "original" or value == "ORIGINAL" or value == false then
-    return "classic"
-  end
-  if type(value) == "string" and VALID_SPRITE_COLOR[value] then
-    return value
-  end
-  return nil
+function Config.spriteColor(_mod)
+  return "colored"
 end
 
-function Config.spriteColor(mod)
-  local raw, present = Config.peekSavedOption(mod, "sprite_color")
-  if present then
-    local mode = coerceSpriteColor(raw)
-    if mode then return mode end
-  end
-  if mod and mod.options and type(mod.options.get) == "function" then
-    local v = mod.options:get("sprite_color")
-    local mode = coerceSpriteColor(v)
-    if mode then return mode end
-  end
-  -- Legacy PokéPC / companion key color_mode ("gbc" = classic).
-  local legacy, legPresent = Config.peekSavedOption(mod, "color_mode")
-  if legPresent then
-    if legacy == "gbc" then return "classic" end
-    local mode = coerceSpriteColor(legacy)
-    if mode then return mode end
-    if legacy ~= nil then return "colored" end
-  end
-  if mod and mod.options and type(mod.options.get) == "function" then
-    local cm = mod.options:get("color_mode")
-    if cm == "gbc" then return "classic" end
-  end
-  -- Legacy boolean / string aliases.
-  for _, key in ipairs({ "colored_sprites", "true_color", "trueColor" }) do
-    local lr, lp = Config.peekSavedOption(mod, key)
-    if lp then
-      local mode = coerceSpriteColor(lr)
-      if mode then return mode end
-    end
-  end
-  return coerceSpriteColor(Config.DEFAULTS.sprite_color) or "colored"
-end
-
---- trueColor flag for shared SpriteRenderer defs (PokéPC semantics).
-function Config.spriteTrueColor(mod)
-  return Config.spriteColor(mod) ~= "classic"
+--- trueColor flag for shared SpriteRenderer defs (always true now).
+function Config.spriteTrueColor(_mod)
+  return true
 end
 
 function Config.migrateSpriteColorOption(mod)
-  local mode = Config.spriteColor(mod)
   local function write(bucket)
     if type(bucket) ~= "table" then return end
     bucket[mod.id] = bucket[mod.id] or {}
-    if bucket[mod.id].sprite_color == nil
-       or not VALID_SPRITE_COLOR[bucket[mod.id].sprite_color] then
-      bucket[mod.id].sprite_color = mode
+    if bucket[mod.id].sprite_color ~= "colored" then
+      bucket[mod.id].sprite_color = "colored"
     end
-    -- Do not delete legacy keys.
+    -- Do not delete legacy keys (color_mode / colored_sprites stay readable).
   end
   local world = mod.world
   local game = world and world.game
@@ -1163,17 +1121,16 @@ function Config.migrateSpriteColorOption(mod)
       write(game.mods.loader.modOptions)
     end
   end
-  return mode
+  return "colored"
 end
 
+-- Back-compat setter: ignores the requested mode and forces colored. Kept so
+-- external callers / older menus never crash, and a stale "classic" selection
+-- is visually corrected immediately by refreshing entity sprites.
 function Config.setSpriteColor(mod, value, source, opts)
   opts = opts or {}
-  local mode = coerceSpriteColor(value)
-  if not mode then
-    return false, "invalid sprite_color: " .. tostring(value)
-  end
   local game = resolveGame(mod, opts)
-  writeOptionBucket(mod, game, "sprite_color", mode)
+  writeOptionBucket(mod, game, "sprite_color", "colored")
 
   local render = opts.render
   local logic = opts.logic
@@ -1196,10 +1153,10 @@ function Config.setSpriteColor(mod, value, source, opts)
 
   local confirmMsg = opts.message
   if not confirmMsg and opts.confirm ~= false then
-    confirmMsg = "COLOR: " .. (SPRITE_COLOR_CONFIRM[mode] or mode:upper())
+    confirmMsg = "COLOR: " .. (SPRITE_COLOR_CONFIRM.colored)
   end
   confirmText(game, mod, confirmMsg)
-  return true, mode, refreshed
+  return true, "colored", refreshed
 end
 
 -- ------- Town Pokémon (ambient NPCs)

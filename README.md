@@ -62,8 +62,12 @@ There is no second settings store.
 | Control Mode | Trainer / Pokémon | Trainer | Who you control in the overworld. |
 | Trainer Trail | On / Off | Off | When controlling a Pokémon, the trainer follows behind. |
 | Followers | 0–6 | 1 | Extra party Pokémon trailing the leader. |
-| Sprite Color | Colored / Classic | Colored | Colored uses true-color sheets; Classic uses the GBC-style palette path. |
 | Leader | Party menu | — | Choose the lead follower from the party menu. |
+
+> Sprite Color (Colored / Classic) was removed: follower, wild, ambient, and
+> party-menu sprites always render in true color, so 24-bit PNG packs
+> (including the built-in Poke Followers / GSC sheets) are never force-baked
+> to the GBC palette ramp.
 
 ### Wilds of Kanto
 
