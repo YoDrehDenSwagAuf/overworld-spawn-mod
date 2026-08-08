@@ -154,25 +154,18 @@ function ControlEngine:_opt(key, default)
 end
 
 function ControlEngine:onOptionsChanged(payload)
+  -- Cache is a consumer only — wipe on any options change.
   self._optCache = {}
   local settings = self.settings
   if settings and type(settings.onOptionsChanged) == "function" then
     pcall(settings.onOptionsChanged, settings, payload)
   end
-  
-  local game = self:_game()
-  if game and game.save then
-    -- Sync options back to save state so they remain consistent
-    local newCount = self:followerCount(game)
-    local newMode = self:controlMode(game)
-    game.save.pokepcFollowerCount = newCount
-    game.save.pokepcControlMode = newMode
-  end
 
-  local ow = game and game.overworld
+  local game = (payload and payload.game) or self:_game()
   if game then
+    -- Mirror mod.options → game.save, then rebuild active trailers.
     pcall(function() self:alignSaveFromOptions(game) end)
-    pcall(function() self:syncAll(game, ow) end)
+    pcall(function() self:syncAll(game, game.overworld) end)
   end
 end
 
@@ -201,31 +194,49 @@ function ControlEngine:followerCount(game)
       return math.max(0, math.min(6, n))
     end
   end
+  -- Prefer live options over a possibly stale save mirror / cache.
+  local fromOpt = self:_opt("follower_count", nil)
+  if type(fromOpt) == "number" then
+    return math.max(0, math.min(6, fromOpt))
+  end
   local saved = game and game.save and game.save.pokepcFollowerCount
   if type(saved) == "number" then return math.max(0, math.min(6, saved)) end
 
   return 1
 end
 
+--- Programmatic API: write through Settings (options + save mirror).
+-- Does not own persistence; invalidates local cache instead of storing a
+-- parallel truth. Callers that need runtime refresh should go through
+-- Follower:onOptionsChanged / ControlEngine:onOptionsChanged.
 function ControlEngine:setFollowerCount(game, n)
   n = math.max(0, math.min(6, math.floor(tonumber(n) or 0)))
-  self._optCache.follower_count = n
   local settings = self.settings
   if settings and type(settings.setFollowerCount) == "function" then
-    pcall(settings.setFollowerCount, settings, game, n)
+    local ok, got = pcall(settings.setFollowerCount, settings, game, n)
+    if ok and type(got) == "number" then n = got end
+  elseif self.mod and self.mod.options and type(self.mod.options.set) == "function" then
+    pcall(self.mod.options.set, self.mod.options, "follower_count", n)
+    if game and game.save then game.save.pokepcFollowerCount = n end
+  elseif game and game.save then
+    game.save.pokepcFollowerCount = n
   end
-  if game and game.save then game.save.pokepcFollowerCount = n end
+  self._optCache.follower_count = nil
+  return n
 end
 
 function ControlEngine:setControlMode(game, mode)
   mode = mode or "follow"
   if mode == "lead" then mode = "lead_trainer" end
-  self._optCache.control_mode = mode
   local settings = self.settings
   if settings and type(settings.setEngineMode) == "function" then
-    pcall(settings.setEngineMode, settings, mode)
+    pcall(settings.setEngineMode, settings, game, mode)
   end
   if game and game.save then game.save.pokepcControlMode = mode end
+  -- Invalidate; do not cache a second source of truth.
+  self._optCache.control_mode = nil
+  self._optCache.follow_control = nil
+  self._optCache.trainer_trail = nil
 end
 
 function ControlEngine:isPokemonFront(game)
@@ -1424,26 +1435,22 @@ function ControlEngine:alignSaveFromOptions(game)
   game = game or self:_game()
   if not (game and game.save) then return end
   local settings = self.settings
-  if settings and type(settings.followerCount) == "function" then
-    local ok, n = pcall(settings.followerCount, settings, game)
-    if ok and type(n) == "number" then
-      self:setFollowerCount(game, n)
-    end
-  else
-    local n = tonumber(self:_opt("follower_count", 1))
-    if type(n) == "number" then
-      self:setFollowerCount(game, n)
-    end
+  -- Settings adapter owns option → save mirroring (count + derived engine mode).
+  -- Do not call setFollowerCount here — that would re-write mod.options.
+  if settings and type(settings.alignSave) == "function" then
+    pcall(settings.alignSave, settings, game)
+    self._optCache.follower_count = nil
+    self._optCache.control_mode = nil
+    self._optCache.follow_control = nil
+    self._optCache.trainer_trail = nil
+    return
   end
-  local savedMode = game.save.pokepcControlMode
-  if type(savedMode) ~= "string" or savedMode == "" then
-    local mode
-    if settings and type(settings.engineMode) == "function" then
-      local ok, m = pcall(settings.engineMode, settings, game)
-      if ok then mode = m end
-    end
-    self:setControlMode(game, tostring(mode or self:_opt("control_mode", "follow")))
-  end
+  local n = tonumber(self:_opt("follower_count", 1)) or 1
+  n = math.max(0, math.min(6, math.floor(n)))
+  game.save.pokepcFollowerCount = n
+  local mode = tostring(self:_opt("control_mode", "follow"))
+  if mode == "lead" then mode = "lead_trainer" end
+  game.save.pokepcControlMode = mode
 end
 
 function ControlEngine:syncAll(game, ow)

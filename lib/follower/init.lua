@@ -277,13 +277,16 @@ function Follower:onOptionsChanged(payload)
   self.settings:onOptionsChanged(payload)
   if key == "follow_control" or key == "trainer_trail" or key == "follower_count"
       or key == "sprite_style" then
-    local game = self.mod and self.mod.world and self.mod.world.game
+    -- Prefer game from the caller (in-game OPTIONS menu) so refresh works even
+    -- when mod.world.game is not yet wired the same way as Mod Settings.
+    local game = payload.game
+    if not game and self.mod and self.mod.world then
+      game = self.mod.world.game
+    end
     self.settings:alignSave(game)
-    if self.control._installed then
+    if self.control then
+      -- Always invalidate option cache + mirror; sync when engine is live.
       self.control:onOptionsChanged(payload)
-      pcall(function()
-        self.control:syncAll(game, game and game.overworld)
-      end)
     end
     self.lifecycle:requestFollowerSpriteRefresh("options:" .. tostring(key), {
       game = game,

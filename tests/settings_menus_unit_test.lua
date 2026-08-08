@@ -36,7 +36,12 @@ local optionStore = {
   enable_hidden = true,
   dev_overlay = false,
 }
-local setLog = {}
+local modOptions = { overworld_wild_spawns = optionStore }
+local game = {
+  save = { options = { modOptions = modOptions } },
+  mods = { modOptions = modOptions },
+  writeOptions = function() end,
+}
 local screens = {}
 local optionsRows = nil
 local startItems = nil
@@ -48,12 +53,10 @@ local V = {
     id = "overworld_wild_spawns",
     path = ".",
     log = { info = function() end, warn = function() end },
+    world = { game = game },
+    -- Gen1Recomp: define/get only (no options:set).
     options = {
       get = function(_, k) return optionStore[k] end,
-      set = function(_, k, v)
-        optionStore[k] = v
-        setLog[#setLog + 1] = { k, v }
-      end,
     },
     hooks = {
       wrap = function(_, name, fn)
@@ -178,22 +181,24 @@ for _, it in ipairs(optionsRows or {}) do
   end
 end
 
--- Shared keys: follower_count via Followers menu apply
-menus:_applyFollowerCount({}, 6)
+check(V.mod.options.set == nil, "no mod.options:set (engine parity)")
+
+-- Shared keys: follower_count via Followers menu apply (canonical options path)
+menus:_applyFollowerCount(game, 6)
 eq(optionStore.follower_count, 6, "followers menu writes follower_count")
 eq(Config.get(V.mod, "follower_count"), 6, "Config.get sees same follower_count")
 
 local ok = Config.setSpriteStyle(V.mod, "followers", "options_menu", {
-  game = {},
+  game = game,
   logic = { render = { refreshAllEntitySprites = function() end } },
   confirm = false,
 })
 check(ok == true, "setSpriteStyle from wilds menu path")
 eq(optionStore.sprite_style, "followers", "sprite_style shared key updated")
 
-menus:_applyControlMode({}, "pokemon")
+menus:_applyControlMode(game, "pokemon")
 eq(optionStore.follow_control, "pokemon", "control mode shared key")
-menus:_applyTrainerTrail({}, true)
+menus:_applyTrainerTrail(game, true)
 eq(optionStore.trainer_trail, true, "trainer trail shared key")
 
 -- Menus map onto existing options.lua keys (no parallel persistence)
@@ -207,17 +212,31 @@ for _, k in ipairs(SettingsMenus.WILDS_OPTION_KEYS) do
   check(keys[k], "wilds key in schema: " .. k)
 end
 
--- Followers root includes Sprite Color, not Box Leader
-local followRoot = menus:_openFollowersRoot({})
+-- Followers root: control options only (Sprite Color removed in 1.11.1)
+local followRoot = menus:_openFollowersRoot(game)
 local flabels = {}
 for _, it in ipairs(followRoot.items) do flabels[#flabels + 1] = it.label end
 local fjoin = table.concat(flabels, ",")
-check(fjoin:find("SPRITE COLOR", 1, true), "followers menu has Sprite Color")
+check(fjoin:find("FOLLOWERS", 1, true), "followers menu has Followers count")
 check(fjoin:find("CONTROL MODE", 1, true), "followers menu has Control Mode")
+check(fjoin:find("TRAINER TRAIL", 1, true), "followers menu has Trainer Trail")
+check(not fjoin:find("SPRITE COLOR", 1, true), "no Sprite Color entry")
 check(not fjoin:find("BOX LEADER", 1, true), "no unimplemented Box Leader")
+-- Root right-label reads live options after apply
+local countRight
+for _, it in ipairs(followRoot.items) do
+  if it.label == "FOLLOWERS" then countRight = it.right end
+end
+eq(countRight, "6", "followers root shows updated count")
+-- Nested rows carry screen ids for close-then-push navigation
+local hasScreen = false
+for _, it in ipairs(followRoot.items) do
+  if it.label == "FOLLOWERS" and it.screen then hasScreen = true end
+end
+check(hasScreen, "FOLLOWERS row has screen id for push")
 
 -- Wilds root includes fade + town
-local wildsRoot = menus:_openWildsRoot({})
+local wildsRoot = menus:_openWildsRoot(game)
 local wlabels = {}
 for _, it in ipairs(wildsRoot.items) do wlabels[#wlabels + 1] = it.label end
 local wjoin = table.concat(wlabels, ",")

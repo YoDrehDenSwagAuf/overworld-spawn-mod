@@ -2,6 +2,20 @@
 
 ## 1.11.1
 
+### Fix Poke Followers EX OPTIONS menu follower settings path
+
+- Root cause: Gen1Recomp has **no** `mod.options:set` (only `define`/`get`).
+  In-game menus were silently failing option writes via `pcall(options:set)`
+- Menus now write the same `loader.modOptions` / `save.options.modOptions`
+  buckets Mod Manager uses (`Config.setOption`)
+- Shared `handleOptionsChanged` from `main.lua` is injected into SettingsMenus
+  (no duplicated logic/follower/ambient notify path)
+- ListMenu navigation uses close-then-push so parent is not left stale under
+  child (`ListMenu:close` only pops when it is stack top)
+- Control Mode, Trainer Trail, and Followers (0–6) share that path
+- Regression tests simulate the real ListMenu choose → child → apply flow
+  (`tests/settings_menus_listmenu_path_unit_test.lua`)
+
 ### Remove Sprite Color mode; fix GSC true-color rendering
 
 - Removed the Sprite Color (Colored / Classic) option and its submenu entry
