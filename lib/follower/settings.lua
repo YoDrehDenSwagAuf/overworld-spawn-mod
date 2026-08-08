@@ -137,7 +137,7 @@ function Settings:onOptionsChanged(payload)
   if not payload then return end
   local key = payload.key
   if key ~= "follow_control" and key ~= "trainer_trail" and key ~= "follower_count"
-      and key ~= "sprite_style" and key ~= "sprite_color" then
+      and key ~= "sprite_style" then
     return
   end
   -- Keep game.save mirrors in sync for control engine.

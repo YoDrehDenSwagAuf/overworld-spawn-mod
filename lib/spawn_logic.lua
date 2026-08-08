@@ -2520,16 +2520,14 @@ function SpawnLogic:onOptionsChanged(payload)
       if self.overlay then self.overlay:clear() end
     end
   elseif key == "sprite_style"
-      or key == "use_animated_overworld_sprites"
-      or key == "sprite_color" then
+      or key == "use_animated_overworld_sprites" then
     -- Legacy Mon Sprites toggles map onto sprite_style via Config.spriteStyle.
     local world = self.mod.world
     local game = world and world.game
     self.render:invalidateAssetCache()
     local n = self.render:refreshAllEntitySprites(self, game)
-    self:_log("sprite_style/color -> %s/%s; refreshed %d entities (no respawn)",
-              tostring(Config.spriteStyle(self.mod)),
-              tostring(Config.spriteColor(self.mod)), n)
+    self:_log("sprite_style -> %s; refreshed %d entities (no respawn)",
+              tostring(Config.spriteStyle(self.mod)), n)
     -- Refresh active follower land/water sprite to the new style.
     if self.followersWater and self.followersWater.invalidateStyle then
       pcall(function()

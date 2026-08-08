@@ -232,6 +232,10 @@ function Follower:reassertAfterModsLoaded(game)
   end
   self.lifecycle:installPartySubmenu()
   self:_installPartyLeaderItems()
+  if game then
+    pcall(function() self.spriteService:installPartyMenuHook() end)
+    pcall(function() self.spriteService:patchPartyIconTrueColor(game) end)
+  end
   self._installed = true
   return "wilds"
 end
@@ -253,6 +257,12 @@ function Follower:onSaveLoaded()
   local game = self.mod and self.mod.world and self.mod.world.game
   self.settings:alignSave(game)
   self.lifecycle:onSaveLoaded(game)
+  if game then
+    -- Party menu icons: (re)install the draw hook + truecolor def patch now
+    -- that the game registries are populated.
+    pcall(function() self.spriteService:installPartyMenuHook() end)
+    pcall(function() self.spriteService:patchPartyIconTrueColor(game) end)
+  end
   if self.control._installed then
     pcall(function()
       self.control:alignSaveFromOptions(game)
@@ -266,7 +276,7 @@ function Follower:onOptionsChanged(payload)
   local key = payload.key
   self.settings:onOptionsChanged(payload)
   if key == "follow_control" or key == "trainer_trail" or key == "follower_count"
-      or key == "sprite_style" or key == "sprite_color" then
+      or key == "sprite_style" then
     local game = self.mod and self.mod.world and self.mod.world.game
     self.settings:alignSave(game)
     if self.control._installed then

@@ -1,11 +1,20 @@
 # Changelog
 
+## 1.11.1
+
+### Remove Sprite Color mode; fix GSC true-color rendering
+
+- Removed the Sprite Color (Colored / Classic) option and its submenu entry
+- Follower, wild, ambient, and party-menu sprites now always render true-color
+- Fixes the built-in Poke Followers / GSC sheets (8-bit RGBA) being force-baked
+  through the 4-shade DMG gray ramp in Classic mode, which made them look broken
+- Legacy "classic" saves are ignored and migrated to "colored"
+
 ## 1.11.0
 
 ### OPTIONS menus, Sprite Color / Fade, Town Pokémon
 
 - Moved Wilds and follower settings into START → OPTIONS submenus
-- Restored follower sprite color setting (Colored / Classic)
 - Restored Wilds Sprite Fade setting (Solid / Faded; Solid = alpha 1.0)
 - Added peaceful Town Pokémon (ambient NPCs; Idle / Wander only)
 - Added ambient Pokémon interactions and text cries

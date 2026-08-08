@@ -641,7 +641,7 @@ function AmbientPokemon:onOptionsChanged(payload)
   local key = payload.key
   if key == "town_pokemon" then
     self:onTownPokemonToggled(Config.townPokemonEnabled(self.mod))
-  elseif key == "sprite_style" or key == "sprite_color"
+  elseif key == "sprite_style"
       or key == "use_animated_overworld_sprites" then
     local game = self.mod.world and self.mod.world.game
     self:refreshSprites(game)

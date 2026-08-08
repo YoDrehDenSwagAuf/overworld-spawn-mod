@@ -71,6 +71,12 @@ local function speciesKeyOf(entity, mon)
     if entity.pokepcMon and entity.pokepcMon.species then
       return tostring(entity.pokepcMon.species)
     end
+    -- Stock Yellow Pikachu entity: its art follows the selected follower
+    -- species (ControlEngine:forceYellowStockPikachuArt), not the entity id
+    -- or any stale engine species field.
+    if entity._wildsFollowerSpecies then
+      return tostring(entity._wildsFollowerSpecies)
+    end
     if entity.species then return tostring(entity.species) end
     local def = entity.sprite and entity.sprite.def
     if def and def.id == "SPRITE_PIKACHU" then return "PIKACHU" end

@@ -46,8 +46,51 @@ local function finishMovement(npc)
   npc.idle, npc.goalX, npc.goalY = nil, nil, nil
 end
 
+--- Shared "X is following you!" dialog used by the lifecycle talk wrapper AND
+-- the control-engine interact wrapper (trailers in every game version).
+-- @param game src.core.Game (module or instance)
+-- @param ow overworld state
+-- @param npc follower/trailer entity being talked to (may be nil)
+-- @param mon the party mon to present (trailer's own mon preferred)
+-- @param done optional callback (vanilla talk signature compatibility)
+function Interaction:showFollowMessage(game, ow, npc, mon, done)
+  if not mon then return false end
+
+  finishMovement(npc)
+  if npc and npc.facePlayer and ow and ow.player then
+    pcall(npc.facePlayer, npc, ow.player)
+  end
+  if ow and ow.player and npc and npc.facing then
+    ow.player.facing = OPPOSITE[npc.facing] or ow.player.facing
+  end
+
+  local Sound = tryRequire("src.core.Sound")
+  if Sound and Sound.playCry and game and game.data then
+    pcall(Sound.playCry, game.data, mon.species)
+  end
+
+  local Strings = tryRequire("src.core.Strings")
+  local TextBox = tryRequire("src.render.TextBox")
+  local def = game and game.data and game.data.pokemon and game.data.pokemon[mon.species]
+  local name = mon.nickname or (def and def.name) or mon.species
+  local text
+  if Strings then
+    local ok, formatted = pcall(Strings, "%s is following\nyou!", name)
+    text = ok and formatted or (tostring(name) .. " is following\nyou!")
+  else
+    text = tostring(name) .. " is following\nyou!"
+  end
+  if game and game.stack and TextBox and TextBox.new then
+    game.stack:push(TextBox.new(game, text, done))
+  elseif done then
+    done()
+  end
+  return true
+end
+
 function Interaction:makeTalkWrapper(originalTalk)
   local selection = self.selection
+  local interaction = self
   local function wrappedTalk(a, b, c, d)
     local Game = tryRequire("src.core.Game")
     local game = type(a) == "table" and a.save and a or Game
@@ -57,6 +100,10 @@ function Interaction:makeTalkWrapper(originalTalk)
     local PikachuFollower = tryRequire("src.world.PikachuFollower")
     local npc = PikachuFollower and PikachuFollower.current and PikachuFollower.current(ow)
     local mon = selection:getActiveFollowerMon(game, true)
+    -- Talking to a specific trailer: present THAT mon, not the active leader.
+    if npc and npc.pokepcMon then
+      mon = npc.pokepcMon
+    end
 
     if not mon then
       if originalTalk then return originalTalk(a, b, c, d) end
@@ -70,35 +117,7 @@ function Interaction:makeTalkWrapper(originalTalk)
       return originalTalk(a, b, c, d)
     end
 
-    finishMovement(npc)
-    if npc and npc.facePlayer and ow and ow.player then
-      pcall(npc.facePlayer, npc, ow.player)
-    end
-    if ow and ow.player and npc and npc.facing then
-      ow.player.facing = OPPOSITE[npc.facing] or ow.player.facing
-    end
-
-    local Sound = tryRequire("src.core.Sound")
-    if Sound and Sound.playCry and game and game.data then
-      pcall(Sound.playCry, game.data, mon.species)
-    end
-
-    local Strings = tryRequire("src.core.Strings")
-    local TextBox = tryRequire("src.render.TextBox")
-    local def = game and game.data and game.data.pokemon and game.data.pokemon[mon.species]
-    local name = mon.nickname or (def and def.name) or mon.species
-    local text
-    if Strings then
-      local ok, formatted = pcall(Strings, "%s is following\nyou!", name)
-      text = ok and formatted or (tostring(name) .. " is following\nyou!")
-    else
-      text = tostring(name) .. " is following\nyou!"
-    end
-    if game and game.stack and TextBox and TextBox.new then
-      game.stack:push(TextBox.new(game, text, done))
-    elseif done then
-      done()
-    end
+    return interaction:showFollowMessage(game, ow, npc, mon, done)
   end
   return wrappedTalk
 end

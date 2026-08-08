@@ -126,9 +126,16 @@ end
 
 function ControlEngine:_isYellow()
   local GV = tryRequire("src.core.GameVersion")
-  if not (GV and GV.isYellow) then return false end
-  local ok, yellow = pcall(GV.isYellow)
-  return ok and yellow and true or false
+  if not GV then return false end
+  if type(GV.isYellow) == "function" then
+    local ok, yellow = pcall(GV.isYellow)
+    if ok then return yellow == true end
+  end
+  if type(GV.get) == "function" then
+    local ok, version = pcall(GV.get)
+    return ok and version == "yellow"
+  end
+  return false
 end
 
 function ControlEngine:_opt(key, default)
@@ -152,7 +159,16 @@ function ControlEngine:onOptionsChanged(payload)
   if settings and type(settings.onOptionsChanged) == "function" then
     pcall(settings.onOptionsChanged, settings, payload)
   end
+  
   local game = self:_game()
+  if game and game.save then
+    -- Sync options back to save state so they remain consistent
+    local newCount = self:followerCount(game)
+    local newMode = self:controlMode(game)
+    game.save.pokepcFollowerCount = newCount
+    game.save.pokepcControlMode = newMode
+  end
+
   local ow = game and game.overworld
   if game then
     pcall(function() self:alignSaveFromOptions(game) end)
@@ -187,7 +203,8 @@ function ControlEngine:followerCount(game)
   end
   local saved = game and game.save and game.save.pokepcFollowerCount
   if type(saved) == "number" then return math.max(0, math.min(6, saved)) end
-  return tonumber(self:_opt("follower_count", 1)) or 1
+
+  return 1
 end
 
 function ControlEngine:setFollowerCount(game, n)
@@ -206,7 +223,7 @@ function ControlEngine:setControlMode(game, mode)
   self._optCache.control_mode = mode
   local settings = self.settings
   if settings and type(settings.setEngineMode) == "function" then
-    pcall(settings.setEngineMode, settings, game, mode)
+    pcall(settings.setEngineMode, settings, mode)
   end
   if game and game.save then game.save.pokepcControlMode = mode end
 end
@@ -249,6 +266,15 @@ function ControlEngine.monIdentityKey(mon)
     tostring(mon.otId or ""),
     dvKey,
   }, "|")
+end
+
+function ControlEngine:toggleStopFollowing(mon, game)
+  if not mon then return end
+  mon.stopFollowing = not mon.stopFollowing
+  game = game or self:_game()
+  local ow = game and game.overworld
+  self:syncAll(game, ow)
+  return mon.stopFollowing
 end
 
 -- Yellow: party[1] = talkable Pikachu; chosen leader → party[2]
@@ -360,7 +386,8 @@ function ControlEngine:getLeaderMon(game)
 
   local idx = save.followerPartyIndex
   if idx and save.party and save.party[idx] then
-    return save.party[idx], "party"
+    local mon = save.party[idx]
+    if not mon.stopFollowing then return mon, "party" end
   end
 
   if self:_isYellow() and save.party and save.party[1]
@@ -371,7 +398,7 @@ function ControlEngine:getLeaderMon(game)
   for _, mon in ipairs(save.party or {}) do
     if (mon.hp or 0) > 0 then return mon, "party" end
   end
-  return save.party and save.party[1], "party"
+  return nil, "party"
 end
 
 function ControlEngine:getActiveFollowerMon(game)
@@ -413,6 +440,7 @@ end
 function ControlEngine:yellowStockFollowActive(game)
   if not self:_isYellow() then return false end
   if self:controlMode(game) ~= "follow" then return false end
+  if self:followerCount(game) <= 0 then return false end
   local save = game and game.save
   return self:_partyPikachuIndex(save) ~= nil
 end
@@ -499,34 +527,70 @@ function ControlEngine:forceYellowStockPikachuArt(ow, game)
   local npc = self:_findStockPikachu(ow)
   if not npc then return end
   game = game or self:_game()
+  local mon = self:getActiveFollowerMon(game)
+  local species = (mon and mon.species) or "PIKACHU"
   local resolved = self:resolveFollowerSprite({
-    species = "PIKACHU",
-    shiny = false,
+    species = species,
+    shiny = isShinyMon(mon),
     surface = "land",
     role = "primary",
     game = game,
   })
   if not (resolved and resolved.image) then return end
   local def = npc.sprite and npc.sprite.def
-  if def and def.image == resolved.image and def.id == Constants.SPRITE_ID then
-    npc._pokepcFollowerSpecies = "PIKACHU"
-    npc._wildsFollowerSpecies = "PIKACHU"
+  local resolvedFrames = resolved.frames or 6
+  local resolvedWalker = resolved.walker ~= false
+  local resolvedTrueColor = resolved.trueColor ~= false
+  if def and def.image == resolved.image
+     and (def.id or Constants.SPRITE_ID) == Constants.SPRITE_ID
+     and (def.frames or 1) == resolvedFrames
+     and (def.walker == true) == resolvedWalker
+     and (def.trueColor == nil or def.trueColor == resolvedTrueColor) then
+    npc._pokepcFollowerSpecies = species
+    npc._wildsFollowerSpecies = species
     return
   end
   local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
   if not (SpriteRenderer and SpriteRenderer.new) then return end
+
+  local preserved = {
+    facing = npc.facing,
+    moving = npc.moving,
+    cellX = npc.cellX,
+    cellY = npc.cellY,
+    px = npc.px,
+    py = npc.py,
+    targetX = npc.targetX,
+    targetY = npc.targetY,
+    progress = npc.progress,
+    marching = npc.marching,
+    hopStep = npc.hopStep,
+    idle = npc.idle,
+    goalX = npc.goalX,
+    goalY = npc.goalY,
+  }
   local ok, sprite = pcall(SpriteRenderer.new, {
     id = Constants.SPRITE_ID,
     image = resolved.image,
-    frames = resolved.frames or 6,
-    walker = resolved.walker ~= false,
-    trueColor = resolved.trueColor ~= false,
+    frames = resolvedFrames,
+    walker = resolvedWalker,
+    trueColor = resolvedTrueColor,
   }, npc.id or Constants.ENTITY_ID)
   if ok and sprite then
     npc.sprite = sprite
     npc.spriteId = Constants.SPRITE_ID
-    npc._pokepcFollowerSpecies = "PIKACHU"
-    npc._wildsFollowerSpecies = "PIKACHU"
+    npc.facing = preserved.facing
+    npc.moving = preserved.moving
+    npc.cellX, npc.cellY = preserved.cellX, preserved.cellY
+    npc.px, npc.py = preserved.px, preserved.py
+    npc.targetX, npc.targetY = preserved.targetX, preserved.targetY
+    npc.progress = preserved.progress
+    npc.marching = preserved.marching
+    npc.hopStep = preserved.hopStep
+    npc.idle = preserved.idle
+    npc.goalX, npc.goalY = preserved.goalX, preserved.goalY
+    npc._pokepcFollowerSpecies = species
+    npc._wildsFollowerSpecies = species
   end
 end
 
@@ -563,17 +627,26 @@ function ControlEngine:shouldUpdateWildsTrailers(game, ow)
 end
 
 function ControlEngine:partyTrailMons(game)
+  local n = self:followerCount(game)
+  if n <= 0 then return {} end
+
   local save = game and game.save
   if not save then return {} end
+
   local leader, leadSrc = self:getLeaderMon(game)
   local leadIdx = self:_leaderPartyIndex(game, leader, leadSrc)
   local leadKey = ControlEngine.monIdentityKey(leader)
   local front = self:isPokemonFront(game)
-  local skipPikaIdx = self:yellowStockFollowActive(game) and self:_partyPikachuIndex(save) or nil
+
+  -- Identify if stock Pikachu is active to prevent duplicate rendering
+  local isStockPikaActive = self:yellowStockFollowActive(game)
+  local skipPikaIdx = isStockPikaActive and self:_partyPikachuIndex(save) or nil
+
   local out = {}
   local function push(mon, i)
     out[#out + 1] = { mon = mon, partyIndex = i }
   end
+
   local function isControlledLeader(mon, i)
     if not mon then return false end
     if leadIdx and i == leadIdx then return true end
@@ -581,33 +654,41 @@ function ControlEngine:partyTrailMons(game)
     if leadKey and ControlEngine.monIdentityKey(mon) == leadKey then return true end
     return false
   end
-  local function skipAsStockPika(i)
-    return skipPikaIdx and i == skipPikaIdx
+
+  local function skipMon(i, mon)
+    if skipPikaIdx and i == skipPikaIdx then return true end
+    if mon and mon.stopFollowing == true then return true end
+    return false
   end
 
   if not front and leader then
     if leadIdx and save.party and save.party[leadIdx]
        and (save.party[leadIdx].hp or 0) > 0
-       and not skipAsStockPika(leadIdx) then
+       and not skipMon(leadIdx, save.party[leadIdx]) then
       push(save.party[leadIdx], leadIdx)
     else
       for i, mon in ipairs(save.party or {}) do
         if isControlledLeader(mon, i) and (mon.hp or 0) > 0
-           and not skipAsStockPika(i) then
+           and not skipMon(i, mon) then
           push(mon, i)
           break
         end
       end
     end
   end
+
   for i, mon in ipairs(save.party or {}) do
     if (mon.hp or 0) > 0 and not isControlledLeader(mon, i)
-       and not skipAsStockPika(i) then
+       and not skipMon(i, mon) then
       push(mon, i)
     end
   end
-  local n = self:followerCount(game)
-  while #out > n do out[#out] = nil end
+
+  -- If stock Pikachu is active, it fills slot 1.
+  -- Subtract 1 from extra trailers so total visible followers equals `n`.
+  local maxTrailers = isStockPikaActive and math.max(0, n - 1) or n
+  while #out > maxTrailers do out[#out] = nil end
+
   return out
 end
 
@@ -1303,7 +1384,7 @@ function ControlEngine:update(game, ow, opts)
   self.diag.lastSource = opts.source or "direct"
 
   local ok, err = pcall(function()
-    if self:isPokemonFront(game) then
+    if self:isPokemonFront(game) or self:followerCount(game) <= 0 then
       self:_removeStockPikachu(ow)
     end
     self:forceYellowStockPikachuArt(ow, game)
@@ -1381,7 +1462,7 @@ function ControlEngine:syncAll(game, ow)
       end
     end
   end
-  if self:isPokemonFront(game) and ow and ow.player then
+  if (self:isPokemonFront(game) or self:followerCount(game) <= 0) and ow and ow.player then
     ow.player._pokepcControlSpecies = nil
   end
   pcall(function() self:syncPlayerControlVisual(game, ow, true) end)
@@ -1395,11 +1476,16 @@ function ControlEngine:_installTalkWrap()
   if OverworldState._wildsControlEngineTalkWrap == OverworldState.interact then
     return true
   end
+  if not self._interaction then
+    local Interaction = V.require("follower/interaction")
+    self._interaction = Interaction.new(self.mod, self.selection)
+  end
   local engine = self
   local origInteract = OverworldState.interact
   local function talkWrap(owSelf, ...)
     local p = owSelf.player
-    if p and engine:_isYellow() then
+    if p and type(p.facingCell) == "function"
+        and type(owSelf.npcAtCell) == "function" then
       local Collision = tryRequire("src.world.Collision")
       local PF = tryRequire("src.world.PikachuFollower")
       local fx, fy = p:facingCell()
@@ -1409,10 +1495,21 @@ function ControlEngine:_installTalkWrap()
         local fx2, fy2 = Collision.target(fx, fy, p.facing)
         npc = owSelf:npcAtCell(fx2, fy2)
       end
-      if npc and npc.pokepcTrailer and (npc.pokepcTalkablePikachu
-          or engine:isYellowPikachuTrailer(npc)) then
-        if PF and PF.talk then
-          PF.talk(engine:_game(), owSelf, npc)
+      -- Wilds-owned Pokémon follower trailers are talkable in every version;
+      -- no Pikachu in the party is required.
+      if npc and npc.wildsFollower == true and npc.pokepcTrailer == true
+         and npc.pokepcTrailerKind ~= "trainer" and npc.pokepcMon then
+        local mon = npc.pokepcMon
+        -- Yellow Pikachu keeps vanilla talk (Pikachu-specific options).
+        if engine:_isYellow() and mon.species == "PIKACHU" then
+          if PF and PF.talk then
+            PF.talk(engine:_game(), owSelf, npc)
+          end
+          return
+        end
+        -- Any other follower: "X is following you!".
+        if engine._interaction and engine._interaction.showFollowMessage then
+          engine._interaction:showFollowMessage(engine:_game(), owSelf, npc, mon)
         end
         return
       end
@@ -1530,7 +1627,7 @@ function ControlEngine:install()
     engine.diag.wrappedUpdateCalls = (engine.diag.wrappedUpdateCalls or 0) + 1
     local result = origFollowerUpdate and origFollowerUpdate(game, ow, ...)
     -- Stock-only duties while overworld owns trailer movement.
-    if engine:isPokemonFront(game) then
+    if engine:isPokemonFront(game) or engine:followerCount(game) <= 0 then
       pcall(function() engine:_removeStockPikachu(ow) end)
     end
     pcall(function() engine:forceYellowStockPikachuArt(ow, game) end)
@@ -1547,7 +1644,7 @@ function ControlEngine:install()
   local function wrappedOnMapEntered(game, ow, opts)
     if origOnMap then origOnMap(game, ow, opts) end
     local mode = engine:controlMode(game)
-    if mode == "pokemon" or mode == "lead_trainer" or mode == "pack" then
+    if mode == "pokemon" or mode == "lead_trainer" or mode == "pack" or engine:followerCount(game) <= 0 then
       pcall(function() engine:_removeStockPikachu(ow) end)
     else
       pcall(function() engine:forceYellowStockPikachuArt(ow, game) end)
@@ -1651,6 +1748,11 @@ end
 --- Stock PikachuFollower spawn decision. False while surfing / bike / pack
 -- modes — this must never stop ControlEngine:update for Wilds trailers.
 function ControlEngine:_shouldSpawnStockFollower(game, ow)
+  -- Suppress stock follower if count is 0
+  if self:followerCount(game) <= 0 then
+    return false
+  end
+
   local mode = self:controlMode(game)
   if mode == "pokemon" or mode == "lead_trainer" or mode == "pack" then
     return false

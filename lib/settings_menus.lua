@@ -150,7 +150,6 @@ function SettingsMenus:_openFollowersRoot(game)
   local control = optGet(mod, "follow_control", "trainer")
   local trail = optGet(mod, "trainer_trail", false) == true
   local count = tonumber(optGet(mod, "follower_count", 1)) or 1
-  local color = Config.spriteColor(mod)
   local items = {
     {
       label = "CONTROL MODE",
@@ -172,13 +171,6 @@ function SettingsMenus:_openFollowersRoot(game)
         mod.ui.push(game, SettingsMenus.SCREEN_FOLLOWERS .. ":count")
       end,
       right = tostring(count),
-    },
-    {
-      label = "SPRITE COLOR",
-      onSelect = function()
-        mod.ui.push(game, SettingsMenus.SCREEN_FOLLOWERS .. ":color")
-      end,
-      right = (color == "classic") and "CLASSIC" or "COLORED",
     },
   }
   -- Leader is available via party submenu; surface a hint only.
@@ -396,30 +388,6 @@ function SettingsMenus:register()
         end)
     end,
   })
-  mod.content.screens:register(SettingsMenus.SCREEN_FOLLOWERS .. ":color", {
-    new = function(game)
-      return menus:_openChoice(game, "SPRITE COLOR", {
-        { label = "COLORED", value = "colored" },
-        { label = "CLASSIC", value = "classic" },
-      }, Config.spriteColor(mod), function(v)
-        Config.setSpriteColor(mod, v, "options_menu", {
-          game = game,
-          logic = menus.logic,
-          render = menus.logic and menus.logic.render,
-          confirm = true,
-        })
-        if menus.ambient and menus.ambient.refreshSprites then
-          pcall(menus.ambient.refreshSprites, menus.ambient, game)
-        end
-        if menus.follower and menus.follower.control then
-          pcall(function()
-            menus.follower.control:syncAll(game, game and game.overworld)
-          end)
-        end
-      end)
-    end,
-  })
-
   mod.content.screens:register(SettingsMenus.SCREEN_WILDS, {
     new = function(game) return menus:_openWildsRoot(game) end,
   })
@@ -635,7 +603,7 @@ end
 
 -- Keys shown in each submenu (for tests / docs).
 SettingsMenus.FOLLOWERS_OPTION_KEYS = {
-  "follow_control", "trainer_trail", "follower_count", "sprite_color",
+  "follow_control", "trainer_trail", "follower_count",
 }
 SettingsMenus.WILDS_OPTION_KEYS = {
   "enabled", "spawn_density", "random_encounters", "water_spawns",
