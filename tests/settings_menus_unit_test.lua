@@ -178,7 +178,7 @@ for _, it in ipairs(optionsRows or {}) do
   end
 end
 
--- Shared keys: follower_count via Followers menu apply
+-- Shared keys: follower_count via Followers menu apply (canonical options path)
 menus:_applyFollowerCount({}, 6)
 eq(optionStore.follower_count, 6, "followers menu writes follower_count")
 eq(Config.get(V.mod, "follower_count"), 6, "Config.get sees same follower_count")
@@ -207,14 +207,22 @@ for _, k in ipairs(SettingsMenus.WILDS_OPTION_KEYS) do
   check(keys[k], "wilds key in schema: " .. k)
 end
 
--- Followers root includes Sprite Color, not Box Leader
+-- Followers root: control options only (Sprite Color removed in 1.11.1)
 local followRoot = menus:_openFollowersRoot({})
 local flabels = {}
 for _, it in ipairs(followRoot.items) do flabels[#flabels + 1] = it.label end
 local fjoin = table.concat(flabels, ",")
-check(fjoin:find("SPRITE COLOR", 1, true), "followers menu has Sprite Color")
+check(fjoin:find("FOLLOWERS", 1, true), "followers menu has Followers count")
 check(fjoin:find("CONTROL MODE", 1, true), "followers menu has Control Mode")
+check(fjoin:find("TRAINER TRAIL", 1, true), "followers menu has Trainer Trail")
+check(not fjoin:find("SPRITE COLOR", 1, true), "no Sprite Color entry")
 check(not fjoin:find("BOX LEADER", 1, true), "no unimplemented Box Leader")
+-- Root right-label reads live options after apply
+local countRight
+for _, it in ipairs(followRoot.items) do
+  if it.label == "FOLLOWERS" then countRight = it.right end
+end
+eq(countRight, "6", "followers root shows updated count")
 
 -- Wilds root includes fade + town
 local wildsRoot = menus:_openWildsRoot({})

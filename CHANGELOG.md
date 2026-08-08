@@ -2,6 +2,19 @@
 
 ## 1.11.1
 
+### Fix Poke Followers EX OPTIONS menu follower settings path
+
+- START → OPTIONS → POKE FOLLOW EX now writes `mod.options` and runs the same
+  `onOptionsChanged` refresh path as Mod Settings (no parallel writers)
+- Control Mode, Trainer Trail, and Followers (0–6) all use that canonical path
+- `ControlEngine` no longer treats `_optCache` as a second source of truth;
+  cache is invalidated on options changes and `setFollowerCount` writes through
+  Settings only
+- `game.save.pokepcFollowerCount` / `pokepcControlMode` remain mirrors via
+  `Settings:alignSave`
+- Regression tests: `tests/settings_menus_follower_options_unit_test.lua`,
+  `tests/follower_menu_options_path_unit_test.lua`
+
 ### Remove Sprite Color mode; fix GSC true-color rendering
 
 - Removed the Sprite Color (Colored / Classic) option and its submenu entry

@@ -120,16 +120,21 @@ function Settings:setEngineMode(game, mode)
   return true
 end
 
+--- Canonical adapter write for follower_count.
+-- Source of truth is mod.options; game.save.pokepcFollowerCount is a mirror.
+-- In-game OPTIONS menus should prefer writing mod.options then calling
+-- Follower:onOptionsChanged (see SettingsMenus:_setOption) rather than
+-- stacking this with ControlEngine:setFollowerCount.
 function Settings:setFollowerCount(game, n)
   n = clampCount(n)
-  if game and game.save then
-    game.save.pokepcFollowerCount = n
-  end
   pcall(function()
     if self.mod.options and self.mod.options.set then
       self.mod.options:set("follower_count", n)
     end
   end)
+  if game and game.save then
+    game.save.pokepcFollowerCount = n
+  end
   return n
 end
 
@@ -140,8 +145,10 @@ function Settings:onOptionsChanged(payload)
       and key ~= "sprite_style" then
     return
   end
-  -- Keep game.save mirrors in sync for control engine.
-  -- Caller (init) triggers syncAll after this.
+  -- Mirror only. Caller (Follower:onOptionsChanged) runs alignSave + syncAll.
+  if payload.game then
+    self:alignSave(payload.game)
+  end
 end
 
 --- Import FOLLOWERS_EX / save keys once into Wilds options.

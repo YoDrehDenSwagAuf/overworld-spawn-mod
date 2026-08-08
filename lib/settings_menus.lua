@@ -67,6 +67,41 @@ function SettingsMenus:_settings()
   return self.follower and self.follower.settings
 end
 
+--- Canonical writer for in-game OPTIONS menus.
+-- Writes mod.options (source of truth), then runs the same refresh path as
+-- Mod Settings (`mod.options_changed` → follower/logic handlers).
+-- Programmatic mod.options:set does not reliably emit that event, so menus
+-- must notify explicitly — matching Wilds submenu setters.
+function SettingsMenus:_setOption(key, value, game)
+  local ok = optSet(self.mod, key, value)
+  self:_notifyOptionsChanged(key, value, game)
+  return ok
+end
+
+function SettingsMenus:_notifyOptionsChanged(key, value, game)
+  local payload = {
+    mod = self.mod.id,
+    key = key,
+    value = value,
+    source = "options_menu",
+    game = game,
+  }
+  -- Follower keys: same handler main.lua wires to mod.options_changed.
+  if key == "follow_control" or key == "trainer_trail" or key == "follower_count"
+      or key == "sprite_style" then
+    if self.follower and self.follower.onOptionsChanged then
+      pcall(self.follower.onOptionsChanged, self.follower, payload)
+    end
+  end
+  -- Wilds spawn keys still notify logic (unchanged contract).
+  if self.logic and self.logic.onOptionsChanged then
+    if key ~= "follow_control" and key ~= "trainer_trail"
+        and key ~= "follower_count" then
+      pcall(self.logic.onOptionsChanged, self.logic, payload)
+    end
+  end
+end
+
 function SettingsMenus:_openChoice(game, title, choices, current, apply)
   local mod = self.mod
   local items = {}
@@ -88,61 +123,26 @@ function SettingsMenus:_openChoice(game, title, choices, current, apply)
 end
 
 function SettingsMenus:_applyControlMode(game, value)
-  optSet(self.mod, "follow_control", value)
-  local settings = self:_settings()
-  if settings and settings.setEngineMode then
-    local mode = "follow"
-    if value == "pokemon" then
-      local trail = optGet(self.mod, "trainer_trail", false) == true
-      local n = tonumber(optGet(self.mod, "follower_count", 1)) or 1
-      if trail then mode = "lead_trainer"
-      elseif n > 0 then mode = "pack"
-      else mode = "pokemon" end
-    end
-    pcall(settings.setEngineMode, settings, game, mode)
-  end
-  if self.follower and self.follower.control then
-    pcall(function()
-      self.follower.control:alignSaveFromOptions(game)
-      self.follower.control:syncAll(game, game and game.overworld)
-    end)
-  end
+  -- Options are source of truth; engine mode / save mirrors refresh via
+  -- follower:onOptionsChanged → settings:alignSave → control sync.
+  self:_setOption("follow_control", value, game)
 end
 
 function SettingsMenus:_applyTrainerTrail(game, value)
-  optSet(self.mod, "trainer_trail", value == true)
-  local settings = self:_settings()
-  if settings and settings.setEngineMode then
-    local ui = optGet(self.mod, "follow_control", "trainer")
-    if ui == "pokemon" then
-      local n = tonumber(optGet(self.mod, "follower_count", 1)) or 1
-      local mode = (value == true) and "lead_trainer"
-        or ((n > 0) and "pack" or "pokemon")
-      pcall(settings.setEngineMode, settings, game, mode)
-    end
-  end
-  if self.follower and self.follower.control then
-    pcall(function()
-      self.follower.control:alignSaveFromOptions(game)
-      self.follower.control:syncAll(game, game and game.overworld)
-    end)
-  end
+  self:_setOption("trainer_trail", value == true, game)
 end
 
 function SettingsMenus:_applyFollowerCount(game, value)
   local n = tonumber(value) or 1
   local settings = self:_settings()
-  if settings and settings.setFollowerCount then
-    pcall(settings.setFollowerCount, settings, game, n)
+  if settings and settings.clampCount then
+    n = settings.clampCount(n)
   else
-    optSet(self.mod, "follower_count", n)
+    n = math.max(0, math.min(6, math.floor(n)))
   end
-  if self.follower and self.follower.control then
-    pcall(function()
-      self.follower.control:setFollowerCount(game, n)
-      self.follower.control:syncAll(game, game and game.overworld)
-    end)
-  end
+  -- One write path: mod.options → canonical options-changed refresh.
+  -- Do not also call control:setFollowerCount (avoids dual writers / stale cache).
+  self:_setOption("follower_count", n, game)
 end
 
 function SettingsMenus:_openFollowersRoot(game)
@@ -332,12 +332,9 @@ function SettingsMenus:_openWildsRoot(game)
   })
 end
 
-function SettingsMenus:_notifyLogic(key, value)
-  if self.logic and self.logic.onOptionsChanged then
-    pcall(self.logic.onOptionsChanged, self.logic, {
-      mod = self.mod.id, key = key, value = value, source = "options_menu",
-    })
-  end
+function SettingsMenus:_notifyLogic(key, value, game)
+  -- Back-compat alias: wilds rows historically only notified SpawnLogic.
+  self:_notifyOptionsChanged(key, value, game)
 end
 
 function SettingsMenus:register()
@@ -397,8 +394,7 @@ function SettingsMenus:register()
         { label = "ON", value = true },
         { label = "OFF", value = false },
       }, optGet(mod, "enabled", true) ~= false, function(v)
-        optSet(mod, "enabled", v == true)
-        menus:_notifyLogic("enabled", v == true)
+        menus:_setOption("enabled", v == true, game)
       end)
     end,
   })
@@ -504,8 +500,7 @@ function SettingsMenus:register()
         { label = "ABOVE", value = "above" },
         { label = "IMMERSED", value = "immersed" },
       }, Config.pokemonGrassRenderMode(mod), function(v)
-        optSet(mod, "pokemon_grass_render_mode", v)
-        menus:_notifyLogic("pokemon_grass_render_mode", v)
+        menus:_setOption("pokemon_grass_render_mode", v, game)
       end)
     end,
   })
@@ -515,8 +510,7 @@ function SettingsMenus:register()
         { label = "ON", value = true },
         { label = "OFF", value = false },
       }, optGet(mod, "enable_idle", true) ~= false, function(v)
-        optSet(mod, "enable_idle", v == true)
-        menus:_notifyLogic("enable_idle", v == true)
+        menus:_setOption("enable_idle", v == true, game)
       end)
     end,
   })
@@ -526,8 +520,7 @@ function SettingsMenus:register()
         { label = "ON", value = true },
         { label = "OFF", value = false },
       }, optGet(mod, "enable_wander", true) ~= false, function(v)
-        optSet(mod, "enable_wander", v == true)
-        menus:_notifyLogic("enable_wander", v == true)
+        menus:_setOption("enable_wander", v == true, game)
       end)
     end,
   })
@@ -537,8 +530,7 @@ function SettingsMenus:register()
         { label = "ON", value = true },
         { label = "OFF", value = false },
       }, optGet(mod, "enable_aggressive", true) ~= false, function(v)
-        optSet(mod, "enable_aggressive", v == true)
-        menus:_notifyLogic("enable_aggressive", v == true)
+        menus:_setOption("enable_aggressive", v == true, game)
       end)
     end,
   })
@@ -548,8 +540,7 @@ function SettingsMenus:register()
         { label = "ON", value = true },
         { label = "OFF", value = false },
       }, optGet(mod, "enable_hidden", true) ~= false, function(v)
-        optSet(mod, "enable_hidden", v == true)
-        menus:_notifyLogic("enable_hidden", v == true)
+        menus:_setOption("enable_hidden", v == true, game)
       end)
     end,
   })
@@ -559,8 +550,7 @@ function SettingsMenus:register()
         { label = "OFF", value = false },
         { label = "ON", value = true },
       }, Config.devOverlay(mod) == true, function(v)
-        optSet(mod, "dev_overlay", v == true)
-        menus:_notifyLogic("dev_overlay", v == true)
+        menus:_setOption("dev_overlay", v == true, game)
       end)
     end,
   })
