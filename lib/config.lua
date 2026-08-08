@@ -425,29 +425,42 @@ function Config.useAnimatedOverworldSprites(mod)
   return Config.spriteStyle(mod) ~= "pokedex"
 end
 
+-- Gen1Recomp exposes mod.options:define / :get only — there is NO
+-- mod.options:set on the public mod API (see Loader._api). Mod Manager
+-- writes through ManagerState:setOption → loader.modOptions + emit
+-- mod.options_changed. In-game menus must mirror that bucket write.
 local function writeOptionBucket(mod, game, key, value)
+  if not (mod and mod.id) then return false end
   local function write(bucket)
-    if type(bucket) ~= "table" then return end
+    if type(bucket) ~= "table" then return false end
     bucket[mod.id] = bucket[mod.id] or {}
     bucket[mod.id][key] = value
+    return true
   end
-  if game and game.save and game.save.options then
+  local wrote = false
+  if game and game.save then
+    game.save.options = game.save.options or {}
     game.save.options.modOptions = game.save.options.modOptions or {}
-    write(game.save.options.modOptions)
+    if write(game.save.options.modOptions) then wrote = true end
   end
   if game and game.mods then
-    if game.mods.modOptions then write(game.mods.modOptions) end
-    if game.mods.loader and game.mods.loader.modOptions then
-      write(game.mods.loader.modOptions)
+    -- loader.modOptions is what mod.options:get reads.
+    game.mods.modOptions = game.mods.modOptions or {}
+    if write(game.mods.modOptions) then wrote = true end
+    if game.mods.loader then
+      game.mods.loader.modOptions = game.mods.loader.modOptions or {}
+      if write(game.mods.loader.modOptions) then wrote = true end
     end
   end
   if game and type(game.writeOptions) == "function" then
     pcall(game.writeOptions, game)
   end
-  -- Keep Mod Manager / mod.options in sync with Start Menu writers.
+  -- Optional: some forks may expose options:set. Prefer bucket write above.
   if mod and mod.options and type(mod.options.set) == "function" then
-    pcall(function() mod.options:set(key, value) end)
+    local ok = pcall(function() mod.options:set(key, value) end)
+    if ok then wrote = true end
   end
+  return wrote
 end
 
 local function resolveGame(mod, opts)
@@ -456,6 +469,34 @@ local function resolveGame(mod, opts)
   if mod and mod.world then return mod.world.game end
   return nil
 end
+
+--- Canonical programmatic option writer for non-Mod-Manager UIs.
+-- Writes the same loader/save buckets Mod Manager uses, then optionally
+-- invokes a shared onChanged callback (main.lua handleOptionsChanged).
+-- Does NOT emit engine event `mod.options_changed` (mods cannot forge it).
+-- opts: { game=, onChanged=, source= }
+function Config.setOption(mod, key, value, source, opts)
+  opts = opts or {}
+  if not (mod and type(key) == "string" and key ~= "") then
+    return false, "invalid setOption args"
+  end
+  local game = resolveGame(mod, opts)
+  local wrote = writeOptionBucket(mod, game, key, value)
+  local payload = {
+    mod = mod.id,
+    key = key,
+    value = value,
+    source = source or opts.source or "config_set_option",
+    game = game,
+  }
+  if type(opts.onChanged) == "function" then
+    pcall(opts.onChanged, payload)
+  end
+  return wrote, payload
+end
+
+-- Test / internal access to the bucket writer.
+Config._writeOptionBucket = writeOptionBucket
 
 local function confirmText(game, mod, message)
   if not message or not game or not mod then return end

@@ -102,7 +102,7 @@ function Settings:setEngineMode(game, mode)
   if game and game.save then
     game.save.pokepcControlMode = mode
   end
-  -- Mirror into Wilds options.
+  -- Mirror into Wilds option buckets (Gen1Recomp has no mod.options:set).
   local ui, trail
   if mode == "follow" then
     ui, trail = "trainer", false
@@ -111,27 +111,27 @@ function Settings:setEngineMode(game, mode)
   else
     ui, trail = "pokemon", false
   end
-  pcall(function()
-    if self.mod.options and self.mod.options.set then
-      self.mod.options:set("follow_control", ui)
-      self.mod.options:set("trainer_trail", trail)
-    end
-  end)
+  if Config and type(Config.setOption) == "function" then
+    Config.setOption(self.mod, "follow_control", ui, "settings_set_engine_mode", {
+      game = game,
+    })
+    Config.setOption(self.mod, "trainer_trail", trail, "settings_set_engine_mode", {
+      game = game,
+    })
+  end
   return true
 end
 
 --- Canonical adapter write for follower_count.
--- Source of truth is mod.options; game.save.pokepcFollowerCount is a mirror.
--- In-game OPTIONS menus should prefer writing mod.options then calling
--- Follower:onOptionsChanged (see SettingsMenus:_setOption) rather than
--- stacking this with ControlEngine:setFollowerCount.
+-- Source of truth is the loader/save option bucket (what mod.options:get reads).
+-- Gen1Recomp does not expose mod.options:set — use Config.setOption.
 function Settings:setFollowerCount(game, n)
   n = clampCount(n)
-  pcall(function()
-    if self.mod.options and self.mod.options.set then
-      self.mod.options:set("follower_count", n)
-    end
-  end)
+  if Config and type(Config.setOption) == "function" then
+    Config.setOption(self.mod, "follower_count", n, "settings_set_follower_count", {
+      game = game,
+    })
+  end
   if game and game.save then
     game.save.pokepcFollowerCount = n
   end
@@ -182,6 +182,13 @@ function Settings:migrateFromLegacy(game)
   local exTrail = optGet(Constants.FOLLOWERS_EX_ID, "trainer_follows")
   local exCount = optGet(Constants.FOLLOWERS_EX_ID, "follower_count")
 
+  local function writeOpt(key, value)
+    if Config and type(Config.setOption) == "function" then
+      return Config.setOption(mod, key, value, "follower_migrate", { game = game })
+    end
+    return false
+  end
+
   if game and game.save then
     if game.save.pokepcControlMode and (currentControl == nil or currentControl == "trainer") then
       local m = game.save.pokepcControlMode
@@ -189,48 +196,36 @@ function Settings:migrateFromLegacy(game)
       if m == "follow" then
         -- keep trainer
       elseif m == "lead_trainer" then
-        pcall(function() mod.options:set("follow_control", "pokemon") end)
-        pcall(function() mod.options:set("trainer_trail", true) end)
+        writeOpt("follow_control", "pokemon")
+        writeOpt("trainer_trail", true)
         changed = true
       elseif m == "pokemon" or m == "pack" then
-        pcall(function() mod.options:set("follow_control", "pokemon") end)
-        pcall(function() mod.options:set("trainer_trail", false) end)
+        writeOpt("follow_control", "pokemon")
+        writeOpt("trainer_trail", false)
         changed = true
       end
     end
     if game.save.pokepcFollowerCount ~= nil and (currentCount == nil or currentCount == 1) then
       local n = clampCount(game.save.pokepcFollowerCount)
-      pcall(function() mod.options:set("follower_count", n) end)
+      writeOpt("follower_count", n)
       changed = true
     end
   end
 
   if exMode == "pokemon" and (currentControl == nil or currentControl == "trainer") then
-    pcall(function()
-      if mod.options and mod.options.set then
-        mod.options:set("follow_control", "pokemon")
-      end
-    end)
+    writeOpt("follow_control", "pokemon")
     changed = true
   elseif exMode == "trainer" or exMode == "follow" then
     -- already default trainer
   end
   if exTrail == true and currentTrail ~= true then
-    pcall(function()
-      if mod.options and mod.options.set then
-        mod.options:set("trainer_trail", true)
-      end
-    end)
+    writeOpt("trainer_trail", true)
     changed = true
   end
   if exCount ~= nil then
     local n = clampCount(exCount)
     if type(exCount) == "boolean" then n = 1 end
-    pcall(function()
-      if mod.options and mod.options.set then
-        mod.options:set("follower_count", n)
-      end
-    end)
+    writeOpt("follower_count", n)
     changed = true
   end
 

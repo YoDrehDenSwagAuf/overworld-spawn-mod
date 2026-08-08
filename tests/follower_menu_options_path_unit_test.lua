@@ -21,6 +21,7 @@ local optionStore = {
   follower_count = 1,
   sprite_style = "pokemmo",
 }
+local modOptions = { overworld_wild_spawns = optionStore }
 
 package.loaded["src.render.SpriteRenderer"] = {
   new = function(def, id) return { def = def, id = id } end,
@@ -50,6 +51,7 @@ package.loaded["src.core.GameVersion"] = {
 
 local game = {
   save = {
+    options = { modOptions = modOptions },
     pokepcFollowerCount = 1,
     pokepcControlMode = "pack",
     party = {
@@ -58,6 +60,7 @@ local game = {
       { species = "SQUIRTLE", hp = 20, level = 5 },
     },
   },
+  mods = { modOptions = modOptions },
   overworld = {
     map = {
       width = 10, height = 10,
@@ -71,6 +74,7 @@ local game = {
     entities = {},
     pokepcTrailers = {},
   },
+  writeOptions = function() end,
 }
 
 local modules = {}
@@ -82,7 +86,7 @@ local V = {
     world = { game = game },
     options = {
       get = function(_, k) return optionStore[k] end,
-      set = function(_, k, v) optionStore[k] = v end,
+      -- no :set — Gen1Recomp parity
     },
     events = { on = function() end },
     find = function() return nil end,
@@ -100,21 +104,14 @@ function V.require(name)
   return value
 end
 
-modules.config = {
-  DEFAULTS = optionStore,
-  get = function(_, k)
-    local v = optionStore[k]
-    if v ~= nil then return v end
-    return modules.config.DEFAULTS[k]
-  end,
-  spriteStyle = function() return "pokemmo" end,
-  debug = function() return false end,
-}
 modules.debug_log = {
   warn = function() end, info = function() end, error = function() end, debug = function() end,
 }
 modules.tile = { CELL = 16 }
 modules.json_decode = { decode = function() return nil end }
+
+local Config = V.require("config")
+modules.config = Config
 
 local Settings = V.require("follower/settings")
 local ControlEngine = V.require("follower/control_engine")
