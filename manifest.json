@@ -1,7 +1,7 @@
 {
   "id": "overworld_wild_spawns",
   "name": "Wilds of Kanto",
-  "version": "1.12.0",
+  "version": "1.12.1",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
