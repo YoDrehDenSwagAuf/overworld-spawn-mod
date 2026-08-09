@@ -155,9 +155,7 @@ function Follower:install(opts)
     self.lifecycle:installHooks()
   end
 
-  -- Party FOLLOWER submenu (selection). Lifecycle does not wrap update when
-  -- control engine installed.
-  self.lifecycle:installPartySubmenu()
+  -- Party FOLLOWER submenu (selection). Handled solely by _installPartyLeaderItems.
   self:_installPartyLeaderItems()
 
   self._installed = true
@@ -166,13 +164,35 @@ function Follower:install(opts)
   return true, okEngine and "control_engine" or engineReason
 end
 
+-- Helper: match mon to its party slot index reliably
+local function findPartyIndex(mon, party, selection)
+  if not mon or not party then return nil end
+
+  local targetKey = selection and selection.monFingerprint and selection.monFingerprint(mon)
+  for idx, pMon in ipairs(party) do
+    if pMon == mon then
+      return idx
+    end
+    if targetKey and selection and selection.monFingerprint then
+      if selection.monFingerprint(pMon) == targetKey then
+        return idx
+      end
+    end
+    if pMon.species == mon.species and pMon.hp == mon.hp and pMon.level == mon.level then
+      return idx
+    end
+  end
+  return nil
+end
+
 function Follower:_installPartyLeaderItems()
-  -- Extend party submenu: LEADER sets the controlled mon, ACTIVE clears it.
+  -- Extend party submenu: FOLLOW sets active follower mon, DISMISS clears it.
   local mod = self.mod
   local selection = self.selection
   local control = self.control
   if not (mod and mod.hooks and mod.hooks.wrap) then return end
   if self._leaderMenuWrapped then return end
+
   pcall(function()
     mod.hooks:wrap("ui.party.submenu", function(next, game, items, mon, ctx)
       local out = next(game, items, mon, ctx)
@@ -180,33 +200,33 @@ function Follower:_installPartyLeaderItems()
           or not selection.healthy(mon) then
         return out
       end
-      -- Strip legacy LEADER/FOLLOWING rows and avoid duplication.
+
+      -- Strip existing follower rows to prevent duplicate/overflowing options.
       local clean = {}
       for _, row in ipairs(out) do
-        if row and row.label ~= "LEADER"
-           and row.label ~= "FOLLOWING" then
+        if row and row.label ~= "FOLLOW" and row.label ~= "DISMISS" then
           clean[#clean + 1] = row
         end
       end
       out = clean
 
-      -- Skip if our row is already present.
-      for _, row in ipairs(out) do
-        if row and (row.label == "FOLLOWER" or row.label == "ACTIVE") then
-          return out
-        end
-      end
+      local party = (game and game.save and game.save.party) or {}
+      local monIndex = findPartyIndex(mon, party, selection)
+      if not monIndex then return out end
 
-      -- Is this mon already the active follower?
+      -- Determine if this mon is currently the active leader/follower
       local active = control:getActiveFollowerMon(game)
-      local isActive = active and mon
-        and (active == mon or active.species == mon.species)
+      local activeKey = selection.state and selection.state.selectedMonKey
+      local monKey = selection.monFingerprint and selection.monFingerprint(mon)
+
+      local isActive = active and mon and (
+        active == mon or (activeKey and monKey and activeKey == monKey)
+      )
 
       if isActive then
         out[#out + 1] = {
-          label = "ACTIVE",
+          label = "DISMISS",
           onSelect = function(selected, selectedGame)
-            -- Clear selection state so the mon no longer shows ACTIVE.
             if selection and selection.state then
               selection.state:clearSelection()
             end
@@ -215,10 +235,20 @@ function Follower:_installPartyLeaderItems()
             if selectedGame and selectedGame.save then
               selectedGame.save.followerPartyIndex = nil
               selectedGame.save.pokepcFollowerCount = 0
+              selectedGame.save.followerPartyIndices = nil
+              selectedGame.save.followerOrder = nil
             end
             control._optCache.follower_count = 0
             control._pendingMapTrailerSync = true
-            local msg = (mon.nickname or mon.species or "It") .. " is no longer following."
+
+            if mod and mod.options and mod.options.set then
+              pcall(function() mod.options:set("follower_count", 0) end)
+            end
+
+            pcall(function() control:syncAll(selectedGame, selectedGame and selectedGame.overworld) end)
+
+            local name = selected.nickname or selected.species or "It"
+            local msg = name .. " is no longer following."
             if selectedGame and selectedGame.stack and mod and mod.ui and mod.ui.TextBox then
               pcall(function()
                 selectedGame.stack:push(mod.ui.TextBox.new(selectedGame, msg))
@@ -228,29 +258,36 @@ function Follower:_installPartyLeaderItems()
         }
       else
         out[#out + 1] = {
-          label = "FOLLOWER",
+          label = "FOLLOW",
           onSelect = function(selected, selectedGame)
-            local party = selectedGame and selectedGame.save
-              and selectedGame.save.party or {}
-            for i, m in ipairs(party) do
-              if m == selected then
-                -- Ensure at least 1 follower when explicitly selected.
-                if control:followerCount(selectedGame) <= 0 then
-                  control:setFollowerCount(selectedGame, 1)
-                  control._optCache.follower_count = 1
-                  if selectedGame and selectedGame.save then
-                    selectedGame.save.pokepcFollowerCount = 1
-                  end
-                  -- Also write to mod.options so the settings menu reflects it.
-                  if mod and mod.options and mod.options.set then
-                    pcall(function() mod.options:set("follower_count", 1) end)
-                  end
-                end
-                control:setLeaderParty(selectedGame, i)
-                selection:selectFollower(selected, selectedGame, {})
-                control._pendingMapTrailerSync = true
-                break
+            -- Ensure at least 1 follower is set if currently at 0
+            if control:followerCount(selectedGame) <= 0 then
+              control:setFollowerCount(selectedGame, 1)
+              control._optCache.follower_count = 1
+              if selectedGame and selectedGame.save then
+                selectedGame.save.pokepcFollowerCount = 1
               end
+              if mod and mod.options and mod.options.set then
+                pcall(function() mod.options:set("follower_count", 1) end)
+              end
+            end
+
+            if selectedGame and selectedGame.save then
+              selectedGame.save.followerPartyIndex = monIndex
+            end
+
+            control:setLeaderParty(selectedGame, monIndex)
+            selection:selectFollower(selected, selectedGame, {})
+            control._pendingMapTrailerSync = true
+
+            pcall(function() control:syncAll(selectedGame, selectedGame and selectedGame.overworld) end)
+
+            local name = selected.nickname or selected.species or "It"
+            local msg = name .. " is now following you!"
+            if selectedGame and selectedGame.stack and mod and mod.ui and mod.ui.TextBox then
+              pcall(function()
+                selectedGame.stack:push(mod.ui.TextBox.new(selectedGame, msg))
+              end)
             end
           end,
         }
@@ -262,11 +299,7 @@ function Follower:_installPartyLeaderItems()
 end
 
 --- Called from main.lua when an external mod (e.g. Followers EX) hooks into
--- Wilds via setOptionsChangedHandler.  The call happens mid-init — the
--- external mod continues wrapping hooks AFTER it returns.  Mark a pending
--- flag; the actual restore + reinstall runs deferred (on the first
--- world.stepped or via processPendingExternalHook()) so all mods have
--- finished loading before we strip their hook layers.
+-- Wilds via setOptionsChangedHandler.
 function Follower:disableExternalFollowersIfHooked()
   self._pendingExternalModCleanup = true
   self.compat:restoreFollowersExIfPresent()
@@ -301,7 +334,6 @@ function Follower:reassertAfterModsLoaded(game)
     self.control:restore()
     self.control:install()
   end
-  self.lifecycle:installPartySubmenu()
   self:_installPartyLeaderItems()
   if game then
     pcall(function() self.spriteService:installPartyMenuHook() end)
@@ -329,8 +361,6 @@ function Follower:onSaveLoaded()
   self.settings:alignSave(game)
   self.lifecycle:onSaveLoaded(game)
   if game then
-    -- Party menu icons: (re)install the draw hook + truecolor def patch now
-    -- that the game registries are populated.
     pcall(function() self.spriteService:installPartyMenuHook() end)
     pcall(function() self.spriteService:patchPartyIconTrueColor(game) end)
   end
@@ -351,7 +381,6 @@ function Follower:onOptionsChanged(payload)
     local game = self.mod and self.mod.world and self.mod.world.game
     self.settings:alignSave(game)
     if self.control then
-      -- Always invalidate option cache + mirror; sync when engine is live.
       self.control:onOptionsChanged(payload)
     end
     self.lifecycle:requestFollowerSpriteRefresh("options:" .. tostring(key), {

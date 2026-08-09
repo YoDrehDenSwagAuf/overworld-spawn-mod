@@ -45,6 +45,16 @@ local function optGet(mod, key, default)
   return default
 end
 
+local function optSet(mod, key, value)
+  if Config and type(Config.setOption) == "function" then
+    return Config.setOption(mod, key, value, "options_menu")
+  end
+  if mod and mod.options and type(mod.options.set) == "function" then
+    return mod.options:set(key, value)
+  end
+  return false
+end
+
 function SettingsMenus.new(mod, logic, follower, ambient)
   local self = setmetatable({}, SettingsMenus)
   self.mod = mod
@@ -151,14 +161,18 @@ end
 
 --- Create a ListMenu where stepper rows cycle values on left/right arrow keys.
 -- Each item may be a stepper (with .choices, .current, .apply) or a plain
--- action row (with .onSelect).  If item.wrap is true, the stepper wraps
--- around at the ends; otherwise it clamps.
--- Hold-to-repeat: 16-frame initial delay, 4-frame repeat.
+-- action row (with .onSelect).
 function SettingsMenus:_makeStepperMenu(game, title, items, mod)
   local menus = self
 
   local menu = mod.ui.ListMenu.new(game, title, items, {
     onChoose = function(item, m)
+      -- Cycle forward +1 when "A" / Confirm is pressed on a stepper item
+      if item and item.stepper then
+        menus:_stepItem(item, 1)
+        return
+      end
+
       if item and item.onSelect then
         item.onSelect()
         if m and m.close then m:close() end
@@ -170,26 +184,63 @@ function SettingsMenus:_makeStepperMenu(game, title, items, mod)
     return menu
   end
 
-  -- Edge-detection state for LÖVE2D keyboard polling (bypasses the engine's
-  -- own input:wasPressed which may consume events before our wrapper runs).
-  local edgeLeft, edgeRight = false, false
   local heldLeft, heldRight = false, false
+
+  local INITIAL_DELAY = 0.50
+  local REPEAT_INTERVAL = 0.50
+
+  local function isNavDown(dir)
+    local input = game and game.input or (mod and mod.input)
+
+    -- 1. Query Engine Input System
+    if input then
+      local downFunc = type(input.down) == "function" and function(k) return input:down(k) end
+                    or type(input.isDown) == "function" and function(k) return input:isDown(k) end
+
+      if downFunc then
+        local aliases = dir == "left" 
+          and { "left", "ui_left", "menu_left", "move_left", "dpleft" }
+          or  { "right", "ui_right", "menu_right", "move_right", "dpright" }
+
+        for _, alias in ipairs(aliases) do
+          if downFunc(alias) then return true end
+        end
+      end
+    end
+
+    -- 2. Fallback: Query LÖVE Gamepad
+    if love and love.joystick then
+      for _, js in ipairs(love.joystick.getJoysticks()) do
+        if js:isGamepad() then
+          local btn = (dir == "left") and "dpleft" or "dpright"
+          if js:isGamepadDown(btn) then return true end
+
+          local axisVal = js:getGamepadAxis("leftx")
+          if dir == "left" and axisVal < -0.5 then return true end
+          if dir == "right" and axisVal > 0.5 then return true end
+        end
+      end
+    end
+
+    -- 3. Fallback: Query LÖVE Keyboard
+    if love and love.keyboard and love.keyboard.isDown then
+      if love.keyboard.isDown(dir) then return true end
+    end
+
+    return false
+  end
 
   local baseUpdate = menu.update
   menu.update = function(self, dt)
     local item = self.items and self.items[self.index]
     if not (item and item.stepper) then
       self._stepperHold = nil
+      self._stepperTimer = 0
       return baseUpdate(self, dt)
     end
 
-    -- Poll LÖVE2D keyboard directly for left/right arrow keys.
-    -- This avoids the engine's input:wasPressed which may consume edge
-    -- events before our wrapper runs.
-    local nowLeft = love and love.keyboard and love.keyboard.isDown
-      and love.keyboard.isDown("left")
-    local nowRight = love and love.keyboard and love.keyboard.isDown
-      and love.keyboard.isDown("right")
+    local nowLeft = isNavDown("left")
+    local nowRight = isNavDown("right")
 
     local dir
     if nowLeft and not heldLeft then
@@ -199,23 +250,28 @@ function SettingsMenus:_makeStepperMenu(game, title, items, mod)
     end
     heldLeft, heldRight = nowLeft, nowRight
 
+    -- Initial tap
     if dir then
       menus:_stepItem(item, dir)
-      self._stepperHold, self._stepperHoldFrames = dir, 0
+      self._stepperHold = dir
+      self._stepperTimer = 0
       return
     end
 
-    -- Hold-to-repeat.
+    -- Controlled hold-to-repeat
     local held = self._stepperHold
-    if held and (held == -1 and nowLeft or held == 1 and nowRight) then
-      self._stepperHoldFrames = (self._stepperHoldFrames or 0) + 1
-      if self._stepperHoldFrames >= 16 and self._stepperHoldFrames % 4 == 0 then
+    if held and ((held == -1 and nowLeft) or (held == 1 and nowRight)) then
+      self._stepperTimer = (self._stepperTimer or 0) + (dt or 0.016)
+
+      if self._stepperTimer >= INITIAL_DELAY then
         menus:_stepItem(item, held)
+        self._stepperTimer = INITIAL_DELAY - REPEAT_INTERVAL
       end
       return
     end
 
     self._stepperHold = nil
+    self._stepperTimer = 0
     return baseUpdate(self, dt)
   end
 
@@ -223,10 +279,7 @@ function SettingsMenus:_makeStepperMenu(game, title, items, mod)
 end
 
 --- Cycle a stepper item's value left (-1) or right (+1) through its choices.
--- item.current is the authoritative value — _stepItem updates it on each
--- step, so it never drifts.  The menu is rebuilt fresh on every open, so the
--- initial current is always correct.
--- When item.wrap is true, wraps around at the ends; otherwise clamps.
+-- Defaults to wrapping so options cycle continuously forward or backward.
 function SettingsMenus:_stepItem(item, dir)
   if not (item and item.choices and #item.choices > 0) then return end
   local cur = item.current
@@ -236,12 +289,15 @@ function SettingsMenus:_stepItem(item, dir)
   end
   local n = #item.choices
   local nextIdx
-  if item.wrap then
+
+  -- Always wrap by default unless item.wrap is explicitly false
+  if item.wrap ~= false then
     nextIdx = ((idx - 1 + dir) % n) + 1
   else
     nextIdx = idx + dir
     if nextIdx < 1 or nextIdx > n then return end
   end
+
   local chosen = item.choices[nextIdx]
   item.current = chosen.value
   item.right = chosen.label
@@ -258,24 +314,18 @@ end
 
 function SettingsMenus:_applyFollowerCount(game, value)
   local n = tonumber(value) or 1
-  -- Write to the mod option store.
   if self.mod.options and self.mod.options.set then
     self.mod.options:set("follower_count", n)
   end
-  -- Write to ALL game.save references so followerCount() finds it even
-  -- when the settings path is stale (ListMenu on stack).
   if self.follower and self.follower.control then
     local ctrl = self.follower.control
     ctrl:setFollowerCount(game, n)
     ctrl._optCache.follower_count = n
-    -- The screen's game reference.
     if game and game.save then game.save.pokepcFollowerCount = n end
-    -- The control engine's canonical game reference.
     local ctrlGame = ctrl:_game()
     if ctrlGame and ctrlGame ~= game and ctrlGame.save then
       ctrlGame.save.pokepcFollowerCount = n
     end
-    -- The mod's world game (what syncAll uses in onOptionsChanged).
     local worldGame = self.mod.world and self.mod.world.game
     if worldGame and worldGame ~= game and worldGame ~= ctrlGame and worldGame.save then
       worldGame.save.pokepcFollowerCount = n
@@ -291,7 +341,6 @@ function SettingsMenus:_openFollowersRoot(game)
   local trail = optGet(mod, "trainer_trail", false) == true
   local count = tonumber(optGet(mod, "follower_count", 1)) or 1
 
-  -- Build count choices {0..6}.
   local countChoices = {}
   for i = 0, 6 do
     countChoices[#countChoices + 1] = { label = tostring(i), value = i }
@@ -301,6 +350,7 @@ function SettingsMenus:_openFollowersRoot(game)
     {
       label = "CONTROL",
       stepper = true,
+      wrap = true,
       choices = {
         { label = "TRAINER", value = "trainer" },
         { label = "POKEMON", value = "pokemon" },
@@ -312,6 +362,7 @@ function SettingsMenus:_openFollowersRoot(game)
     {
       label = "TRAIL",
       stepper = true,
+      wrap = true,
       choices = {
         { label = "OFF", value = false },
         { label = "ON",  value = true  },
@@ -339,11 +390,11 @@ function SettingsMenus:_openWildsRoot(game)
   local mod = self.mod
   local menus = self
 
-  local menus = self
   local items = {
     {
       label = "SHOW WILD MONS",
       stepper = true,
+      wrap = true,
       choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
       current = optGet(mod, "enabled", true) ~= false,
       right = (optGet(mod, "enabled", true) ~= false) and "ON" or "OFF",
@@ -355,6 +406,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "SPAWN AMT",
       stepper = true,
+      wrap = true,
       choices = {
         { label = "LOW",    value = "low" },
         { label = "NORM",   value = "normal" },
@@ -372,6 +424,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "RANDOM ENC",
       stepper = true,
+      wrap = true,
       choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
       current = Config.randomEncountersEnabled(mod),
       right = Config.randomEncountersEnabled(mod) and "ON" or "OFF",
@@ -384,6 +437,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "WATER MONS",
       stepper = true,
+      wrap = true,
       choices = {
         { label = "SWIM",    value = "swimming_sprites" },
         { label = "HIDDEN",  value = "hidden_silhouettes" },
@@ -402,6 +456,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "CAVE",
       stepper = true,
+      wrap = true,
       choices = {
         { label = "REACH", value = "reachable" },
         { label = "MIXED", value = "mixed" },
@@ -417,6 +472,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "GFX STYLE",
       stepper = true,
+      wrap = true,
       choices = {
         { label = "GSC",  value = "followers" },
         { label = "HGSS", value = "pokemmo" },
@@ -437,6 +493,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "SPRITE FADE",
       stepper = true,
+      wrap = true,
       choices = {
         { label = "SOLID", value = "solid" },
         { label = "FADED", value = "faded" },
@@ -452,6 +509,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "TOWN POKEMON",
       stepper = true,
+      wrap = true,
       choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
       current = Config.townPokemonEnabled(mod),
       right = Config.townPokemonEnabled(mod) and "ON" or "OFF",
@@ -464,6 +522,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "GRASS",
       stepper = true,
+      wrap = true,
       choices = {
         { label = "OVER", value = "above" },
         { label = "IN",   value = "immersed" },
@@ -478,6 +537,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "IDLE MONS",
       stepper = true,
+      wrap = true,
       choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
       current = optGet(mod, "enable_idle", true) ~= false,
       right = (optGet(mod, "enable_idle", true) ~= false) and "ON" or "OFF",
@@ -489,6 +549,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "ROAM MONS",
       stepper = true,
+      wrap = true,
       choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
       current = optGet(mod, "enable_wander", true) ~= false,
       right = (optGet(mod, "enable_wander", true) ~= false) and "ON" or "OFF",
@@ -500,6 +561,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "CHASE MONS",
       stepper = true,
+      wrap = true,
       choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
       current = optGet(mod, "enable_aggressive", true) ~= false,
       right = (optGet(mod, "enable_aggressive", true) ~= false) and "ON" or "OFF",
@@ -511,6 +573,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "HIDDEN MONS",
       stepper = true,
+      wrap = true,
       choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
       current = optGet(mod, "enable_hidden", true) ~= false,
       right = (optGet(mod, "enable_hidden", true) ~= false) and "ON" or "OFF",
@@ -522,6 +585,7 @@ function SettingsMenus:_openWildsRoot(game)
     {
       label = "DEV OVERLAY",
       stepper = true,
+      wrap = true,
       choices = { { label = "OFF", value = false }, { label = "ON", value = true } },
       current = Config.devOverlay(mod) == true,
       right = (Config.devOverlay(mod) == true) and "ON" or "OFF",
@@ -534,7 +598,6 @@ function SettingsMenus:_openWildsRoot(game)
       label = "TEST SPAWN",
       onSelect = function()
         if mod.ui and mod.ui.push then
-          -- Preview browser id may be registered as a content screen.
           pcall(mod.ui.push, game, "OverworldSpawnPreview")
         end
       end,
