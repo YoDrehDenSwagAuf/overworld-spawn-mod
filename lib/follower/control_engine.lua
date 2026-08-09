@@ -98,6 +98,8 @@ function ControlEngine.new(mod, deps)
   self._installed = false
   self._restoreState = nil
   self._pendingMapTrailerSync = false
+  self._mapExitSnapshot = nil
+  self._pendingConnectionHandoff = nil
   self._optCache = {}
   self._eventOff = {}
   self._talkWrapped = false
@@ -809,12 +811,23 @@ function ControlEngine:ledgeStep(game, ow, cx, cy, dir)
   local tileset = map.def and map.def.tileset
   local standing = map:cellTile(cx, cy)
   local front = map:cellTile(fx, fy)
+  local landing = map:cellTile(lx, ly)
+  local opposite = { up = "down", down = "up", left = "right", right = "left" }
   local ledges = game.data and game.data.field and game.data.field.ledges
   for _, ledge in ipairs(ledges or {}) do
-    if (ledge.tileset or "OVERWORLD") == tileset
-       and ledge.facing == dir and ledge.input == dir
-       and ledge.standingTile == standing and ledge.ledgeTile == front then
-      return true
+    if (ledge.tileset or "OVERWORLD") == tileset and ledge.ledgeTile == front then
+      if ledge.facing == dir and ledge.input == dir
+         and ledge.standingTile == standing then
+        return true
+      end
+      -- Reverse-jump mods traverse the same physical ledge against the stock
+      -- one-way declaration. From that side, the declared standing tile is
+      -- the follower's landing tile and the blocked middle tile is unchanged.
+      local reverse = opposite[dir]
+      if ledge.facing == reverse and ledge.input == reverse
+         and ledge.standingTile == landing then
+        return true
+      end
     end
   end
   return false
@@ -899,6 +912,20 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
   -- from the stock NPC auto-step so OverworldController's npc loop cannot
   -- double-advance (or reject) water steps.
   npc.update = function() end
+  local basePose = npc.pose
+  if type(basePose) == "function" then
+    npc.pose = function(ent)
+      local sprite, px, py, face, phase, flip = basePose(ent)
+      local hopping = ent.hopStep == true and ent.moving == true
+      if hopping then
+        local total = math.max(1, tonumber(ent.stepFrames) or 16)
+        local t = math.min(1, math.max(0,
+          (tonumber(ent.progress) or 0) / total))
+        py = py - math.floor(10 * math.sin(t * math.pi) + 0.5)
+      end
+      return sprite, px, py, face, phase, flip, hopping
+    end
+  end
   npc._wildsFollowerStep = true
   npc._wildsFollowerStepOwned = true
   return npc
@@ -936,6 +963,37 @@ local function isLandWalkable(map, x, y)
   return ok and walk == true
 end
 
+local function mapContainsCell(map, x, y)
+  if not (map and type(map.inBounds) == "function") then return false end
+  local ok, inside = pcall(map.inBounds, map, x, y)
+  return ok and inside == true
+end
+
+--- Resolve a trailer cell in the current map's coordinate frame.
+-- During a seamless connection, trailers may still be standing on the map
+-- behind the player.  Neighbor offsets are pixels relative to the current
+-- map, so translate the cell back to that neighbor's local coordinates.
+-- Outside an active handoff, follower checks remain current-map-only.
+function ControlEngine:_followerMapCell(ow, x, y)
+  local map = ow and ow.map
+  if mapContainsCell(map, x, y) then return map, x, y end
+  if not (ow and ow._wildsFollowerSeamActive) then return nil end
+  for _, nb in ipairs(ow.neighbors or {}) do
+    local nmap = nb and nb.map
+    local ox = tonumber(nb and nb.ox)
+    local oy = tonumber(nb and nb.oy)
+    if nmap and ox and oy then
+      local nx = x - ox / 16
+      local ny = y - oy / 16
+      if nx == math.floor(nx) and ny == math.floor(ny)
+         and mapContainsCell(nmap, nx, ny) then
+        return nmap, nx, ny
+      end
+    end
+  end
+  return nil
+end
+
 --- Surface-aware cell check for Wilds Pokémon trailers only.
 -- Never used for trainers/wilds/global NPC collision.
 -- context.surface: "land" | "water" | "land_to_water" | "water_to_land"
@@ -943,11 +1001,8 @@ end
 function ControlEngine:isFollowerCellAllowed(game, ow, entity, x, y, context)
   context = context or {}
   if not (ow and ow.map) then return false end
-  local map = ow.map
-  if type(map.inBounds) == "function" then
-    local ok, inside = pcall(map.inBounds, map, x, y)
-    if not (ok and inside) then return false end
-  end
+  local map, mapX, mapY = self:_followerMapCell(ow, x, y)
+  if not map then return false end
 
   local role = context.role
     or (entity and entity.wildsFollowerRole)
@@ -959,31 +1014,180 @@ function ControlEngine:isFollowerCellAllowed(game, ow, entity, x, y, context)
   -- Water exception only for Pokémon follower roles.
   local pokemonRole = (role == "primary" or role == "party_trailer")
   if not pokemonRole then
-    return isLandWalkable(map, x, y)
+    return isLandWalkable(map, mapX, mapY)
   end
 
   local surface = context.surface or self:_trailSurface(ow, game)
   if surface == "water" or surface == "land_to_water" then
     -- Surf path: water cells the player can occupy, plus shore land for entry.
-    if isWaterMapCell(map, x, y) then return true end
-    if isLandWalkable(map, x, y) then return true end
+    if isWaterMapCell(map, mapX, mapY) then return true end
+    if isLandWalkable(map, mapX, mapY) then return true end
     return false
   end
 
   if surface == "water_to_land" then
-    if isLandWalkable(map, x, y) then return true end
-    if isWaterMapCell(map, x, y) then return true end
+    if isLandWalkable(map, mapX, mapY) then return true end
+    if isWaterMapCell(map, mapX, mapY) then return true end
     return false
   end
 
   -- Land: normal walkability. Allow current water cell so a surfing trailer
   -- can step onto shore without freezing when the player exits water.
-  if isLandWalkable(map, x, y) then return true end
+  if isLandWalkable(map, mapX, mapY) then return true end
   if entity and (entity.wildsFollowerWater == true or entity.spriteState == "water")
-      and isWaterMapCell(map, x, y) then
+      and isWaterMapCell(map, mapX, mapY) then
     return true
   end
   return false
+end
+
+local function copyTrailCells(cells)
+  local out = {}
+  for i, cell in ipairs(cells or {}) do
+    out[i] = { x = cell.x, y = cell.y }
+  end
+  return out
+end
+
+local function copyTrailHead(head)
+  if not head then return nil end
+  return {
+    x = head.x, y = head.y,
+    ledgeHop = head.ledgeHop,
+    ledgeLandingPending = head.ledgeLandingPending,
+  }
+end
+
+local function addIdentity(list, value)
+  if not value then return end
+  for _, existing in ipairs(list) do
+    if existing == value then return end
+  end
+  list[#list + 1] = value
+end
+
+local function translateTrailer(npc, dx, dy)
+  npc.cellX, npc.cellY = (npc.cellX or 0) + dx, (npc.cellY or 0) + dy
+  npc.px, npc.py = (npc.px or (npc.cellX - dx) * 16) + dx * 16,
+                   (npc.py or (npc.cellY - dy) * 16) + dy * 16
+  if npc.targetX ~= nil then npc.targetX = npc.targetX + dx end
+  if npc.targetY ~= nil then npc.targetY = npc.targetY + dy end
+  if npc.goalX ~= nil then npc.goalX = npc.goalX + dx end
+  if npc.goalY ~= nil then npc.goalY = npc.goalY + dy end
+end
+
+function ControlEngine:_isOutsideMap(game, map)
+  if not (map and map.def) then return false end
+  local Map = tryRequire("src.world.Map")
+  local FieldDefaults = tryRequire("src.world.FieldDefaults")
+  if Map and type(Map.isOutside) == "function" then
+    local tilesets
+    if FieldDefaults and type(FieldDefaults.field) == "function"
+       and game and game.data then
+      local ok, value = pcall(FieldDefaults.field, game.data, "outsideTilesets")
+      if ok then tilesets = value end
+    end
+    local ok, outside = pcall(Map.isOutside, map.def, tilesets)
+    if ok then return outside == true end
+  end
+  if map.def.outdoor ~= nil then return map.def.outdoor == true end
+  return map.def.tileset == "OVERWORLD" or map.def.tileset == "PLATEAU"
+end
+
+--- Capture live trailers before setMap replaces the entity lists.
+function ControlEngine:_captureMapExit(game, ow, ev)
+  local trailers = ow and ow.pokepcTrailers
+  local player = ow and ow.player
+  if not (player and trailers and #trailers > 0) then
+    self._mapExitSnapshot = nil
+    return false
+  end
+  local refs = {}
+  for i, trailer in ipairs(trailers) do refs[i] = trailer end
+  self._mapExitSnapshot = {
+    fromMapId = ev and ev.mapId or (ow.map and ow.map.id),
+    toMapId = ev and ev.toMapId,
+    map = ow.map,
+    playerX = player.cellX,
+    playerY = player.cellY,
+    trailers = refs,
+    trailCells = copyTrailCells(ow.pokepcTrailCells),
+    trailHead = copyTrailHead(ow.pokepcTrailHead),
+  }
+  return true
+end
+
+--- Select seamless outside-to-outside entries for a soft handoff.
+function ControlEngine:_queueMapEntry(game, ow, ev)
+  local snapshot = self._mapExitSnapshot
+  self._mapExitSnapshot = nil
+  self._pendingConnectionHandoff = nil
+  if ow then ow._wildsFollowerSeamActive = nil end
+  if not (snapshot and ev and ev.via == "connection") then return false end
+  if snapshot.toMapId and ev.mapId and snapshot.toMapId ~= ev.mapId then
+    return false
+  end
+  if not (self:_isOutsideMap(game, snapshot.map)
+          and self:_isOutsideMap(game, (ev and ev.map) or (ow and ow.map))) then
+    return false
+  end
+  self._pendingConnectionHandoff = snapshot
+  return true
+end
+
+--- Reattach and translate the preserved train after crossConnection has put
+-- the player at the pre-seam cell and rebuilt the destination's neighbors.
+function ControlEngine:_applyConnectionHandoff(ow)
+  local snapshot = self._pendingConnectionHandoff
+  self._pendingConnectionHandoff = nil
+  local player = ow and ow.player
+  if not (snapshot and player and snapshot.trailers and #snapshot.trailers > 0) then
+    return false
+  end
+  local dx = (player.cellX or 0) - (snapshot.playerX or 0)
+  local dy = (player.cellY or 0) - (snapshot.playerY or 0)
+  ow.npcs = ow.npcs or {}
+  ow.entities = ow.entities or {}
+  for _, trailer in ipairs(snapshot.trailers) do
+    translateTrailer(trailer, dx, dy)
+    addIdentity(ow.npcs, trailer)
+    addIdentity(ow.entities, trailer)
+  end
+  for _, cell in ipairs(snapshot.trailCells or {}) do
+    cell.x, cell.y = cell.x + dx, cell.y + dy
+  end
+  local head = snapshot.trailHead
+  if head then head.x, head.y = head.x + dx, head.y + dy end
+  ow.pokepcTrailers = snapshot.trailers
+  ow.pokepcTrailCells = snapshot.trailCells
+  ow.pokepcTrailHead = head or { x = player.cellX, y = player.cellY }
+  ow._wildsFollowerSeamActive = true
+  self._pendingMapTrailerSync = false
+  return true
+end
+
+function ControlEngine:_finishConnectionHandoffIfComplete(ow)
+  if not (ow and ow._wildsFollowerSeamActive and ow.map) then return false end
+  local trailers = ow.pokepcTrailers or {}
+  local goals = ow.pokepcTrailCells or {}
+  local occupied = {}
+  if #trailers == 0 or #goals < #trailers then return false end
+  for i, trailer in ipairs(trailers) do
+    if not mapContainsCell(ow.map, trailer.cellX, trailer.cellY) then return false end
+    if trailer.moving then return false end
+    if trailer.targetX ~= nil
+       and not mapContainsCell(ow.map, trailer.targetX, trailer.targetY) then
+      return false
+    end
+    local key = tostring(trailer.cellX) .. "," .. tostring(trailer.cellY)
+    if occupied[key] then return false end
+    occupied[key] = true
+    local goal = goals[i]
+    if not (goal and mapContainsCell(ow.map, goal.x, goal.y)) then return false end
+    if trailer.cellX ~= goal.x or trailer.cellY ~= goal.y then return false end
+  end
+  ow._wildsFollowerSeamActive = nil
+  return true
 end
 
 function ControlEngine:_walkableBehind(ow, px, py, facing, steps, entity, game, role, occupied)
@@ -1239,10 +1443,21 @@ function ControlEngine:syncTrailers(game, ow, opts)
                     or destX > head.x and "right" or "left"
     if head.ledgeHop == stepDir then
       head.ledgeHop = nil
+      -- The engine executes a ledge jump as two scripted one-cell moves. The
+      -- first phase releases only the takeoff cell. Keep the trainer's landing
+      -- reserved on the second phase; publishing it now makes follower one
+      -- jump concurrently and land on top of the trainer.
+      head.ledgeLandingPending = true
       head.x, head.y = destX, destY
     else
-      -- Ledge hops are land-only; skip on water.
-      if surface ~= "water" then
+      -- The first step away from a ledge landing releases that cell into the
+      -- ordinary trail shift. Follower one can then hop into it while the
+      -- trainer vacates it, and each later follower repeats that cadence.
+      local leavingLedgeLanding = head.ledgeLandingPending == true
+      head.ledgeLandingPending = nil
+      -- Ledge hops are land-only; skip on water and do not reclassify the
+      -- trainer's first ordinary post-hop step.
+      if surface ~= "water" and not leavingLedgeLanding then
         head.ledgeHop = self:ledgeStep(game, ow, head.x, head.y, stepDir)
                         and stepDir or nil
       else
@@ -1260,12 +1475,51 @@ function ControlEngine:syncTrailers(game, ow, opts)
       ow.pokepcTrailCells = goals
       head.x, head.y = destX, destY
     end
-  elseif not mapEnter and not dirty then
+  elseif not mapEnter and not dirty and not ow._wildsFollowerSeamActive then
     return
   end
 
   local Collision = tryRequire("src.world.Collision")
   local goals = ow.pokepcTrailCells or {}
+  -- A translated train can momentarily become geometrically out of order
+  -- while its members catch up at different speeds. During seam settlement,
+  -- reserve both occupied cells and in-flight targets so no trailer can enter
+  -- a cell until its current occupant has actually vacated it.
+  local seamReservations
+  if ow._wildsFollowerSeamActive then
+    seamReservations = {}
+    if p.moving and p.targetX ~= nil and p.targetY ~= nil then
+      -- The convoy may enter the trainer's origin on the same cadence while
+      -- the trainer vacates it; reserve only the trainer's destination.
+      seamReservations[tostring(p.targetX) .. "," .. tostring(p.targetY)] = p
+    elseif p.cellX ~= nil and p.cellY ~= nil then
+      seamReservations[tostring(p.cellX) .. "," .. tostring(p.cellY)] = p
+    end
+    for _, trailer in ipairs(trailers) do
+      if not trailer.moving and trailer.cellX ~= nil and trailer.cellY ~= nil then
+        seamReservations[tostring(trailer.cellX) .. "," .. tostring(trailer.cellY)] = trailer
+      end
+      if trailer.moving and trailer.targetX ~= nil and trailer.targetY ~= nil then
+        seamReservations[tostring(trailer.targetX) .. "," .. tostring(trailer.targetY)] = trailer
+      end
+    end
+  end
+  local function seamCellFree(x, y, npc)
+    if not seamReservations then return true end
+    local owner = seamReservations[tostring(x) .. "," .. tostring(y)]
+    return owner == nil or owner == npc
+  end
+  local function reserveSeamCell(x, y, npc)
+    if seamReservations then
+      seamReservations[tostring(x) .. "," .. tostring(y)] = npc
+    end
+  end
+  local function releaseSeamCell(x, y, npc)
+    if seamReservations then
+      local key = tostring(x) .. "," .. tostring(y)
+      if seamReservations[key] == npc then seamReservations[key] = nil end
+    end
+  end
   for i, npc in ipairs(trailers) do
     if npc.moving then
       -- Trailer update owns px/py mid-step; do not overwrite.
@@ -1283,8 +1537,10 @@ function ControlEngine:syncTrailers(game, ow, opts)
       end
       if npc.cellX ~= gx or npc.cellY ~= gy then
         local far = math.abs((npc.cellX or 0) - gx) + math.abs((npc.cellY or 0) - gy)
-        if far > 6 then
+        if far > 6 and not seamReservations and seamCellFree(gx, gy, npc) then
+          releaseSeamCell(npc.cellX, npc.cellY, npc)
           placeTrailerAt(npc, gx, gy, npc.facing or facing)
+          reserveSeamCell(gx, gy, npc)
         else
           local dir
           if npc.cellX < gx then dir = "right"
@@ -1293,39 +1549,48 @@ function ControlEngine:syncTrailers(game, ow, opts)
           else dir = "up" end
           local stepX = npc.cellX + (dir == "right" and 1 or dir == "left" and -1 or 0)
           local stepY = npc.cellY + (dir == "down" and 1 or dir == "up" and -1 or 0)
-          if not self:isFollowerCellAllowed(game, ow, npc, stepX, stepY, {
+          local moveX, moveY = stepX, stepY
+          local hopping = false
+          if surface ~= "water"
+             and self:ledgeStep(game, ow, npc.cellX, npc.cellY, dir)
+             and Collision and Collision.DELTA and Collision.DELTA[dir] then
+            local d = Collision.DELTA[dir]
+            local hx, hy = npc.cellX + d[1] * 2, npc.cellY + d[2] * 2
+            if self:isFollowerCellAllowed(game, ow, npc, hx, hy, {
+              surface = surface, role = role,
+            }) then
+              moveX, moveY = hx, hy
+              hopping = true
+            end
+          end
+          if not seamCellFree(moveX, moveY, npc) then
+            -- The occupant must complete its own move before this trailer can
+            -- claim the cell. A later update will retry the same goal.
+          elseif not hopping and not self:isFollowerCellAllowed(game, ow, npc,
+              stepX, stepY, {
             surface = surface, role = role,
           }) then
             -- Adjacent step blocked: warp-distance catch-up only when far.
-            if far > 2 then
+            if far > 2 and not seamReservations and seamCellFree(gx, gy, npc) then
+              releaseSeamCell(npc.cellX, npc.cellY, npc)
               placeTrailerAt(npc, gx, gy, dir)
+              reserveSeamCell(gx, gy, npc)
             end
           else
             npc.facing = dir
-            npc.hopStep = nil
-            npc.targetX = stepX
-            npc.targetY = stepY
-            if surface ~= "water"
-               and self:ledgeStep(game, ow, npc.cellX, npc.cellY, dir)
-               and Collision and Collision.DELTA and Collision.DELTA[dir] then
-              local d = Collision.DELTA[dir]
-              local hx, hy = npc.cellX + d[1] * 2, npc.cellY + d[2] * 2
-              if self:isFollowerCellAllowed(game, ow, npc, hx, hy, {
-                surface = surface, role = role,
-              }) then
-                npc.targetX = hx
-                npc.targetY = hy
-                goals[i] = { x = hx, y = hy }
-                npc.hopStep = true
-              end
-            end
+            npc.hopStep = hopping and true or nil
+            npc.targetX = moveX
+            npc.targetY = moveY
+            if hopping then goals[i] = { x = moveX, y = moveY } end
             local stepLen = stepClock
-            if far > 1 and not npc.hopStep then
+            if far > 1 and not npc.hopStep and not seamReservations then
               stepLen = math.max(1, math.floor(stepLen / 2))
             end
             npc.stepFrames = stepLen
             npc.moving = true
             npc.progress = 0
+            releaseSeamCell(npc.cellX, npc.cellY, npc)
+            reserveSeamCell(moveX, moveY, npc)
             -- First-frame burn happens in ControlEngine:update via
             -- advanceTrailerStep (npc.update is intentionally a no-op).
           end
@@ -1395,6 +1660,7 @@ function ControlEngine:update(game, ow, opts)
   self.diag.lastSource = opts.source or "direct"
 
   local ok, err = pcall(function()
+    self:_applyConnectionHandoff(ow)
     if self:isPokemonFront(game) or self:followerCount(game) <= 0 then
       self:_removeStockPikachu(ow)
     end
@@ -1407,6 +1673,7 @@ function ControlEngine:update(game, ow, opts)
       self:syncTrailers(game, ow, {})
     end
     self:advanceAllTrailers(ow)
+    self:_finishConnectionHandoffIfComplete(ow)
     self:_traceSurf(game, ow)
   end)
 
@@ -1680,24 +1947,35 @@ function ControlEngine:install()
 
   local mod = self.mod
   if mod and mod.events and mod.events.on then
-    pcall(function()
-      mod.events:on("mod.options_changed", function(payload)
+    local function subscribe(name, callback)
+      local ok, off = pcall(mod.events.on, mod.events, name, callback)
+      if ok and type(off) == "function" then
+        engine._eventOff[#engine._eventOff + 1] = off
+      elseif not ok then
+        logWarn(mod, "event subscription failed (%s): %s", tostring(name), tostring(off))
+      end
+    end
+    subscribe("mod.options_changed", function(payload)
         if payload and (payload.mod == mod.id) then
           engine._optCache = {}
         end
       end)
-    end)
-    pcall(function()
-      mod.events:on("map.entered", function()
+    subscribe("map.exited", function(payload)
+        local game = engine:_game()
+        local ow = game and game.overworld
+        engine:_captureMapExit(game, ow, payload)
+      end)
+    subscribe("map.entered", function(payload)
         local game = engine:_game()
         local ow = game and game.overworld
         pcall(function() engine:syncPlayerControlVisual(game, ow) end)
+        engine:_queueMapEntry(game, ow, payload)
         engine._pendingMapTrailerSync = true
       end)
-    end)
-    pcall(function()
-      mod.events:on("game.ready", function()
+    subscribe("game.ready", function()
         local game = engine:_game()
+        engine._mapExitSnapshot = nil
+        engine._pendingConnectionHandoff = nil
         engine:alignSaveFromOptions(game)
         pcall(function()
           engine:syncPlayerControlVisual(game, game and game.overworld)
@@ -1705,7 +1983,6 @@ function ControlEngine:install()
         engine._pendingMapTrailerSync = true
         pcall(function() engine:_installTalkWrap() end)
       end)
-    end)
   end
 
   local restoreState = {
@@ -1720,6 +1997,10 @@ function ControlEngine:install()
   }
 
   restoreState.restore = function()
+    for i = #engine._eventOff, 1, -1 do
+      pcall(engine._eventOff[i])
+    end
+    engine._eventOff = {}
     if origFollowerUpdate and prevShouldSpawn then
       patchUpvalue(origFollowerUpdate, "shouldSpawn", prevShouldSpawn)
     end
@@ -1733,6 +2014,8 @@ function ControlEngine:install()
     end
     engine:_restoreTalkWrap()
     engine:_restoreOverworldUpdateWrap()
+    engine._mapExitSnapshot = nil
+    engine._pendingConnectionHandoff = nil
     engine._trailerUpdateOwner = nil
     if rawget(PF, Constants.CONTROL_ENGINE_STATE_KEY) == restoreState then
       rawset(PF, Constants.CONTROL_ENGINE_STATE_KEY, nil)
