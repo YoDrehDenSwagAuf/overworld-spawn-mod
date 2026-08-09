@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.11.2
+## 1.12.0
 
 ### Followers EX walk cycle fix — no more dragging trailers
 
