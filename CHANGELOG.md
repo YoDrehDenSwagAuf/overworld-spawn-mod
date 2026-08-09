@@ -1,11 +1,5 @@
 # Changelog
 
-## 1.12.1
-- Menu now supports controller.
-- A button will increment/cycle through sub-menu options.
-- Removes the duplicate "FOLLOWER" in party menu.
-- Replaces "FOLLOWER"/"FOLLOWING" with "FOLLOW"/"DISMISS".
-
 ## 1.12.0
 
 ### Followers EX walk cycle fix — no more dragging trailers
