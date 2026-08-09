@@ -108,6 +108,8 @@
 - ListMenu navigation uses close-then-push so parent is not left stale under
   child (`ListMenu:close` only pops when it is stack top)
 - Control Mode, Trainer Trail, and Followers (0–6) share that path
+- Regression tests simulate the real ListMenu choose → child → apply flow
+  (`tests/settings_menus_listmenu_path_unit_test.lua`)
 
 ### Remove Sprite Color mode; fix GSC true-color rendering
 

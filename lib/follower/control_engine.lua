@@ -209,25 +209,38 @@ function ControlEngine:followerCount(game)
   return 1
 end
 
+--- Programmatic API: write through Settings (options + save mirror).
+-- Does not own persistence; invalidates local cache instead of storing a
+-- parallel truth. Callers that need runtime refresh should go through
+-- Follower:onOptionsChanged / ControlEngine:onOptionsChanged.
 function ControlEngine:setFollowerCount(game, n)
   n = math.max(0, math.min(6, math.floor(tonumber(n) or 0)))
-  self._optCache.follower_count = n
   local settings = self.settings
   if settings and type(settings.setFollowerCount) == "function" then
-    pcall(settings.setFollowerCount, settings, game, n)
+    local ok, got = pcall(settings.setFollowerCount, settings, game, n)
+    if ok and type(got) == "number" then n = got end
+  elseif self.mod and self.mod.options and type(self.mod.options.set) == "function" then
+    pcall(self.mod.options.set, self.mod.options, "follower_count", n)
+    if game and game.save then game.save.pokepcFollowerCount = n end
+  elseif game and game.save then
+    game.save.pokepcFollowerCount = n
   end
-  if game and game.save then game.save.pokepcFollowerCount = n end
+  self._optCache.follower_count = nil
+  return n
 end
 
 function ControlEngine:setControlMode(game, mode)
   mode = mode or "follow"
   if mode == "lead" then mode = "lead_trainer" end
-  self._optCache.control_mode = mode
   local settings = self.settings
   if settings and type(settings.setEngineMode) == "function" then
     pcall(settings.setEngineMode, settings, mode)
   end
   if game and game.save then game.save.pokepcControlMode = mode end
+  -- Invalidate; do not cache a second source of truth.
+  self._optCache.control_mode = nil
+  self._optCache.follow_control = nil
+  self._optCache.trainer_trail = nil
 end
 
 function ControlEngine:isPokemonFront(game)
@@ -940,6 +953,20 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
   -- from the stock NPC auto-step so OverworldController's npc loop cannot
   -- double-advance (or reject) water steps.
   npc.update = function() end
+  local basePose = npc.pose
+  if type(basePose) == "function" then
+    npc.pose = function(ent)
+      local sprite, px, py, face, phase, flip = basePose(ent)
+      local hopping = ent.hopStep == true and ent.moving == true
+      if hopping then
+        local total = math.max(1, tonumber(ent.stepFrames) or 16)
+        local t = math.min(1, math.max(0,
+          (tonumber(ent.progress) or 0) / total))
+        py = py - math.floor(10 * math.sin(t * math.pi) + 0.5)
+      end
+      return sprite, px, py, face, phase, flip, hopping
+    end
+  end
   npc._wildsFollowerStep = true
   npc._wildsFollowerStepOwned = true
   return npc
@@ -1645,6 +1672,45 @@ function ControlEngine:syncTrailers(game, ow, opts)
   -- next goal shift). Mid-step trailers are left to advanceAllTrailers.
   local Collision = tryRequire("src.world.Collision")
   local goals = ow.pokepcTrailCells or {}
+  -- A translated train can momentarily become geometrically out of order
+  -- while its members catch up at different speeds. During seam settlement,
+  -- reserve both occupied cells and in-flight targets so no trailer can enter
+  -- a cell until its current occupant has actually vacated it.
+  local seamReservations
+  if ow._wildsFollowerSeamActive then
+    seamReservations = {}
+    if p.moving and p.targetX ~= nil and p.targetY ~= nil then
+      -- The convoy may enter the trainer's origin on the same cadence while
+      -- the trainer vacates it; reserve only the trainer's destination.
+      seamReservations[tostring(p.targetX) .. "," .. tostring(p.targetY)] = p
+    elseif p.cellX ~= nil and p.cellY ~= nil then
+      seamReservations[tostring(p.cellX) .. "," .. tostring(p.cellY)] = p
+    end
+    for _, trailer in ipairs(trailers) do
+      if not trailer.moving and trailer.cellX ~= nil and trailer.cellY ~= nil then
+        seamReservations[tostring(trailer.cellX) .. "," .. tostring(trailer.cellY)] = trailer
+      end
+      if trailer.moving and trailer.targetX ~= nil and trailer.targetY ~= nil then
+        seamReservations[tostring(trailer.targetX) .. "," .. tostring(trailer.targetY)] = trailer
+      end
+    end
+  end
+  local function seamCellFree(x, y, npc)
+    if not seamReservations then return true end
+    local owner = seamReservations[tostring(x) .. "," .. tostring(y)]
+    return owner == nil or owner == npc
+  end
+  local function reserveSeamCell(x, y, npc)
+    if seamReservations then
+      seamReservations[tostring(x) .. "," .. tostring(y)] = npc
+    end
+  end
+  local function releaseSeamCell(x, y, npc)
+    if seamReservations then
+      local key = tostring(x) .. "," .. tostring(y)
+      if seamReservations[key] == npc then seamReservations[key] = nil end
+    end
+  end
   for i, npc in ipairs(trailers) do
     if npc.moving then
       -- Trailer update owns px/py mid-step; do not overwrite.
@@ -2017,26 +2083,22 @@ function ControlEngine:alignSaveFromOptions(game)
   game = game or self:_game()
   if not (game and game.save) then return end
   local settings = self.settings
-  if settings and type(settings.followerCount) == "function" then
-    local ok, n = pcall(settings.followerCount, settings, game)
-    if ok and type(n) == "number" then
-      self:setFollowerCount(game, n)
-    end
-  else
-    local n = tonumber(self:_opt("follower_count", 1))
-    if type(n) == "number" then
-      self:setFollowerCount(game, n)
-    end
+  -- Settings adapter owns option → save mirroring (count + derived engine mode).
+  -- Do not call setFollowerCount here — that would re-write mod.options.
+  if settings and type(settings.alignSave) == "function" then
+    pcall(settings.alignSave, settings, game)
+    self._optCache.follower_count = nil
+    self._optCache.control_mode = nil
+    self._optCache.follow_control = nil
+    self._optCache.trainer_trail = nil
+    return
   end
-  local savedMode = game.save.pokepcControlMode
-  if type(savedMode) ~= "string" or savedMode == "" then
-    local mode
-    if settings and type(settings.engineMode) == "function" then
-      local ok, m = pcall(settings.engineMode, settings, game)
-      if ok then mode = m end
-    end
-    self:setControlMode(game, tostring(mode or self:_opt("control_mode", "follow")))
-  end
+  local n = tonumber(self:_opt("follower_count", 1)) or 1
+  n = math.max(0, math.min(6, math.floor(n)))
+  game.save.pokepcFollowerCount = n
+  local mode = tostring(self:_opt("control_mode", "follow"))
+  if mode == "lead" then mode = "lead_trainer" end
+  game.save.pokepcControlMode = mode
 end
 
 function ControlEngine:syncAll(game, ow)
@@ -2346,6 +2408,8 @@ function ControlEngine:install()
     if engine._vanillaOrigStarterInParty then PF.starterInParty = engine._vanillaOrigStarterInParty end
     engine:_restoreTalkWrap()
     engine:_restoreOverworldUpdateWrap()
+    engine._mapExitSnapshot = nil
+    engine._pendingConnectionHandoff = nil
     engine._trailerUpdateOwner = nil
     if rawget(PF, Constants.CONTROL_ENGINE_STATE_KEY) == restoreState then
       rawset(PF, Constants.CONTROL_ENGINE_STATE_KEY, nil)

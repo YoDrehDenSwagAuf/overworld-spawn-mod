@@ -112,7 +112,7 @@ return function(mod)
   hud:register()
   browser:register()
   spriteStyleMenu:register()
-  settingsMenus:register()
+  -- settingsMenus:register() after handleOptionsChanged is wired below
   behaviorTick:register()
   devOverlay:register()
 
@@ -302,7 +302,11 @@ return function(mod)
     end
   end
 
-  mod.events:on("mod.options_changed", function(payload)
+  -- ONE shared options-changed path for Mod Manager events and in-game menus.
+  -- Gen1Recomp emits mod.options_changed only from ManagerState:setOption;
+  -- mods cannot forge that event, so OPTIONS menus call this handler directly
+  -- after Config.setOption writes the same option buckets.
+  local function handleOptionsChanged(payload)
     local ok, err = pcall(logic.onOptionsChanged, logic, payload)
     if not ok then
       DebugLog.error(mod, "options_changed error: %s", tostring(err))
@@ -314,7 +318,11 @@ return function(mod)
     if payload and payload.mod == mod.id and payload.key == "enabled" then
       syncFeatureState()
     end
-  end)
+  end
+
+  mod.events:on("mod.options_changed", handleOptionsChanged)
+  settingsMenus:setOptionsChangedHandler(handleOptionsChanged)
+  settingsMenus:register()
 
   -- Gen1Recomp mod API contract: the engine / Followers EX calls
   -- mod:setOptionsChangedHandler(fn) to register a callback for options
@@ -332,13 +340,14 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "1.11.0"
+  mod.exports.version = "1.11.1"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated
   mod.exports.spriteProviders = render.spriteProviders
   mod.exports.follower = follower
   mod.exports.ambient = ambient
+  mod.exports.handleOptionsChanged = handleOptionsChanged
   mod.exports.isBattleableWild = Config.isBattleableWild
   mod.exports.getActiveFollowerMon = function(game, needHealthy)
     return follower:getActiveFollowerMon(game, needHealthy ~= false)

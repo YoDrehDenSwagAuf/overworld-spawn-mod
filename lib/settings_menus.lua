@@ -45,30 +45,90 @@ local function optGet(mod, key, default)
   return default
 end
 
-local function optSet(mod, key, value)
-  if mod and mod.options and type(mod.options.set) == "function" then
-    local ok = pcall(function() mod.options:set(key, value) end)
-    if ok then return true end
-  end
-  return false
-end
-
 function SettingsMenus.new(mod, logic, follower, ambient)
   local self = setmetatable({}, SettingsMenus)
   self.mod = mod
   self.logic = logic
   self.follower = follower
   self.ambient = ambient
+  self._onOptionsChanged = nil -- injected from main.lua (canonical handler)
   self._registered = false
   return self
+end
+
+--- Wire the exact same handler main.lua binds to mod.options_changed.
+function SettingsMenus:setOptionsChangedHandler(fn)
+  self._onOptionsChanged = fn
 end
 
 function SettingsMenus:_settings()
   return self.follower and self.follower.settings
 end
 
+function SettingsMenus:_resolveGame(game)
+  if game then return game end
+  local mod = self.mod
+  if mod and mod.world then return mod.world.game end
+  return nil
+end
+
+function SettingsMenus:_menuLog(fmt, ...)
+  local mod = self.mod
+  if not (Config and Config.debug and Config.debug(mod)) then return end
+  DebugLog.info(mod, "[FollowerMenu] " .. fmt, ...)
+end
+
+--- Canonical writer for in-game OPTIONS menus.
+-- Gen1Recomp has no mod.options:set. Writes loader/save option buckets via
+-- Config.setOption (same storage Mod Manager uses), then invokes the shared
+-- handleOptionsChanged from main.lua — not a reimplementation.
+function SettingsMenus:_setOption(key, value, game)
+  local mod = self.mod
+  game = self:_resolveGame(game)
+  local before = optGet(mod, key, nil)
+  self:_menuLog("set %s: before=%s after=%s game=%s",
+                tostring(key), tostring(before), tostring(value),
+                tostring(game ~= nil))
+  local ok = Config.setOption(mod, key, value, "options_menu", {
+    game = game,
+    onChanged = self._onOptionsChanged,
+  })
+  local after = optGet(mod, key, nil)
+  self:_menuLog("set %s resolved=%s wrote=%s",
+                tostring(key), tostring(after), tostring(ok))
+  return ok == true
+end
+
+function SettingsMenus:_notifyLogic(key, value, game)
+  -- Legacy name kept for callers; routes through canonical setter path
+  -- only when the option was already written. Prefer _setOption.
+  if self._onOptionsChanged then
+    pcall(self._onOptionsChanged, {
+      mod = self.mod.id, key = key, value = value,
+      source = "options_menu", game = self:_resolveGame(game),
+    })
+  elseif self.logic and self.logic.onOptionsChanged then
+    pcall(self.logic.onOptionsChanged, self.logic, {
+      mod = self.mod.id, key = key, value = value, source = "options_menu",
+    })
+  end
+end
+
+--- ListMenu close-then-push: Gen1Recomp ListMenu:close() only pops when the
+-- menu is stack top. Pushing a child first makes close() a no-op and leaves
+-- a stale parent under the child.
+function SettingsMenus:_pushScreen(game, screenId, menu)
+  local mod = self.mod
+  self:_menuLog("push %s (close parent first)", tostring(screenId))
+  if menu and menu.close then menu:close() end
+  if mod.ui and mod.ui.push then
+    mod.ui.push(game, screenId)
+  end
+end
+
 function SettingsMenus:_openChoice(game, title, choices, current, apply)
   local mod = self.mod
+  local menus = self
   local items = {}
   for _, choice in ipairs(choices) do
     items[#items + 1] = {
@@ -79,7 +139,9 @@ function SettingsMenus:_openChoice(game, title, choices, current, apply)
   items[#items + 1] = { label = "CANCEL", value = nil }
   return mod.ui.ListMenu.new(game, title, items, {
     onChoose = function(item, menu)
+      -- Keep 0 / false: only nil means CANCEL.
       if item and item.value ~= nil then
+        menus:_menuLog("choice %s -> %s", tostring(title), tostring(item.value))
         apply(item.value)
       end
       if menu and menu.close then menu:close() end
@@ -187,45 +249,11 @@ function SettingsMenus:_stepItem(item, dir)
 end
 
 function SettingsMenus:_applyControlMode(game, value)
-  optSet(self.mod, "follow_control", value)
-  local settings = self:_settings()
-  if settings and settings.setEngineMode then
-    local mode = "follow"
-    if value == "pokemon" then
-      local trail = optGet(self.mod, "trainer_trail", false) == true
-      local n = tonumber(optGet(self.mod, "follower_count", 1)) or 1
-      if trail then mode = "lead_trainer"
-      elseif n > 0 then mode = "pack"
-      else mode = "pokemon" end
-    end
-    pcall(settings.setEngineMode, settings, game, mode)
-  end
-  if self.follower and self.follower.control then
-    pcall(function()
-      self.follower.control:alignSaveFromOptions(game)
-      self.follower.control:syncAll(game, game and game.overworld)
-    end)
-  end
+  self:_setOption("follow_control", value, game)
 end
 
 function SettingsMenus:_applyTrainerTrail(game, value)
-  optSet(self.mod, "trainer_trail", value == true)
-  local settings = self:_settings()
-  if settings and settings.setEngineMode then
-    local ui = optGet(self.mod, "follow_control", "trainer")
-    if ui == "pokemon" then
-      local n = tonumber(optGet(self.mod, "follower_count", 1)) or 1
-      local mode = (value == true) and "lead_trainer"
-        or ((n > 0) and "pack" or "pokemon")
-      pcall(settings.setEngineMode, settings, game, mode)
-    end
-  end
-  if self.follower and self.follower.control then
-    pcall(function()
-      self.follower.control:alignSaveFromOptions(game)
-      self.follower.control:syncAll(game, game and game.overworld)
-    end)
-  end
+  self:_setOption("trainer_trail", value == true, game)
 end
 
 function SettingsMenus:_applyFollowerCount(game, value)
@@ -253,6 +281,7 @@ function SettingsMenus:_applyFollowerCount(game, value)
       worldGame.save.pokepcFollowerCount = n
     end
   end
+  self:_setOption("follower_count", n, game)
 end
 
 function SettingsMenus:_openFollowersRoot(game)
@@ -310,6 +339,7 @@ function SettingsMenus:_openWildsRoot(game)
   local mod = self.mod
   local menus = self
 
+  local menus = self
   local items = {
     {
       label = "SHOW WILD MONS",
@@ -504,7 +534,8 @@ function SettingsMenus:_openWildsRoot(game)
       label = "TEST SPAWN",
       onSelect = function()
         if mod.ui and mod.ui.push then
-          pcall(mod.ui.push, mod.ui, game, "OverworldSpawnPreview")
+          -- Preview browser id may be registered as a content screen.
+          pcall(mod.ui.push, game, "OverworldSpawnPreview")
         end
       end,
       right = "OPEN",
@@ -513,14 +544,6 @@ function SettingsMenus:_openWildsRoot(game)
   }
 
   return menus:_makeStepperMenu(game, SettingsMenus.LABEL_WILDS, items, mod)
-end
-
-function SettingsMenus:_notifyLogic(key, value)
-  if self.logic and self.logic.onOptionsChanged then
-    pcall(self.logic.onOptionsChanged, self.logic, {
-      mod = self.mod.id, key = key, value = value, source = "options_menu",
-    })
-  end
 end
 
 function SettingsMenus:register()
@@ -580,8 +603,7 @@ function SettingsMenus:register()
         { label = "ON", value = true },
         { label = "OFF", value = false },
       }, optGet(mod, "enabled", true) ~= false, function(v)
-        optSet(mod, "enabled", v == true)
-        menus:_notifyLogic("enabled", v == true)
+        menus:_setOption("enabled", v == true, game)
       end)
     end,
   })
@@ -687,8 +709,7 @@ function SettingsMenus:register()
         { label = "ABOVE", value = "above" },
         { label = "IMMERSED", value = "immersed" },
       }, Config.pokemonGrassRenderMode(mod), function(v)
-        optSet(mod, "pokemon_grass_render_mode", v)
-        menus:_notifyLogic("pokemon_grass_render_mode", v)
+        menus:_setOption("pokemon_grass_render_mode", v, game)
       end)
     end,
   })
@@ -698,8 +719,7 @@ function SettingsMenus:register()
         { label = "ON", value = true },
         { label = "OFF", value = false },
       }, optGet(mod, "enable_idle", true) ~= false, function(v)
-        optSet(mod, "enable_idle", v == true)
-        menus:_notifyLogic("enable_idle", v == true)
+        menus:_setOption("enable_idle", v == true, game)
       end)
     end,
   })
@@ -709,8 +729,7 @@ function SettingsMenus:register()
         { label = "ON", value = true },
         { label = "OFF", value = false },
       }, optGet(mod, "enable_wander", true) ~= false, function(v)
-        optSet(mod, "enable_wander", v == true)
-        menus:_notifyLogic("enable_wander", v == true)
+        menus:_setOption("enable_wander", v == true, game)
       end)
     end,
   })
@@ -720,8 +739,7 @@ function SettingsMenus:register()
         { label = "ON", value = true },
         { label = "OFF", value = false },
       }, optGet(mod, "enable_aggressive", true) ~= false, function(v)
-        optSet(mod, "enable_aggressive", v == true)
-        menus:_notifyLogic("enable_aggressive", v == true)
+        menus:_setOption("enable_aggressive", v == true, game)
       end)
     end,
   })
@@ -731,8 +749,7 @@ function SettingsMenus:register()
         { label = "ON", value = true },
         { label = "OFF", value = false },
       }, optGet(mod, "enable_hidden", true) ~= false, function(v)
-        optSet(mod, "enable_hidden", v == true)
-        menus:_notifyLogic("enable_hidden", v == true)
+        menus:_setOption("enable_hidden", v == true, game)
       end)
     end,
   })
@@ -742,8 +759,7 @@ function SettingsMenus:register()
         { label = "OFF", value = false },
         { label = "ON", value = true },
       }, Config.devOverlay(mod) == true, function(v)
-        optSet(mod, "dev_overlay", v == true)
-        menus:_notifyLogic("dev_overlay", v == true)
+        menus:_setOption("dev_overlay", v == true, game)
       end)
     end,
   })

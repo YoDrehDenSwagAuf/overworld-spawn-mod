@@ -350,11 +350,9 @@ function Follower:onOptionsChanged(payload)
       or key == "sprite_style" then
     local game = self.mod and self.mod.world and self.mod.world.game
     self.settings:alignSave(game)
-    if self.control._installed then
+    if self.control then
+      -- Always invalidate option cache + mirror; sync when engine is live.
       self.control:onOptionsChanged(payload)
-      pcall(function()
-        self.control:syncAll(game, game and game.overworld)
-      end)
     end
     self.lifecycle:requestFollowerSpriteRefresh("options:" .. tostring(key), {
       game = game,
