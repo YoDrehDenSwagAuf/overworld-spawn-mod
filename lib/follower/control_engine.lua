@@ -102,6 +102,8 @@ function ControlEngine.new(mod, deps)
   self._installed = false
   self._restoreState = nil
   self._pendingMapTrailerSync = false
+  self._mapExitSnapshot = nil
+  self._pendingConnectionHandoff = nil
   self._optCache = {}
   self._eventOff = {}
   self._talkWrapped = false
@@ -158,25 +160,18 @@ function ControlEngine:_opt(key, default)
 end
 
 function ControlEngine:onOptionsChanged(payload)
+  -- Cache is a consumer only — wipe on any options change.
   self._optCache = {}
   local settings = self.settings
   if settings and type(settings.onOptionsChanged) == "function" then
     pcall(settings.onOptionsChanged, settings, payload)
   end
-  
-  local game = self:_game()
-  if game and game.save then
-    -- Sync options back to save state so they remain consistent
-    local newCount = self:followerCount(game)
-    local newMode = self:controlMode(game)
-    game.save.pokepcFollowerCount = newCount
-    game.save.pokepcControlMode = newMode
-  end
 
-  local ow = game and game.overworld
+  local game = (payload and payload.game) or self:_game()
   if game then
+    -- Mirror mod.options → game.save, then rebuild active trailers.
     pcall(function() self:alignSaveFromOptions(game) end)
-    pcall(function() self:syncAll(game, ow) end)
+    pcall(function() self:syncAll(game, game.overworld) end)
   end
 end
 
@@ -829,12 +824,23 @@ function ControlEngine:ledgeStep(game, ow, cx, cy, dir)
   local tileset = map.def and map.def.tileset
   local standing = map:cellTile(cx, cy)
   local front = map:cellTile(fx, fy)
+  local landing = map:cellTile(lx, ly)
+  local opposite = { up = "down", down = "up", left = "right", right = "left" }
   local ledges = game.data and game.data.field and game.data.field.ledges
   for _, ledge in ipairs(ledges or {}) do
-    if (ledge.tileset or "OVERWORLD") == tileset
-       and ledge.facing == dir and ledge.input == dir
-       and ledge.standingTile == standing and ledge.ledgeTile == front then
-      return true
+    if (ledge.tileset or "OVERWORLD") == tileset and ledge.ledgeTile == front then
+      if ledge.facing == dir and ledge.input == dir
+         and ledge.standingTile == standing then
+        return true
+      end
+      -- Reverse-jump mods traverse the same physical ledge against the stock
+      -- one-way declaration. From that side, the declared standing tile is
+      -- the follower's landing tile and the blocked middle tile is unchanged.
+      local reverse = opposite[dir]
+      if ledge.facing == reverse and ledge.input == reverse
+         and ledge.standingTile == landing then
+        return true
+      end
     end
   end
   return false
@@ -979,6 +985,37 @@ local function isLandWalkable(map, x, y)
   return ok and walk == true
 end
 
+local function mapContainsCell(map, x, y)
+  if not (map and type(map.inBounds) == "function") then return false end
+  local ok, inside = pcall(map.inBounds, map, x, y)
+  return ok and inside == true
+end
+
+--- Resolve a trailer cell in the current map's coordinate frame.
+-- During a seamless connection, trailers may still be standing on the map
+-- behind the player.  Neighbor offsets are pixels relative to the current
+-- map, so translate the cell back to that neighbor's local coordinates.
+-- Outside an active handoff, follower checks remain current-map-only.
+function ControlEngine:_followerMapCell(ow, x, y)
+  local map = ow and ow.map
+  if mapContainsCell(map, x, y) then return map, x, y end
+  if not (ow and ow._wildsFollowerSeamActive) then return nil end
+  for _, nb in ipairs(ow.neighbors or {}) do
+    local nmap = nb and nb.map
+    local ox = tonumber(nb and nb.ox)
+    local oy = tonumber(nb and nb.oy)
+    if nmap and ox and oy then
+      local nx = x - ox / 16
+      local ny = y - oy / 16
+      if nx == math.floor(nx) and ny == math.floor(ny)
+         and mapContainsCell(nmap, nx, ny) then
+        return nmap, nx, ny
+      end
+    end
+  end
+  return nil
+end
+
 --- Surface-aware cell check for Wilds Pokémon trailers only.
 -- Never used for trainers/wilds/global NPC collision.
 -- context.surface: "land" | "water" | "land_to_water" | "water_to_land"
@@ -986,11 +1023,8 @@ end
 function ControlEngine:isFollowerCellAllowed(game, ow, entity, x, y, context)
   context = context or {}
   if not (ow and ow.map) then return false end
-  local map = ow.map
-  if type(map.inBounds) == "function" then
-    local ok, inside = pcall(map.inBounds, map, x, y)
-    if not (ok and inside) then return false end
-  end
+  local map, mapX, mapY = self:_followerMapCell(ow, x, y)
+  if not map then return false end
 
   local role = context.role
     or (entity and entity.wildsFollowerRole)
@@ -1002,31 +1036,180 @@ function ControlEngine:isFollowerCellAllowed(game, ow, entity, x, y, context)
   -- Water exception only for Pokémon follower roles.
   local pokemonRole = (role == "primary" or role == "party_trailer")
   if not pokemonRole then
-    return isLandWalkable(map, x, y)
+    return isLandWalkable(map, mapX, mapY)
   end
 
   local surface = context.surface or self:_trailSurface(ow, game)
   if surface == "water" or surface == "land_to_water" then
     -- Surf path: water cells the player can occupy, plus shore land for entry.
-    if isWaterMapCell(map, x, y) then return true end
-    if isLandWalkable(map, x, y) then return true end
+    if isWaterMapCell(map, mapX, mapY) then return true end
+    if isLandWalkable(map, mapX, mapY) then return true end
     return false
   end
 
   if surface == "water_to_land" then
-    if isLandWalkable(map, x, y) then return true end
-    if isWaterMapCell(map, x, y) then return true end
+    if isLandWalkable(map, mapX, mapY) then return true end
+    if isWaterMapCell(map, mapX, mapY) then return true end
     return false
   end
 
   -- Land: normal walkability. Allow current water cell so a surfing trailer
   -- can step onto shore without freezing when the player exits water.
-  if isLandWalkable(map, x, y) then return true end
+  if isLandWalkable(map, mapX, mapY) then return true end
   if entity and (entity.wildsFollowerWater == true or entity.spriteState == "water")
-      and isWaterMapCell(map, x, y) then
+      and isWaterMapCell(map, mapX, mapY) then
     return true
   end
   return false
+end
+
+local function copyTrailCells(cells)
+  local out = {}
+  for i, cell in ipairs(cells or {}) do
+    out[i] = { x = cell.x, y = cell.y }
+  end
+  return out
+end
+
+local function copyTrailHead(head)
+  if not head then return nil end
+  return {
+    x = head.x, y = head.y,
+    ledgeHop = head.ledgeHop,
+    ledgeLandingPending = head.ledgeLandingPending,
+  }
+end
+
+local function addIdentity(list, value)
+  if not value then return end
+  for _, existing in ipairs(list) do
+    if existing == value then return end
+  end
+  list[#list + 1] = value
+end
+
+local function translateTrailer(npc, dx, dy)
+  npc.cellX, npc.cellY = (npc.cellX or 0) + dx, (npc.cellY or 0) + dy
+  npc.px, npc.py = (npc.px or (npc.cellX - dx) * 16) + dx * 16,
+                   (npc.py or (npc.cellY - dy) * 16) + dy * 16
+  if npc.targetX ~= nil then npc.targetX = npc.targetX + dx end
+  if npc.targetY ~= nil then npc.targetY = npc.targetY + dy end
+  if npc.goalX ~= nil then npc.goalX = npc.goalX + dx end
+  if npc.goalY ~= nil then npc.goalY = npc.goalY + dy end
+end
+
+function ControlEngine:_isOutsideMap(game, map)
+  if not (map and map.def) then return false end
+  local Map = tryRequire("src.world.Map")
+  local FieldDefaults = tryRequire("src.world.FieldDefaults")
+  if Map and type(Map.isOutside) == "function" then
+    local tilesets
+    if FieldDefaults and type(FieldDefaults.field) == "function"
+       and game and game.data then
+      local ok, value = pcall(FieldDefaults.field, game.data, "outsideTilesets")
+      if ok then tilesets = value end
+    end
+    local ok, outside = pcall(Map.isOutside, map.def, tilesets)
+    if ok then return outside == true end
+  end
+  if map.def.outdoor ~= nil then return map.def.outdoor == true end
+  return map.def.tileset == "OVERWORLD" or map.def.tileset == "PLATEAU"
+end
+
+--- Capture live trailers before setMap replaces the entity lists.
+function ControlEngine:_captureMapExit(game, ow, ev)
+  local trailers = ow and ow.pokepcTrailers
+  local player = ow and ow.player
+  if not (player and trailers and #trailers > 0) then
+    self._mapExitSnapshot = nil
+    return false
+  end
+  local refs = {}
+  for i, trailer in ipairs(trailers) do refs[i] = trailer end
+  self._mapExitSnapshot = {
+    fromMapId = ev and ev.mapId or (ow.map and ow.map.id),
+    toMapId = ev and ev.toMapId,
+    map = ow.map,
+    playerX = player.cellX,
+    playerY = player.cellY,
+    trailers = refs,
+    trailCells = copyTrailCells(ow.pokepcTrailCells),
+    trailHead = copyTrailHead(ow.pokepcTrailHead),
+  }
+  return true
+end
+
+--- Select seamless outside-to-outside entries for a soft handoff.
+function ControlEngine:_queueMapEntry(game, ow, ev)
+  local snapshot = self._mapExitSnapshot
+  self._mapExitSnapshot = nil
+  self._pendingConnectionHandoff = nil
+  if ow then ow._wildsFollowerSeamActive = nil end
+  if not (snapshot and ev and ev.via == "connection") then return false end
+  if snapshot.toMapId and ev.mapId and snapshot.toMapId ~= ev.mapId then
+    return false
+  end
+  if not (self:_isOutsideMap(game, snapshot.map)
+          and self:_isOutsideMap(game, (ev and ev.map) or (ow and ow.map))) then
+    return false
+  end
+  self._pendingConnectionHandoff = snapshot
+  return true
+end
+
+--- Reattach and translate the preserved train after crossConnection has put
+-- the player at the pre-seam cell and rebuilt the destination's neighbors.
+function ControlEngine:_applyConnectionHandoff(ow)
+  local snapshot = self._pendingConnectionHandoff
+  self._pendingConnectionHandoff = nil
+  local player = ow and ow.player
+  if not (snapshot and player and snapshot.trailers and #snapshot.trailers > 0) then
+    return false
+  end
+  local dx = (player.cellX or 0) - (snapshot.playerX or 0)
+  local dy = (player.cellY or 0) - (snapshot.playerY or 0)
+  ow.npcs = ow.npcs or {}
+  ow.entities = ow.entities or {}
+  for _, trailer in ipairs(snapshot.trailers) do
+    translateTrailer(trailer, dx, dy)
+    addIdentity(ow.npcs, trailer)
+    addIdentity(ow.entities, trailer)
+  end
+  for _, cell in ipairs(snapshot.trailCells or {}) do
+    cell.x, cell.y = cell.x + dx, cell.y + dy
+  end
+  local head = snapshot.trailHead
+  if head then head.x, head.y = head.x + dx, head.y + dy end
+  ow.pokepcTrailers = snapshot.trailers
+  ow.pokepcTrailCells = snapshot.trailCells
+  ow.pokepcTrailHead = head or { x = player.cellX, y = player.cellY }
+  ow._wildsFollowerSeamActive = true
+  self._pendingMapTrailerSync = false
+  return true
+end
+
+function ControlEngine:_finishConnectionHandoffIfComplete(ow)
+  if not (ow and ow._wildsFollowerSeamActive and ow.map) then return false end
+  local trailers = ow.pokepcTrailers or {}
+  local goals = ow.pokepcTrailCells or {}
+  local occupied = {}
+  if #trailers == 0 or #goals < #trailers then return false end
+  for i, trailer in ipairs(trailers) do
+    if not mapContainsCell(ow.map, trailer.cellX, trailer.cellY) then return false end
+    if trailer.moving then return false end
+    if trailer.targetX ~= nil
+       and not mapContainsCell(ow.map, trailer.targetX, trailer.targetY) then
+      return false
+    end
+    local key = tostring(trailer.cellX) .. "," .. tostring(trailer.cellY)
+    if occupied[key] then return false end
+    occupied[key] = true
+    local goal = goals[i]
+    if not (goal and mapContainsCell(ow.map, goal.x, goal.y)) then return false end
+    if trailer.cellX ~= goal.x or trailer.cellY ~= goal.y then return false end
+  end
+  ow._wildsFollowerSeamActive = nil
+  return true
 end
 
 function ControlEngine:_walkableBehind(ow, px, py, facing, steps, entity, game, role, occupied)
@@ -1084,13 +1267,12 @@ function ControlEngine:_pickTrailerStep(game, ow, npc, gx, gy, surface, role)
     })
   end
   local cands = {}
-  local function consider(dir, sx, sy)
-    if allowed(sx, sy) then
-      cands[#cands + 1] = {
-        dir = dir, x = sx, y = sy,
-        dist = math.abs(gx - sx) + math.abs(gy - sy),
-      }
-    end
+  local function consider(dir, sx, sy, hop)
+    cands[#cands + 1] = {
+      dir = dir, x = sx, y = sy,
+      dist = math.abs(gx - sx) + math.abs(gy - sy),
+      hop = hop or nil,
+    }
   end
   if math.abs(dx) >= math.abs(dy) then
     if dx > 0 then consider("right", cx + 1, cy) end
@@ -1105,15 +1287,72 @@ function ControlEngine:_pickTrailerStep(game, ow, npc, gx, gy, surface, role)
   end
   local d = npc.facing and DIR_DELTA[npc.facing]
   if d then consider(npc.facing, cx + d[1], cy + d[2]) end
-  if #cands == 0 then return nil end
-  table.sort(cands, function(a, b)
+
+  -- Ledge-hop candidates: when the follower stands on a ledge edge, the
+  -- landing two cells ahead can be the goal even though the one-cell-adjacent
+  -- step (the ledge tile itself) is often rejected by isFollowerCellAllowed.
+  -- This gives followers the same ledge-jump behaviour that the stock Yellow
+  -- Pikachu follower has.
+  if surface ~= "water" then
+    local Collision = tryRequire("src.world.Collision")
+    for _, dir in ipairs({ "up", "down", "left", "right" }) do
+      if self:ledgeStep(game, ow, cx, cy, dir)
+         and Collision and Collision.DELTA and Collision.DELTA[dir] then
+        local delta = Collision.DELTA[dir]
+        local hx, hy = cx + delta[1] * 2, cy + delta[2] * 2
+        if self:isFollowerCellAllowed(game, ow, npc, hx, hy, {
+          surface = surface, role = role,
+        }) then
+          consider(dir, hx, hy, true)
+        end
+      end
+    end
+  end
+
+  -- Separate walkable 1-cell steps from ledge-hop candidates.  Ledge hops
+  -- win when they are the shorter path to the goal — otherwise a trailer on
+  -- a ledge edge walks *around* the ledge (toward a walkable side cell)
+  -- instead of jumping down, which is what "freaks out" when the player
+  -- changes direction after a ledge hop.
+  local walkable = {}
+  local hops = {}
+  for _, c in ipairs(cands) do
+    if c.hop then
+      hops[#hops + 1] = c
+    elseif allowed(c.x, c.y) then
+      walkable[#walkable + 1] = c
+    end
+  end
+
+  local function bestDist(list)
+    local d = math.huge
+    for _, c in ipairs(list) do
+      if c.dist < d then d = c.dist end
+    end
+    return d
+  end
+  local bestWalkable = bestDist(walkable)
+  local bestHop = bestDist(hops)
+
+  -- If a ledge hop gets us closer to the goal than any walkable 1-cell
+  -- step, prefer the hop.  The adjacent cell past the ledge is often the
+  -- ledge tile itself (non-walkable), so the "walkable" list only contains
+  -- side/back steps that move AWAY from the goal; the hop is the correct
+  -- path forward.
+  local pool = (bestHop < bestWalkable) and hops or walkable
+  if #pool == 0 then
+    pool = (pool == hops) and walkable or hops
+  end
+  if #pool == 0 then return nil end
+
+  table.sort(pool, function(a, b)
     if a.dist ~= b.dist then return a.dist < b.dist end
     if (a.dir == npc.facing) ~= (b.dir == npc.facing) then
       return a.dir == npc.facing
     end
     return false
   end)
-  return cands[1]
+  return pool[1]
 end
 
 --- Advance a trailer step without stock NPC land-walkability rejection.
@@ -1366,10 +1605,21 @@ function ControlEngine:syncTrailers(game, ow, opts)
                     or destX > head.x and "right" or "left"
     if head.ledgeHop == stepDir then
       head.ledgeHop = nil
+      -- The engine executes a ledge jump as two scripted one-cell moves. The
+      -- first phase releases only the takeoff cell. Keep the trainer's landing
+      -- reserved on the second phase; publishing it now makes follower one
+      -- jump concurrently and land on top of the trainer.
+      head.ledgeLandingPending = true
       head.x, head.y = destX, destY
     else
-      -- Ledge hops are land-only; skip on water.
-      if surface ~= "water" then
+      -- The first step away from a ledge landing releases that cell into the
+      -- ordinary trail shift. Follower one can then hop into it while the
+      -- trainer vacates it, and each later follower repeats that cadence.
+      local leavingLedgeLanding = head.ledgeLandingPending == true
+      head.ledgeLandingPending = nil
+      -- Ledge hops are land-only; skip on water and do not reclassify the
+      -- trainer's first ordinary post-hop step.
+      if surface ~= "water" and not leavingLedgeLanding then
         head.ledgeHop = self:ledgeStep(game, ow, head.x, head.y, stepDir)
                         and stepDir or nil
       else
@@ -1448,11 +1698,15 @@ function ControlEngine:_assignTrailerStep(game, ow, npc, gx, gy, surface, role,
   end
   local dir = step.dir
   npc.facing = dir
-  npc.hopStep = nil
+  npc.hopStep = step.hop or nil
   npc.targetX = step.x
   npc.targetY = step.y
   npc._wildsGoalX, npc._wildsGoalY = gx, gy
-  if surface ~= "water"
+  -- When _pickTrailerStep already identified this as a ledge hop the
+  -- target coordinates, hop flag, and goal chain are already set for the
+  -- two-cell landing; skip the secondary ledge re-detection.
+  if not step.hop
+     and surface ~= "water"
      and self:ledgeStep(game, ow, npc.cellX, npc.cellY, dir)
      and Collision and Collision.DELTA and Collision.DELTA[dir] then
     local d = Collision.DELTA[dir]
@@ -1472,7 +1726,8 @@ function ControlEngine:_assignTrailerStep(game, ow, npc, gx, gy, surface, role,
   -- the gap; the catch-up pass chains the next step the moment one lands so
   -- the straggler moves continuously instead of bursting 8 frames then
   -- freezing 8 frames waiting for the next goal shift (the tick-tock drag).
-  if far > 1 then
+  -- Ledge hops always use full-length frames for the arc animation.
+  if not npc.hopStep and far > 1 then
     npc.stepFrames = math.max(1, math.floor(stepClock / 2))
   else
     npc.stepFrames = stepClock
@@ -1516,9 +1771,11 @@ function ControlEngine:_chainCatchUpSteps(game, ow, stepClock)
           local ok = self:_assignTrailerStep(game, ow, npc, gx, gy, surface,
             npc.wildsFollowerRole or "party_trailer", stepClock, facing)
           if ok then
-            -- Always chain at catch-up cadence: the goal advances with the
-            -- pack, so pack-speed steps can never close a moving gap.
-            npc.stepFrames = math.max(1, math.floor(stepClock / 2))
+            -- Chain at catch-up cadence for normal steps; ledge hops keep
+            -- full-length frames so the arc animation plays out properly.
+            if not npc.hopStep then
+              npc.stepFrames = math.max(1, math.floor(stepClock / 2))
+            end
             assigned = assigned + 1
           end
         end
@@ -1596,6 +1853,7 @@ function ControlEngine:update(game, ow, opts)
   self.diag.lastSource = opts.source or "direct"
 
   local ok, err = pcall(function()
+    self:_applyConnectionHandoff(ow)
     if self:isPokemonFront(game) or self:followerCount(game) <= 0 then
       self:_removeStockPikachu(ow)
     end
@@ -1625,6 +1883,7 @@ function ControlEngine:update(game, ow, opts)
     -- Stragglers re-step the moment they land so the pack closes gaps
     -- continuously instead of freezing between goal shifts.
     self:_chainCatchUpSteps(game, ow)
+    self:_finishConnectionHandoffIfComplete(ow)
     self:_traceSurf(game, ow)
   end)
 
@@ -2008,24 +2267,35 @@ function ControlEngine:install()
 
   local mod = self.mod
   if mod and mod.events and mod.events.on then
-    pcall(function()
-      mod.events:on("mod.options_changed", function(payload)
+    local function subscribe(name, callback)
+      local ok, off = pcall(mod.events.on, mod.events, name, callback)
+      if ok and type(off) == "function" then
+        engine._eventOff[#engine._eventOff + 1] = off
+      elseif not ok then
+        logWarn(mod, "event subscription failed (%s): %s", tostring(name), tostring(off))
+      end
+    end
+    subscribe("mod.options_changed", function(payload)
         if payload and (payload.mod == mod.id) then
           engine._optCache = {}
         end
       end)
-    end)
-    pcall(function()
-      mod.events:on("map.entered", function()
+    subscribe("map.exited", function(payload)
+        local game = engine:_game()
+        local ow = game and game.overworld
+        engine:_captureMapExit(game, ow, payload)
+      end)
+    subscribe("map.entered", function(payload)
         local game = engine:_game()
         local ow = game and game.overworld
         pcall(function() engine:syncPlayerControlVisual(game, ow) end)
+        engine:_queueMapEntry(game, ow, payload)
         engine._pendingMapTrailerSync = true
       end)
-    end)
-    pcall(function()
-      mod.events:on("game.ready", function()
+    subscribe("game.ready", function()
         local game = engine:_game()
+        engine._mapExitSnapshot = nil
+        engine._pendingConnectionHandoff = nil
         engine:alignSaveFromOptions(game)
         pcall(function()
           engine:syncPlayerControlVisual(game, game and game.overworld)
@@ -2033,7 +2303,6 @@ function ControlEngine:install()
         engine._pendingMapTrailerSync = true
         pcall(function() engine:_installTalkWrap() end)
       end)
-    end)
   end
 
   local restoreState = {
@@ -2055,6 +2324,12 @@ function ControlEngine:install()
   engine._vanillaShouldSpawn = prevShouldSpawn
 
   restoreState.restore = function()
+    for i = #engine._eventOff, 1, -1 do
+      pcall(engine._eventOff[i])
+    end
+    engine._eventOff = {}
+    engine._mapExitSnapshot = nil
+    engine._pendingConnectionHandoff = nil
     -- Unconditionally restore the engine functions to the vanilla originals
     -- captured at first install time, regardless of whether an external mod
     -- (e.g. Followers EX) has wrapped on top. Without this the equality
