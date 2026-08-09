@@ -13,7 +13,8 @@
       "speciesName": "abra",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_063-b-n.png"
+      "target": "normal/levitates_063-b-n.png",
+      "grayscaleTarget": "normal/levitates_063-b-n-grayscale.png"
     },
     {
       "source": "Levitates/AEGISLASH.png",
@@ -21,7 +22,8 @@
       "speciesName": "aegislash",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_681-b-n.png"
+      "target": "normal/levitates_681-b-n.png",
+      "grayscaleTarget": "normal/levitates_681-b-n-grayscale.png"
     },
     {
       "source": "Levitates/AEGISLASH_1.png",
@@ -29,7 +31,8 @@
       "speciesName": "aegislash",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_681-b-n_1.png"
+      "target": "normal/levitates_681-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_681-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/AERODACTYL.png",
@@ -37,7 +40,8 @@
       "speciesName": "aerodactyl",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_142-b-n.png"
+      "target": "normal/levitates_142-b-n.png",
+      "grayscaleTarget": "normal/levitates_142-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ALTARIA.png",
@@ -45,7 +49,8 @@
       "speciesName": "altaria",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_334-b-n.png"
+      "target": "normal/levitates_334-b-n.png",
+      "grayscaleTarget": "normal/levitates_334-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ARCHEOPS.png",
@@ -53,7 +58,8 @@
       "speciesName": "archeops",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_567-b-n.png"
+      "target": "normal/levitates_567-b-n.png",
+      "grayscaleTarget": "normal/levitates_567-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ARTICUNO.png",
@@ -61,7 +67,8 @@
       "speciesName": "articuno",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_144-b-n.png"
+      "target": "normal/levitates_144-b-n.png",
+      "grayscaleTarget": "normal/levitates_144-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ARTICUNO_1.png",
@@ -69,7 +76,8 @@
       "speciesName": "articuno",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_144-b-n_1.png"
+      "target": "normal/levitates_144-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_144-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/AZELF.png",
@@ -77,7 +85,8 @@
       "speciesName": "azelf",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_482-b-n.png"
+      "target": "normal/levitates_482-b-n.png",
+      "grayscaleTarget": "normal/levitates_482-b-n-grayscale.png"
     },
     {
       "source": "Levitates/BALTOY.png",
@@ -85,7 +94,8 @@
       "speciesName": "baltoy",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_343-b-n.png"
+      "target": "normal/levitates_343-b-n.png",
+      "grayscaleTarget": "normal/levitates_343-b-n-grayscale.png"
     },
     {
       "source": "Levitates/BEAUTIFLY.png",
@@ -93,7 +103,8 @@
       "speciesName": "beautifly",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_267-b-n.png"
+      "target": "normal/levitates_267-b-n.png",
+      "grayscaleTarget": "normal/levitates_267-b-n-grayscale.png"
     },
     {
       "source": "Levitates/BEEDRILL.png",
@@ -101,7 +112,8 @@
       "speciesName": "beedrill",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_015-b-n.png"
+      "target": "normal/levitates_015-b-n.png",
+      "grayscaleTarget": "normal/levitates_015-b-n-grayscale.png"
     },
     {
       "source": "Levitates/BEHEEYEM.png",
@@ -109,7 +121,8 @@
       "speciesName": "beheeyem",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_606-b-n.png"
+      "target": "normal/levitates_606-b-n.png",
+      "grayscaleTarget": "normal/levitates_606-b-n-grayscale.png"
     },
     {
       "source": "Levitates/BELDUM.png",
@@ -117,7 +130,8 @@
       "speciesName": "beldum",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_374-b-n.png"
+      "target": "normal/levitates_374-b-n.png",
+      "grayscaleTarget": "normal/levitates_374-b-n-grayscale.png"
     },
     {
       "source": "Levitates/BOMBIRDIER.png",
@@ -125,7 +139,8 @@
       "speciesName": "bombirdier",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_962-b-n.png"
+      "target": "normal/levitates_962-b-n.png",
+      "grayscaleTarget": "normal/levitates_962-b-n-grayscale.png"
     },
     {
       "source": "Levitates/BOMBIRDIERs.png",
@@ -133,7 +148,8 @@
       "speciesName": "bombirdier",
       "variant": "normal",
       "suffix": "s",
-      "target": "normal/levitates_962-b-n_s.png"
+      "target": "normal/levitates_962-b-n_s.png",
+      "grayscaleTarget": "normal/levitates_962-b-n_s-grayscale.png"
     },
     {
       "source": "Levitates/BRAVIARY.png",
@@ -141,7 +157,8 @@
       "speciesName": "braviary",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_628-b-n.png"
+      "target": "normal/levitates_628-b-n.png",
+      "grayscaleTarget": "normal/levitates_628-b-n-grayscale.png"
     },
     {
       "source": "Levitates/BRAVIARY_1.png",
@@ -149,7 +166,8 @@
       "speciesName": "braviary",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_628-b-n_1.png"
+      "target": "normal/levitates_628-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_628-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/BRONZONG.png",
@@ -157,7 +175,8 @@
       "speciesName": "bronzong",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_437-b-n.png"
+      "target": "normal/levitates_437-b-n.png",
+      "grayscaleTarget": "normal/levitates_437-b-n-grayscale.png"
     },
     {
       "source": "Levitates/BRONZOR.png",
@@ -165,7 +184,8 @@
       "speciesName": "bronzor",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_436-b-n.png"
+      "target": "normal/levitates_436-b-n.png",
+      "grayscaleTarget": "normal/levitates_436-b-n-grayscale.png"
     },
     {
       "source": "Levitates/BUTTERFREE.png",
@@ -173,7 +193,8 @@
       "speciesName": "butterfree",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_012-b-n.png"
+      "target": "normal/levitates_012-b-n.png",
+      "grayscaleTarget": "normal/levitates_012-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CALYREX.png",
@@ -181,7 +202,8 @@
       "speciesName": "calyrex",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_898-b-n.png"
+      "target": "normal/levitates_898-b-n.png",
+      "grayscaleTarget": "normal/levitates_898-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CASTFORM.png",
@@ -189,7 +211,8 @@
       "speciesName": "castform",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_351-b-n.png"
+      "target": "normal/levitates_351-b-n.png",
+      "grayscaleTarget": "normal/levitates_351-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CELEBI.png",
@@ -197,7 +220,8 @@
       "speciesName": "celebi",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_251-b-n.png"
+      "target": "normal/levitates_251-b-n.png",
+      "grayscaleTarget": "normal/levitates_251-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CELESTEELA.png",
@@ -205,7 +229,8 @@
       "speciesName": "celesteela",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_797-b-n.png"
+      "target": "normal/levitates_797-b-n.png",
+      "grayscaleTarget": "normal/levitates_797-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CHANDELURE.png",
@@ -213,7 +238,8 @@
       "speciesName": "chandelure",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_609-b-n.png"
+      "target": "normal/levitates_609-b-n.png",
+      "grayscaleTarget": "normal/levitates_609-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CHARIZARD.png",
@@ -221,7 +247,8 @@
       "speciesName": "charizard",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_006-b-n.png"
+      "target": "normal/levitates_006-b-n.png",
+      "grayscaleTarget": "normal/levitates_006-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CHIMECHO.png",
@@ -229,7 +256,8 @@
       "speciesName": "chimecho",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_358-b-n.png"
+      "target": "normal/levitates_358-b-n.png",
+      "grayscaleTarget": "normal/levitates_358-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CHINGLING.png",
@@ -237,7 +265,8 @@
       "speciesName": "chingling",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_433-b-n.png"
+      "target": "normal/levitates_433-b-n.png",
+      "grayscaleTarget": "normal/levitates_433-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CLAYDOL.png",
@@ -245,7 +274,8 @@
       "speciesName": "claydol",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_344-b-n.png"
+      "target": "normal/levitates_344-b-n.png",
+      "grayscaleTarget": "normal/levitates_344-b-n-grayscale.png"
     },
     {
       "source": "Levitates/COFAGRIGUS.png",
@@ -253,7 +283,8 @@
       "speciesName": "cofagrigus",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_563-b-n.png"
+      "target": "normal/levitates_563-b-n.png",
+      "grayscaleTarget": "normal/levitates_563-b-n-grayscale.png"
     },
     {
       "source": "Levitates/COMBEE.png",
@@ -261,7 +292,8 @@
       "speciesName": "combee",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_415-b-n.png"
+      "target": "normal/levitates_415-b-n.png",
+      "grayscaleTarget": "normal/levitates_415-b-n-grayscale.png"
     },
     {
       "source": "Levitates/COMBEE_1.png",
@@ -269,7 +301,8 @@
       "speciesName": "combee",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_415-b-n_1.png"
+      "target": "normal/levitates_415-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_415-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/COMFEY.png",
@@ -277,7 +310,8 @@
       "speciesName": "comfey",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_764-b-n.png"
+      "target": "normal/levitates_764-b-n.png",
+      "grayscaleTarget": "normal/levitates_764-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CORVIKNIGHT.png",
@@ -285,7 +319,8 @@
       "speciesName": "corviknight",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_823-b-n.png"
+      "target": "normal/levitates_823-b-n.png",
+      "grayscaleTarget": "normal/levitates_823-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CORVISQUIRE.png",
@@ -293,7 +328,8 @@
       "speciesName": "corvisquire",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_822-b-n.png"
+      "target": "normal/levitates_822-b-n.png",
+      "grayscaleTarget": "normal/levitates_822-b-n-grayscale.png"
     },
     {
       "source": "Levitates/COSMOEM.png",
@@ -301,7 +337,8 @@
       "speciesName": "cosmoem",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_790-b-n.png"
+      "target": "normal/levitates_790-b-n.png",
+      "grayscaleTarget": "normal/levitates_790-b-n-grayscale.png"
     },
     {
       "source": "Levitates/COSMOG.png",
@@ -309,7 +346,8 @@
       "speciesName": "cosmog",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_789-b-n.png"
+      "target": "normal/levitates_789-b-n.png",
+      "grayscaleTarget": "normal/levitates_789-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CRESSELIA.png",
@@ -317,7 +355,8 @@
       "speciesName": "cresselia",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_488-b-n.png"
+      "target": "normal/levitates_488-b-n.png",
+      "grayscaleTarget": "normal/levitates_488-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CROBAT.png",
@@ -325,7 +364,8 @@
       "speciesName": "crobat",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_169-b-n.png"
+      "target": "normal/levitates_169-b-n.png",
+      "grayscaleTarget": "normal/levitates_169-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CRYOGONAL.png",
@@ -333,7 +373,8 @@
       "speciesName": "cryogonal",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_615-b-n.png"
+      "target": "normal/levitates_615-b-n.png",
+      "grayscaleTarget": "normal/levitates_615-b-n-grayscale.png"
     },
     {
       "source": "Levitates/CUTIEFLY.png",
@@ -341,7 +382,8 @@
       "speciesName": "cutiefly",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_742-b-n.png"
+      "target": "normal/levitates_742-b-n.png",
+      "grayscaleTarget": "normal/levitates_742-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DARKRAI.png",
@@ -349,7 +391,8 @@
       "speciesName": "darkrai",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_491-b-n.png"
+      "target": "normal/levitates_491-b-n.png",
+      "grayscaleTarget": "normal/levitates_491-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DIGLETT.png",
@@ -357,7 +400,8 @@
       "speciesName": "diglett",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_050-b-n.png"
+      "target": "normal/levitates_050-b-n.png",
+      "grayscaleTarget": "normal/levitates_050-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DIGLETT_1.png",
@@ -365,7 +409,8 @@
       "speciesName": "diglett",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_050-b-n_1.png"
+      "target": "normal/levitates_050-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_050-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/DOUBLADE.png",
@@ -373,7 +418,8 @@
       "speciesName": "doublade",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_680-b-n.png"
+      "target": "normal/levitates_680-b-n.png",
+      "grayscaleTarget": "normal/levitates_680-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DRAGAPULT.png",
@@ -381,7 +427,8 @@
       "speciesName": "dragapult",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_887-b-n.png"
+      "target": "normal/levitates_887-b-n.png",
+      "grayscaleTarget": "normal/levitates_887-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DRAGONITE.png",
@@ -389,7 +436,8 @@
       "speciesName": "dragonite",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_149-b-n.png"
+      "target": "normal/levitates_149-b-n.png",
+      "grayscaleTarget": "normal/levitates_149-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DRAKLOAK.png",
@@ -397,7 +445,8 @@
       "speciesName": "drakloak",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_886-b-n.png"
+      "target": "normal/levitates_886-b-n.png",
+      "grayscaleTarget": "normal/levitates_886-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DREEPY.png",
@@ -405,7 +454,8 @@
       "speciesName": "dreepy",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_885-b-n.png"
+      "target": "normal/levitates_885-b-n.png",
+      "grayscaleTarget": "normal/levitates_885-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DRIFBLIM.png",
@@ -413,7 +463,8 @@
       "speciesName": "drifblim",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_426-b-n.png"
+      "target": "normal/levitates_426-b-n.png",
+      "grayscaleTarget": "normal/levitates_426-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DRIFLOON.png",
@@ -421,7 +472,8 @@
       "speciesName": "drifloon",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_425-b-n.png"
+      "target": "normal/levitates_425-b-n.png",
+      "grayscaleTarget": "normal/levitates_425-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DUGTRIO.png",
@@ -429,7 +481,8 @@
       "speciesName": "dugtrio",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_051-b-n.png"
+      "target": "normal/levitates_051-b-n.png",
+      "grayscaleTarget": "normal/levitates_051-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DUGTRIO_1.png",
@@ -437,7 +490,8 @@
       "speciesName": "dugtrio",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_051-b-n_1.png"
+      "target": "normal/levitates_051-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_051-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/DUOSION.png",
@@ -445,7 +499,8 @@
       "speciesName": "duosion",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_578-b-n.png"
+      "target": "normal/levitates_578-b-n.png",
+      "grayscaleTarget": "normal/levitates_578-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DUSKULL.png",
@@ -453,7 +508,8 @@
       "speciesName": "duskull",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_355-b-n.png"
+      "target": "normal/levitates_355-b-n.png",
+      "grayscaleTarget": "normal/levitates_355-b-n-grayscale.png"
     },
     {
       "source": "Levitates/DUSTOX.png",
@@ -461,7 +517,8 @@
       "speciesName": "dustox",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_269-b-n.png"
+      "target": "normal/levitates_269-b-n.png",
+      "grayscaleTarget": "normal/levitates_269-b-n-grayscale.png"
     },
     {
       "source": "Levitates/EELEKTRIK.png",
@@ -469,7 +526,8 @@
       "speciesName": "eelektrik",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_603-b-n.png"
+      "target": "normal/levitates_603-b-n.png",
+      "grayscaleTarget": "normal/levitates_603-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ELDEGOSS.png",
@@ -477,7 +535,8 @@
       "speciesName": "eldegoss",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_830-b-n.png"
+      "target": "normal/levitates_830-b-n.png",
+      "grayscaleTarget": "normal/levitates_830-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ELGYEM.png",
@@ -485,7 +544,8 @@
       "speciesName": "elgyem",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_605-b-n.png"
+      "target": "normal/levitates_605-b-n.png",
+      "grayscaleTarget": "normal/levitates_605-b-n-grayscale.png"
     },
     {
       "source": "Levitates/EMOLGA.png",
@@ -493,7 +553,8 @@
       "speciesName": "emolga",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_587-b-n.png"
+      "target": "normal/levitates_587-b-n.png",
+      "grayscaleTarget": "normal/levitates_587-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ENAMORUS.png",
@@ -501,7 +562,8 @@
       "speciesName": "enamorus",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_905-b-n.png"
+      "target": "normal/levitates_905-b-n.png",
+      "grayscaleTarget": "normal/levitates_905-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ENAMORUS_1.png",
@@ -509,7 +571,8 @@
       "speciesName": "enamorus",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_905-b-n_1.png"
+      "target": "normal/levitates_905-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_905-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/ETERNATUS.png",
@@ -517,7 +580,8 @@
       "speciesName": "eternatus",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_890-b-n.png"
+      "target": "normal/levitates_890-b-n.png",
+      "grayscaleTarget": "normal/levitates_890-b-n-grayscale.png"
     },
     {
       "source": "Levitates/FEAROW.png",
@@ -525,7 +589,8 @@
       "speciesName": "fearow",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_022-b-n.png"
+      "target": "normal/levitates_022-b-n.png",
+      "grayscaleTarget": "normal/levitates_022-b-n-grayscale.png"
     },
     {
       "source": "Levitates/FLAPPLE.png",
@@ -533,7 +598,8 @@
       "speciesName": "flapple",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_841-b-n.png"
+      "target": "normal/levitates_841-b-n.png",
+      "grayscaleTarget": "normal/levitates_841-b-n-grayscale.png"
     },
     {
       "source": "Levitates/FLETCHINDER.png",
@@ -541,7 +607,8 @@
       "speciesName": "fletchinder",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_662-b-n.png"
+      "target": "normal/levitates_662-b-n.png",
+      "grayscaleTarget": "normal/levitates_662-b-n-grayscale.png"
     },
     {
       "source": "Levitates/FLUTTERMANE.png",
@@ -549,7 +616,8 @@
       "speciesName": "fluttermane",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_987-b-n.png"
+      "target": "normal/levitates_987-b-n.png",
+      "grayscaleTarget": "normal/levitates_987-b-n-grayscale.png"
     },
     {
       "source": "Levitates/FLYGON.png",
@@ -557,7 +625,8 @@
       "speciesName": "flygon",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_330-b-n.png"
+      "target": "normal/levitates_330-b-n.png",
+      "grayscaleTarget": "normal/levitates_330-b-n-grayscale.png"
     },
     {
       "source": "Levitates/FROSLASS.png",
@@ -565,7 +634,8 @@
       "speciesName": "froslass",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_478-b-n.png"
+      "target": "normal/levitates_478-b-n.png",
+      "grayscaleTarget": "normal/levitates_478-b-n-grayscale.png"
     },
     {
       "source": "Levitates/FROSMOTH.png",
@@ -573,7 +643,8 @@
       "speciesName": "frosmoth",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_873-b-n.png"
+      "target": "normal/levitates_873-b-n.png",
+      "grayscaleTarget": "normal/levitates_873-b-n-grayscale.png"
     },
     {
       "source": "Levitates/GASTLY.png",
@@ -581,7 +652,8 @@
       "speciesName": "gastly",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_092-b-n.png"
+      "target": "normal/levitates_092-b-n.png",
+      "grayscaleTarget": "normal/levitates_092-b-n-grayscale.png"
     },
     {
       "source": "Levitates/GIRATINA_1.png",
@@ -589,7 +661,8 @@
       "speciesName": "giratina",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_487-b-n_1.png"
+      "target": "normal/levitates_487-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_487-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/GLALIE.png",
@@ -597,7 +670,8 @@
       "speciesName": "glalie",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_362-b-n.png"
+      "target": "normal/levitates_362-b-n.png",
+      "grayscaleTarget": "normal/levitates_362-b-n-grayscale.png"
     },
     {
       "source": "Levitates/GLIGAR.png",
@@ -605,7 +679,8 @@
       "speciesName": "gligar",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_207-b-n.png"
+      "target": "normal/levitates_207-b-n.png",
+      "grayscaleTarget": "normal/levitates_207-b-n-grayscale.png"
     },
     {
       "source": "Levitates/GLISCOR.png",
@@ -613,7 +688,8 @@
       "speciesName": "gliscor",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_472-b-n.png"
+      "target": "normal/levitates_472-b-n.png",
+      "grayscaleTarget": "normal/levitates_472-b-n-grayscale.png"
     },
     {
       "source": "Levitates/GOLBAT.png",
@@ -621,7 +697,8 @@
       "speciesName": "golbat",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_042-b-n.png"
+      "target": "normal/levitates_042-b-n.png",
+      "grayscaleTarget": "normal/levitates_042-b-n-grayscale.png"
     },
     {
       "source": "Levitates/GOSSIFLEUR.png",
@@ -629,7 +706,8 @@
       "speciesName": "gossifleur",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_829-b-n.png"
+      "target": "normal/levitates_829-b-n.png",
+      "grayscaleTarget": "normal/levitates_829-b-n-grayscale.png"
     },
     {
       "source": "Levitates/GOURGEIST.png",
@@ -637,7 +715,8 @@
       "speciesName": "gourgeist",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_711-b-n.png"
+      "target": "normal/levitates_711-b-n.png",
+      "grayscaleTarget": "normal/levitates_711-b-n-grayscale.png"
     },
     {
       "source": "Levitates/HAUNTER.png",
@@ -645,7 +724,8 @@
       "speciesName": "haunter",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_093-b-n.png"
+      "target": "normal/levitates_093-b-n.png",
+      "grayscaleTarget": "normal/levitates_093-b-n-grayscale.png"
     },
     {
       "source": "Levitates/HONEDGE.png",
@@ -653,7 +733,8 @@
       "speciesName": "honedge",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_679-b-n.png"
+      "target": "normal/levitates_679-b-n.png",
+      "grayscaleTarget": "normal/levitates_679-b-n-grayscale.png"
     },
     {
       "source": "Levitates/HOOH.png",
@@ -661,7 +742,8 @@
       "speciesName": "hooh",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_250-b-n.png"
+      "target": "normal/levitates_250-b-n.png",
+      "grayscaleTarget": "normal/levitates_250-b-n-grayscale.png"
     },
     {
       "source": "Levitates/HOOPA.png",
@@ -669,7 +751,8 @@
       "speciesName": "hoopa",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_720-b-n.png"
+      "target": "normal/levitates_720-b-n.png",
+      "grayscaleTarget": "normal/levitates_720-b-n-grayscale.png"
     },
     {
       "source": "Levitates/HOOPA_1.png",
@@ -677,7 +760,8 @@
       "speciesName": "hoopa",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_720-b-n_1.png"
+      "target": "normal/levitates_720-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_720-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/HOPPIP.png",
@@ -685,7 +769,8 @@
       "speciesName": "hoppip",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_187-b-n.png"
+      "target": "normal/levitates_187-b-n.png",
+      "grayscaleTarget": "normal/levitates_187-b-n-grayscale.png"
     },
     {
       "source": "Levitates/HYDREIGON.png",
@@ -693,7 +778,8 @@
       "speciesName": "hydreigon",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_635-b-n.png"
+      "target": "normal/levitates_635-b-n.png",
+      "grayscaleTarget": "normal/levitates_635-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ILLUMISE.png",
@@ -701,7 +787,8 @@
       "speciesName": "illumise",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_314-b-n.png"
+      "target": "normal/levitates_314-b-n.png",
+      "grayscaleTarget": "normal/levitates_314-b-n-grayscale.png"
     },
     {
       "source": "Levitates/IRONJUGULIS.png",
@@ -709,7 +796,8 @@
       "speciesName": "ironjugulis",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_993-b-n.png"
+      "target": "normal/levitates_993-b-n.png",
+      "grayscaleTarget": "normal/levitates_993-b-n-grayscale.png"
     },
     {
       "source": "Levitates/IRONMOTH.png",
@@ -717,7 +805,8 @@
       "speciesName": "ironmoth",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_994-b-n.png"
+      "target": "normal/levitates_994-b-n.png",
+      "grayscaleTarget": "normal/levitates_994-b-n-grayscale.png"
     },
     {
       "source": "Levitates/JIRACHI.png",
@@ -725,7 +814,8 @@
       "speciesName": "jirachi",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_385-b-n.png"
+      "target": "normal/levitates_385-b-n.png",
+      "grayscaleTarget": "normal/levitates_385-b-n-grayscale.png"
     },
     {
       "source": "Levitates/JUMPLUFF.png",
@@ -733,7 +823,8 @@
       "speciesName": "jumpluff",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_189-b-n.png"
+      "target": "normal/levitates_189-b-n.png",
+      "grayscaleTarget": "normal/levitates_189-b-n-grayscale.png"
     },
     {
       "source": "Levitates/KARTANA.png",
@@ -741,7 +832,8 @@
       "speciesName": "kartana",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_798-b-n.png"
+      "target": "normal/levitates_798-b-n.png",
+      "grayscaleTarget": "normal/levitates_798-b-n-grayscale.png"
     },
     {
       "source": "Levitates/KILOWATTREL.png",
@@ -749,7 +841,8 @@
       "speciesName": "kilowattrel",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_941-b-n.png"
+      "target": "normal/levitates_941-b-n.png",
+      "grayscaleTarget": "normal/levitates_941-b-n-grayscale.png"
     },
     {
       "source": "Levitates/KLANG.png",
@@ -757,7 +850,8 @@
       "speciesName": "klang",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_600-b-n.png"
+      "target": "normal/levitates_600-b-n.png",
+      "grayscaleTarget": "normal/levitates_600-b-n-grayscale.png"
     },
     {
       "source": "Levitates/KLEFKI.png",
@@ -765,7 +859,8 @@
       "speciesName": "klefki",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_707-b-n.png"
+      "target": "normal/levitates_707-b-n.png",
+      "grayscaleTarget": "normal/levitates_707-b-n-grayscale.png"
     },
     {
       "source": "Levitates/KLINK.png",
@@ -773,7 +868,8 @@
       "speciesName": "klink",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_599-b-n.png"
+      "target": "normal/levitates_599-b-n.png",
+      "grayscaleTarget": "normal/levitates_599-b-n-grayscale.png"
     },
     {
       "source": "Levitates/KLINKLANG.png",
@@ -781,7 +877,8 @@
       "speciesName": "klinklang",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_601-b-n.png"
+      "target": "normal/levitates_601-b-n.png",
+      "grayscaleTarget": "normal/levitates_601-b-n-grayscale.png"
     },
     {
       "source": "Levitates/KOFFING.png",
@@ -789,7 +886,8 @@
       "speciesName": "koffing",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_109-b-n.png"
+      "target": "normal/levitates_109-b-n.png",
+      "grayscaleTarget": "normal/levitates_109-b-n-grayscale.png"
     },
     {
       "source": "Levitates/LAMPENT.png",
@@ -797,7 +895,8 @@
       "speciesName": "lampent",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_608-b-n.png"
+      "target": "normal/levitates_608-b-n.png",
+      "grayscaleTarget": "normal/levitates_608-b-n-grayscale.png"
     },
     {
       "source": "Levitates/LANDORUS.png",
@@ -805,7 +904,8 @@
       "speciesName": "landorus",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_645-b-n.png"
+      "target": "normal/levitates_645-b-n.png",
+      "grayscaleTarget": "normal/levitates_645-b-n-grayscale.png"
     },
     {
       "source": "Levitates/LANDORUS_1.png",
@@ -813,7 +913,8 @@
       "speciesName": "landorus",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_645-b-n_1.png"
+      "target": "normal/levitates_645-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_645-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/LATIAS.png",
@@ -821,7 +922,8 @@
       "speciesName": "latias",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_380-b-n.png"
+      "target": "normal/levitates_380-b-n.png",
+      "grayscaleTarget": "normal/levitates_380-b-n-grayscale.png"
     },
     {
       "source": "Levitates/LATIOS.png",
@@ -829,7 +931,8 @@
       "speciesName": "latios",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_381-b-n.png"
+      "target": "normal/levitates_381-b-n.png",
+      "grayscaleTarget": "normal/levitates_381-b-n-grayscale.png"
     },
     {
       "source": "Levitates/LEDIAN.png",
@@ -837,7 +940,8 @@
       "speciesName": "ledian",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_166-b-n.png"
+      "target": "normal/levitates_166-b-n.png",
+      "grayscaleTarget": "normal/levitates_166-b-n-grayscale.png"
     },
     {
       "source": "Levitates/LEDYBA.png",
@@ -845,7 +949,8 @@
       "speciesName": "ledyba",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_165-b-n.png"
+      "target": "normal/levitates_165-b-n.png",
+      "grayscaleTarget": "normal/levitates_165-b-n-grayscale.png"
     },
     {
       "source": "Levitates/LUGIA.png",
@@ -853,7 +958,8 @@
       "speciesName": "lugia",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_249-b-n.png"
+      "target": "normal/levitates_249-b-n.png",
+      "grayscaleTarget": "normal/levitates_249-b-n-grayscale.png"
     },
     {
       "source": "Levitates/LUNALA.png",
@@ -861,7 +967,8 @@
       "speciesName": "lunala",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_792-b-n.png"
+      "target": "normal/levitates_792-b-n.png",
+      "grayscaleTarget": "normal/levitates_792-b-n-grayscale.png"
     },
     {
       "source": "Levitates/LUNATONE.png",
@@ -869,7 +976,8 @@
       "speciesName": "lunatone",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_337-b-n.png"
+      "target": "normal/levitates_337-b-n.png",
+      "grayscaleTarget": "normal/levitates_337-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MAGNEZONE.png",
@@ -877,7 +985,8 @@
       "speciesName": "magnezone",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_462-b-n.png"
+      "target": "normal/levitates_462-b-n.png",
+      "grayscaleTarget": "normal/levitates_462-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MANDIBUZZ.png",
@@ -885,7 +994,8 @@
       "speciesName": "mandibuzz",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_630-b-n.png"
+      "target": "normal/levitates_630-b-n.png",
+      "grayscaleTarget": "normal/levitates_630-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MASQUERAIN.png",
@@ -893,7 +1003,8 @@
       "speciesName": "masquerain",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_284-b-n.png"
+      "target": "normal/levitates_284-b-n.png",
+      "grayscaleTarget": "normal/levitates_284-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MESPRIT.png",
@@ -901,7 +1012,8 @@
       "speciesName": "mesprit",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_481-b-n.png"
+      "target": "normal/levitates_481-b-n.png",
+      "grayscaleTarget": "normal/levitates_481-b-n-grayscale.png"
     },
     {
       "source": "Levitates/METANG.png",
@@ -909,7 +1021,8 @@
       "speciesName": "metang",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_375-b-n.png"
+      "target": "normal/levitates_375-b-n.png",
+      "grayscaleTarget": "normal/levitates_375-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MILCERY.png",
@@ -917,7 +1030,8 @@
       "speciesName": "milcery",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_868-b-n.png"
+      "target": "normal/levitates_868-b-n.png",
+      "grayscaleTarget": "normal/levitates_868-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MINIOR.png",
@@ -925,7 +1039,8 @@
       "speciesName": "minior",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_774-b-n.png"
+      "target": "normal/levitates_774-b-n.png",
+      "grayscaleTarget": "normal/levitates_774-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MINIOR_1.png",
@@ -933,7 +1048,8 @@
       "speciesName": "minior",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_774-b-n_1.png"
+      "target": "normal/levitates_774-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_774-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/MINIOR_2.png",
@@ -941,7 +1057,8 @@
       "speciesName": "minior",
       "variant": "normal",
       "suffix": "2",
-      "target": "normal/levitates_774-b-n_2.png"
+      "target": "normal/levitates_774-b-n_2.png",
+      "grayscaleTarget": "normal/levitates_774-b-n_2-grayscale.png"
     },
     {
       "source": "Levitates/MINIOR_3.png",
@@ -949,7 +1066,8 @@
       "speciesName": "minior",
       "variant": "normal",
       "suffix": "3",
-      "target": "normal/levitates_774-b-n_3.png"
+      "target": "normal/levitates_774-b-n_3.png",
+      "grayscaleTarget": "normal/levitates_774-b-n_3-grayscale.png"
     },
     {
       "source": "Levitates/MINIOR_4.png",
@@ -957,7 +1075,8 @@
       "speciesName": "minior",
       "variant": "normal",
       "suffix": "4",
-      "target": "normal/levitates_774-b-n_4.png"
+      "target": "normal/levitates_774-b-n_4.png",
+      "grayscaleTarget": "normal/levitates_774-b-n_4-grayscale.png"
     },
     {
       "source": "Levitates/MINIOR_5.png",
@@ -965,7 +1084,8 @@
       "speciesName": "minior",
       "variant": "normal",
       "suffix": "5",
-      "target": "normal/levitates_774-b-n_5.png"
+      "target": "normal/levitates_774-b-n_5.png",
+      "grayscaleTarget": "normal/levitates_774-b-n_5-grayscale.png"
     },
     {
       "source": "Levitates/MINIOR_6.png",
@@ -973,7 +1093,8 @@
       "speciesName": "minior",
       "variant": "normal",
       "suffix": "6",
-      "target": "normal/levitates_774-b-n_6.png"
+      "target": "normal/levitates_774-b-n_6.png",
+      "grayscaleTarget": "normal/levitates_774-b-n_6-grayscale.png"
     },
     {
       "source": "Levitates/MINIOR_7.png",
@@ -981,7 +1102,8 @@
       "speciesName": "minior",
       "variant": "normal",
       "suffix": "7",
-      "target": "normal/levitates_774-b-n_7.png"
+      "target": "normal/levitates_774-b-n_7.png",
+      "grayscaleTarget": "normal/levitates_774-b-n_7-grayscale.png"
     },
     {
       "source": "Levitates/MISDREAVUS.png",
@@ -989,7 +1111,8 @@
       "speciesName": "misdreavus",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_200-b-n.png"
+      "target": "normal/levitates_200-b-n.png",
+      "grayscaleTarget": "normal/levitates_200-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MISMAGIUS.png",
@@ -997,7 +1120,8 @@
       "speciesName": "mismagius",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_429-b-n.png"
+      "target": "normal/levitates_429-b-n.png",
+      "grayscaleTarget": "normal/levitates_429-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MOLTRES.png",
@@ -1005,7 +1129,8 @@
       "speciesName": "moltres",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_146-b-n.png"
+      "target": "normal/levitates_146-b-n.png",
+      "grayscaleTarget": "normal/levitates_146-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MOLTRES_1.png",
@@ -1013,7 +1138,8 @@
       "speciesName": "moltres",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_146-b-n_1.png"
+      "target": "normal/levitates_146-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_146-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/MOTHIM.png",
@@ -1021,7 +1147,8 @@
       "speciesName": "mothim",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_414-b-n.png"
+      "target": "normal/levitates_414-b-n.png",
+      "grayscaleTarget": "normal/levitates_414-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MUNNA.png",
@@ -1029,7 +1156,8 @@
       "speciesName": "munna",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_517-b-n.png"
+      "target": "normal/levitates_517-b-n.png",
+      "grayscaleTarget": "normal/levitates_517-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MURKROW.png",
@@ -1037,7 +1165,8 @@
       "speciesName": "murkrow",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_198-b-n.png"
+      "target": "normal/levitates_198-b-n.png",
+      "grayscaleTarget": "normal/levitates_198-b-n-grayscale.png"
     },
     {
       "source": "Levitates/MUSHARNA.png",
@@ -1045,7 +1174,8 @@
       "speciesName": "musharna",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_518-b-n.png"
+      "target": "normal/levitates_518-b-n.png",
+      "grayscaleTarget": "normal/levitates_518-b-n-grayscale.png"
     },
     {
       "source": "Levitates/NAGANADEL.png",
@@ -1053,7 +1183,8 @@
       "speciesName": "naganadel",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_804-b-n.png"
+      "target": "normal/levitates_804-b-n.png",
+      "grayscaleTarget": "normal/levitates_804-b-n-grayscale.png"
     },
     {
       "source": "Levitates/NECROZMA.png",
@@ -1061,7 +1192,8 @@
       "speciesName": "necrozma",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_800-b-n.png"
+      "target": "normal/levitates_800-b-n.png",
+      "grayscaleTarget": "normal/levitates_800-b-n-grayscale.png"
     },
     {
       "source": "Levitates/NECROZMA_1.png",
@@ -1069,7 +1201,8 @@
       "speciesName": "necrozma",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_800-b-n_1.png"
+      "target": "normal/levitates_800-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_800-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/NECROZMA_2.png",
@@ -1077,7 +1210,8 @@
       "speciesName": "necrozma",
       "variant": "normal",
       "suffix": "2",
-      "target": "normal/levitates_800-b-n_2.png"
+      "target": "normal/levitates_800-b-n_2.png",
+      "grayscaleTarget": "normal/levitates_800-b-n_2-grayscale.png"
     },
     {
       "source": "Levitates/NECROZMA_3.png",
@@ -1085,7 +1219,8 @@
       "speciesName": "necrozma",
       "variant": "normal",
       "suffix": "3",
-      "target": "normal/levitates_800-b-n_3.png"
+      "target": "normal/levitates_800-b-n_3.png",
+      "grayscaleTarget": "normal/levitates_800-b-n_3-grayscale.png"
     },
     {
       "source": "Levitates/NIHILEGO.png",
@@ -1093,7 +1228,8 @@
       "speciesName": "nihilego",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_793-b-n.png"
+      "target": "normal/levitates_793-b-n.png",
+      "grayscaleTarget": "normal/levitates_793-b-n-grayscale.png"
     },
     {
       "source": "Levitates/NINJASK.png",
@@ -1101,7 +1237,8 @@
       "speciesName": "ninjask",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_291-b-n.png"
+      "target": "normal/levitates_291-b-n.png",
+      "grayscaleTarget": "normal/levitates_291-b-n-grayscale.png"
     },
     {
       "source": "Levitates/NOCTOWL.png",
@@ -1109,7 +1246,8 @@
       "speciesName": "noctowl",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_164-b-n.png"
+      "target": "normal/levitates_164-b-n.png",
+      "grayscaleTarget": "normal/levitates_164-b-n-grayscale.png"
     },
     {
       "source": "Levitates/NOIBAT.png",
@@ -1117,7 +1255,8 @@
       "speciesName": "noibat",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_714-b-n.png"
+      "target": "normal/levitates_714-b-n.png",
+      "grayscaleTarget": "normal/levitates_714-b-n-grayscale.png"
     },
     {
       "source": "Levitates/NOIVERN.png",
@@ -1125,7 +1264,8 @@
       "speciesName": "noivern",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_715-b-n.png"
+      "target": "normal/levitates_715-b-n.png",
+      "grayscaleTarget": "normal/levitates_715-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ORBEETLE.png",
@@ -1133,7 +1273,8 @@
       "speciesName": "orbeetle",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_826-b-n.png"
+      "target": "normal/levitates_826-b-n.png",
+      "grayscaleTarget": "normal/levitates_826-b-n-grayscale.png"
     },
     {
       "source": "Levitates/PELIPPER.png",
@@ -1141,7 +1282,8 @@
       "speciesName": "pelipper",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_279-b-n.png"
+      "target": "normal/levitates_279-b-n.png",
+      "grayscaleTarget": "normal/levitates_279-b-n-grayscale.png"
     },
     {
       "source": "Levitates/PHANTUMP.png",
@@ -1149,7 +1291,8 @@
       "speciesName": "phantump",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_708-b-n.png"
+      "target": "normal/levitates_708-b-n.png",
+      "grayscaleTarget": "normal/levitates_708-b-n-grayscale.png"
     },
     {
       "source": "Levitates/PIDGEOT.png",
@@ -1157,7 +1300,8 @@
       "speciesName": "pidgeot",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_018-b-n.png"
+      "target": "normal/levitates_018-b-n.png",
+      "grayscaleTarget": "normal/levitates_018-b-n-grayscale.png"
     },
     {
       "source": "Levitates/PIDGEOTTO.png",
@@ -1165,7 +1309,8 @@
       "speciesName": "pidgeotto",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_017-b-n.png"
+      "target": "normal/levitates_017-b-n.png",
+      "grayscaleTarget": "normal/levitates_017-b-n-grayscale.png"
     },
     {
       "source": "Levitates/PIDOVE.png",
@@ -1173,7 +1318,8 @@
       "speciesName": "pidove",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_519-b-n.png"
+      "target": "normal/levitates_519-b-n.png",
+      "grayscaleTarget": "normal/levitates_519-b-n-grayscale.png"
     },
     {
       "source": "Levitates/POLTEAGEIST.png",
@@ -1181,7 +1327,8 @@
       "speciesName": "polteageist",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_855-b-n.png"
+      "target": "normal/levitates_855-b-n.png",
+      "grayscaleTarget": "normal/levitates_855-b-n-grayscale.png"
     },
     {
       "source": "Levitates/PUMPKABOO.png",
@@ -1189,7 +1336,8 @@
       "speciesName": "pumpkaboo",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_710-b-n.png"
+      "target": "normal/levitates_710-b-n.png",
+      "grayscaleTarget": "normal/levitates_710-b-n-grayscale.png"
     },
     {
       "source": "Levitates/RABSCA.png",
@@ -1197,7 +1345,8 @@
       "speciesName": "rabsca",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_954-b-n.png"
+      "target": "normal/levitates_954-b-n.png",
+      "grayscaleTarget": "normal/levitates_954-b-n-grayscale.png"
     },
     {
       "source": "Levitates/RAYQUAZA.png",
@@ -1205,7 +1354,8 @@
       "speciesName": "rayquaza",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_384-b-n.png"
+      "target": "normal/levitates_384-b-n.png",
+      "grayscaleTarget": "normal/levitates_384-b-n-grayscale.png"
     },
     {
       "source": "Levitates/REGIELEKI.png",
@@ -1213,7 +1363,8 @@
       "speciesName": "regieleki",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_894-b-n.png"
+      "target": "normal/levitates_894-b-n.png",
+      "grayscaleTarget": "normal/levitates_894-b-n-grayscale.png"
     },
     {
       "source": "Levitates/REUNICLUS.png",
@@ -1221,7 +1372,8 @@
       "speciesName": "reuniclus",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_579-b-n.png"
+      "target": "normal/levitates_579-b-n.png",
+      "grayscaleTarget": "normal/levitates_579-b-n-grayscale.png"
     },
     {
       "source": "Levitates/REVAVROOM.png",
@@ -1229,7 +1381,8 @@
       "speciesName": "revavroom",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_966-b-n.png"
+      "target": "normal/levitates_966-b-n.png",
+      "grayscaleTarget": "normal/levitates_966-b-n-grayscale.png"
     },
     {
       "source": "Levitates/RIBOMBEE.png",
@@ -1237,7 +1390,8 @@
       "speciesName": "ribombee",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_743-b-n.png"
+      "target": "normal/levitates_743-b-n.png",
+      "grayscaleTarget": "normal/levitates_743-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ROARINGMOON.png",
@@ -1245,7 +1399,8 @@
       "speciesName": "roaringmoon",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_1005-b-n.png"
+      "target": "normal/levitates_1005-b-n.png",
+      "grayscaleTarget": "normal/levitates_1005-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ROTOM.png",
@@ -1253,7 +1408,8 @@
       "speciesName": "rotom",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_479-b-n.png"
+      "target": "normal/levitates_479-b-n.png",
+      "grayscaleTarget": "normal/levitates_479-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ROTOM_1.png",
@@ -1261,7 +1417,8 @@
       "speciesName": "rotom",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_479-b-n_1.png"
+      "target": "normal/levitates_479-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_479-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/ROTOM_2.png",
@@ -1269,7 +1426,8 @@
       "speciesName": "rotom",
       "variant": "normal",
       "suffix": "2",
-      "target": "normal/levitates_479-b-n_2.png"
+      "target": "normal/levitates_479-b-n_2.png",
+      "grayscaleTarget": "normal/levitates_479-b-n_2-grayscale.png"
     },
     {
       "source": "Levitates/ROTOM_3.png",
@@ -1277,7 +1435,8 @@
       "speciesName": "rotom",
       "variant": "normal",
       "suffix": "3",
-      "target": "normal/levitates_479-b-n_3.png"
+      "target": "normal/levitates_479-b-n_3.png",
+      "grayscaleTarget": "normal/levitates_479-b-n_3-grayscale.png"
     },
     {
       "source": "Levitates/ROTOM_4.png",
@@ -1285,7 +1444,8 @@
       "speciesName": "rotom",
       "variant": "normal",
       "suffix": "4",
-      "target": "normal/levitates_479-b-n_4.png"
+      "target": "normal/levitates_479-b-n_4.png",
+      "grayscaleTarget": "normal/levitates_479-b-n_4-grayscale.png"
     },
     {
       "source": "Levitates/ROTOM_5.png",
@@ -1293,7 +1453,8 @@
       "speciesName": "rotom",
       "variant": "normal",
       "suffix": "5",
-      "target": "normal/levitates_479-b-n_5.png"
+      "target": "normal/levitates_479-b-n_5.png",
+      "grayscaleTarget": "normal/levitates_479-b-n_5-grayscale.png"
     },
     {
       "source": "Levitates/RUNERIGUS.png",
@@ -1301,7 +1462,8 @@
       "speciesName": "runerigus",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_867-b-n.png"
+      "target": "normal/levitates_867-b-n.png",
+      "grayscaleTarget": "normal/levitates_867-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SALAMENCE.png",
@@ -1309,7 +1471,8 @@
       "speciesName": "salamence",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_373-b-n.png"
+      "target": "normal/levitates_373-b-n.png",
+      "grayscaleTarget": "normal/levitates_373-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SHEDINJA.png",
@@ -1317,7 +1480,8 @@
       "speciesName": "shedinja",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_292-b-n.png"
+      "target": "normal/levitates_292-b-n.png",
+      "grayscaleTarget": "normal/levitates_292-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SHUPPET.png",
@@ -1325,7 +1489,8 @@
       "speciesName": "shuppet",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_353-b-n.png"
+      "target": "normal/levitates_353-b-n.png",
+      "grayscaleTarget": "normal/levitates_353-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SIGILYPH.png",
@@ -1333,7 +1498,8 @@
       "speciesName": "sigilyph",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_561-b-n.png"
+      "target": "normal/levitates_561-b-n.png",
+      "grayscaleTarget": "normal/levitates_561-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SINISTEA.png",
@@ -1341,7 +1507,8 @@
       "speciesName": "sinistea",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_854-b-n.png"
+      "target": "normal/levitates_854-b-n.png",
+      "grayscaleTarget": "normal/levitates_854-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SKARMORY.png",
@@ -1349,7 +1516,8 @@
       "speciesName": "skarmory",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_227-b-n.png"
+      "target": "normal/levitates_227-b-n.png",
+      "grayscaleTarget": "normal/levitates_227-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SOLOSIS.png",
@@ -1357,7 +1525,8 @@
       "speciesName": "solosis",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_577-b-n.png"
+      "target": "normal/levitates_577-b-n.png",
+      "grayscaleTarget": "normal/levitates_577-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SOLROCK.png",
@@ -1365,7 +1534,8 @@
       "speciesName": "solrock",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_338-b-n.png"
+      "target": "normal/levitates_338-b-n.png",
+      "grayscaleTarget": "normal/levitates_338-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SPIRITOMB.png",
@@ -1373,7 +1543,8 @@
       "speciesName": "spiritomb",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_442-b-n.png"
+      "target": "normal/levitates_442-b-n.png",
+      "grayscaleTarget": "normal/levitates_442-b-n-grayscale.png"
     },
     {
       "source": "Levitates/STARAPTOR.png",
@@ -1381,7 +1552,8 @@
       "speciesName": "staraptor",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_398-b-n.png"
+      "target": "normal/levitates_398-b-n.png",
+      "grayscaleTarget": "normal/levitates_398-b-n-grayscale.png"
     },
     {
       "source": "Levitates/STARAVIA.png",
@@ -1389,7 +1561,8 @@
       "speciesName": "staravia",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_397-b-n.png"
+      "target": "normal/levitates_397-b-n.png",
+      "grayscaleTarget": "normal/levitates_397-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SURSKIT.png",
@@ -1397,7 +1570,8 @@
       "speciesName": "surskit",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_283-b-n.png"
+      "target": "normal/levitates_283-b-n.png",
+      "grayscaleTarget": "normal/levitates_283-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SWABLU.png",
@@ -1405,7 +1579,8 @@
       "speciesName": "swablu",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_333-b-n.png"
+      "target": "normal/levitates_333-b-n.png",
+      "grayscaleTarget": "normal/levitates_333-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SWANNA.png",
@@ -1413,7 +1588,8 @@
       "speciesName": "swanna",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_581-b-n.png"
+      "target": "normal/levitates_581-b-n.png",
+      "grayscaleTarget": "normal/levitates_581-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SWELLOW.png",
@@ -1421,7 +1597,8 @@
       "speciesName": "swellow",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_277-b-n.png"
+      "target": "normal/levitates_277-b-n.png",
+      "grayscaleTarget": "normal/levitates_277-b-n-grayscale.png"
     },
     {
       "source": "Levitates/SWOOBAT.png",
@@ -1429,7 +1606,8 @@
       "speciesName": "swoobat",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_528-b-n.png"
+      "target": "normal/levitates_528-b-n.png",
+      "grayscaleTarget": "normal/levitates_528-b-n-grayscale.png"
     },
     {
       "source": "Levitates/TALONFLAME.png",
@@ -1437,7 +1615,8 @@
       "speciesName": "talonflame",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_663-b-n.png"
+      "target": "normal/levitates_663-b-n.png",
+      "grayscaleTarget": "normal/levitates_663-b-n-grayscale.png"
     },
     {
       "source": "Levitates/TAPUBULU.png",
@@ -1445,7 +1624,8 @@
       "speciesName": "tapubulu",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_787-b-n.png"
+      "target": "normal/levitates_787-b-n.png",
+      "grayscaleTarget": "normal/levitates_787-b-n-grayscale.png"
     },
     {
       "source": "Levitates/TAPUFINI.png",
@@ -1453,7 +1633,8 @@
       "speciesName": "tapufini",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_788-b-n.png"
+      "target": "normal/levitates_788-b-n.png",
+      "grayscaleTarget": "normal/levitates_788-b-n-grayscale.png"
     },
     {
       "source": "Levitates/TAPUKOKO.png",
@@ -1461,7 +1642,8 @@
       "speciesName": "tapukoko",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_785-b-n.png"
+      "target": "normal/levitates_785-b-n.png",
+      "grayscaleTarget": "normal/levitates_785-b-n-grayscale.png"
     },
     {
       "source": "Levitates/TAPULELE.png",
@@ -1469,7 +1651,8 @@
       "speciesName": "tapulele",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_786-b-n.png"
+      "target": "normal/levitates_786-b-n.png",
+      "grayscaleTarget": "normal/levitates_786-b-n-grayscale.png"
     },
     {
       "source": "Levitates/THUNDURUS.png",
@@ -1477,7 +1660,8 @@
       "speciesName": "thundurus",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_642-b-n.png"
+      "target": "normal/levitates_642-b-n.png",
+      "grayscaleTarget": "normal/levitates_642-b-n-grayscale.png"
     },
     {
       "source": "Levitates/THUNDURUS_1.png",
@@ -1485,7 +1669,8 @@
       "speciesName": "thundurus",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_642-b-n_1.png"
+      "target": "normal/levitates_642-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_642-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/TOGEKISS.png",
@@ -1493,7 +1678,8 @@
       "speciesName": "togekiss",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_468-b-n.png"
+      "target": "normal/levitates_468-b-n.png",
+      "grayscaleTarget": "normal/levitates_468-b-n-grayscale.png"
     },
     {
       "source": "Levitates/TORNADUS.png",
@@ -1501,7 +1687,8 @@
       "speciesName": "tornadus",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_641-b-n.png"
+      "target": "normal/levitates_641-b-n.png",
+      "grayscaleTarget": "normal/levitates_641-b-n-grayscale.png"
     },
     {
       "source": "Levitates/TORNADUS_1.png",
@@ -1509,7 +1696,8 @@
       "speciesName": "tornadus",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_641-b-n_1.png"
+      "target": "normal/levitates_641-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_641-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/TOUCANNON.png",
@@ -1517,7 +1705,8 @@
       "speciesName": "toucannon",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_733-b-n.png"
+      "target": "normal/levitates_733-b-n.png",
+      "grayscaleTarget": "normal/levitates_733-b-n-grayscale.png"
     },
     {
       "source": "Levitates/TRANQUILL.png",
@@ -1525,7 +1714,8 @@
       "speciesName": "tranquill",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_520-b-n.png"
+      "target": "normal/levitates_520-b-n.png",
+      "grayscaleTarget": "normal/levitates_520-b-n-grayscale.png"
     },
     {
       "source": "Levitates/TRUMBEAK.png",
@@ -1533,7 +1723,8 @@
       "speciesName": "trumbeak",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_732-b-n.png"
+      "target": "normal/levitates_732-b-n.png",
+      "grayscaleTarget": "normal/levitates_732-b-n-grayscale.png"
     },
     {
       "source": "Levitates/TYNAMO.png",
@@ -1541,7 +1732,8 @@
       "speciesName": "tynamo",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_602-b-n.png"
+      "target": "normal/levitates_602-b-n.png",
+      "grayscaleTarget": "normal/levitates_602-b-n-grayscale.png"
     },
     {
       "source": "Levitates/UNFEZANT.png",
@@ -1549,7 +1741,8 @@
       "speciesName": "unfezant",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_521-b-n.png"
+      "target": "normal/levitates_521-b-n.png",
+      "grayscaleTarget": "normal/levitates_521-b-n-grayscale.png"
     },
     {
       "source": "Levitates/UNFEZANT_female.png",
@@ -1557,7 +1750,8 @@
       "speciesName": "unfezant",
       "variant": "normal",
       "suffix": "female",
-      "target": "normal/levitates_521-b-n_female.png"
+      "target": "normal/levitates_521-b-n_female.png",
+      "grayscaleTarget": "normal/levitates_521-b-n_female-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN.png",
@@ -1565,7 +1759,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_201-b-n.png"
+      "target": "normal/levitates_201-b-n.png",
+      "grayscaleTarget": "normal/levitates_201-b-n-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_1.png",
@@ -1573,7 +1768,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_201-b-n_1.png"
+      "target": "normal/levitates_201-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_10.png",
@@ -1581,7 +1777,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "10",
-      "target": "normal/levitates_201-b-n_10.png"
+      "target": "normal/levitates_201-b-n_10.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_10-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_11.png",
@@ -1589,7 +1786,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "11",
-      "target": "normal/levitates_201-b-n_11.png"
+      "target": "normal/levitates_201-b-n_11.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_11-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_12.png",
@@ -1597,7 +1795,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "12",
-      "target": "normal/levitates_201-b-n_12.png"
+      "target": "normal/levitates_201-b-n_12.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_12-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_13.png",
@@ -1605,7 +1804,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "13",
-      "target": "normal/levitates_201-b-n_13.png"
+      "target": "normal/levitates_201-b-n_13.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_13-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_14.png",
@@ -1613,7 +1813,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "14",
-      "target": "normal/levitates_201-b-n_14.png"
+      "target": "normal/levitates_201-b-n_14.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_14-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_15.png",
@@ -1621,7 +1822,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "15",
-      "target": "normal/levitates_201-b-n_15.png"
+      "target": "normal/levitates_201-b-n_15.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_15-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_16.png",
@@ -1629,7 +1831,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "16",
-      "target": "normal/levitates_201-b-n_16.png"
+      "target": "normal/levitates_201-b-n_16.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_16-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_17.png",
@@ -1637,7 +1840,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "17",
-      "target": "normal/levitates_201-b-n_17.png"
+      "target": "normal/levitates_201-b-n_17.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_17-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_18.png",
@@ -1645,7 +1849,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "18",
-      "target": "normal/levitates_201-b-n_18.png"
+      "target": "normal/levitates_201-b-n_18.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_18-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_19.png",
@@ -1653,7 +1858,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "19",
-      "target": "normal/levitates_201-b-n_19.png"
+      "target": "normal/levitates_201-b-n_19.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_19-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_2.png",
@@ -1661,7 +1867,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "2",
-      "target": "normal/levitates_201-b-n_2.png"
+      "target": "normal/levitates_201-b-n_2.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_2-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_20.png",
@@ -1669,7 +1876,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "20",
-      "target": "normal/levitates_201-b-n_20.png"
+      "target": "normal/levitates_201-b-n_20.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_20-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_21.png",
@@ -1677,7 +1885,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "21",
-      "target": "normal/levitates_201-b-n_21.png"
+      "target": "normal/levitates_201-b-n_21.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_21-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_22.png",
@@ -1685,7 +1894,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "22",
-      "target": "normal/levitates_201-b-n_22.png"
+      "target": "normal/levitates_201-b-n_22.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_22-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_23.png",
@@ -1693,7 +1903,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "23",
-      "target": "normal/levitates_201-b-n_23.png"
+      "target": "normal/levitates_201-b-n_23.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_23-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_24.png",
@@ -1701,7 +1912,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "24",
-      "target": "normal/levitates_201-b-n_24.png"
+      "target": "normal/levitates_201-b-n_24.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_24-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_25.png",
@@ -1709,7 +1921,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "25",
-      "target": "normal/levitates_201-b-n_25.png"
+      "target": "normal/levitates_201-b-n_25.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_25-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_26.png",
@@ -1717,7 +1930,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "26",
-      "target": "normal/levitates_201-b-n_26.png"
+      "target": "normal/levitates_201-b-n_26.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_26-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_27.png",
@@ -1725,7 +1939,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "27",
-      "target": "normal/levitates_201-b-n_27.png"
+      "target": "normal/levitates_201-b-n_27.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_27-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_3.png",
@@ -1733,7 +1948,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "3",
-      "target": "normal/levitates_201-b-n_3.png"
+      "target": "normal/levitates_201-b-n_3.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_3-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_4.png",
@@ -1741,7 +1957,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "4",
-      "target": "normal/levitates_201-b-n_4.png"
+      "target": "normal/levitates_201-b-n_4.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_4-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_5.png",
@@ -1749,7 +1966,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "5",
-      "target": "normal/levitates_201-b-n_5.png"
+      "target": "normal/levitates_201-b-n_5.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_5-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_6.png",
@@ -1757,7 +1975,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "6",
-      "target": "normal/levitates_201-b-n_6.png"
+      "target": "normal/levitates_201-b-n_6.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_6-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_7.png",
@@ -1765,7 +1984,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "7",
-      "target": "normal/levitates_201-b-n_7.png"
+      "target": "normal/levitates_201-b-n_7.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_7-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_8.png",
@@ -1773,7 +1993,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "8",
-      "target": "normal/levitates_201-b-n_8.png"
+      "target": "normal/levitates_201-b-n_8.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_8-grayscale.png"
     },
     {
       "source": "Levitates/UNOWN_9.png",
@@ -1781,7 +2002,8 @@
       "speciesName": "unown",
       "variant": "normal",
       "suffix": "9",
-      "target": "normal/levitates_201-b-n_9.png"
+      "target": "normal/levitates_201-b-n_9.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_9-grayscale.png"
     },
     {
       "source": "Levitates/UXIE.png",
@@ -1789,7 +2011,8 @@
       "speciesName": "uxie",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_480-b-n.png"
+      "target": "normal/levitates_480-b-n.png",
+      "grayscaleTarget": "normal/levitates_480-b-n-grayscale.png"
     },
     {
       "source": "Levitates/VAROOM.png",
@@ -1797,7 +2020,8 @@
       "speciesName": "varoom",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_965-b-n.png"
+      "target": "normal/levitates_965-b-n.png",
+      "grayscaleTarget": "normal/levitates_965-b-n-grayscale.png"
     },
     {
       "source": "Levitates/VENOMOTH.png",
@@ -1805,7 +2029,8 @@
       "speciesName": "venomoth",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_049-b-n.png"
+      "target": "normal/levitates_049-b-n.png",
+      "grayscaleTarget": "normal/levitates_049-b-n-grayscale.png"
     },
     {
       "source": "Levitates/VESPIQUEN.png",
@@ -1813,7 +2038,8 @@
       "speciesName": "vespiquen",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_416-b-n.png"
+      "target": "normal/levitates_416-b-n.png",
+      "grayscaleTarget": "normal/levitates_416-b-n-grayscale.png"
     },
     {
       "source": "Levitates/VIKAVOLT.png",
@@ -1821,7 +2047,8 @@
       "speciesName": "vikavolt",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_738-b-n.png"
+      "target": "normal/levitates_738-b-n.png",
+      "grayscaleTarget": "normal/levitates_738-b-n-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON.png",
@@ -1829,7 +2056,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_666-b-n.png"
+      "target": "normal/levitates_666-b-n.png",
+      "grayscaleTarget": "normal/levitates_666-b-n-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_1.png",
@@ -1837,7 +2065,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_666-b-n_1.png"
+      "target": "normal/levitates_666-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_10.png",
@@ -1845,7 +2074,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "10",
-      "target": "normal/levitates_666-b-n_10.png"
+      "target": "normal/levitates_666-b-n_10.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_10-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_11.png",
@@ -1853,7 +2083,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "11",
-      "target": "normal/levitates_666-b-n_11.png"
+      "target": "normal/levitates_666-b-n_11.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_11-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_12.png",
@@ -1861,7 +2092,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "12",
-      "target": "normal/levitates_666-b-n_12.png"
+      "target": "normal/levitates_666-b-n_12.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_12-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_13.png",
@@ -1869,7 +2101,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "13",
-      "target": "normal/levitates_666-b-n_13.png"
+      "target": "normal/levitates_666-b-n_13.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_13-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_14.png",
@@ -1877,7 +2110,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "14",
-      "target": "normal/levitates_666-b-n_14.png"
+      "target": "normal/levitates_666-b-n_14.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_14-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_15.png",
@@ -1885,7 +2119,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "15",
-      "target": "normal/levitates_666-b-n_15.png"
+      "target": "normal/levitates_666-b-n_15.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_15-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_16.png",
@@ -1893,7 +2128,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "16",
-      "target": "normal/levitates_666-b-n_16.png"
+      "target": "normal/levitates_666-b-n_16.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_16-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_17.png",
@@ -1901,7 +2137,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "17",
-      "target": "normal/levitates_666-b-n_17.png"
+      "target": "normal/levitates_666-b-n_17.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_17-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_18.png",
@@ -1909,7 +2146,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "18",
-      "target": "normal/levitates_666-b-n_18.png"
+      "target": "normal/levitates_666-b-n_18.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_18-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_19.png",
@@ -1917,7 +2155,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "19",
-      "target": "normal/levitates_666-b-n_19.png"
+      "target": "normal/levitates_666-b-n_19.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_19-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_2.png",
@@ -1925,7 +2164,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "2",
-      "target": "normal/levitates_666-b-n_2.png"
+      "target": "normal/levitates_666-b-n_2.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_2-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_3.png",
@@ -1933,7 +2173,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "3",
-      "target": "normal/levitates_666-b-n_3.png"
+      "target": "normal/levitates_666-b-n_3.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_3-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_4.png",
@@ -1941,7 +2182,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "4",
-      "target": "normal/levitates_666-b-n_4.png"
+      "target": "normal/levitates_666-b-n_4.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_4-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_5.png",
@@ -1949,7 +2191,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "5",
-      "target": "normal/levitates_666-b-n_5.png"
+      "target": "normal/levitates_666-b-n_5.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_5-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_6.png",
@@ -1957,7 +2200,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "6",
-      "target": "normal/levitates_666-b-n_6.png"
+      "target": "normal/levitates_666-b-n_6.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_6-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_7.png",
@@ -1965,7 +2209,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "7",
-      "target": "normal/levitates_666-b-n_7.png"
+      "target": "normal/levitates_666-b-n_7.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_7-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_8.png",
@@ -1973,7 +2218,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "8",
-      "target": "normal/levitates_666-b-n_8.png"
+      "target": "normal/levitates_666-b-n_8.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_8-grayscale.png"
     },
     {
       "source": "Levitates/VIVILLON_9.png",
@@ -1981,7 +2227,8 @@
       "speciesName": "vivillon",
       "variant": "normal",
       "suffix": "9",
-      "target": "normal/levitates_666-b-n_9.png"
+      "target": "normal/levitates_666-b-n_9.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_9-grayscale.png"
     },
     {
       "source": "Levitates/VOLBEAT.png",
@@ -1989,7 +2236,8 @@
       "speciesName": "volbeat",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_313-b-n.png"
+      "target": "normal/levitates_313-b-n.png",
+      "grayscaleTarget": "normal/levitates_313-b-n-grayscale.png"
     },
     {
       "source": "Levitates/VOLCARONA.png",
@@ -1997,7 +2245,8 @@
       "speciesName": "volcarona",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_637-b-n.png"
+      "target": "normal/levitates_637-b-n.png",
+      "grayscaleTarget": "normal/levitates_637-b-n-grayscale.png"
     },
     {
       "source": "Levitates/WEEZING.png",
@@ -2005,7 +2254,8 @@
       "speciesName": "weezing",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_110-b-n.png"
+      "target": "normal/levitates_110-b-n.png",
+      "grayscaleTarget": "normal/levitates_110-b-n-grayscale.png"
     },
     {
       "source": "Levitates/WEEZING_1.png",
@@ -2013,7 +2263,8 @@
       "speciesName": "weezing",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_110-b-n_1.png"
+      "target": "normal/levitates_110-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_110-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/WIGLETT.png",
@@ -2021,7 +2272,8 @@
       "speciesName": "wiglett",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_960-b-n.png"
+      "target": "normal/levitates_960-b-n.png",
+      "grayscaleTarget": "normal/levitates_960-b-n-grayscale.png"
     },
     {
       "source": "Levitates/WINGULL.png",
@@ -2029,7 +2281,8 @@
       "speciesName": "wingull",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_278-b-n.png"
+      "target": "normal/levitates_278-b-n.png",
+      "grayscaleTarget": "normal/levitates_278-b-n-grayscale.png"
     },
     {
       "source": "Levitates/WOOBAT.png",
@@ -2037,7 +2290,8 @@
       "speciesName": "woobat",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_527-b-n.png"
+      "target": "normal/levitates_527-b-n.png",
+      "grayscaleTarget": "normal/levitates_527-b-n-grayscale.png"
     },
     {
       "source": "Levitates/WUGTRIO.png",
@@ -2045,7 +2299,8 @@
       "speciesName": "wugtrio",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_961-b-n.png"
+      "target": "normal/levitates_961-b-n.png",
+      "grayscaleTarget": "normal/levitates_961-b-n-grayscale.png"
     },
     {
       "source": "Levitates/YAMASK.png",
@@ -2053,7 +2308,8 @@
       "speciesName": "yamask",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_562-b-n.png"
+      "target": "normal/levitates_562-b-n.png",
+      "grayscaleTarget": "normal/levitates_562-b-n-grayscale.png"
     },
     {
       "source": "Levitates/YAMASK_1.png",
@@ -2061,7 +2317,8 @@
       "speciesName": "yamask",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_562-b-n_1.png"
+      "target": "normal/levitates_562-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_562-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/YANMA.png",
@@ -2069,7 +2326,8 @@
       "speciesName": "yanma",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_193-b-n.png"
+      "target": "normal/levitates_193-b-n.png",
+      "grayscaleTarget": "normal/levitates_193-b-n-grayscale.png"
     },
     {
       "source": "Levitates/YANMEGA.png",
@@ -2077,7 +2335,8 @@
       "speciesName": "yanmega",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_469-b-n.png"
+      "target": "normal/levitates_469-b-n.png",
+      "grayscaleTarget": "normal/levitates_469-b-n-grayscale.png"
     },
     {
       "source": "Levitates/YVELTAL.png",
@@ -2085,7 +2344,8 @@
       "speciesName": "yveltal",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_717-b-n.png"
+      "target": "normal/levitates_717-b-n.png",
+      "grayscaleTarget": "normal/levitates_717-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ZAPDOS.png",
@@ -2093,7 +2353,8 @@
       "speciesName": "zapdos",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_145-b-n.png"
+      "target": "normal/levitates_145-b-n.png",
+      "grayscaleTarget": "normal/levitates_145-b-n-grayscale.png"
     },
     {
       "source": "Levitates/ZAPDOS_1.png",
@@ -2101,7 +2362,8 @@
       "speciesName": "zapdos",
       "variant": "normal",
       "suffix": "1",
-      "target": "normal/levitates_145-b-n_1.png"
+      "target": "normal/levitates_145-b-n_1.png",
+      "grayscaleTarget": "normal/levitates_145-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates/ZUBAT.png",
@@ -2109,7 +2371,8 @@
       "speciesName": "zubat",
       "variant": "normal",
       "suffix": null,
-      "target": "normal/levitates_041-b-n.png"
+      "target": "normal/levitates_041-b-n.png",
+      "grayscaleTarget": "normal/levitates_041-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ABRA.png",
@@ -2117,7 +2380,8 @@
       "speciesName": "abra",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_063-b-s.png"
+      "target": "shiny/levitates_063-b-s.png",
+      "grayscaleTarget": "normal/levitates_063-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/AEGISLASH.png",
@@ -2125,7 +2389,8 @@
       "speciesName": "aegislash",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_681-b-s.png"
+      "target": "shiny/levitates_681-b-s.png",
+      "grayscaleTarget": "normal/levitates_681-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/AERODACTYL.png",
@@ -2133,7 +2398,8 @@
       "speciesName": "aerodactyl",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_142-b-s.png"
+      "target": "shiny/levitates_142-b-s.png",
+      "grayscaleTarget": "normal/levitates_142-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ALTARIA.png",
@@ -2141,7 +2407,8 @@
       "speciesName": "altaria",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_334-b-s.png"
+      "target": "shiny/levitates_334-b-s.png",
+      "grayscaleTarget": "normal/levitates_334-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ARCHEOPS.png",
@@ -2149,7 +2416,8 @@
       "speciesName": "archeops",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_567-b-s.png"
+      "target": "shiny/levitates_567-b-s.png",
+      "grayscaleTarget": "normal/levitates_567-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ARTICUNO.png",
@@ -2157,7 +2425,8 @@
       "speciesName": "articuno",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_144-b-s.png"
+      "target": "shiny/levitates_144-b-s.png",
+      "grayscaleTarget": "normal/levitates_144-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ARTICUNO_1.png",
@@ -2165,7 +2434,8 @@
       "speciesName": "articuno",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_144-b-s_1.png"
+      "target": "shiny/levitates_144-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_144-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/AZELF.png",
@@ -2173,7 +2443,8 @@
       "speciesName": "azelf",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_482-b-s.png"
+      "target": "shiny/levitates_482-b-s.png",
+      "grayscaleTarget": "normal/levitates_482-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/BALTOY.png",
@@ -2181,7 +2452,8 @@
       "speciesName": "baltoy",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_343-b-s.png"
+      "target": "shiny/levitates_343-b-s.png",
+      "grayscaleTarget": "normal/levitates_343-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/BEAUTIFLY.png",
@@ -2189,7 +2461,8 @@
       "speciesName": "beautifly",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_267-b-s.png"
+      "target": "shiny/levitates_267-b-s.png",
+      "grayscaleTarget": "normal/levitates_267-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/BEEDRILL.png",
@@ -2197,7 +2470,8 @@
       "speciesName": "beedrill",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_015-b-s.png"
+      "target": "shiny/levitates_015-b-s.png",
+      "grayscaleTarget": "normal/levitates_015-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/BEHEEYEM.png",
@@ -2205,7 +2479,8 @@
       "speciesName": "beheeyem",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_606-b-s.png"
+      "target": "shiny/levitates_606-b-s.png",
+      "grayscaleTarget": "normal/levitates_606-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/BELDUM.png",
@@ -2213,7 +2488,8 @@
       "speciesName": "beldum",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_374-b-s.png"
+      "target": "shiny/levitates_374-b-s.png",
+      "grayscaleTarget": "normal/levitates_374-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/BRAVIARY.png",
@@ -2221,7 +2497,8 @@
       "speciesName": "braviary",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_628-b-s.png"
+      "target": "shiny/levitates_628-b-s.png",
+      "grayscaleTarget": "normal/levitates_628-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/BRAVIARY_1.png",
@@ -2229,7 +2506,8 @@
       "speciesName": "braviary",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_628-b-s_1.png"
+      "target": "shiny/levitates_628-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_628-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/BRONZONG.png",
@@ -2237,7 +2515,8 @@
       "speciesName": "bronzong",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_437-b-s.png"
+      "target": "shiny/levitates_437-b-s.png",
+      "grayscaleTarget": "normal/levitates_437-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/BRONZOR.png",
@@ -2245,7 +2524,8 @@
       "speciesName": "bronzor",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_436-b-s.png"
+      "target": "shiny/levitates_436-b-s.png",
+      "grayscaleTarget": "normal/levitates_436-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/BUTTERFREE.png",
@@ -2253,7 +2533,8 @@
       "speciesName": "butterfree",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_012-b-s.png"
+      "target": "shiny/levitates_012-b-s.png",
+      "grayscaleTarget": "normal/levitates_012-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CALYREX.png",
@@ -2261,7 +2542,8 @@
       "speciesName": "calyrex",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_898-b-s.png"
+      "target": "shiny/levitates_898-b-s.png",
+      "grayscaleTarget": "normal/levitates_898-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CALYREX_1.png",
@@ -2285,7 +2567,8 @@
       "speciesName": "castform",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_351-b-s.png"
+      "target": "shiny/levitates_351-b-s.png",
+      "grayscaleTarget": "normal/levitates_351-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CELEBI.png",
@@ -2293,7 +2576,8 @@
       "speciesName": "celebi",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_251-b-s.png"
+      "target": "shiny/levitates_251-b-s.png",
+      "grayscaleTarget": "normal/levitates_251-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CELESTEELA.png",
@@ -2301,7 +2585,8 @@
       "speciesName": "celesteela",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_797-b-s.png"
+      "target": "shiny/levitates_797-b-s.png",
+      "grayscaleTarget": "normal/levitates_797-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CHANDELURE.png",
@@ -2309,7 +2594,8 @@
       "speciesName": "chandelure",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_609-b-s.png"
+      "target": "shiny/levitates_609-b-s.png",
+      "grayscaleTarget": "normal/levitates_609-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CHARIZARD.png",
@@ -2317,7 +2603,8 @@
       "speciesName": "charizard",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_006-b-s.png"
+      "target": "shiny/levitates_006-b-s.png",
+      "grayscaleTarget": "normal/levitates_006-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CHIMECHO.png",
@@ -2325,7 +2612,8 @@
       "speciesName": "chimecho",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_358-b-s.png"
+      "target": "shiny/levitates_358-b-s.png",
+      "grayscaleTarget": "normal/levitates_358-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CHINGLING.png",
@@ -2333,7 +2621,8 @@
       "speciesName": "chingling",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_433-b-s.png"
+      "target": "shiny/levitates_433-b-s.png",
+      "grayscaleTarget": "normal/levitates_433-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CLAYDOL.png",
@@ -2341,7 +2630,8 @@
       "speciesName": "claydol",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_344-b-s.png"
+      "target": "shiny/levitates_344-b-s.png",
+      "grayscaleTarget": "normal/levitates_344-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/COFAGRIGUS.png",
@@ -2349,7 +2639,8 @@
       "speciesName": "cofagrigus",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_563-b-s.png"
+      "target": "shiny/levitates_563-b-s.png",
+      "grayscaleTarget": "normal/levitates_563-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/COMBEE.png",
@@ -2357,7 +2648,8 @@
       "speciesName": "combee",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_415-b-s.png"
+      "target": "shiny/levitates_415-b-s.png",
+      "grayscaleTarget": "normal/levitates_415-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/COMBEE_1.png",
@@ -2365,7 +2657,8 @@
       "speciesName": "combee",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_415-b-s_1.png"
+      "target": "shiny/levitates_415-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_415-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/COMFEY.png",
@@ -2373,7 +2666,8 @@
       "speciesName": "comfey",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_764-b-s.png"
+      "target": "shiny/levitates_764-b-s.png",
+      "grayscaleTarget": "normal/levitates_764-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CORVIKNIGHT.png",
@@ -2381,7 +2675,8 @@
       "speciesName": "corviknight",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_823-b-s.png"
+      "target": "shiny/levitates_823-b-s.png",
+      "grayscaleTarget": "normal/levitates_823-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CORVISQUIRE.png",
@@ -2389,7 +2684,8 @@
       "speciesName": "corvisquire",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_822-b-s.png"
+      "target": "shiny/levitates_822-b-s.png",
+      "grayscaleTarget": "normal/levitates_822-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/COSMOEM.png",
@@ -2397,7 +2693,8 @@
       "speciesName": "cosmoem",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_790-b-s.png"
+      "target": "shiny/levitates_790-b-s.png",
+      "grayscaleTarget": "normal/levitates_790-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/COSMOG.png",
@@ -2405,7 +2702,8 @@
       "speciesName": "cosmog",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_789-b-s.png"
+      "target": "shiny/levitates_789-b-s.png",
+      "grayscaleTarget": "normal/levitates_789-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CRESSELIA.png",
@@ -2413,7 +2711,8 @@
       "speciesName": "cresselia",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_488-b-s.png"
+      "target": "shiny/levitates_488-b-s.png",
+      "grayscaleTarget": "normal/levitates_488-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CROBAT.png",
@@ -2421,7 +2720,8 @@
       "speciesName": "crobat",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_169-b-s.png"
+      "target": "shiny/levitates_169-b-s.png",
+      "grayscaleTarget": "normal/levitates_169-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CRYOGONAL.png",
@@ -2429,7 +2729,8 @@
       "speciesName": "cryogonal",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_615-b-s.png"
+      "target": "shiny/levitates_615-b-s.png",
+      "grayscaleTarget": "normal/levitates_615-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/CUTIEFLY.png",
@@ -2437,7 +2738,8 @@
       "speciesName": "cutiefly",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_742-b-s.png"
+      "target": "shiny/levitates_742-b-s.png",
+      "grayscaleTarget": "normal/levitates_742-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DARKRAI.png",
@@ -2445,7 +2747,8 @@
       "speciesName": "darkrai",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_491-b-s.png"
+      "target": "shiny/levitates_491-b-s.png",
+      "grayscaleTarget": "normal/levitates_491-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DIGLETT.png",
@@ -2453,7 +2756,8 @@
       "speciesName": "diglett",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_050-b-s.png"
+      "target": "shiny/levitates_050-b-s.png",
+      "grayscaleTarget": "normal/levitates_050-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DIGLETT_1.png",
@@ -2461,7 +2765,8 @@
       "speciesName": "diglett",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_050-b-s_1.png"
+      "target": "shiny/levitates_050-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_050-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DOUBLADE.png",
@@ -2469,7 +2774,8 @@
       "speciesName": "doublade",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_680-b-s.png"
+      "target": "shiny/levitates_680-b-s.png",
+      "grayscaleTarget": "normal/levitates_680-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DRAGAPULT.png",
@@ -2477,7 +2783,8 @@
       "speciesName": "dragapult",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_887-b-s.png"
+      "target": "shiny/levitates_887-b-s.png",
+      "grayscaleTarget": "normal/levitates_887-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DRAGONITE.png",
@@ -2485,7 +2792,8 @@
       "speciesName": "dragonite",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_149-b-s.png"
+      "target": "shiny/levitates_149-b-s.png",
+      "grayscaleTarget": "normal/levitates_149-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DRAKLOAK.png",
@@ -2493,7 +2801,8 @@
       "speciesName": "drakloak",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_886-b-s.png"
+      "target": "shiny/levitates_886-b-s.png",
+      "grayscaleTarget": "normal/levitates_886-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DREEPY.png",
@@ -2501,7 +2810,8 @@
       "speciesName": "dreepy",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_885-b-s.png"
+      "target": "shiny/levitates_885-b-s.png",
+      "grayscaleTarget": "normal/levitates_885-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DRIFBLIM.png",
@@ -2509,7 +2819,8 @@
       "speciesName": "drifblim",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_426-b-s.png"
+      "target": "shiny/levitates_426-b-s.png",
+      "grayscaleTarget": "normal/levitates_426-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DRIFLOON.png",
@@ -2517,7 +2828,8 @@
       "speciesName": "drifloon",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_425-b-s.png"
+      "target": "shiny/levitates_425-b-s.png",
+      "grayscaleTarget": "normal/levitates_425-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DUGTRIO.png",
@@ -2525,7 +2837,8 @@
       "speciesName": "dugtrio",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_051-b-s.png"
+      "target": "shiny/levitates_051-b-s.png",
+      "grayscaleTarget": "normal/levitates_051-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DUGTRIO_1.png",
@@ -2533,7 +2846,8 @@
       "speciesName": "dugtrio",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_051-b-s_1.png"
+      "target": "shiny/levitates_051-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_051-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DUOSION.png",
@@ -2541,7 +2855,8 @@
       "speciesName": "duosion",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_578-b-s.png"
+      "target": "shiny/levitates_578-b-s.png",
+      "grayscaleTarget": "normal/levitates_578-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DUSKULL.png",
@@ -2549,7 +2864,8 @@
       "speciesName": "duskull",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_355-b-s.png"
+      "target": "shiny/levitates_355-b-s.png",
+      "grayscaleTarget": "normal/levitates_355-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/DUSTOX.png",
@@ -2557,7 +2873,8 @@
       "speciesName": "dustox",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_269-b-s.png"
+      "target": "shiny/levitates_269-b-s.png",
+      "grayscaleTarget": "normal/levitates_269-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/EELEKTRIK.png",
@@ -2565,7 +2882,8 @@
       "speciesName": "eelektrik",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_603-b-s.png"
+      "target": "shiny/levitates_603-b-s.png",
+      "grayscaleTarget": "normal/levitates_603-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ELDEGOSS.png",
@@ -2573,7 +2891,8 @@
       "speciesName": "eldegoss",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_830-b-s.png"
+      "target": "shiny/levitates_830-b-s.png",
+      "grayscaleTarget": "normal/levitates_830-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ELGYEM.png",
@@ -2581,7 +2900,8 @@
       "speciesName": "elgyem",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_605-b-s.png"
+      "target": "shiny/levitates_605-b-s.png",
+      "grayscaleTarget": "normal/levitates_605-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/EMOLGA.png",
@@ -2589,7 +2909,8 @@
       "speciesName": "emolga",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_587-b-s.png"
+      "target": "shiny/levitates_587-b-s.png",
+      "grayscaleTarget": "normal/levitates_587-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ENAMORUS.png",
@@ -2597,7 +2918,8 @@
       "speciesName": "enamorus",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_905-b-s.png"
+      "target": "shiny/levitates_905-b-s.png",
+      "grayscaleTarget": "normal/levitates_905-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ENAMORUS_1.png",
@@ -2605,7 +2927,8 @@
       "speciesName": "enamorus",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_905-b-s_1.png"
+      "target": "shiny/levitates_905-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_905-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ETERNATUS.png",
@@ -2613,7 +2936,8 @@
       "speciesName": "eternatus",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_890-b-s.png"
+      "target": "shiny/levitates_890-b-s.png",
+      "grayscaleTarget": "normal/levitates_890-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/FEAROW.png",
@@ -2621,7 +2945,8 @@
       "speciesName": "fearow",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_022-b-s.png"
+      "target": "shiny/levitates_022-b-s.png",
+      "grayscaleTarget": "normal/levitates_022-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/FLAPPLE.png",
@@ -2629,7 +2954,8 @@
       "speciesName": "flapple",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_841-b-s.png"
+      "target": "shiny/levitates_841-b-s.png",
+      "grayscaleTarget": "normal/levitates_841-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/FLETCHINDER.png",
@@ -2637,7 +2963,8 @@
       "speciesName": "fletchinder",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_662-b-s.png"
+      "target": "shiny/levitates_662-b-s.png",
+      "grayscaleTarget": "normal/levitates_662-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/FLUTTERMANE.png",
@@ -2645,7 +2972,8 @@
       "speciesName": "fluttermane",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_987-b-s.png"
+      "target": "shiny/levitates_987-b-s.png",
+      "grayscaleTarget": "normal/levitates_987-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/FLYGON.png",
@@ -2653,7 +2981,8 @@
       "speciesName": "flygon",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_330-b-s.png"
+      "target": "shiny/levitates_330-b-s.png",
+      "grayscaleTarget": "normal/levitates_330-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/FROSLASS.png",
@@ -2661,7 +2990,8 @@
       "speciesName": "froslass",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_478-b-s.png"
+      "target": "shiny/levitates_478-b-s.png",
+      "grayscaleTarget": "normal/levitates_478-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/FROSMOTH.png",
@@ -2669,7 +2999,8 @@
       "speciesName": "frosmoth",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_873-b-s.png"
+      "target": "shiny/levitates_873-b-s.png",
+      "grayscaleTarget": "normal/levitates_873-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/GASTLY.png",
@@ -2677,7 +3008,8 @@
       "speciesName": "gastly",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_092-b-s.png"
+      "target": "shiny/levitates_092-b-s.png",
+      "grayscaleTarget": "normal/levitates_092-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/GIRATINA_1.png",
@@ -2685,7 +3017,8 @@
       "speciesName": "giratina",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_487-b-s_1.png"
+      "target": "shiny/levitates_487-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_487-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/GLALIE.png",
@@ -2693,7 +3026,8 @@
       "speciesName": "glalie",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_362-b-s.png"
+      "target": "shiny/levitates_362-b-s.png",
+      "grayscaleTarget": "normal/levitates_362-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/GLIGAR.png",
@@ -2701,7 +3035,8 @@
       "speciesName": "gligar",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_207-b-s.png"
+      "target": "shiny/levitates_207-b-s.png",
+      "grayscaleTarget": "normal/levitates_207-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/GLISCOR.png",
@@ -2709,7 +3044,8 @@
       "speciesName": "gliscor",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_472-b-s.png"
+      "target": "shiny/levitates_472-b-s.png",
+      "grayscaleTarget": "normal/levitates_472-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/GOLBAT.png",
@@ -2717,7 +3053,8 @@
       "speciesName": "golbat",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_042-b-s.png"
+      "target": "shiny/levitates_042-b-s.png",
+      "grayscaleTarget": "normal/levitates_042-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/GOSSIFLEUR.png",
@@ -2725,7 +3062,8 @@
       "speciesName": "gossifleur",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_829-b-s.png"
+      "target": "shiny/levitates_829-b-s.png",
+      "grayscaleTarget": "normal/levitates_829-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/GOURGEIST.png",
@@ -2733,7 +3071,8 @@
       "speciesName": "gourgeist",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_711-b-s.png"
+      "target": "shiny/levitates_711-b-s.png",
+      "grayscaleTarget": "normal/levitates_711-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/HAUNTER.png",
@@ -2741,7 +3080,8 @@
       "speciesName": "haunter",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_093-b-s.png"
+      "target": "shiny/levitates_093-b-s.png",
+      "grayscaleTarget": "normal/levitates_093-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/HONEDGE.png",
@@ -2749,7 +3089,8 @@
       "speciesName": "honedge",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_679-b-s.png"
+      "target": "shiny/levitates_679-b-s.png",
+      "grayscaleTarget": "normal/levitates_679-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/HOOH.png",
@@ -2757,7 +3098,8 @@
       "speciesName": "hooh",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_250-b-s.png"
+      "target": "shiny/levitates_250-b-s.png",
+      "grayscaleTarget": "normal/levitates_250-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/HOOPA.png",
@@ -2765,7 +3107,8 @@
       "speciesName": "hoopa",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_720-b-s.png"
+      "target": "shiny/levitates_720-b-s.png",
+      "grayscaleTarget": "normal/levitates_720-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/HOOPA_1.png",
@@ -2773,7 +3116,8 @@
       "speciesName": "hoopa",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_720-b-s_1.png"
+      "target": "shiny/levitates_720-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_720-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/HOPPIP.png",
@@ -2781,7 +3125,8 @@
       "speciesName": "hoppip",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_187-b-s.png"
+      "target": "shiny/levitates_187-b-s.png",
+      "grayscaleTarget": "normal/levitates_187-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/HYDREIGON.png",
@@ -2789,7 +3134,8 @@
       "speciesName": "hydreigon",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_635-b-s.png"
+      "target": "shiny/levitates_635-b-s.png",
+      "grayscaleTarget": "normal/levitates_635-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ILLUMISE.png",
@@ -2797,7 +3143,8 @@
       "speciesName": "illumise",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_314-b-s.png"
+      "target": "shiny/levitates_314-b-s.png",
+      "grayscaleTarget": "normal/levitates_314-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/IRONJUGULIS.png",
@@ -2805,7 +3152,8 @@
       "speciesName": "ironjugulis",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_993-b-s.png"
+      "target": "shiny/levitates_993-b-s.png",
+      "grayscaleTarget": "normal/levitates_993-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/IRONMOTH.png",
@@ -2813,7 +3161,8 @@
       "speciesName": "ironmoth",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_994-b-s.png"
+      "target": "shiny/levitates_994-b-s.png",
+      "grayscaleTarget": "normal/levitates_994-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/JIRACHI.png",
@@ -2821,7 +3170,8 @@
       "speciesName": "jirachi",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_385-b-s.png"
+      "target": "shiny/levitates_385-b-s.png",
+      "grayscaleTarget": "normal/levitates_385-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/JUMPLUFF.png",
@@ -2829,7 +3179,8 @@
       "speciesName": "jumpluff",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_189-b-s.png"
+      "target": "shiny/levitates_189-b-s.png",
+      "grayscaleTarget": "normal/levitates_189-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/KARTANA.png",
@@ -2837,7 +3188,8 @@
       "speciesName": "kartana",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_798-b-s.png"
+      "target": "shiny/levitates_798-b-s.png",
+      "grayscaleTarget": "normal/levitates_798-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/KILOWATTREL.png",
@@ -2845,7 +3197,8 @@
       "speciesName": "kilowattrel",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_941-b-s.png"
+      "target": "shiny/levitates_941-b-s.png",
+      "grayscaleTarget": "normal/levitates_941-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/KLANG.png",
@@ -2853,7 +3206,8 @@
       "speciesName": "klang",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_600-b-s.png"
+      "target": "shiny/levitates_600-b-s.png",
+      "grayscaleTarget": "normal/levitates_600-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/KLEFKI.png",
@@ -2861,7 +3215,8 @@
       "speciesName": "klefki",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_707-b-s.png"
+      "target": "shiny/levitates_707-b-s.png",
+      "grayscaleTarget": "normal/levitates_707-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/KLINK.png",
@@ -2869,7 +3224,8 @@
       "speciesName": "klink",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_599-b-s.png"
+      "target": "shiny/levitates_599-b-s.png",
+      "grayscaleTarget": "normal/levitates_599-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/KLINKLANG.png",
@@ -2877,7 +3233,8 @@
       "speciesName": "klinklang",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_601-b-s.png"
+      "target": "shiny/levitates_601-b-s.png",
+      "grayscaleTarget": "normal/levitates_601-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/KOFFING.png",
@@ -2885,7 +3242,8 @@
       "speciesName": "koffing",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_109-b-s.png"
+      "target": "shiny/levitates_109-b-s.png",
+      "grayscaleTarget": "normal/levitates_109-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/LAMPENT.png",
@@ -2893,7 +3251,8 @@
       "speciesName": "lampent",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_608-b-s.png"
+      "target": "shiny/levitates_608-b-s.png",
+      "grayscaleTarget": "normal/levitates_608-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/LANDORUS.png",
@@ -2901,7 +3260,8 @@
       "speciesName": "landorus",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_645-b-s.png"
+      "target": "shiny/levitates_645-b-s.png",
+      "grayscaleTarget": "normal/levitates_645-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/LANDORUS_1.png",
@@ -2909,7 +3269,8 @@
       "speciesName": "landorus",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_645-b-s_1.png"
+      "target": "shiny/levitates_645-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_645-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/LATIAS.png",
@@ -2917,7 +3278,8 @@
       "speciesName": "latias",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_380-b-s.png"
+      "target": "shiny/levitates_380-b-s.png",
+      "grayscaleTarget": "normal/levitates_380-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/LATIOS.png",
@@ -2925,7 +3287,8 @@
       "speciesName": "latios",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_381-b-s.png"
+      "target": "shiny/levitates_381-b-s.png",
+      "grayscaleTarget": "normal/levitates_381-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/LEDIAN.png",
@@ -2933,7 +3296,8 @@
       "speciesName": "ledian",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_166-b-s.png"
+      "target": "shiny/levitates_166-b-s.png",
+      "grayscaleTarget": "normal/levitates_166-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/LEDYBA.png",
@@ -2941,7 +3305,8 @@
       "speciesName": "ledyba",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_165-b-s.png"
+      "target": "shiny/levitates_165-b-s.png",
+      "grayscaleTarget": "normal/levitates_165-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/LUGIA.png",
@@ -2949,7 +3314,8 @@
       "speciesName": "lugia",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_249-b-s.png"
+      "target": "shiny/levitates_249-b-s.png",
+      "grayscaleTarget": "normal/levitates_249-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/LUNALA.png",
@@ -2957,7 +3323,8 @@
       "speciesName": "lunala",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_792-b-s.png"
+      "target": "shiny/levitates_792-b-s.png",
+      "grayscaleTarget": "normal/levitates_792-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/LUNATONE.png",
@@ -2965,7 +3332,8 @@
       "speciesName": "lunatone",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_337-b-s.png"
+      "target": "shiny/levitates_337-b-s.png",
+      "grayscaleTarget": "normal/levitates_337-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MAGNEZONE.png",
@@ -2973,7 +3341,8 @@
       "speciesName": "magnezone",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_462-b-s.png"
+      "target": "shiny/levitates_462-b-s.png",
+      "grayscaleTarget": "normal/levitates_462-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MANDIBUZZ.png",
@@ -2981,7 +3350,8 @@
       "speciesName": "mandibuzz",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_630-b-s.png"
+      "target": "shiny/levitates_630-b-s.png",
+      "grayscaleTarget": "normal/levitates_630-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MASQUERAIN.png",
@@ -2989,7 +3359,8 @@
       "speciesName": "masquerain",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_284-b-s.png"
+      "target": "shiny/levitates_284-b-s.png",
+      "grayscaleTarget": "normal/levitates_284-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MESPRIT.png",
@@ -2997,7 +3368,8 @@
       "speciesName": "mesprit",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_481-b-s.png"
+      "target": "shiny/levitates_481-b-s.png",
+      "grayscaleTarget": "normal/levitates_481-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/METANG.png",
@@ -3005,7 +3377,8 @@
       "speciesName": "metang",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_375-b-s.png"
+      "target": "shiny/levitates_375-b-s.png",
+      "grayscaleTarget": "normal/levitates_375-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MILCERY.png",
@@ -3013,7 +3386,8 @@
       "speciesName": "milcery",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_868-b-s.png"
+      "target": "shiny/levitates_868-b-s.png",
+      "grayscaleTarget": "normal/levitates_868-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MINIOR.png",
@@ -3021,7 +3395,8 @@
       "speciesName": "minior",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_774-b-s.png"
+      "target": "shiny/levitates_774-b-s.png",
+      "grayscaleTarget": "normal/levitates_774-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MINIOR_10.png",
@@ -3061,7 +3436,8 @@
       "speciesName": "minior",
       "variant": "shiny",
       "suffix": "7",
-      "target": "shiny/levitates_774-b-s_7.png"
+      "target": "shiny/levitates_774-b-s_7.png",
+      "grayscaleTarget": "normal/levitates_774-b-n_7-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MINIOR_8.png",
@@ -3085,7 +3461,8 @@
       "speciesName": "misdreavus",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_200-b-s.png"
+      "target": "shiny/levitates_200-b-s.png",
+      "grayscaleTarget": "normal/levitates_200-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MISMAGIUS.png",
@@ -3093,7 +3470,8 @@
       "speciesName": "mismagius",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_429-b-s.png"
+      "target": "shiny/levitates_429-b-s.png",
+      "grayscaleTarget": "normal/levitates_429-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MOLTRES.png",
@@ -3101,7 +3479,8 @@
       "speciesName": "moltres",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_146-b-s.png"
+      "target": "shiny/levitates_146-b-s.png",
+      "grayscaleTarget": "normal/levitates_146-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MOLTRES_1.png",
@@ -3109,7 +3488,8 @@
       "speciesName": "moltres",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_146-b-s_1.png"
+      "target": "shiny/levitates_146-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_146-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MOTHIM.png",
@@ -3117,7 +3497,8 @@
       "speciesName": "mothim",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_414-b-s.png"
+      "target": "shiny/levitates_414-b-s.png",
+      "grayscaleTarget": "normal/levitates_414-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MUNNA.png",
@@ -3125,7 +3506,8 @@
       "speciesName": "munna",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_517-b-s.png"
+      "target": "shiny/levitates_517-b-s.png",
+      "grayscaleTarget": "normal/levitates_517-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MURKROW.png",
@@ -3133,7 +3515,8 @@
       "speciesName": "murkrow",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_198-b-s.png"
+      "target": "shiny/levitates_198-b-s.png",
+      "grayscaleTarget": "normal/levitates_198-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/MUSHARNA.png",
@@ -3141,7 +3524,8 @@
       "speciesName": "musharna",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_518-b-s.png"
+      "target": "shiny/levitates_518-b-s.png",
+      "grayscaleTarget": "normal/levitates_518-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/NAGANADEL.png",
@@ -3149,7 +3533,8 @@
       "speciesName": "naganadel",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_804-b-s.png"
+      "target": "shiny/levitates_804-b-s.png",
+      "grayscaleTarget": "normal/levitates_804-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/NECROZMA.png",
@@ -3157,7 +3542,8 @@
       "speciesName": "necrozma",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_800-b-s.png"
+      "target": "shiny/levitates_800-b-s.png",
+      "grayscaleTarget": "normal/levitates_800-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/NECROZMA_1.png",
@@ -3165,7 +3551,8 @@
       "speciesName": "necrozma",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_800-b-s_1.png"
+      "target": "shiny/levitates_800-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_800-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/NECROZMA_2.png",
@@ -3173,7 +3560,8 @@
       "speciesName": "necrozma",
       "variant": "shiny",
       "suffix": "2",
-      "target": "shiny/levitates_800-b-s_2.png"
+      "target": "shiny/levitates_800-b-s_2.png",
+      "grayscaleTarget": "normal/levitates_800-b-n_2-grayscale.png"
     },
     {
       "source": "Levitates Shiny/NIHILEGO.png",
@@ -3181,7 +3569,8 @@
       "speciesName": "nihilego",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_793-b-s.png"
+      "target": "shiny/levitates_793-b-s.png",
+      "grayscaleTarget": "normal/levitates_793-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/NINJASK.png",
@@ -3189,7 +3578,8 @@
       "speciesName": "ninjask",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_291-b-s.png"
+      "target": "shiny/levitates_291-b-s.png",
+      "grayscaleTarget": "normal/levitates_291-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/NOCTOWL.png",
@@ -3197,7 +3587,8 @@
       "speciesName": "noctowl",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_164-b-s.png"
+      "target": "shiny/levitates_164-b-s.png",
+      "grayscaleTarget": "normal/levitates_164-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/NOIBAT.png",
@@ -3205,7 +3596,8 @@
       "speciesName": "noibat",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_714-b-s.png"
+      "target": "shiny/levitates_714-b-s.png",
+      "grayscaleTarget": "normal/levitates_714-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/NOIVERN.png",
@@ -3213,7 +3605,8 @@
       "speciesName": "noivern",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_715-b-s.png"
+      "target": "shiny/levitates_715-b-s.png",
+      "grayscaleTarget": "normal/levitates_715-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ORBEETLE.png",
@@ -3221,7 +3614,8 @@
       "speciesName": "orbeetle",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_826-b-s.png"
+      "target": "shiny/levitates_826-b-s.png",
+      "grayscaleTarget": "normal/levitates_826-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/PELIPPER.png",
@@ -3229,7 +3623,8 @@
       "speciesName": "pelipper",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_279-b-s.png"
+      "target": "shiny/levitates_279-b-s.png",
+      "grayscaleTarget": "normal/levitates_279-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/PHANTUMP.png",
@@ -3237,7 +3632,8 @@
       "speciesName": "phantump",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_708-b-s.png"
+      "target": "shiny/levitates_708-b-s.png",
+      "grayscaleTarget": "normal/levitates_708-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/PIDGEOT.png",
@@ -3245,7 +3641,8 @@
       "speciesName": "pidgeot",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_018-b-s.png"
+      "target": "shiny/levitates_018-b-s.png",
+      "grayscaleTarget": "normal/levitates_018-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/PIDGEOTTO.png",
@@ -3253,7 +3650,8 @@
       "speciesName": "pidgeotto",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_017-b-s.png"
+      "target": "shiny/levitates_017-b-s.png",
+      "grayscaleTarget": "normal/levitates_017-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/PIDOVE.png",
@@ -3261,7 +3659,8 @@
       "speciesName": "pidove",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_519-b-s.png"
+      "target": "shiny/levitates_519-b-s.png",
+      "grayscaleTarget": "normal/levitates_519-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/POLTEAGEIST.png",
@@ -3269,7 +3668,8 @@
       "speciesName": "polteageist",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_855-b-s.png"
+      "target": "shiny/levitates_855-b-s.png",
+      "grayscaleTarget": "normal/levitates_855-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/PUMPKABOO.png",
@@ -3277,7 +3677,8 @@
       "speciesName": "pumpkaboo",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_710-b-s.png"
+      "target": "shiny/levitates_710-b-s.png",
+      "grayscaleTarget": "normal/levitates_710-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/RABSCA.png",
@@ -3285,7 +3686,8 @@
       "speciesName": "rabsca",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_954-b-s.png"
+      "target": "shiny/levitates_954-b-s.png",
+      "grayscaleTarget": "normal/levitates_954-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/RAYQUAZA.png",
@@ -3293,7 +3695,8 @@
       "speciesName": "rayquaza",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_384-b-s.png"
+      "target": "shiny/levitates_384-b-s.png",
+      "grayscaleTarget": "normal/levitates_384-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/REGIELEKI.png",
@@ -3301,7 +3704,8 @@
       "speciesName": "regieleki",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_894-b-s.png"
+      "target": "shiny/levitates_894-b-s.png",
+      "grayscaleTarget": "normal/levitates_894-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/REUNICLUS.png",
@@ -3309,7 +3713,8 @@
       "speciesName": "reuniclus",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_579-b-s.png"
+      "target": "shiny/levitates_579-b-s.png",
+      "grayscaleTarget": "normal/levitates_579-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/REVAVROOM.png",
@@ -3317,7 +3722,8 @@
       "speciesName": "revavroom",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_966-b-s.png"
+      "target": "shiny/levitates_966-b-s.png",
+      "grayscaleTarget": "normal/levitates_966-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/RIBOMBEE.png",
@@ -3325,7 +3731,8 @@
       "speciesName": "ribombee",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_743-b-s.png"
+      "target": "shiny/levitates_743-b-s.png",
+      "grayscaleTarget": "normal/levitates_743-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ROARINGMOON.png",
@@ -3333,7 +3740,8 @@
       "speciesName": "roaringmoon",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_1005-b-s.png"
+      "target": "shiny/levitates_1005-b-s.png",
+      "grayscaleTarget": "normal/levitates_1005-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ROTOM.png",
@@ -3341,7 +3749,8 @@
       "speciesName": "rotom",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_479-b-s.png"
+      "target": "shiny/levitates_479-b-s.png",
+      "grayscaleTarget": "normal/levitates_479-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ROTOM_1.png",
@@ -3349,7 +3758,8 @@
       "speciesName": "rotom",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_479-b-s_1.png"
+      "target": "shiny/levitates_479-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_479-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ROTOM_2.png",
@@ -3357,7 +3767,8 @@
       "speciesName": "rotom",
       "variant": "shiny",
       "suffix": "2",
-      "target": "shiny/levitates_479-b-s_2.png"
+      "target": "shiny/levitates_479-b-s_2.png",
+      "grayscaleTarget": "normal/levitates_479-b-n_2-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ROTOM_3.png",
@@ -3365,7 +3776,8 @@
       "speciesName": "rotom",
       "variant": "shiny",
       "suffix": "3",
-      "target": "shiny/levitates_479-b-s_3.png"
+      "target": "shiny/levitates_479-b-s_3.png",
+      "grayscaleTarget": "normal/levitates_479-b-n_3-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ROTOM_4.png",
@@ -3373,7 +3785,8 @@
       "speciesName": "rotom",
       "variant": "shiny",
       "suffix": "4",
-      "target": "shiny/levitates_479-b-s_4.png"
+      "target": "shiny/levitates_479-b-s_4.png",
+      "grayscaleTarget": "normal/levitates_479-b-n_4-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ROTOM_5.png",
@@ -3381,7 +3794,8 @@
       "speciesName": "rotom",
       "variant": "shiny",
       "suffix": "5",
-      "target": "shiny/levitates_479-b-s_5.png"
+      "target": "shiny/levitates_479-b-s_5.png",
+      "grayscaleTarget": "normal/levitates_479-b-n_5-grayscale.png"
     },
     {
       "source": "Levitates Shiny/RUNERIGUS.png",
@@ -3389,7 +3803,8 @@
       "speciesName": "runerigus",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_867-b-s.png"
+      "target": "shiny/levitates_867-b-s.png",
+      "grayscaleTarget": "normal/levitates_867-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SALAMENCE.png",
@@ -3397,7 +3812,8 @@
       "speciesName": "salamence",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_373-b-s.png"
+      "target": "shiny/levitates_373-b-s.png",
+      "grayscaleTarget": "normal/levitates_373-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SHEDINJA.png",
@@ -3405,7 +3821,8 @@
       "speciesName": "shedinja",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_292-b-s.png"
+      "target": "shiny/levitates_292-b-s.png",
+      "grayscaleTarget": "normal/levitates_292-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SHUPPET.png",
@@ -3413,7 +3830,8 @@
       "speciesName": "shuppet",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_353-b-s.png"
+      "target": "shiny/levitates_353-b-s.png",
+      "grayscaleTarget": "normal/levitates_353-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SIGILYPH.png",
@@ -3421,7 +3839,8 @@
       "speciesName": "sigilyph",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_561-b-s.png"
+      "target": "shiny/levitates_561-b-s.png",
+      "grayscaleTarget": "normal/levitates_561-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SINISTEA.png",
@@ -3429,7 +3848,8 @@
       "speciesName": "sinistea",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_854-b-s.png"
+      "target": "shiny/levitates_854-b-s.png",
+      "grayscaleTarget": "normal/levitates_854-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SKARMORY.png",
@@ -3437,7 +3857,8 @@
       "speciesName": "skarmory",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_227-b-s.png"
+      "target": "shiny/levitates_227-b-s.png",
+      "grayscaleTarget": "normal/levitates_227-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SOLOSIS.png",
@@ -3445,7 +3866,8 @@
       "speciesName": "solosis",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_577-b-s.png"
+      "target": "shiny/levitates_577-b-s.png",
+      "grayscaleTarget": "normal/levitates_577-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SOLROCK.png",
@@ -3453,7 +3875,8 @@
       "speciesName": "solrock",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_338-b-s.png"
+      "target": "shiny/levitates_338-b-s.png",
+      "grayscaleTarget": "normal/levitates_338-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SPIRITOMB.png",
@@ -3461,7 +3884,8 @@
       "speciesName": "spiritomb",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_442-b-s.png"
+      "target": "shiny/levitates_442-b-s.png",
+      "grayscaleTarget": "normal/levitates_442-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/STARAPTOR.png",
@@ -3469,7 +3893,8 @@
       "speciesName": "staraptor",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_398-b-s.png"
+      "target": "shiny/levitates_398-b-s.png",
+      "grayscaleTarget": "normal/levitates_398-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/STARAVIA.png",
@@ -3477,7 +3902,8 @@
       "speciesName": "staravia",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_397-b-s.png"
+      "target": "shiny/levitates_397-b-s.png",
+      "grayscaleTarget": "normal/levitates_397-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SURSKIT.png",
@@ -3485,7 +3911,8 @@
       "speciesName": "surskit",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_283-b-s.png"
+      "target": "shiny/levitates_283-b-s.png",
+      "grayscaleTarget": "normal/levitates_283-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SWABLU.png",
@@ -3493,7 +3920,8 @@
       "speciesName": "swablu",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_333-b-s.png"
+      "target": "shiny/levitates_333-b-s.png",
+      "grayscaleTarget": "normal/levitates_333-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SWANNA.png",
@@ -3501,7 +3929,8 @@
       "speciesName": "swanna",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_581-b-s.png"
+      "target": "shiny/levitates_581-b-s.png",
+      "grayscaleTarget": "normal/levitates_581-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SWELLOW.png",
@@ -3509,7 +3938,8 @@
       "speciesName": "swellow",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_277-b-s.png"
+      "target": "shiny/levitates_277-b-s.png",
+      "grayscaleTarget": "normal/levitates_277-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/SWOOBAT.png",
@@ -3517,7 +3947,8 @@
       "speciesName": "swoobat",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_528-b-s.png"
+      "target": "shiny/levitates_528-b-s.png",
+      "grayscaleTarget": "normal/levitates_528-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/TALONFLAME.png",
@@ -3525,7 +3956,8 @@
       "speciesName": "talonflame",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_663-b-s.png"
+      "target": "shiny/levitates_663-b-s.png",
+      "grayscaleTarget": "normal/levitates_663-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/TAPUBULU.png",
@@ -3533,7 +3965,8 @@
       "speciesName": "tapubulu",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_787-b-s.png"
+      "target": "shiny/levitates_787-b-s.png",
+      "grayscaleTarget": "normal/levitates_787-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/TAPUFINI.png",
@@ -3541,7 +3974,8 @@
       "speciesName": "tapufini",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_788-b-s.png"
+      "target": "shiny/levitates_788-b-s.png",
+      "grayscaleTarget": "normal/levitates_788-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/TAPUKOKO.png",
@@ -3549,7 +3983,8 @@
       "speciesName": "tapukoko",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_785-b-s.png"
+      "target": "shiny/levitates_785-b-s.png",
+      "grayscaleTarget": "normal/levitates_785-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/TAPULELE.png",
@@ -3557,7 +3992,8 @@
       "speciesName": "tapulele",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_786-b-s.png"
+      "target": "shiny/levitates_786-b-s.png",
+      "grayscaleTarget": "normal/levitates_786-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/THUNDURUS.png",
@@ -3565,7 +4001,8 @@
       "speciesName": "thundurus",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_642-b-s.png"
+      "target": "shiny/levitates_642-b-s.png",
+      "grayscaleTarget": "normal/levitates_642-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/THUNDURUS_1.png",
@@ -3573,7 +4010,8 @@
       "speciesName": "thundurus",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_642-b-s_1.png"
+      "target": "shiny/levitates_642-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_642-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/TOGEKISS.png",
@@ -3581,7 +4019,8 @@
       "speciesName": "togekiss",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_468-b-s.png"
+      "target": "shiny/levitates_468-b-s.png",
+      "grayscaleTarget": "normal/levitates_468-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/TORNADUS.png",
@@ -3589,7 +4028,8 @@
       "speciesName": "tornadus",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_641-b-s.png"
+      "target": "shiny/levitates_641-b-s.png",
+      "grayscaleTarget": "normal/levitates_641-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/TORNADUS_1.png",
@@ -3597,7 +4037,8 @@
       "speciesName": "tornadus",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_641-b-s_1.png"
+      "target": "shiny/levitates_641-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_641-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/TOUCANNON.png",
@@ -3605,7 +4046,8 @@
       "speciesName": "toucannon",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_733-b-s.png"
+      "target": "shiny/levitates_733-b-s.png",
+      "grayscaleTarget": "normal/levitates_733-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/TRANQUILL.png",
@@ -3613,7 +4055,8 @@
       "speciesName": "tranquill",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_520-b-s.png"
+      "target": "shiny/levitates_520-b-s.png",
+      "grayscaleTarget": "normal/levitates_520-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/TRUMBEAK.png",
@@ -3621,7 +4064,8 @@
       "speciesName": "trumbeak",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_732-b-s.png"
+      "target": "shiny/levitates_732-b-s.png",
+      "grayscaleTarget": "normal/levitates_732-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/TYNAMO.png",
@@ -3629,7 +4073,8 @@
       "speciesName": "tynamo",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_602-b-s.png"
+      "target": "shiny/levitates_602-b-s.png",
+      "grayscaleTarget": "normal/levitates_602-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNFEZANT.png",
@@ -3637,7 +4082,8 @@
       "speciesName": "unfezant",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_521-b-s.png"
+      "target": "shiny/levitates_521-b-s.png",
+      "grayscaleTarget": "normal/levitates_521-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNFEZANT_female.png",
@@ -3645,7 +4091,8 @@
       "speciesName": "unfezant",
       "variant": "shiny",
       "suffix": "female",
-      "target": "shiny/levitates_521-b-s_female.png"
+      "target": "shiny/levitates_521-b-s_female.png",
+      "grayscaleTarget": "normal/levitates_521-b-n_female-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN.png",
@@ -3653,7 +4100,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_201-b-s.png"
+      "target": "shiny/levitates_201-b-s.png",
+      "grayscaleTarget": "normal/levitates_201-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_1.png",
@@ -3661,7 +4109,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_201-b-s_1.png"
+      "target": "shiny/levitates_201-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_11.png",
@@ -3669,7 +4118,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "11",
-      "target": "shiny/levitates_201-b-s_11.png"
+      "target": "shiny/levitates_201-b-s_11.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_11-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_12.png",
@@ -3677,7 +4127,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "12",
-      "target": "shiny/levitates_201-b-s_12.png"
+      "target": "shiny/levitates_201-b-s_12.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_12-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_13.png",
@@ -3685,7 +4136,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "13",
-      "target": "shiny/levitates_201-b-s_13.png"
+      "target": "shiny/levitates_201-b-s_13.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_13-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_14.png",
@@ -3693,7 +4145,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "14",
-      "target": "shiny/levitates_201-b-s_14.png"
+      "target": "shiny/levitates_201-b-s_14.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_14-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_15.png",
@@ -3701,7 +4154,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "15",
-      "target": "shiny/levitates_201-b-s_15.png"
+      "target": "shiny/levitates_201-b-s_15.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_15-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_16.png",
@@ -3709,7 +4163,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "16",
-      "target": "shiny/levitates_201-b-s_16.png"
+      "target": "shiny/levitates_201-b-s_16.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_16-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_17.png",
@@ -3717,7 +4172,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "17",
-      "target": "shiny/levitates_201-b-s_17.png"
+      "target": "shiny/levitates_201-b-s_17.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_17-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_18.png",
@@ -3725,7 +4181,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "18",
-      "target": "shiny/levitates_201-b-s_18.png"
+      "target": "shiny/levitates_201-b-s_18.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_18-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_19.png",
@@ -3733,7 +4190,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "19",
-      "target": "shiny/levitates_201-b-s_19.png"
+      "target": "shiny/levitates_201-b-s_19.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_19-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_2.png",
@@ -3741,7 +4199,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "2",
-      "target": "shiny/levitates_201-b-s_2.png"
+      "target": "shiny/levitates_201-b-s_2.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_2-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_20.png",
@@ -3749,7 +4208,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "20",
-      "target": "shiny/levitates_201-b-s_20.png"
+      "target": "shiny/levitates_201-b-s_20.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_20-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_21.png",
@@ -3757,7 +4217,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "21",
-      "target": "shiny/levitates_201-b-s_21.png"
+      "target": "shiny/levitates_201-b-s_21.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_21-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_22.png",
@@ -3765,7 +4226,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "22",
-      "target": "shiny/levitates_201-b-s_22.png"
+      "target": "shiny/levitates_201-b-s_22.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_22-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_23.png",
@@ -3773,7 +4235,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "23",
-      "target": "shiny/levitates_201-b-s_23.png"
+      "target": "shiny/levitates_201-b-s_23.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_23-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_24.png",
@@ -3781,7 +4244,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "24",
-      "target": "shiny/levitates_201-b-s_24.png"
+      "target": "shiny/levitates_201-b-s_24.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_24-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_25.png",
@@ -3789,7 +4253,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "25",
-      "target": "shiny/levitates_201-b-s_25.png"
+      "target": "shiny/levitates_201-b-s_25.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_25-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_26.png",
@@ -3797,7 +4262,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "26",
-      "target": "shiny/levitates_201-b-s_26.png"
+      "target": "shiny/levitates_201-b-s_26.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_26-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_27.png",
@@ -3805,7 +4271,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "27",
-      "target": "shiny/levitates_201-b-s_27.png"
+      "target": "shiny/levitates_201-b-s_27.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_27-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_3.png",
@@ -3813,7 +4280,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "3",
-      "target": "shiny/levitates_201-b-s_3.png"
+      "target": "shiny/levitates_201-b-s_3.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_3-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_4.png",
@@ -3821,7 +4289,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "4",
-      "target": "shiny/levitates_201-b-s_4.png"
+      "target": "shiny/levitates_201-b-s_4.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_4-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_5.png",
@@ -3829,7 +4298,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "5",
-      "target": "shiny/levitates_201-b-s_5.png"
+      "target": "shiny/levitates_201-b-s_5.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_5-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_6.png",
@@ -3837,7 +4307,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "6",
-      "target": "shiny/levitates_201-b-s_6.png"
+      "target": "shiny/levitates_201-b-s_6.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_6-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_7.png",
@@ -3845,7 +4316,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "7",
-      "target": "shiny/levitates_201-b-s_7.png"
+      "target": "shiny/levitates_201-b-s_7.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_7-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_8.png",
@@ -3853,7 +4325,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "8",
-      "target": "shiny/levitates_201-b-s_8.png"
+      "target": "shiny/levitates_201-b-s_8.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_8-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UNOWN_9.png",
@@ -3861,7 +4334,8 @@
       "speciesName": "unown",
       "variant": "shiny",
       "suffix": "9",
-      "target": "shiny/levitates_201-b-s_9.png"
+      "target": "shiny/levitates_201-b-s_9.png",
+      "grayscaleTarget": "normal/levitates_201-b-n_9-grayscale.png"
     },
     {
       "source": "Levitates Shiny/UXIE.png",
@@ -3869,7 +4343,8 @@
       "speciesName": "uxie",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_480-b-s.png"
+      "target": "shiny/levitates_480-b-s.png",
+      "grayscaleTarget": "normal/levitates_480-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VAROOM.png",
@@ -3877,7 +4352,8 @@
       "speciesName": "varoom",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_965-b-s.png"
+      "target": "shiny/levitates_965-b-s.png",
+      "grayscaleTarget": "normal/levitates_965-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VENOMOTH.png",
@@ -3885,7 +4361,8 @@
       "speciesName": "venomoth",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_049-b-s.png"
+      "target": "shiny/levitates_049-b-s.png",
+      "grayscaleTarget": "normal/levitates_049-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VESPIQUEN.png",
@@ -3893,7 +4370,8 @@
       "speciesName": "vespiquen",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_416-b-s.png"
+      "target": "shiny/levitates_416-b-s.png",
+      "grayscaleTarget": "normal/levitates_416-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIKAVOLT.png",
@@ -3901,7 +4379,8 @@
       "speciesName": "vikavolt",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_738-b-s.png"
+      "target": "shiny/levitates_738-b-s.png",
+      "grayscaleTarget": "normal/levitates_738-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON.png",
@@ -3909,7 +4388,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_666-b-s.png"
+      "target": "shiny/levitates_666-b-s.png",
+      "grayscaleTarget": "normal/levitates_666-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_1.png",
@@ -3917,7 +4397,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_666-b-s_1.png"
+      "target": "shiny/levitates_666-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_10.png",
@@ -3925,7 +4406,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "10",
-      "target": "shiny/levitates_666-b-s_10.png"
+      "target": "shiny/levitates_666-b-s_10.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_10-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_11.png",
@@ -3933,7 +4415,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "11",
-      "target": "shiny/levitates_666-b-s_11.png"
+      "target": "shiny/levitates_666-b-s_11.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_11-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_12.png",
@@ -3941,7 +4424,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "12",
-      "target": "shiny/levitates_666-b-s_12.png"
+      "target": "shiny/levitates_666-b-s_12.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_12-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_13.png",
@@ -3949,7 +4433,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "13",
-      "target": "shiny/levitates_666-b-s_13.png"
+      "target": "shiny/levitates_666-b-s_13.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_13-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_14.png",
@@ -3957,7 +4442,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "14",
-      "target": "shiny/levitates_666-b-s_14.png"
+      "target": "shiny/levitates_666-b-s_14.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_14-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_15.png",
@@ -3965,7 +4451,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "15",
-      "target": "shiny/levitates_666-b-s_15.png"
+      "target": "shiny/levitates_666-b-s_15.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_15-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_16.png",
@@ -3973,7 +4460,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "16",
-      "target": "shiny/levitates_666-b-s_16.png"
+      "target": "shiny/levitates_666-b-s_16.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_16-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_17.png",
@@ -3981,7 +4469,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "17",
-      "target": "shiny/levitates_666-b-s_17.png"
+      "target": "shiny/levitates_666-b-s_17.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_17-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_18.png",
@@ -3989,7 +4478,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "18",
-      "target": "shiny/levitates_666-b-s_18.png"
+      "target": "shiny/levitates_666-b-s_18.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_18-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_19.png",
@@ -3997,7 +4487,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "19",
-      "target": "shiny/levitates_666-b-s_19.png"
+      "target": "shiny/levitates_666-b-s_19.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_19-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_2.png",
@@ -4005,7 +4496,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "2",
-      "target": "shiny/levitates_666-b-s_2.png"
+      "target": "shiny/levitates_666-b-s_2.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_2-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_3.png",
@@ -4013,7 +4505,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "3",
-      "target": "shiny/levitates_666-b-s_3.png"
+      "target": "shiny/levitates_666-b-s_3.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_3-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_4.png",
@@ -4021,7 +4514,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "4",
-      "target": "shiny/levitates_666-b-s_4.png"
+      "target": "shiny/levitates_666-b-s_4.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_4-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_5.png",
@@ -4029,7 +4523,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "5",
-      "target": "shiny/levitates_666-b-s_5.png"
+      "target": "shiny/levitates_666-b-s_5.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_5-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_6.png",
@@ -4037,7 +4532,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "6",
-      "target": "shiny/levitates_666-b-s_6.png"
+      "target": "shiny/levitates_666-b-s_6.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_6-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_7.png",
@@ -4045,7 +4541,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "7",
-      "target": "shiny/levitates_666-b-s_7.png"
+      "target": "shiny/levitates_666-b-s_7.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_7-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_8.png",
@@ -4053,7 +4550,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "8",
-      "target": "shiny/levitates_666-b-s_8.png"
+      "target": "shiny/levitates_666-b-s_8.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_8-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VIVILLON_9.png",
@@ -4061,7 +4559,8 @@
       "speciesName": "vivillon",
       "variant": "shiny",
       "suffix": "9",
-      "target": "shiny/levitates_666-b-s_9.png"
+      "target": "shiny/levitates_666-b-s_9.png",
+      "grayscaleTarget": "normal/levitates_666-b-n_9-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VOLBEAT.png",
@@ -4069,7 +4568,8 @@
       "speciesName": "volbeat",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_313-b-s.png"
+      "target": "shiny/levitates_313-b-s.png",
+      "grayscaleTarget": "normal/levitates_313-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/VOLCARONA.png",
@@ -4077,7 +4577,8 @@
       "speciesName": "volcarona",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_637-b-s.png"
+      "target": "shiny/levitates_637-b-s.png",
+      "grayscaleTarget": "normal/levitates_637-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/WEEZING.png",
@@ -4085,7 +4586,8 @@
       "speciesName": "weezing",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_110-b-s.png"
+      "target": "shiny/levitates_110-b-s.png",
+      "grayscaleTarget": "normal/levitates_110-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/WEEZING_1.png",
@@ -4093,7 +4595,8 @@
       "speciesName": "weezing",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_110-b-s_1.png"
+      "target": "shiny/levitates_110-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_110-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/WIGLETT.png",
@@ -4101,7 +4604,8 @@
       "speciesName": "wiglett",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_960-b-s.png"
+      "target": "shiny/levitates_960-b-s.png",
+      "grayscaleTarget": "normal/levitates_960-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/WINGULL.png",
@@ -4109,7 +4613,8 @@
       "speciesName": "wingull",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_278-b-s.png"
+      "target": "shiny/levitates_278-b-s.png",
+      "grayscaleTarget": "normal/levitates_278-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/WOOBAT.png",
@@ -4117,7 +4622,8 @@
       "speciesName": "woobat",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_527-b-s.png"
+      "target": "shiny/levitates_527-b-s.png",
+      "grayscaleTarget": "normal/levitates_527-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/WUGTRIO.png",
@@ -4125,7 +4631,8 @@
       "speciesName": "wugtrio",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_961-b-s.png"
+      "target": "shiny/levitates_961-b-s.png",
+      "grayscaleTarget": "normal/levitates_961-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/YAMASK.png",
@@ -4133,7 +4640,8 @@
       "speciesName": "yamask",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_562-b-s.png"
+      "target": "shiny/levitates_562-b-s.png",
+      "grayscaleTarget": "normal/levitates_562-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/YAMASK_1.png",
@@ -4141,7 +4649,8 @@
       "speciesName": "yamask",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_562-b-s_1.png"
+      "target": "shiny/levitates_562-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_562-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/YANMA.png",
@@ -4149,7 +4658,8 @@
       "speciesName": "yanma",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_193-b-s.png"
+      "target": "shiny/levitates_193-b-s.png",
+      "grayscaleTarget": "normal/levitates_193-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/YANMEGA.png",
@@ -4157,7 +4667,8 @@
       "speciesName": "yanmega",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_469-b-s.png"
+      "target": "shiny/levitates_469-b-s.png",
+      "grayscaleTarget": "normal/levitates_469-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/YVELTAL.png",
@@ -4165,7 +4676,8 @@
       "speciesName": "yveltal",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_717-b-s.png"
+      "target": "shiny/levitates_717-b-s.png",
+      "grayscaleTarget": "normal/levitates_717-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ZAPDOS.png",
@@ -4173,7 +4685,8 @@
       "speciesName": "zapdos",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_145-b-s.png"
+      "target": "shiny/levitates_145-b-s.png",
+      "grayscaleTarget": "normal/levitates_145-b-n-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ZAPDOS_1.png",
@@ -4181,7 +4694,8 @@
       "speciesName": "zapdos",
       "variant": "shiny",
       "suffix": "1",
-      "target": "shiny/levitates_145-b-s_1.png"
+      "target": "shiny/levitates_145-b-s_1.png",
+      "grayscaleTarget": "normal/levitates_145-b-n_1-grayscale.png"
     },
     {
       "source": "Levitates Shiny/ZUBAT.png",
@@ -4189,7 +4703,8 @@
       "speciesName": "zubat",
       "variant": "shiny",
       "suffix": null,
-      "target": "shiny/levitates_041-b-s.png"
+      "target": "shiny/levitates_041-b-s.png",
+      "grayscaleTarget": "normal/levitates_041-b-n-grayscale.png"
     }
   ],
   "unmatched": []

@@ -23,6 +23,10 @@ ControlEngine.__index = ControlEngine
 
 local TRAILER_BASE = 240
 
+local DIR_DELTA = {
+  right = { 1, 0 }, left = { -1, 0 }, down = { 0, 1 }, up = { 0, -1 },
+}
+
 local function tryRequire(path)
   local ok, mod = pcall(require, path)
   if ok then return mod end
@@ -189,6 +193,12 @@ end
 
 function ControlEngine:followerCount(game)
   game = game or self:_game()
+  -- The stepper menu writes directly to game.save (mod.options can be
+  -- stale/locked while a ListMenu is on the stack).  Check save first.
+  local saved = game and game.save and game.save.pokepcFollowerCount
+  if type(saved) == "number" then
+    return math.max(0, math.min(6, saved))
+  end
   local settings = self.settings
   if settings and type(settings.followerCount) == "function" then
     local ok, n = pcall(settings.followerCount, settings, game)
@@ -196,14 +206,6 @@ function ControlEngine:followerCount(game)
       return math.max(0, math.min(6, n))
     end
   end
-  -- Prefer live options over a possibly stale save mirror / cache.
-  local fromOpt = self:_opt("follower_count", nil)
-  if type(fromOpt) == "number" then
-    return math.max(0, math.min(6, fromOpt))
-  end
-  local saved = game and game.save and game.save.pokepcFollowerCount
-  if type(saved) == "number" then return math.max(0, math.min(6, saved)) end
-
   return 1
 end
 
@@ -232,7 +234,7 @@ function ControlEngine:setControlMode(game, mode)
   if mode == "lead" then mode = "lead_trainer" end
   local settings = self.settings
   if settings and type(settings.setEngineMode) == "function" then
-    pcall(settings.setEngineMode, settings, game, mode)
+    pcall(settings.setEngineMode, settings, mode)
   end
   if game and game.save then game.save.pokepcControlMode = mode end
   -- Invalidate; do not cache a second source of truth.
@@ -348,11 +350,9 @@ end
 
 function ControlEngine:setLeaderParty(game, partyIndex)
   if not game or not game.save then return end
-  local mon = game.save.party and game.save.party[partyIndex]
-  if self:_isYellow() and mon then
-    local idx = self:ensureYellowLeaderLayout(game, mon)
-    if type(idx) == "number" then partyIndex = idx end
-  end
+  -- Wilds owns the trailer pack independently of party order, so the
+  -- Yellow Pikachu-slot-1 layout is unnecessary and causes visible party
+  -- reordering when selecting a follower.
   game.save.pokepcLeader = { source = "party", index = partyIndex }
   game.save.followerPartyIndex = partyIndex
   if self.selection and type(self.selection.selectFollower) == "function" then
@@ -373,6 +373,9 @@ end
 function ControlEngine:getLeaderMon(game)
   game = game or self:_game()
   if not game or not game.save then return nil end
+  -- No followers configured: return nil so the party menu shows FOLLOWER
+  -- instead of ACTIVE for every healthy mon.
+  if self:followerCount(game) <= 0 then return nil end
   local save = game.save
   local lead = save.pokepcLeader
 
@@ -416,6 +419,9 @@ end
 
 function ControlEngine:getActiveFollowerMon(game)
   game = game or self:_game()
+  -- No followers configured: no mon is active, regardless of selection
+  -- state or party contents.
+  if self:followerCount(game) <= 0 then return nil end
   if self.selection and type(self.selection.getActiveFollowerMon) == "function" then
     local ok, mon = pcall(self.selection.getActiveFollowerMon, self.selection, game, true)
     if ok and mon then return mon end
@@ -651,13 +657,18 @@ function ControlEngine:partyTrailMons(game)
   local leadKey = ControlEngine.monIdentityKey(leader)
   local front = self:isPokemonFront(game)
 
-  -- Identify if stock Pikachu is active to prevent duplicate rendering
+  -- Identify if stock Pikachu is active to prevent duplicate rendering.
+  -- In Yellow follow mode the stock Pikachu NPC is rebound to the ACTIVE
+  -- leader's art (forceYellowStockPikachuArt), so the leader must not also
+  -- trail: that would render the spot-1 mon twice.
   local isStockPikaActive = self:yellowStockFollowActive(game)
   local skipPikaIdx = isStockPikaActive and self:_partyPikachuIndex(save) or nil
 
   local out = {}
+  local pushed = {}  -- party indexes already in the trail (dedupe guard)
   local function push(mon, i)
     out[#out + 1] = { mon = mon, partyIndex = i }
+    pushed[i] = true
   end
 
   local function isControlledLeader(mon, i)
@@ -670,28 +681,43 @@ function ControlEngine:partyTrailMons(game)
 
   local function skipMon(i, mon)
     if skipPikaIdx and i == skipPikaIdx then return true end
+    -- Stock NPC already renders the leader; skip it from the trail.
+    if isStockPikaActive and leadIdx and i == leadIdx then return true end
     if mon and mon.stopFollowing == true then return true end
     return false
   end
 
   if not front and leader then
-    if leadIdx and save.party and save.party[leadIdx]
-       and (save.party[leadIdx].hp or 0) > 0
-       and not skipMon(leadIdx, save.party[leadIdx]) then
-      push(save.party[leadIdx], leadIdx)
-    else
-      for i, mon in ipairs(save.party or {}) do
-        if isControlledLeader(mon, i) and (mon.hp or 0) > 0
-           and not skipMon(i, mon) then
-          push(mon, i)
-          break
+    -- When the stock Pikachu NPC is active (Yellow follow mode) it already
+    -- renders the leader's art via forceYellowStockPikachuArt.  The leader
+    -- must not also trail, or it renders twice ("duplicate of the first
+    -- slot").  The skipMon guard handles this, but when leadIdx is stale
+    -- (switched leaders, identity mismatch, selection-API drift), relying on
+    -- index alone misses it.  So: when stock Pika is active, skip the
+    -- leader push unconditionally; the stock NPC takes care of slot 1.
+    if not (isStockPikaActive and (leadIdx or save.followerPartyIndex)) then
+      if leadIdx and save.party and save.party[leadIdx]
+         and (save.party[leadIdx].hp or 0) > 0
+         and not skipMon(leadIdx, save.party[leadIdx]) then
+        push(save.party[leadIdx], leadIdx)
+      else
+        for i, mon in ipairs(save.party or {}) do
+          if isControlledLeader(mon, i) and (mon.hp or 0) > 0
+             and not skipMon(i, mon) then
+            push(mon, i)
+            break
+          end
         end
       end
     end
   end
 
   for i, mon in ipairs(save.party or {}) do
-    if (mon.hp or 0) > 0 and not isControlledLeader(mon, i)
+    -- pushed[i] guards against a slot already added by the leader push above
+    -- (e.g. a box leader whose followerPartyIndex aliases a normal party slot,
+    -- or a leader whose party identity collides): one mon per party slot.
+    if (mon.hp or 0) > 0 and not pushed[i]
+       and not isControlledLeader(mon, i)
        and not skipMon(i, mon) then
       push(mon, i)
     end
@@ -899,12 +925,27 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
     npc._wildsFollowerSpecies = species
   end
 
+  -- Walk-cycle animation: mirror the player (continuous animClock, so leg
+  -- cadence survives step-length changes like surf/bike) instead of the
+  -- stock NPC's per-step progress reset. stepFlip alternates the up/down
+  -- walk-frame mirror every completed step; without it the sprite is stuck
+  -- on one pose and looks dragged along.
+  npc.stepFlip = false
+  npc.animClock = 0
+  npc.stepLanded = false
   if NPC.walkPhase then
     npc.walkPhase = function(ent)
-      if ent.moving then
-        return NPC.walkPhase(ent)
+      if not ent.moving and not ent.stepLanded then
+        -- Keep the walk cycle running while the pack is in motion, so a
+        -- trailer waiting between steps (or catching up after a blocked
+        -- corner) still shows a moving gait instead of freezing on the
+        -- stand frame. Idle packs settle back to stand after the tail.
+        if ent._wildsPackWalking ~= true then
+          return 0
+        end
       end
-      return 0
+      local p = (ent.animClock or ent.progress or 0) % 16
+      return (p >= 4 and p < 12) and 1 or 0
     end
   end
 
@@ -943,6 +984,14 @@ function ControlEngine:_playerSurfing(ow, game)
   if player.surfing == true or player.isSurfing == true then return true end
   if player.surface == "water" or player.surface == "WATER" then return true end
   if game and game.player and game.player.surfing == true then return true end
+  -- Last resort: the player's own cell is water (surf field flags vary across
+  -- engine builds). Trailers must get water surface semantics or they can
+  -- never step onto water cells and get dragged along via teleports.
+  if ow and ow.map and player.cellX ~= nil and player.cellY ~= nil
+     and type(ow.map.isWaterCell) == "function" then
+    local ok, water = pcall(ow.map.isWaterCell, ow.map, player.cellX, player.cellY)
+    if ok and water == true then return true end
+  end
   return false
 end
 
@@ -1231,12 +1280,121 @@ local function placeTrailerAt(npc, x, y, facing)
   if facing then npc.facing = facing end
 end
 
+--- Pick the next adjacent cell for a trailer moving toward (gx, gy).
+-- Tries the goal axis first, then the other axis, then the current facing,
+-- so trailers navigate corners and shorelines instead of freezing (or
+-- teleporting) when the direct step is blocked. Returns { dir, x, y } or nil
+-- when no adjacent follower-allowed cell exists.
+function ControlEngine:_pickTrailerStep(game, ow, npc, gx, gy, surface, role)
+  local cx, cy = npc.cellX or 0, npc.cellY or 0
+  local dx, dy = gx - cx, gy - cy
+  local function allowed(sx, sy)
+    return self:isFollowerCellAllowed(game, ow, npc, sx, sy, {
+      surface = surface, role = role,
+    })
+  end
+  local cands = {}
+  local function consider(dir, sx, sy, hop)
+    cands[#cands + 1] = {
+      dir = dir, x = sx, y = sy,
+      dist = math.abs(gx - sx) + math.abs(gy - sy),
+      hop = hop or nil,
+    }
+  end
+  if math.abs(dx) >= math.abs(dy) then
+    if dx > 0 then consider("right", cx + 1, cy) end
+    if dx < 0 then consider("left", cx - 1, cy) end
+    if dy > 0 then consider("down", cx, cy + 1) end
+    if dy < 0 then consider("up", cx, cy - 1) end
+  else
+    if dy > 0 then consider("down", cx, cy + 1) end
+    if dy < 0 then consider("up", cx, cy - 1) end
+    if dx > 0 then consider("right", cx + 1, cy) end
+    if dx < 0 then consider("left", cx - 1, cy) end
+  end
+  local d = npc.facing and DIR_DELTA[npc.facing]
+  if d then consider(npc.facing, cx + d[1], cy + d[2]) end
+
+  -- Ledge-hop candidates: when the follower stands on a ledge edge, the
+  -- landing two cells ahead can be the goal even though the one-cell-adjacent
+  -- step (the ledge tile itself) is often rejected by isFollowerCellAllowed.
+  -- This gives followers the same ledge-jump behaviour that the stock Yellow
+  -- Pikachu follower has.
+  if surface ~= "water" then
+    local Collision = tryRequire("src.world.Collision")
+    for _, dir in ipairs({ "up", "down", "left", "right" }) do
+      if self:ledgeStep(game, ow, cx, cy, dir)
+         and Collision and Collision.DELTA and Collision.DELTA[dir] then
+        local delta = Collision.DELTA[dir]
+        local hx, hy = cx + delta[1] * 2, cy + delta[2] * 2
+        if self:isFollowerCellAllowed(game, ow, npc, hx, hy, {
+          surface = surface, role = role,
+        }) then
+          consider(dir, hx, hy, true)
+        end
+      end
+    end
+  end
+
+  -- Separate walkable 1-cell steps from ledge-hop candidates.  Ledge hops
+  -- win when they are the shorter path to the goal — otherwise a trailer on
+  -- a ledge edge walks *around* the ledge (toward a walkable side cell)
+  -- instead of jumping down, which is what "freaks out" when the player
+  -- changes direction after a ledge hop.
+  local walkable = {}
+  local hops = {}
+  for _, c in ipairs(cands) do
+    if c.hop then
+      hops[#hops + 1] = c
+    elseif allowed(c.x, c.y) then
+      walkable[#walkable + 1] = c
+    end
+  end
+
+  local function bestDist(list)
+    local d = math.huge
+    for _, c in ipairs(list) do
+      if c.dist < d then d = c.dist end
+    end
+    return d
+  end
+  local bestWalkable = bestDist(walkable)
+  local bestHop = bestDist(hops)
+
+  -- If a ledge hop gets us closer to the goal than any walkable 1-cell
+  -- step, prefer the hop.  The adjacent cell past the ledge is often the
+  -- ledge tile itself (non-walkable), so the "walkable" list only contains
+  -- side/back steps that move AWAY from the goal; the hop is the correct
+  -- path forward.
+  local pool = (bestHop < bestWalkable) and hops or walkable
+  if #pool == 0 then
+    pool = (pool == hops) and walkable or hops
+  end
+  if #pool == 0 then return nil end
+
+  table.sort(pool, function(a, b)
+    if a.dist ~= b.dist then return a.dist < b.dist end
+    if (a.dir == npc.facing) ~= (b.dir == npc.facing) then
+      return a.dir == npc.facing
+    end
+    return false
+  end)
+  return pool[1]
+end
+
 --- Advance a trailer step without stock NPC land-walkability rejection.
 -- Uses the same fields as NPC movement (target/moving/progress/px/py).
 -- Timing: one progress tick per ControlEngine:update (logic frame), matching
 -- stock NPC:update — not present/render FPS.
 function ControlEngine.advanceTrailerStep(npc, _map, _entities, diag)
-  if not npc or not npc.moving then return false end
+  if not npc then return false end
+  -- Mirror Player:update — the completion-frame pose is kept for this draw,
+  -- then cleared so an idle trailer snaps back to the stand frame.
+  npc.stepLanded = false
+  -- Keep the walk clock running every frame (moving or not) so the
+  -- pack-motion gate in walkPhase always has a continuous cycle to sample.
+  npc.animClock = (tonumber(npc.animClock) or 0) + 1
+  if not npc.moving then return false end
   local toX, toY = npc.targetX, npc.targetY
   if toX == nil or toY == nil then
     npc.moving = false
@@ -1267,6 +1425,7 @@ function ControlEngine.advanceTrailerStep(npc, _map, _entities, diag)
     end
     npc.walkFlip = npc.stepFlip == true
     npc.flip = npc.stepFlip == true
+    npc.stepLanded = true
   end
   return true
 end
@@ -1352,8 +1511,15 @@ function ControlEngine:syncTrailers(game, ow, opts)
       npc._wildsFollowerStep = true
     end
   end
+  -- Force re-composition when the desired count changes (stepper menu).
+  -- Only triggers after the first sync has established a baseline, so the
+  -- initial sync (from nil) doesn't inadvertently mark itself dirty.
+  local wantN = #want
+  local countChanged = self._lastSyncedCount ~= nil
+    and wantN ~= self._lastSyncedCount
   local dirty = compositionDirty(trailers, want)
     or not trailersAliveInWorld(ow, trailers)
+    or countChanged
 
   local p = ow.player
   local anchor = self:_trailAnchor(game, ow, p)
@@ -1410,6 +1576,7 @@ function ControlEngine:syncTrailers(game, ow, opts)
     ow.pokepcTrailers = trailers
     ow.pokepcTrailCells = goals
     ow.pokepcTrailHead = { x = anchor.cellX, y = anchor.cellY }
+    self._lastSyncedCount = wantN
   elseif mapEnter and #trailers > 0 then
     local goals = self:_seedTrailBehind(ow, anchor, facing, #trailers, game, "party_trailer")
     for i, npc in ipairs(trailers) do
@@ -1438,6 +1605,28 @@ function ControlEngine:syncTrailers(game, ow, opts)
     or { x = anchor.cellX, y = anchor.cellY, ledgeHop = nil }
   local head = ow.pokepcTrailHead
   local committed = (destX ~= head.x or destY ~= head.y)
+
+  -- Pack-motion gate for the trailer walk cycle. The pack is walking while the
+  -- player is mid-step or the trail head just committed a step; the gate then
+  -- stays on for a short settle tail (long enough to bridge the one-frame
+  -- gap between steps and to finish in-flight trailer steps) and drops to
+  -- stand afterwards, so an idle pack never bobs in place. Reading the
+  -- player's own motion in addition to the head commit makes this robust to
+  -- anchor quirks (Yellow's stock Pikachu steps on its own offset cadence, so
+  -- commits land at irregular intervals and a commit-only gate can sit off
+  -- for long stretches between them).
+  local packMoving = (p and p.moving == true) or committed
+  local settle = math.max(4, math.floor((stepClock or 16) / 2))
+  if packMoving then
+    ow._wildsPackMotionFrames = 0
+    ow._wildsPackWalking = true
+  else
+    ow._wildsPackMotionFrames = (ow._wildsPackMotionFrames or 0) + 1
+    if ow._wildsPackMotionFrames > settle then
+      ow._wildsPackWalking = false
+    end
+  end
+
   if committed then
     local stepDir = destY > head.y and "down" or destY < head.y and "up"
                     or destX > head.x and "right" or "left"
@@ -1475,10 +1664,12 @@ function ControlEngine:syncTrailers(game, ow, opts)
       ow.pokepcTrailCells = goals
       head.x, head.y = destX, destY
     end
-  elseif not mapEnter and not dirty and not ow._wildsFollowerSeamActive then
-    return
   end
 
+  -- Step assignment runs every frame: a trailer starts a step as soon as its
+  -- goal differs, even on frames where the head did not commit (a trailer that
+  -- landed mid-walk must re-step immediately instead of freezing until the
+  -- next goal shift). Mid-step trailers are left to advanceAllTrailers.
   local Collision = tryRequire("src.world.Collision")
   local goals = ow.pokepcTrailCells or {}
   -- A translated train can momentarily become geometrically out of order
@@ -1536,75 +1727,138 @@ function ControlEngine:syncTrailers(game, ow, opts)
         goals[i] = { x = gx, y = gy }
       end
       if npc.cellX ~= gx or npc.cellY ~= gy then
-        local far = math.abs((npc.cellX or 0) - gx) + math.abs((npc.cellY or 0) - gy)
-        if far > 6 and not seamReservations and seamCellFree(gx, gy, npc) then
-          releaseSeamCell(npc.cellX, npc.cellY, npc)
-          placeTrailerAt(npc, gx, gy, npc.facing or facing)
-          reserveSeamCell(gx, gy, npc)
-        else
-          local dir
-          if npc.cellX < gx then dir = "right"
-          elseif npc.cellX > gx then dir = "left"
-          elseif npc.cellY < gy then dir = "down"
-          else dir = "up" end
-          local stepX = npc.cellX + (dir == "right" and 1 or dir == "left" and -1 or 0)
-          local stepY = npc.cellY + (dir == "down" and 1 or dir == "up" and -1 or 0)
-          local moveX, moveY = stepX, stepY
-          local hopping = false
-          if surface ~= "water"
-             and self:ledgeStep(game, ow, npc.cellX, npc.cellY, dir)
-             and Collision and Collision.DELTA and Collision.DELTA[dir] then
-            local d = Collision.DELTA[dir]
-            local hx, hy = npc.cellX + d[1] * 2, npc.cellY + d[2] * 2
-            if self:isFollowerCellAllowed(game, ow, npc, hx, hy, {
-              surface = surface, role = role,
-            }) then
-              moveX, moveY = hx, hy
-              hopping = true
-            end
-          end
-          if not seamCellFree(moveX, moveY, npc) then
-            -- The occupant must complete its own move before this trailer can
-            -- claim the cell. A later update will retry the same goal.
-          elseif not hopping and not self:isFollowerCellAllowed(game, ow, npc,
-              stepX, stepY, {
-            surface = surface, role = role,
-          }) then
-            -- Adjacent step blocked: warp-distance catch-up only when far.
-            if far > 2 and not seamReservations and seamCellFree(gx, gy, npc) then
-              releaseSeamCell(npc.cellX, npc.cellY, npc)
-              placeTrailerAt(npc, gx, gy, dir)
-              reserveSeamCell(gx, gy, npc)
-            end
-          else
-            npc.facing = dir
-            npc.hopStep = hopping and true or nil
-            npc.targetX = moveX
-            npc.targetY = moveY
-            if hopping then goals[i] = { x = moveX, y = moveY } end
-            local stepLen = stepClock
-            if far > 1 and not npc.hopStep and not seamReservations then
-              stepLen = math.max(1, math.floor(stepLen / 2))
-            end
-            npc.stepFrames = stepLen
-            npc.moving = true
-            npc.progress = 0
-            releaseSeamCell(npc.cellX, npc.cellY, npc)
-            reserveSeamCell(moveX, moveY, npc)
-            -- First-frame burn happens in ControlEngine:update via
-            -- advanceTrailerStep (npc.update is intentionally a no-op).
-          end
+        local ok = self:_assignTrailerStep(
+          game, ow, npc, gx, gy, surface, role, stepClock, facing)
+        if ok then
+          -- Keep the trail cell aligned with the trailer's actual aim
+          -- (including ledge-hop extension) for the catch-up chain pass.
+          goals[i] = { x = npc._wildsGoalX, y = npc._wildsGoalY }
         end
+      else
+        npc._wildsGoalX, npc._wildsGoalY = nil, nil
       end
     end
   end
 end
 
+--- Assign one step for a trailer toward (gx, gy). Corner-navigates, handles
+-- ledges, and picks the cadence: normal at 1-cell spacing, double-speed for
+-- catch-up. Stores the goal on the trailer so the catch-up pass can chain
+-- consecutive steps without waiting for the next goal shift. Returns true
+-- when a step started; false when blocked (no adjacent follower cell).
+function ControlEngine:_assignTrailerStep(game, ow, npc, gx, gy, surface, role,
+                                           stepClock, facing)
+  local Collision = tryRequire("src.world.Collision")
+  local far = math.abs((npc.cellX or 0) - gx) + math.abs((npc.cellY or 0) - gy)
+  local step = self:_pickTrailerStep(game, ow, npc, gx, gy, surface, role)
+  if not step then
+    -- No valid adjacent cell (wall pocket). Only hard-warp when the trailer
+    -- is so far that waiting would strand it forever; mid-range blocked
+    -- trailers wait for the goal to shift instead of teleporting (teleports
+    -- read as "dragged along" jumps on followers 2+).
+    if far > 8 then
+      placeTrailerAt(npc, gx, gy, npc.facing or facing)
+      npc._wildsGoalX, npc._wildsGoalY = nil, nil
+    end
+    return false
+  end
+  local dir = step.dir
+  npc.facing = dir
+  npc.hopStep = step.hop or nil
+  npc.targetX = step.x
+  npc.targetY = step.y
+  npc._wildsGoalX, npc._wildsGoalY = gx, gy
+  -- When _pickTrailerStep already identified this as a ledge hop the
+  -- target coordinates, hop flag, and goal chain are already set for the
+  -- two-cell landing; skip the secondary ledge re-detection.
+  if not step.hop
+     and surface ~= "water"
+     and self:ledgeStep(game, ow, npc.cellX, npc.cellY, dir)
+     and Collision and Collision.DELTA and Collision.DELTA[dir] then
+    local d = Collision.DELTA[dir]
+    local hx, hy = npc.cellX + d[1] * 2, npc.cellY + d[2] * 2
+    if self:isFollowerCellAllowed(game, ow, npc, hx, hy, {
+      surface = surface, role = role,
+    }) then
+      npc.targetX = hx
+      npc.targetY = hy
+      npc.hopStep = true
+      -- Ledge hop lands two cells out: aim the chain at the far cell.
+      npc._wildsGoalX, npc._wildsGoalY = hx, hy
+    end
+  end
+  -- Normal cadence at 1-cell spacing. Trailers that fell behind (blocked
+  -- corner, spawn, surface change) walk at double cadence until they close
+  -- the gap; the catch-up pass chains the next step the moment one lands so
+  -- the straggler moves continuously instead of bursting 8 frames then
+  -- freezing 8 frames waiting for the next goal shift (the tick-tock drag).
+  -- Ledge hops always use full-length frames for the arc animation.
+  if not npc.hopStep and far > 1 then
+    npc.stepFrames = math.max(1, math.floor(stepClock / 2))
+  else
+    npc.stepFrames = stepClock
+  end
+  npc.moving = true
+  npc.progress = 0
+  -- First-frame burn happens in ControlEngine:update via
+  -- advanceTrailerStep (npc.update is intentionally a no-op).
+  return true
+end
+
+--- Chain catch-up steps: a trailer that just landed but is still short of
+-- its goal starts the next step immediately (double cadence), so it closes
+-- the gap continuously instead of freezing until the next goal shift.
+function ControlEngine:_chainCatchUpSteps(game, ow, stepClock)
+  -- Only chase goals while the pack is actually walking: once the player
+  -- stops, stragglers hold position (they resume catching up on the next
+  -- walk) instead of pacing toward stale goals — that pacing is what made
+  -- idle followers 2+ bob up and down in place.
+  if ow._wildsPackWalking ~= true then return 0 end
+  local trailers = ow.pokepcTrailers or {}
+  local goals = ow.pokepcTrailCells or {}
+  local p = ow.player
+  local anchor = self:_trailAnchor(game, ow, p)
+  local facing = (anchor and anchor.facing) or (p and p.facing) or "down"
+  stepClock = stepClock or (p and (p.stepFramesCur or p.stepFrames)) or 16
+  local surface = self:_trailSurface(ow, game)
+  local assigned = 0
+  for i, npc in ipairs(trailers) do
+    if npc and not npc.moving then
+      local gx, gy = npc._wildsGoalX, npc._wildsGoalY
+      if gx == nil then
+        local cell = goals[i]
+        if cell then gx, gy = cell.x, cell.y end
+      end
+      if gx ~= nil then
+        local far = math.abs((npc.cellX or 0) - gx) + math.abs((npc.cellY or 0) - gy)
+        if far > 0 and self:isFollowerCellAllowed(game, ow, npc, gx, gy, {
+          surface = surface, role = npc.wildsFollowerRole or "party_trailer",
+        }) then
+          local ok = self:_assignTrailerStep(game, ow, npc, gx, gy, surface,
+            npc.wildsFollowerRole or "party_trailer", stepClock, facing)
+          if ok then
+            -- Chain at catch-up cadence for normal steps; ledge hops keep
+            -- full-length frames so the arc animation plays out properly.
+            if not npc.hopStep then
+              npc.stepFrames = math.max(1, math.floor(stepClock / 2))
+            end
+            assigned = assigned + 1
+          end
+        end
+      end
+    end
+  end
+  return assigned
+end
+
 --- Advance every Wilds trailer exactly once (logic-frame semantics).
 function ControlEngine:advanceAllTrailers(ow)
   if not ow then return 0 end
+  local packWalking = ow._wildsPackWalking == true
   local n = 0
   for _, trailer in ipairs(ow.pokepcTrailers or {}) do
+    -- Propagate the pack-motion gate so walkPhase can sample it at draw time.
+    trailer._wildsPackWalking = packWalking
     if ControlEngine.advanceTrailerStep(trailer, ow.map, ow.entities, self.diag) then
       n = n + 1
     end
@@ -1651,11 +1905,16 @@ function ControlEngine:update(game, ow, opts)
   if self._inControlUpdate then return false, "reentrant" end
   game = game or self:_game()
   ow = ow or (game and game.overworld)
-  if not self:shouldUpdateWildsTrailers(game, ow) and not opts.force then
+  -- Always run when a pending sync is queued (stepper menu changed the count
+  -- while the world was paused).  Otherwise skip if trailers aren't needed.
+  if not self._pendingMapTrailerSync
+     and not self:shouldUpdateWildsTrailers(game, ow)
+     and not opts.force then
     return false, "skip"
   end
 
   self._inControlUpdate = true
+  self._lastOw = ow  -- cached for menu-context access (stepper, etc.)
   self.diag.controlUpdateCalls = (self.diag.controlUpdateCalls or 0) + 1
   self.diag.lastSource = opts.source or "direct"
 
@@ -1672,7 +1931,24 @@ function ControlEngine:update(game, ow, opts)
     else
       self:syncTrailers(game, ow, {})
     end
+
+    -- Detect land↔water transitions and re-resolve trailer sprites so
+    -- submerged poke_followers art appears the moment the player surfs.
+    -- Also refresh when trailer entities are recreated (battle ended / party
+    -- change while on water) — syncTrailers gives them fresh land sprites.
+    local surface = self:_trailSurface(ow, game)
+    local t1 = (ow.pokepcTrailers or {})[1]
+    local trailersChanged = (t1 ~= self._lastTrailerRef)
+    if surface ~= self._lastTrailSurface or (surface == "water" and trailersChanged) then
+      self._lastTrailSurface = surface
+      self._lastTrailerRef = t1
+      pcall(function() self:_refreshTrailerWaterSprites(game, ow, surface) end)
+    end
+
     self:advanceAllTrailers(ow)
+    -- Stragglers re-step the moment they land so the pack closes gaps
+    -- continuously instead of freezing between goal shifts.
+    self:_chainCatchUpSteps(game, ow)
     self:_finishConnectionHandoffIfComplete(ow)
     self:_traceSurf(game, ow)
   end)
@@ -1683,6 +1959,111 @@ function ControlEngine:update(game, ow, opts)
     return false, err
   end
   return true
+end
+
+--- Re-resolve every party-mon trailer sprite for the new surface (land/water)
+-- so submerged sheets take effect the moment the player enters water and
+-- land sheets restore when they step out.
+--
+-- Water path: loads poke_followers/follower_NNN_submerged.png directly via
+-- fsExists instead of going through the resolution chain (whose mod:read
+-- existence check can fail for binary assets).  Falls back to the standard
+-- resolveFollowerSprite chain when no submerged sheet exists.
+function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
+  if not (ow and ow.pokepcTrailers) then return end
+  local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
+  if not (SpriteRenderer and SpriteRenderer.new) then return end
+
+  local AnimatedSprites = nil
+  pcall(function() AnimatedSprites = V.require("animated_sprites") end)
+
+  for _, npc in ipairs(ow.pokepcTrailers) do
+    if npc and npc.pokepcTrailerKind == "mon" and npc.pokepcMon then
+      local mon = npc.pokepcMon
+      local species = mon.species or npc._wildsFollowerSpecies
+      local shiny = isShinyMon(mon) or (npc.pokepcShiny == true)
+      local resolved = nil
+
+      if surface == "water" then
+        -- Load the submerged poke_followers sheet directly.  Naming is
+        -- follower_NNN_{variant}_submerged.png; pick based on COLORS mode.
+        local dex = AnimatedSprites and AnimatedSprites.resolveSpeciesId
+          and AnimatedSprites.resolveSpeciesId(species, game, self.mod)
+        if dex then
+          local Config = nil
+          pcall(function() Config = V.require("config") end)
+          local redpp = Config and type(Config.paletteFxRedpp) == "function"
+            and Config.paletteFxRedpp()
+          -- Build a list of variant suffixes to try, best match first.
+          local tryVariants = {}
+          if redpp then
+            if shiny then
+              tryVariants = { "shiny_submerged", "normal_submerged" }
+            else
+              tryVariants = { "normal_submerged" }
+            end
+          else
+            tryVariants = { "grayscale_submerged" }
+          end
+          for _, v in ipairs(tryVariants) do
+            local rel = string.format(
+              "assets/enhanced_overworld/poke_followers/follower_%03d_%s.png",
+              dex, v)
+            local loadPath = rel
+            if self.mod and self.mod.assets and self.mod.assets.path then
+              local ok, p = pcall(function()
+                return self.mod.assets:path(rel)
+              end)
+              if ok and type(p) == "string" then loadPath = p end
+            end
+            if (love and love.filesystem and love.filesystem.getInfo
+                and love.filesystem.getInfo(loadPath))
+               or (love and love.filesystem and love.filesystem.getInfo
+                   and love.filesystem.getInfo(rel)) then
+              resolved = {
+                image = loadPath,
+                frames = 6,
+                walker = true,
+                trueColor = true,
+                id = "SPRITE_WILDS_FOLLOWER_SUBMERGED_" .. tostring(dex),
+              }
+              break
+            end
+          end
+        end
+      end
+
+      if not resolved then
+        -- No submerged sheet (land surface, or species outside the set).
+        -- Fall back to the standard sprite resolution chain.
+        resolved = self:resolveFollowerSprite({
+          species = species,
+          shiny = shiny,
+          form = mon.form,
+          surface = surface,
+          role = "party_trailer",
+          game = game,
+        })
+      end
+
+      if resolved and resolved.image then
+        local ok, sprite = pcall(SpriteRenderer.new, {
+          id = resolved.id or "SPRITE_WILDS_FOLLOWER_MON",
+          image = resolved.image,
+          frames = resolved.frames or 6,
+          walker = resolved.walker ~= false,
+          trueColor = resolved.trueColor ~= false,
+          pokepcShiny = shiny and true or false,
+        }, npc.id)
+        if ok and sprite then
+          npc.sprite = sprite
+          npc._wildsFollowerSpecies = species
+        end
+      end
+      npc.wildsFollowerWater = (surface == "water")
+      npc.spriteState = surface
+    end
+  end
 end
 
 function ControlEngine:_removeStockPikachu(ow)
@@ -1846,9 +2227,10 @@ end
 function ControlEngine:_restoreOverworldUpdateWrap()
   local OverworldState = tryRequire("src.world.OverworldController")
   if not OverworldState then return end
-  if self._owUpdateWrapped and OverworldState._wildsControlEngineUpdateWrap
-     and OverworldState.update == OverworldState._wildsControlEngineUpdateWrap
-     and self._owOrigUpdate then
+  -- Unconditionally restore to the vanilla original captured at first install.
+  -- External mods (e.g. Followers EX) may have wrapped on top, so equality
+  -- guards against _wildsControlEngineUpdateWrap would fail.
+  if self._owOrigUpdate then
     OverworldState.update = self._owOrigUpdate
     OverworldState._wildsControlEngineUpdateWrap = nil
   end
@@ -1996,22 +2378,34 @@ function ControlEngine:install()
     engine = engine,
   }
 
+  -- Preserve vanilla originals so restore() can strip any external-mod
+  -- wrappers (e.g. Followers EX) that were installed on top of ours.
+  engine._vanillaOrigUpdate = origFollowerUpdate
+  engine._vanillaOrigOnMapEntered = origOnMap
+  engine._vanillaOrigStarterInParty = origStarterInParty
+  engine._vanillaShouldSpawn = prevShouldSpawn
+
   restoreState.restore = function()
     for i = #engine._eventOff, 1, -1 do
       pcall(engine._eventOff[i])
     end
     engine._eventOff = {}
-    if origFollowerUpdate and prevShouldSpawn then
-      patchUpvalue(origFollowerUpdate, "shouldSpawn", prevShouldSpawn)
+    engine._mapExitSnapshot = nil
+    engine._pendingConnectionHandoff = nil
+    -- Unconditionally restore the engine functions to the vanilla originals
+    -- captured at first install time, regardless of whether an external mod
+    -- (e.g. Followers EX) has wrapped on top. Without this the equality
+    -- guards would see EX's wrapper instead of ours and skip the restore,
+    -- so reinstall() wraps on top of EX → broken walk cycles.
+    if engine._vanillaOrigUpdate and engine._vanillaShouldSpawn then
+      patchUpvalue(engine._vanillaOrigUpdate, "shouldSpawn", engine._vanillaShouldSpawn)
     end
-    if origOnMap and prevShouldSpawn then
-      patchUpvalue(origOnMap, "shouldSpawn", prevShouldSpawn)
+    if engine._vanillaOrigOnMapEntered and engine._vanillaShouldSpawn then
+      patchUpvalue(engine._vanillaOrigOnMapEntered, "shouldSpawn", engine._vanillaShouldSpawn)
     end
-    if PF.update == wrappedUpdate then PF.update = origFollowerUpdate end
-    if PF.onMapEntered == wrappedOnMapEntered then PF.onMapEntered = origOnMap end
-    if PF.starterInParty == wrappedStarterInParty then
-      PF.starterInParty = origStarterInParty
-    end
+    if engine._vanillaOrigUpdate then PF.update = engine._vanillaOrigUpdate end
+    if engine._vanillaOrigOnMapEntered then PF.onMapEntered = engine._vanillaOrigOnMapEntered end
+    if engine._vanillaOrigStarterInParty then PF.starterInParty = engine._vanillaOrigStarterInParty end
     engine:_restoreTalkWrap()
     engine:_restoreOverworldUpdateWrap()
     engine._mapExitSnapshot = nil

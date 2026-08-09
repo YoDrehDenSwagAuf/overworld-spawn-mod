@@ -149,6 +149,105 @@ function SettingsMenus:_openChoice(game, title, choices, current, apply)
   })
 end
 
+--- Create a ListMenu where stepper rows cycle values on left/right arrow keys.
+-- Each item may be a stepper (with .choices, .current, .apply) or a plain
+-- action row (with .onSelect).  If item.wrap is true, the stepper wraps
+-- around at the ends; otherwise it clamps.
+-- Hold-to-repeat: 16-frame initial delay, 4-frame repeat.
+function SettingsMenus:_makeStepperMenu(game, title, items, mod)
+  local menus = self
+
+  local menu = mod.ui.ListMenu.new(game, title, items, {
+    onChoose = function(item, m)
+      if item and item.onSelect then
+        item.onSelect()
+        if m and m.close then m:close() end
+      end
+    end,
+  })
+
+  if not (menu and type(menu.update) == "function") then
+    return menu
+  end
+
+  -- Edge-detection state for LÖVE2D keyboard polling (bypasses the engine's
+  -- own input:wasPressed which may consume events before our wrapper runs).
+  local edgeLeft, edgeRight = false, false
+  local heldLeft, heldRight = false, false
+
+  local baseUpdate = menu.update
+  menu.update = function(self, dt)
+    local item = self.items and self.items[self.index]
+    if not (item and item.stepper) then
+      self._stepperHold = nil
+      return baseUpdate(self, dt)
+    end
+
+    -- Poll LÖVE2D keyboard directly for left/right arrow keys.
+    -- This avoids the engine's input:wasPressed which may consume edge
+    -- events before our wrapper runs.
+    local nowLeft = love and love.keyboard and love.keyboard.isDown
+      and love.keyboard.isDown("left")
+    local nowRight = love and love.keyboard and love.keyboard.isDown
+      and love.keyboard.isDown("right")
+
+    local dir
+    if nowLeft and not heldLeft then
+      dir = -1
+    elseif nowRight and not heldRight then
+      dir = 1
+    end
+    heldLeft, heldRight = nowLeft, nowRight
+
+    if dir then
+      menus:_stepItem(item, dir)
+      self._stepperHold, self._stepperHoldFrames = dir, 0
+      return
+    end
+
+    -- Hold-to-repeat.
+    local held = self._stepperHold
+    if held and (held == -1 and nowLeft or held == 1 and nowRight) then
+      self._stepperHoldFrames = (self._stepperHoldFrames or 0) + 1
+      if self._stepperHoldFrames >= 16 and self._stepperHoldFrames % 4 == 0 then
+        menus:_stepItem(item, held)
+      end
+      return
+    end
+
+    self._stepperHold = nil
+    return baseUpdate(self, dt)
+  end
+
+  return menu
+end
+
+--- Cycle a stepper item's value left (-1) or right (+1) through its choices.
+-- item.current is the authoritative value — _stepItem updates it on each
+-- step, so it never drifts.  The menu is rebuilt fresh on every open, so the
+-- initial current is always correct.
+-- When item.wrap is true, wraps around at the ends; otherwise clamps.
+function SettingsMenus:_stepItem(item, dir)
+  if not (item and item.choices and #item.choices > 0) then return end
+  local cur = item.current
+  local idx = 1
+  for i, ch in ipairs(item.choices) do
+    if ch.value == cur then idx = i; break end
+  end
+  local n = #item.choices
+  local nextIdx
+  if item.wrap then
+    nextIdx = ((idx - 1 + dir) % n) + 1
+  else
+    nextIdx = idx + dir
+    if nextIdx < 1 or nextIdx > n then return end
+  end
+  local chosen = item.choices[nextIdx]
+  item.current = chosen.value
+  item.right = chosen.label
+  if item.apply then item.apply(chosen.value) end
+end
+
 function SettingsMenus:_applyControlMode(game, value)
   self:_setOption("follow_control", value, game)
 end
@@ -159,11 +258,28 @@ end
 
 function SettingsMenus:_applyFollowerCount(game, value)
   local n = tonumber(value) or 1
-  local settings = self:_settings()
-  if settings and settings.clampCount then
-    n = settings.clampCount(n)
-  else
-    n = math.max(0, math.min(6, math.floor(n)))
+  -- Write to the mod option store.
+  if self.mod.options and self.mod.options.set then
+    self.mod.options:set("follower_count", n)
+  end
+  -- Write to ALL game.save references so followerCount() finds it even
+  -- when the settings path is stale (ListMenu on stack).
+  if self.follower and self.follower.control then
+    local ctrl = self.follower.control
+    ctrl:setFollowerCount(game, n)
+    ctrl._optCache.follower_count = n
+    -- The screen's game reference.
+    if game and game.save then game.save.pokepcFollowerCount = n end
+    -- The control engine's canonical game reference.
+    local ctrlGame = ctrl:_game()
+    if ctrlGame and ctrlGame ~= game and ctrlGame.save then
+      ctrlGame.save.pokepcFollowerCount = n
+    end
+    -- The mod's world game (what syncAll uses in onOptionsChanged).
+    local worldGame = self.mod.world and self.mod.world.game
+    if worldGame and worldGame ~= game and worldGame ~= ctrlGame and worldGame.save then
+      worldGame.save.pokepcFollowerCount = n
+    end
   end
   self:_setOption("follower_count", n, game)
 end
@@ -174,145 +290,245 @@ function SettingsMenus:_openFollowersRoot(game)
   local control = optGet(mod, "follow_control", "trainer")
   local trail = optGet(mod, "trainer_trail", false) == true
   local count = tonumber(optGet(mod, "follower_count", 1)) or 1
-  self:_menuLog("open root control=%s trail=%s count=%s",
-                tostring(control), tostring(trail), tostring(count))
+
+  -- Build count choices {0..6}.
+  local countChoices = {}
+  for i = 0, 6 do
+    countChoices[#countChoices + 1] = { label = tostring(i), value = i }
+  end
+
   local items = {
     {
-      label = "CONTROL MODE",
-      screen = SettingsMenus.SCREEN_FOLLOWERS .. ":control",
+      label = "CONTROL",
+      stepper = true,
+      choices = {
+        { label = "TRAINER", value = "trainer" },
+        { label = "POKEMON", value = "pokemon" },
+      },
+      current = control,
       right = tostring(control):upper(),
+      apply = function(v) menus:_applyControlMode(game, v) end,
     },
     {
-      label = "TRAINER TRAIL",
-      screen = SettingsMenus.SCREEN_FOLLOWERS .. ":trail",
+      label = "TRAIL",
+      stepper = true,
+      choices = {
+        { label = "OFF", value = false },
+        { label = "ON",  value = true  },
+      },
+      current = trail == true,
       right = trail and "ON" or "OFF",
+      apply = function(v) menus:_applyTrainerTrail(game, v) end,
     },
     {
       label = "FOLLOWERS",
-      screen = SettingsMenus.SCREEN_FOLLOWERS .. ":count",
+      stepper = true,
+      wrap = true,
+      choices = countChoices,
+      current = count,
       right = tostring(count),
+      apply = function(v) menus:_applyFollowerCount(game, v) end,
     },
+    { label = "CANCEL", onSelect = function() end },
   }
-  -- Leader is available via party submenu; surface a hint only.
-  items[#items + 1] = {
-    label = "LEADER",
-    onSelect = function()
-      if game and game.ui and game.ui.message then
-        pcall(game.ui.message, game.ui, "USE PARTY MENU")
-      end
-    end,
-    right = "PARTY",
-  }
-  items[#items + 1] = { label = "CANCEL" }
 
-  return mod.ui.ListMenu.new(game, SettingsMenus.LABEL_FOLLOWERS, items, {
-    onChoose = function(item, menu)
-      if not item then return end
-      menus:_menuLog("root choose: %s", tostring(item.label))
-      if item.screen then
-        menus:_pushScreen(game, item.screen, menu)
-        return
-      end
-      if type(item.onSelect) == "function" then
-        if menu and menu.close then menu:close() end
-        item.onSelect()
-        return
-      end
-      if menu and menu.close then menu:close() end
-    end,
-  })
+  return menus:_makeStepperMenu(game, SettingsMenus.LABEL_FOLLOWERS, items, mod)
 end
 
 function SettingsMenus:_openWildsRoot(game)
   local mod = self.mod
-  local enabled = optGet(mod, "enabled", true) ~= false
-  local style = Config.spriteStyle(mod)
-  local fade = Config.spriteFade(mod)
-  local spawn = Config.spawnAmount(mod)
-  local random = Config.randomEncountersEnabled(mod)
-  local water = Config.waterDisplayMode(mod)
-  local cave = tostring(optGet(mod, "cave_spawns", "reachable") or "reachable")
-  local town = Config.townPokemonEnabled(mod)
-  local grass = Config.pokemonGrassRenderMode(mod)
-  local idle = optGet(mod, "enable_idle", true) ~= false
-  local roam = optGet(mod, "enable_wander", true) ~= false
-  local chase = optGet(mod, "enable_aggressive", true) ~= false
-  local hidden = optGet(mod, "enable_hidden", true) ~= false
-  local dev = Config.devOverlay(mod) == true
+  local menus = self
 
   local menus = self
   local items = {
     {
       label = "SHOW WILD MONS",
-      screen = SettingsMenus.SCREEN_WILDS .. ":enabled",
-      right = enabled and "ON" or "OFF",
+      stepper = true,
+      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
+      current = optGet(mod, "enabled", true) ~= false,
+      right = (optGet(mod, "enabled", true) ~= false) and "ON" or "OFF",
+      apply = function(v)
+        optSet(mod, "enabled", v == true)
+        menus:_notifyLogic("enabled", v == true)
+      end,
     },
     {
-      label = "SPAWN AMOUNT",
-      screen = SettingsMenus.SCREEN_WILDS .. ":spawn",
-      right = tostring(spawn):upper():gsub("_", " "),
+      label = "SPAWN AMT",
+      stepper = true,
+      choices = {
+        { label = "LOW",    value = "low" },
+        { label = "NORM",   value = "normal" },
+        { label = "HIGH",   value = "high" },
+        { label = "V.HIGH", value = "very_high" },
+      },
+      current = Config.spawnAmount(mod),
+      right = ({ low = "LOW", normal = "NORM", high = "HIGH", very_high = "V.HIGH" })[tostring(Config.spawnAmount(mod))] or "NORM",
+      apply = function(v)
+        Config.setSpawnAmount(mod, v, "options_menu", {
+          game = game, logic = menus.logic, confirm = true,
+        })
+      end,
     },
     {
       label = "RANDOM ENC",
-      screen = SettingsMenus.SCREEN_WILDS .. ":random",
-      right = random and "ON" or "OFF",
+      stepper = true,
+      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
+      current = Config.randomEncountersEnabled(mod),
+      right = Config.randomEncountersEnabled(mod) and "ON" or "OFF",
+      apply = function(v)
+        Config.setRandomEncounters(mod, v, "options_menu", {
+          game = game, logic = menus.logic, confirm = true,
+        })
+      end,
     },
     {
       label = "WATER MONS",
-      screen = SettingsMenus.SCREEN_WILDS .. ":water",
-      right = tostring(water):upper():sub(1, 10),
+      stepper = true,
+      choices = {
+        { label = "SWIM",    value = "swimming_sprites" },
+        { label = "HIDDEN",  value = "hidden_silhouettes" },
+        { label = "SILHOU",  value = "silhouettes" },
+        { label = "CLASSIC", value = "classic_encounters" },
+        { label = "OFF",     value = "disabled" },
+      },
+      current = Config.waterDisplayMode(mod),
+      right = ({ swimming_sprites = "SWIM", hidden_silhouettes = "HIDDEN", silhouettes = "SILHOU", classic_encounters = "CLASSIC", disabled = "OFF" })[tostring(Config.waterDisplayMode(mod))] or "SWIM",
+      apply = function(v)
+        Config.setWaterMons(mod, v, "options_menu", {
+          game = game, logic = menus.logic, confirm = true,
+        })
+      end,
     },
     {
-      label = "CAVE SPAWNS",
-      screen = SettingsMenus.SCREEN_WILDS .. ":cave",
-      right = cave:upper():sub(1, 10),
+      label = "CAVE",
+      stepper = true,
+      choices = {
+        { label = "REACH", value = "reachable" },
+        { label = "MIXED", value = "mixed" },
+      },
+      current = tostring(optGet(mod, "cave_spawns", "reachable") or "reachable"),
+      right = ({ reachable = "REACH", mixed = "MIXED" })[tostring(optGet(mod, "cave_spawns", "reachable") or "reachable")] or "REACH",
+      apply = function(v)
+        Config.setCaveSpawnMode(mod, v, "options_menu", {
+          game = game, logic = menus.logic, confirm = true,
+        })
+      end,
     },
     {
-      label = "SPRITE STYLE",
-      screen = SettingsMenus.SCREEN_WILDS .. ":style",
-      right = (style == "followers" and "FOLLOW/GSC")
-        or (style == "pokedex" and "POKEDEX")
-        or "HGSS",
+      label = "GFX STYLE",
+      stepper = true,
+      choices = {
+        { label = "GSC",  value = "followers" },
+        { label = "HGSS", value = "pokemmo" },
+        { label = "DEX",  value = "pokedex" },
+      },
+      current = Config.spriteStyle(mod),
+      right = ({ followers = "GSC", pokemmo = "HGSS", pokedex = "DEX" })[tostring(Config.spriteStyle(mod))] or "GSC",
+      apply = function(v)
+        Config.setSpriteStyle(mod, v, "options_menu", {
+          game = game, logic = menus.logic,
+          render = menus.logic and menus.logic.render, confirm = true,
+        })
+        if menus.ambient and menus.ambient.refreshSprites then
+          pcall(menus.ambient.refreshSprites, menus.ambient, game)
+        end
+      end,
     },
     {
       label = "SPRITE FADE",
-      screen = SettingsMenus.SCREEN_WILDS .. ":fade",
-      right = (fade == "faded") and "FADED" or "SOLID",
+      stepper = true,
+      choices = {
+        { label = "SOLID", value = "solid" },
+        { label = "FADED", value = "faded" },
+      },
+      current = Config.spriteFade(mod),
+      right = (Config.spriteFade(mod) == "faded") and "FADED" or "SOLID",
+      apply = function(v)
+        Config.setSpriteFade(mod, v, "options_menu", {
+          game = game, logic = menus.logic, confirm = true,
+        })
+      end,
     },
     {
       label = "TOWN POKEMON",
-      screen = SettingsMenus.SCREEN_WILDS .. ":town",
-      right = town and "ON" or "OFF",
+      stepper = true,
+      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
+      current = Config.townPokemonEnabled(mod),
+      right = Config.townPokemonEnabled(mod) and "ON" or "OFF",
+      apply = function(v)
+        Config.setTownPokemon(mod, v, "options_menu", {
+          game = game, ambient = menus.ambient, confirm = true,
+        })
+      end,
     },
     {
-      label = "GRASS VIEW",
-      screen = SettingsMenus.SCREEN_WILDS .. ":grass",
-      right = (grass == "above") and "ABOVE" or "IMMERSED",
+      label = "GRASS",
+      stepper = true,
+      choices = {
+        { label = "OVER", value = "above" },
+        { label = "IN",   value = "immersed" },
+      },
+      current = Config.pokemonGrassRenderMode(mod),
+      right = ({ above = "OVER", immersed = "IN" })[tostring(Config.pokemonGrassRenderMode(mod))] or "OVER",
+      apply = function(v)
+        optSet(mod, "pokemon_grass_render_mode", v)
+        menus:_notifyLogic("pokemon_grass_render_mode", v)
+      end,
     },
     {
       label = "IDLE MONS",
-      screen = SettingsMenus.SCREEN_WILDS .. ":idle",
-      right = idle and "ON" or "OFF",
+      stepper = true,
+      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
+      current = optGet(mod, "enable_idle", true) ~= false,
+      right = (optGet(mod, "enable_idle", true) ~= false) and "ON" or "OFF",
+      apply = function(v)
+        optSet(mod, "enable_idle", v == true)
+        menus:_notifyLogic("enable_idle", v == true)
+      end,
     },
     {
       label = "ROAM MONS",
-      screen = SettingsMenus.SCREEN_WILDS .. ":roam",
-      right = roam and "ON" or "OFF",
+      stepper = true,
+      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
+      current = optGet(mod, "enable_wander", true) ~= false,
+      right = (optGet(mod, "enable_wander", true) ~= false) and "ON" or "OFF",
+      apply = function(v)
+        optSet(mod, "enable_wander", v == true)
+        menus:_notifyLogic("enable_wander", v == true)
+      end,
     },
     {
       label = "CHASE MONS",
-      screen = SettingsMenus.SCREEN_WILDS .. ":chase",
-      right = chase and "ON" or "OFF",
+      stepper = true,
+      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
+      current = optGet(mod, "enable_aggressive", true) ~= false,
+      right = (optGet(mod, "enable_aggressive", true) ~= false) and "ON" or "OFF",
+      apply = function(v)
+        optSet(mod, "enable_aggressive", v == true)
+        menus:_notifyLogic("enable_aggressive", v == true)
+      end,
     },
     {
       label = "HIDDEN MONS",
-      screen = SettingsMenus.SCREEN_WILDS .. ":hidden",
-      right = hidden and "ON" or "OFF",
+      stepper = true,
+      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
+      current = optGet(mod, "enable_hidden", true) ~= false,
+      right = (optGet(mod, "enable_hidden", true) ~= false) and "ON" or "OFF",
+      apply = function(v)
+        optSet(mod, "enable_hidden", v == true)
+        menus:_notifyLogic("enable_hidden", v == true)
+      end,
     },
     {
       label = "DEV OVERLAY",
-      screen = SettingsMenus.SCREEN_WILDS .. ":dev",
-      right = dev and "ON" or "OFF",
+      stepper = true,
+      choices = { { label = "OFF", value = false }, { label = "ON", value = true } },
+      current = Config.devOverlay(mod) == true,
+      right = (Config.devOverlay(mod) == true) and "ON" or "OFF",
+      apply = function(v)
+        optSet(mod, "dev_overlay", v == true)
+        menus:_notifyLogic("dev_overlay", v == true)
+      end,
     },
     {
       label = "TEST SPAWN",
@@ -324,24 +540,10 @@ function SettingsMenus:_openWildsRoot(game)
       end,
       right = "OPEN",
     },
+    { label = "CANCEL", onSelect = function() end },
   }
-  items[#items + 1] = { label = "CANCEL" }
 
-  return mod.ui.ListMenu.new(game, SettingsMenus.LABEL_WILDS, items, {
-    onChoose = function(item, menu)
-      if not item then return end
-      if item.screen then
-        menus:_pushScreen(game, item.screen, menu)
-        return
-      end
-      if type(item.onSelect) == "function" then
-        if menu and menu.close then menu:close() end
-        item.onSelect()
-        return
-      end
-      if menu and menu.close then menu:close() end
-    end,
-  })
+  return menus:_makeStepperMenu(game, SettingsMenus.LABEL_WILDS, items, mod)
 end
 
 function SettingsMenus:register()

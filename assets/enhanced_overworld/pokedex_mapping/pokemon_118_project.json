@@ -141,4 +141,10 @@
                                               ]
                                 }
                    }
+
+    ,"grayscale": {
+        "file": "118-b-n-grayscale.png",
+        "path": "assets/enhanced_overworld/followsprites/118-b-n-grayscale.png",
+        "usedFor": ["normal", "shiny"]
+    }
 }

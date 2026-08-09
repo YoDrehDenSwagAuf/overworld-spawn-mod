@@ -204,10 +204,12 @@ function SpriteService:resolvePartyIconDef(mon, game)
   local species = mon.species or "CHARMANDER"
   local shiny = isShinyMon(mon)
   local activeStyle = Config.spriteStyle and Config.spriteStyle(self.mod)
-  -- Sprite Color was removed: icons are always true-color, so the def cache
-  -- only needs style + species + shiny.
+  -- The art set is mode-dependent (colored vs -grayscale), so the cache key
+  -- must include the redpp gate; otherwise a mid-session COLORS toggle would
+  -- keep serving the stale art.
+  local redpp = Config.paletteFxRedpp and Config.paletteFxRedpp() or false
   local cacheKey = tostring(activeStyle or "") .. "|" .. tostring(species)
-    .. (shiny and "|s" or "|n")
+    .. (shiny and "|s" or "|n") .. "|" .. (redpp and "r" or "g")
   local cached = self._partyIconDefCache[cacheKey]
   if cached then return cached end
 
@@ -333,19 +335,26 @@ function SpriteService:drawPartyIcon(game, mon, x, y, selected, counter)
   local r, g, b, a = love.graphics.getColor()
   love.graphics.setColor(1, 1, 1, 1)
 
-  -- True-color sheets must not pass through the palette shade shader.
-  if love.graphics.setShader then love.graphics.setShader() end
+  -- Grayscale icons must flow through the palette shade pass in every
+  -- non-redpp mode so they colorize per palette (DMG = green shades,
+  -- monochrome = gray) exactly like the follower/wild sprites. Only redpp
+  -- (ADVANCED) serves colored art, which must bypass the shader and be
+  -- claimed as true-color so it renders raw.
+  local trueColorMode = Config.paletteFxRedpp and Config.paletteFxRedpp() or false
+  if trueColorMode and love.graphics.setShader then love.graphics.setShader() end
   love.graphics.draw(img, quad, x, y, 0, sx, sy)
-  if love.graphics.setShader and prevShader then
+  if trueColorMode and love.graphics.setShader and prevShader then
     love.graphics.setShader(prevShader)
   end
 
-  -- Claim the rect out of the shade-remap pass (the engine re-blits it
-  -- unshaded on top of the colorized frame). Without this the zone shader
-  -- re-tints the icon back to the classic palette.
-  local PF = tryRequire("src.render.PaletteFX")
-  if PF and type(PF.markTrueColor) == "function" then
-    pcall(PF.markTrueColor, x, y, qw * sx, qh * sy)
+  if trueColorMode then
+    -- Claim the rect out of the shade-remap pass (the engine re-blits it
+    -- unshaded on top of the colorized frame). Without this the zone shader
+    -- re-tints the icon back to the classic palette.
+    local PF = tryRequire("src.render.PaletteFX")
+    if PF and type(PF.markTrueColor) == "function" then
+      pcall(PF.markTrueColor, x, y, qw * sx, qh * sy)
+    end
   end
 
   love.graphics.setColor(r, g, b, a)

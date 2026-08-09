@@ -290,12 +290,24 @@ function AnimatedSprites:_normalizeFrames(rawList, cellW, cellH, errors, imageW,
 end
 
 function AnimatedSprites:_buildVariantEntry(speciesId, variantName, rawVariant, animTemplate)
+  -- The colored sheets are the default "normal" art (rawVariant.file/path);
+  -- the explicit -grayscale sheets serve every PaletteFX mode except redpp
+  -- (ADVANCED), which bakes real per-tile color onto overworld sprites.
+  -- Headless / unknown mode defaults to the colored art.
+  local useGray = not Config.paletteFxRedpp() and rawVariant ~= nil
+    and ((type(rawVariant.grayscaleFile) == "string" and rawVariant.grayscaleFile ~= "")
+      or (type(rawVariant.grayscalePath) == "string" and rawVariant.grayscalePath ~= ""))
+  local grayFile = useGray
+    and (rawVariant.grayscaleFile or rawVariant.file) or nil
   local entry = {
     speciesId = speciesId,
     variant = variantName,
     speciesName = nil,
-    fileName = rawVariant and rawVariant.file or nil,
-    relPath = (rawVariant and (rawVariant.path or rawVariant.relPath)) or nil,
+    fileName = rawVariant and (grayFile or rawVariant.file) or nil,
+    relPath = rawVariant and (grayFile
+      and (rawVariant.grayscalePath
+        or "assets/enhanced_overworld/followsprites/" .. grayFile)
+      or (rawVariant.path or rawVariant.relPath)) or nil,
     form = rawVariant and rawVariant.form or nil,
     cellWidth = tonumber(rawVariant and rawVariant.tileWidth) or 0,
     cellHeight = tonumber(rawVariant and rawVariant.tileHeight) or 0,

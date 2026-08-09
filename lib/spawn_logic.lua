@@ -208,6 +208,73 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
   local reg = render and render.waterSpriteRegistry
   local game = opts.game or gameOf(self.mod)
 
+  -- When the GSC / Poke Followers sprite style is selected, try the
+  -- poke_followers submerged sheet directly (fsExists, no mod:read).
+  -- Otherwise fall through to the swimming/levitates registry so the
+  -- selected style (e.g. HGSS) is respected.
+  local style = opts.style or Config.spriteStyle(self.mod)
+  if Config and type(Config.normalizeSpriteStyle) == "function" then
+    style = Config.normalizeSpriteStyle(style)
+  end
+  local trySubmerged = style == "followers" and function()
+    local dexId = speciesId
+    if type(dexId) ~= "number" then
+      dexId = AnimatedSprites.resolveSpeciesId(speciesId, game, self.mod)
+    end
+    if not dexId then return nil end
+    local redpp = Config and type(Config.paletteFxRedpp) == "function"
+      and Config.paletteFxRedpp()
+    local tryVariants
+    if redpp then
+      if variant == "shiny" then
+        tryVariants = { "shiny_submerged", "normal_submerged" }
+      else
+        tryVariants = { "normal_submerged" }
+      end
+    else
+      tryVariants = { "grayscale_submerged" }
+    end
+    for _, v in ipairs(tryVariants) do
+      local rel = string.format(
+        "assets/enhanced_overworld/poke_followers/follower_%03d_%s.png",
+        dexId, v)
+      local loadPath = rel
+      if self.mod and self.mod.assets and self.mod.assets.path then
+        local ok, p = pcall(function() return self.mod.assets:path(rel) end)
+        if ok and type(p) == "string" then loadPath = p end
+      end
+      if (love and love.filesystem and love.filesystem.getInfo
+          and love.filesystem.getInfo(loadPath))
+         or (love and love.filesystem and love.filesystem.getInfo
+             and love.filesystem.getInfo(rel)) then
+        return {
+          image = loadPath,
+          frames = 6,
+          walker = true,
+          trueColor = true,
+          id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dexId),
+        }, {
+          kind = "submerged",
+          speciesId = dexId,
+          variant = v,
+          form = form,
+          image = loadPath,
+          frames = 6,
+          walker = true,
+        }
+      end
+    end
+    return nil, nil
+  end
+
+  local subDef, subMeta = nil, nil
+  if trySubmerged then
+    subDef, subMeta = trySubmerged()
+    if subDef then
+      return subDef, subMeta
+    end
+  end
+
   -- Prefer registry path for a stable, style-independent water result.
   if reg and reg.isReady and reg:isReady() then
     local dexId = speciesId

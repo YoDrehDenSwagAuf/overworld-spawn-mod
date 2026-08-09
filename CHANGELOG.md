@@ -1,5 +1,100 @@
 # Changelog
 
+## 1.11.2
+
+### Followers EX walk cycle fix — no more dragging trailers
+
+- **Root cause**: Followers EX (priority 160) wraps its hooks on top of Wilds'
+  (priority 80) ControlEngine wrappers after `game.ready`. The restore-then-reinstall
+  path had equality guards (`PF.update == wrappedUpdate`) that failed when EX's
+  wrapper sat on top, making restore a no-op. EX's hook logic double-drove the
+  pack, breaking walk-phase overrides and causing 2nd+ followers to drag along
+  without animating.
+- **Fix**: `ControlEngine:restore()` and `_restoreOverworldUpdateWrap()` now
+  unconditionally restore to the vanilla originals captured at first `install()`.
+  On `game.ready`, the re-wrap strips Followers EX out of the update chain
+  entirely — equivalent to how things worked when EX's init crashed, but deliberate
+  and clean.
+- Added `setOptionsChangedHandler` to the mod interface: Followers EX calls this
+  to hook in; the handler detects the attempt and schedules the restore+reinstall
+  for the first `game.ready` frame after EX finishes its init.
+
+### Submerged / water follower sprites (poke_followers)
+
+- **File naming updated**: All poke_followers sprites now live in a single flat
+  directory: `follower_NNN_normal.png`, `follower_NNN_shiny.png`,
+  `follower_NNN_grayscale.png`, `follower_NNN_submerged.png`,
+  `follower_NNN_normal_submerged.png`, `follower_NNN_shiny_submerged.png`,
+  `follower_NNN_grayscale_submerged.png`.
+- **Direct file loading bypasses `mod:read`**: The `mod:read` existence check
+  silently failed for binary assets in some engine configurations. All submerged
+  resolution paths now use `love.filesystem.getInfo` directly. This applies to
+  follower trailers (`_refreshTrailerWaterSprites`), the follower water resolver
+  (`SpawnLogic:resolveWaterSprite`), wild water encounters
+  (`SpriteResolver:resolveWaterSprite`), and the provider chain
+  (`followers_ex:resolveWater`).
+- **Surface transition tracking**: `ControlEngine:update` now tracks the trail
+  surface each frame. On any land↔water transition, `_refreshTrailerWaterSprites`
+  re-resolves every party-mon trailer sprite — submerged sheets apply immediately
+  on entering water, land sheets restore on exit.
+- **Post-battle / party-change resilience**: After battle or party changes,
+  `syncTrailers` may recreate trailer entities with fresh land sprites while
+  still on water. Detecting entity reference changes while surface is water now
+  triggers a sprite refresh.
+- **Sprite style gating**: Submerged poke_followers sheets only activate when the
+  selected sprite style is `"followers"` (GSC). HGSS/PokeMMO and Pokédex styles
+  continue to use the swimming/levitates water registry.
+- **Wild water encounters** also get submerged poke_followers art (gated on
+  followers style) via `SpriteResolver:resolveWaterSprite`.
+
+### POKE FOLLOW EX & WILDS OF KANTO sub-menus — stepper refactor
+
+- **Every option now cycles with left/right arrow keys** instead of opening a
+  dropdown sub-menu. Each row is self-contained: left decreases, right increases,
+  the label updates instantly, and the value takes effect immediately.
+- **Left arrow detection fix**: The engine's `input:wasPressed` API was unreliable
+  in the menu context. Steppers now poll `love.keyboard.isDown` directly with
+  manual edge detection and hold-to-repeat (16-frame initial delay, 4-frame cadence).
+- **Follower count stepper now applies**: The count change writes to
+  `game.save.pokepcFollowerCount` and `mod.options`, sets a pending-sync flag,
+  and the control engine detects the count mismatch on its next update frame.
+  Follower count wraps 0↔6 at the ends.
+- **Label overlap eliminated**: All labels and values shortened to fit within the
+  16-character Game Boy screen limit. `CONTROL MODE` → `CONTROL`,
+  `TRAINER TRAIL` → `TRAIL`, `SPAWN AMOUNT` → `SPAWN AMT`,
+  `SPRITE STYLE` → `GFX STYLE`, values like `HGSS / PokeMMO` → `HGSS`,
+  `Reachable Only` → `REACH`, etc.
+- **LEADER row removed** from POKE FOLLOW EX sub-menu — follower deselection via
+  the party menu is the cleaner path.
+
+### Party menu follower selection
+
+- Non-active party mons show **FOLLOWER**; the currently-active mon shows
+  **ACTIVE**. Legacy rows (LEADER, FOLLOWING) are actively stripped.
+- Selecting **ACTIVE** deselects the follower: clears the leader, sets follower
+  count to 0, removes trailers, and shows the confirmation message
+  `"<name> is no longer following."` via the engine's TextBox stack.
+- `getActiveFollowerMon` and `getLeaderMon` return `nil` when `followerCount ≤ 0`,
+  preventing the ACTIVE label from persisting after deselection.
+
+### Yellow version Pikachu quirk
+
+- Removed `ensureYellowLeaderLayout` — it was physically reordering the party
+  array to put Pikachu in slot 1 whenever a follower was selected. Wilds'
+  trailer system designates the follower via save data (`pokepcLeader`),
+  not party order.
+
+### TEST SPAWN cleanup
+
+- Removed the duplicate top-level "Test Spawn" row from the OPTIONS menu
+  (was registered separately in `preview_browser.lua`). Now only appears
+  inside the WILDS OF KANTO sub-menu.
+
+### PC Grid UI integration
+
+- Exposed `_G._wildsSpriteService` from `main.lua` so other mods can resolve
+  follower-style overworld icons.
+
 ## 1.11.1
 
 ### Fix Poke Followers EX OPTIONS menu follower settings path
