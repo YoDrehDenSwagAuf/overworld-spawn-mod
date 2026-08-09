@@ -4,6 +4,7 @@
 -- Returns SpriteRenderer-ready definitions pointing at pre-built 16×96 sheets.
 local V = ...
 local JsonDecode = V.require("json_decode")
+local Config = V.require("config")
 local RuntimeSheets = V.require("runtime_sheets")
 
 local WaterSpriteRegistry = {}
@@ -137,7 +138,14 @@ function WaterSpriteRegistry:_indexEntry(kind, entry, sourceDir)
   sid = math.floor(sid)
   local variant = normalizeVariant(entry.variant)
   local form = normalizeForm(entry.suffix)
-  local target = entry.target
+  -- Colored targets are the default "normal" art (entry.target); the
+  -- -grayscale targets serve every PaletteFX mode except redpp (ADVANCED),
+  -- which bakes real per-tile color. Headless / unknown mode defaults to
+  -- colored. Entries without a grayscaleTarget (colored-only variants such
+  -- as female forms) fall back to the colored target everywhere.
+  local useGray = not Config.paletteFxRedpp()
+    and type(entry.grayscaleTarget) == "string" and entry.grayscaleTarget ~= ""
+  local target = useGray and entry.grayscaleTarget or entry.target
   if type(target) ~= "string" or target == "" then
     return false, "missing target"
   end
@@ -393,6 +401,19 @@ function WaterSpriteRegistry:_resolvePath(record, opts)
       return nil, "silhouette + water sheet missing: " .. tostring(silRel or rel)
     end
     return rel, nil, key, false
+  end
+
+  -- Colored runtime sheets are the default (rel); the -grayscale sheets
+  -- serve every PaletteFX mode except redpp (ADVANCED), which bakes real
+  -- per-tile color. Every other mode serves the grayscale sheet.
+  if not Config.paletteFxRedpp() then
+    local grayPath = man and man.grayscalePath or nil
+    if type(grayPath) ~= "string" or grayPath == "" then
+      grayPath = rel:gsub("%.png$", "-grayscale.png")
+    end
+    if grayPath ~= "" and self:_assetPresent(grayPath) then
+      rel = grayPath
+    end
   end
 
   if not self:_assetPresent(rel) then

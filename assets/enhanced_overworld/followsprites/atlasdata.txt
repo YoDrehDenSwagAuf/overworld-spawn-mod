@@ -10,3 +10,9 @@ north=0,1,2,3
 south=12,13,14,15
 west=4,5,6,7
 east=8,9,10,11
+
+# Grayscale variants: every source sheet has a -grayscale sibling (e.g. 001-b-n-grayscale.png)
+# with identical dimensions/layout. The mapping files (followsprites_mapping.json,
+# pokedex_mapping/, swimming/levitates_sprite_mapping.json) point normal and shiny
+# entries at the -grayscale art for all PaletteFX modes except redpp (ADVANCED), which
+# uses the original colored art via the grayscaleFile/grayscalePath (grayscaleTarget) fields.

@@ -51,6 +51,14 @@ local function playerInWater(player, game)
   if game and game.player and game.player.surfing == true then
     return true
   end
+  -- Last resort: the player's own cell is water (surf field flags vary across
+  -- engine builds). Keeps the follower water sprites in sync with movement.
+  local ow = player.ow or (game and game.overworld)
+  if ow and ow.map and player.cellX ~= nil and player.cellY ~= nil
+     and type(ow.map.isWaterCell) == "function" then
+    local ok, water = pcall(ow.map.isWaterCell, ow.map, player.cellX, player.cellY)
+    if ok and water == true then return true end
+  end
   if player.surfing == false then return false end
   return false
 end

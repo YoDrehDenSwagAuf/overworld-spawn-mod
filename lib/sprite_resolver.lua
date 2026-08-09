@@ -201,7 +201,81 @@ function SpriteResolver:resolveWaterSprite(entity, context)
     return result
   end
 
-  -- 1) Provider water (skip when Voxel silhouettes need Wilds silhouette sheets).
+  -- 1) Direct poke_followers submerged check (fsExists, no mod:read).
+  -- Only applies when the GSC/Followers sprite style is selected; otherwise
+  -- falls through to the provider chain + swimming/levitates registry so
+  -- the user's chosen style (e.g. HGSS) is respected.
+  local useGscSubmerged = false
+  if Config and type(Config.normalizeSpriteStyle) == "function" then
+    useGscSubmerged = Config.normalizeSpriteStyle(style) == "followers"
+  else
+    useGscSubmerged = style == "followers"
+  end
+  if useGscSubmerged and not wantSilhouette and not wantHiddenShadow then
+    local dex = speciesId
+    if type(dex) ~= "number" then
+      local AS
+      pcall(function() AS = V.require("animated_sprites") end)
+      if AS and AS.resolveSpeciesId then
+        dex = AS.resolveSpeciesId(tostring(dex), game, self.mod)
+      end
+    end
+    if dex and type(dex) == "number" then
+      local redpp = Config and type(Config.paletteFxRedpp) == "function"
+        and Config.paletteFxRedpp()
+      local tryVariants
+      if redpp then
+        if variant == "shiny" then
+          tryVariants = { "shiny_submerged", "normal_submerged" }
+        else
+          tryVariants = { "normal_submerged" }
+        end
+      else
+        tryVariants = { "grayscale_submerged" }
+      end
+      for _, v in ipairs(tryVariants) do
+        local rel = string.format(
+          "assets/enhanced_overworld/poke_followers/follower_%03d_%s.png",
+          dex, v)
+        local loadPath = rel
+        if self.mod and self.mod.assets and self.mod.assets.path then
+          local ok, p = pcall(function() return self.mod.assets:path(rel) end)
+          if ok and type(p) == "string" then loadPath = p end
+        end
+        if (love and love.filesystem and love.filesystem.getInfo
+            and love.filesystem.getInfo(loadPath))
+           or (love and love.filesystem and love.filesystem.getInfo
+               and love.filesystem.getInfo(rel)) then
+          local def = {
+            image = loadPath,
+            frames = 6,
+            walker = true,
+            trueColor = true,
+            id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dex),
+          }
+          local meta = {
+            providerId = "poke_followers_submerged",
+            requestedStyle = style,
+            fallbackStep = 1,
+            usedVariant = v,
+            loadPath = loadPath,
+            relativePath = rel,
+            bodyRenderer = "NATIVE_SPRITE_RENDERER",
+            waterSource = "poke_followers_submerged",
+            kind = "submerged",
+            frames = 6,
+            walker = true,
+          }
+          steps[#steps + 1] = { providerId = "poke_followers_submerged", ok = true }
+          return { def = def, meta = meta, providerId = "poke_followers_submerged",
+            fallbackStep = 1, steps = steps, spriteState = "water",
+            spriteKind = "submerged" }
+        end
+      end
+    end
+  end
+
+  -- 2) Provider water (skip when Voxel silhouettes need Wilds silhouette sheets).
   if not wantSilhouette and self.spriteProviders then
     local chain = self.spriteProviders:chainForStyle(style)
     for _, providerId in ipairs(chain) do

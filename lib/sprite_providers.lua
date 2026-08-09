@@ -659,17 +659,66 @@ end
 
 ------------------------------------------------------------------------
 -- Built-in Poke Followers / GSC (provider id remains followers_ex for
--- save / chain compatibility). Assets ship under:
---   assets/enhanced_overworld/poke_followers/follower_%03d.png
+-- save / chain compatibility). Assets ship split into subdirs:
+--   assets/enhanced_overworld/poke_followers/normal/follower_%03d.png  (colored)
+--   assets/enhanced_overworld/poke_followers/shiny/follower_%03d.png   (colored shiny)
+--   assets/enhanced_overworld/poke_followers/grayscale/follower_%03d.png (grayscale)
 -- Dex id maps 1:1. External PokePC packs remain an optional override.
 ------------------------------------------------------------------------
 
 local POKE_FOLLOWERS_REL = "assets/enhanced_overworld/poke_followers"
-local POKE_FOLLOWERS_PROBE = POKE_FOLLOWERS_REL .. "/follower_001.png"
+local POKE_FOLLOWERS_PROBE = POKE_FOLLOWERS_REL .. "/follower_001_normal.png"
+
+-- Flat file naming (all variants in one directory):
+--   follower_%03d_normal.png    (colored)
+--   follower_%03d_shiny.png     (shiny)
+--   follower_%03d_grayscale.png (grayscale)
+--   follower_%03d_submerged.png (submerged)
 
 function SpriteProviders:_pokeFollowersPath(dex, render)
   if type(dex) ~= "number" or dex < 1 then return nil, nil end
-  local rel = string.format("%s/follower_%03d.png", POKE_FOLLOWERS_REL, dex)
+  local rel = string.format("%s/follower_%03d_normal.png", POKE_FOLLOWERS_REL, dex)
+  return self:_modRelPath(rel, render)
+end
+
+function SpriteProviders:_pokeFollowersShinyPath(dex, render)
+  if type(dex) ~= "number" or dex < 1 then return nil, nil end
+  local rel = string.format("%s/follower_%03d_shiny.png", POKE_FOLLOWERS_REL, dex)
+  return self:_modRelPath(rel, render)
+end
+
+-- Grayscale sibling sheets serve every PaletteFX mode except redpp (ADVANCED),
+-- which bakes real per-tile color and keeps the original colored art.
+function SpriteProviders:_pokeFollowersGrayscalePath(dex, render)
+  if type(dex) ~= "number" or dex < 1 then return nil, nil end
+  local rel = string.format("%s/follower_%03d_grayscale.png", POKE_FOLLOWERS_REL, dex)
+  return self:_modRelPath(rel, render)
+end
+
+-- Submerged (water) sheet: variant-aware naming.
+-- follower_NNN_normal_submerged.png  (colored)
+-- follower_NNN_shiny_submerged.png   (colored shiny)
+-- follower_NNN_grayscale_submerged.png (grayscale)
+function SpriteProviders:_pokeFollowersSubmergedPath(dex, render, variant)
+  if type(dex) ~= "number" or dex < 1 then return nil, nil end
+  variant = variant or "normal"
+  local suffix = variant .. "_submerged"
+  local rel = string.format("%s/follower_%03d_%s.png", POKE_FOLLOWERS_REL, dex, suffix)
+  return self:_modRelPath(rel, render)
+end
+
+-- Backward-compatible aliases.
+function SpriteProviders:_pokeFollowersSubmergedGrayscalePath(dex, render)
+  return self:_pokeFollowersSubmergedPath(dex, render, "grayscale")
+end
+
+function SpriteProviders:_pokeFollowersSubmergedColoredPath(dex, render)
+  return self:_pokeFollowersSubmergedPath(dex, render, "normal")
+end
+
+-- Resolve a mod-relative asset to a load path (render._modAssetPath first,
+-- then mod.assets:path; headless falls back to the relative path).
+function SpriteProviders:_modRelPath(rel, render)
   local via = nil
   if render and render._modAssetPath then
     local ok, path = pcall(render._modAssetPath, render, rel)
@@ -750,12 +799,47 @@ function SpriteProviders:_makeFollowersExProvider()
     local dex = resolveDexId(speciesId, game, mod)
     local wantShiny = normalizeVariant(variant) == "shiny"
 
-    -- Built-in pack: dex → follower_%03d.png (no shiny sheets).
+    -- Built-in pack: dex → follower_%03d.png split into normal/ (colored),
+    -- shiny/ (colored shiny) and grayscale/ subdirs. Grayscale siblings
+    -- serve every PaletteFX mode except redpp (ADVANCED), which bakes real
+    -- per-tile color and keeps the colored art.
     if owners:_builtinPokeFollowersReady() and dex then
-      if wantShiny then
-        return nil, nil, "poke_followers shiny sheet unavailable"
+      local imagePath, rel = nil, nil
+      local usedVariant = "normal"
+      if not Config.paletteFxRedpp() then
+        local gPath, gRel = owners:_pokeFollowersGrayscalePath(dex, render)
+        if gPath and gRel then
+          local gExists = true
+          if mod and mod.read then
+            local ok, data = pcall(function() return mod:read(gRel) end)
+            gExists = ok and data ~= nil
+          elseif not fsExists(gRel) then
+            gExists = false
+          end
+          if gExists then
+            imagePath, rel = gPath, gRel
+          end
+        end
+      elseif wantShiny then
+        -- redpp + shiny: prefer the shiny/ sheet, fall back to normal/.
+        local sPath, sRel = owners:_pokeFollowersShinyPath(dex, render)
+        if sPath and sRel then
+          local sExists = true
+          if mod and mod.read then
+            local ok, data = pcall(function() return mod:read(sRel) end)
+            sExists = ok and data ~= nil
+          elseif not fsExists(sRel) then
+            sExists = false
+          end
+          if sExists then
+            imagePath, rel = sPath, sRel
+            usedVariant = "shiny"
+          end
+        end
       end
-      local imagePath, rel = owners:_pokeFollowersPath(dex, render)
+      if not imagePath then
+        imagePath, rel = owners:_pokeFollowersPath(dex, render)
+      end
       if not imagePath then
         return nil, nil, "poke_followers path unresolved for dex " .. tostring(dex)
       end
@@ -782,7 +866,7 @@ function SpriteProviders:_makeFollowersExProvider()
       }
       return def, {
         providerId = SpriteProviders.ID.FOLLOWERS_EX,
-        usedVariant = "normal",
+        usedVariant = usedVariant,
         loadPath = imagePath,
         relativePath = rel,
         frames = 6,
@@ -861,7 +945,111 @@ function SpriteProviders:_makeFollowersExProvider()
     }, nil
   end
 
+  -- Water extension (submerged sheets).  Naming is
+  -- follower_NNN_{variant}_submerged.png.  Picks based on COLORS mode:
+  -- redpp uses normal_submerged (or shiny_submerged), grayscale/GBC
+  -- uses grayscale_submerged.
+  function provider:resolveWater(speciesId, variant, game)
+    local okAvail, why = self:isAvailable(game)
+    if not okAvail then
+      return nil, nil, why
+    end
+    local dex = resolveDexId(speciesId, game, mod)
+    if not dex then return nil, nil, "dex unresolved" end
+
+    local redpp = Config.paletteFxRedpp and Config.paletteFxRedpp()
+    local tryVariants
+    if redpp then
+      if variant == "shiny" then
+        tryVariants = { "shiny", "normal" }
+      else
+        tryVariants = { "normal" }
+      end
+    else
+      tryVariants = { "grayscale" }
+    end
+    local imagePath, rel, usedVariant = nil, nil, "normal"
+    for _, v in ipairs(tryVariants) do
+      imagePath, rel = owners:_pokeFollowersSubmergedPath(dex, render, v)
+      if imagePath and rel then
+        local exists = true
+        if mod and mod.read then
+          local ok, data = pcall(function() return mod:read(rel) end)
+          if not ok or data == nil then
+            exists = fsExists(rel) or fsExists(imagePath)
+          end
+        elseif not fsExists(rel) then
+          exists = false
+        end
+        if exists then usedVariant = v; break end
+        imagePath, rel = nil, nil
+      end
+    end
+    if not imagePath then
+      return nil, nil, "no submerged poke_followers sheet for dex " .. tostring(dex)
+    end
+    local def = {
+      image = imagePath,
+      frames = 6,
+      walker = true,
+      trueColor = true,
+      id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dex),
+    }
+    return def, {
+      providerId = SpriteProviders.ID.FOLLOWERS_EX,
+      usedVariant = usedVariant,
+      loadPath = imagePath,
+      relativePath = rel,
+      frames = 6,
+      walker = true,
+      bodyRenderer = "NATIVE_SPRITE_RENDERER",
+      providerMod = "overworld_wild_spawns",
+      pack = "poke_followers_submerged",
+    }, nil
+  end
+
   return provider
+end
+
+--- Resolve a water sprite through the style chain's providers (submerged
+-- poke_followers art etc). Returns { def, meta } or nil when no provider in
+-- the chain supports water resolution.
+function SpriteProviders:resolveWater(style, speciesId, variant, game)
+  style = self:normalizeStyle(style or Config.spriteStyle(self.mod) or "followers")
+  local chain = self:chainForStyle(style)
+
+  -- Poke Followers submerged sheets are independent of the land sprite-style
+  -- preference.  Always try the followers_ex provider first so its submerged
+  -- art takes precedence over the swimming/levitates registry; then fall
+  -- through the selected style chain for providers that also support water.
+  local ordered = { SpriteProviders.ID.FOLLOWERS_EX }
+  for _, pid in ipairs(chain) do
+    if pid ~= SpriteProviders.ID.FOLLOWERS_EX then
+      ordered[#ordered + 1] = pid
+    end
+  end
+
+  for _, providerId in ipairs(ordered) do
+    local provider = self.providers[providerId]
+    if provider and type(provider.resolveWater) == "function" then
+      local def, meta, err = provider:resolveWater(speciesId, variant, game)
+      if def then
+        meta = meta or {}
+        meta.providerId = providerId
+        meta.kind = meta.kind or "submerged"
+        meta.water = true
+        if Config.spriteTrueColor then
+          def.trueColor = Config.spriteTrueColor(self.mod)
+        end
+        return def, meta
+      end
+      if err then
+        DebugLog.debug(self.mod, "%s resolveWater %s: %s",
+          providerId, tostring(speciesId), tostring(err))
+      end
+    end
+  end
+  return nil, nil
 end
 
 ------------------------------------------------------------------------

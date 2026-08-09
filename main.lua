@@ -90,6 +90,8 @@ return function(mod)
   local Follower = V.require("follower/init")
   local follower = Follower.new(mod, { logic = logic, render = render })
   logic.follower = follower
+  -- Expose sprite service for other mods (e.g. PC Grid UI) to resolve follower-style icons.
+  _G._wildsSpriteService = follower.spriteService
   local sprOk, sprErr = follower:registerContent()
   if not sprOk then
     DebugLog.warn(mod, "follower SPRITE_PIKACHU registration: %s", tostring(sprErr))
@@ -169,6 +171,10 @@ return function(mod)
         render:refreshAllEntitySprites(logic, game)
       end)
     end
+    -- Followers EX calls setOptionsChangedHandler mid-init; its hooks are
+    -- installed AFTER our handler returns.  Defer the restore + reinstall
+    -- to the first game step so all external mods have loaded.
+    pcall(function() follower:processPendingExternalModCleanup() end)
   end)
 
   mod.events:on("battle.ended", function()
@@ -309,6 +315,17 @@ return function(mod)
       syncFeatureState()
     end
   end)
+
+  -- Gen1Recomp mod API contract: the engine / Followers EX calls
+  -- mod:setOptionsChangedHandler(fn) to register a callback for options
+  -- changes.  Wilds already handles everything through its own
+  -- mod.options_changed event listener.  This call is also the signal
+  -- that an external follower mod (e.g. Followers EX) is loading and
+  -- trying to hook in — disable it immediately so it does not clobber
+  -- our trailer state (duplicate hooks break the walk cycle).
+  mod.setOptionsChangedHandler = function(self, fn)
+    pcall(function() follower:disableExternalFollowersIfHooked() end)
+  end
 
   syncFeatureState()
   hud:syncPipelineLevel()

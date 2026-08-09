@@ -1095,9 +1095,29 @@ function Config.spriteColor(_mod)
   return "colored"
 end
 
---- trueColor flag for shared SpriteRenderer defs (always true now).
+--- trueColor flag for shared SpriteRenderer defs. The -grayscale art must
+--- flow through the engine's shade/zone colorization so it picks up the active
+--- palette (CLASSIC/DMG = green shades, monochrome = gray, etc.), which means
+--- trueColor=false everywhere EXCEPT redpp (ADVANCED), where the original
+--- colored art is served and must render raw.
 function Config.spriteTrueColor(_mod)
-  return true
+  return Config.paletteFxRedpp()
+end
+
+-- PaletteFX mode gate for sprite art selection. The colored sheets are the
+-- default "normal" art; the explicit -grayscale sheets serve every COLORS
+-- mode EXCEPT redpp (ADVANCED): redpp bakes real per-tile color onto
+-- overworld sprites and wants the original colored art, while every other
+-- mode colorizes through the shade/zone pass where grayscale reads correctly
+-- and full-color PNGs look wrong. Unavailable PaletteFX (headless / tests /
+-- other engines) defaults to false so the colored targets stay the safe
+-- default everywhere.
+function Config.paletteFxRedpp()
+  local ok, PaletteFX = pcall(require, "src.render.PaletteFX")
+  if ok and type(PaletteFX) == "table" and PaletteFX.mode ~= nil then
+    return PaletteFX.mode == "redpp"
+  end
+  return false
 end
 
 function Config.migrateSpriteColorOption(mod)

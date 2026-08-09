@@ -1948,6 +1948,9 @@ function SpawnRender:applyProviderSprite(entity, game)
   -- Always read the live option — never trust a stale entity field alone.
   local style = Config.spriteStyle(self.mod)
   entity.requestedSpriteStyle = style
+  -- PaletteFX COLORS mode gate: a flip between redpp (ADVANCED, colored art)
+  -- and any other mode must force a re-resolve below.
+  local redpp = Config.paletteFxRedpp()
   local variant = AnimatedSprites.resolveRuntimeVariant(entity)
   local species = entity.species or entity.enhancedDexId
   local map = game and game.overworld and game.overworld.map
@@ -2013,7 +2016,8 @@ function SpawnRender:applyProviderSprite(entity, game)
      and entity.waterHiddenShadow == wantHiddenShadow
      and entity.waterFlatShadow == wantFlatShadow
      and entity.shadowRendererMode == resultShadowMode
-     and entity.waterVoxelActive == voxelActive then
+     and entity.waterVoxelActive == voxelActive
+     and entity.paletteRedpp == redpp then
     entity.requestedSpriteStyle = style
     entity.spriteFallbackStep = result.fallbackStep
     entity.spriteProviderMeta = result.meta
@@ -2023,6 +2027,7 @@ function SpawnRender:applyProviderSprite(entity, game)
     entity.waterFlatShadow = wantFlatShadow
     entity.shadowRendererMode = resultShadowMode
     entity.waterVoxelActive = voxelActive
+    entity.paletteRedpp = redpp
     if self.spriteResolver then
       self.spriteResolver:applyEntityMeta(entity, result)
     end
@@ -2088,6 +2093,7 @@ function SpawnRender:applyProviderSprite(entity, game)
   entity.spriteFallbackStep = result.fallbackStep
   entity.spriteProviderMeta = result.meta
   entity.requestedSpriteStyle = style
+  entity.paletteRedpp = redpp
   entity.spriteVariant = (result.meta and result.meta.usedVariant) or variant
   entity.usingFollowerSprite = (result.providerId == "followers_ex")
   -- Native walker sheets are driven solely by SpriteRenderer + Movement.walkPhase.

@@ -650,22 +650,9 @@ function PreviewBrowser:register()
 
   -- Mod Settings / OPTIONS → activate row (Test Spawn). Always available;
   -- no button option type exists in the schema API.
-  mod.hooks:wrap("ui.options.rows", function(next, game, rows)
-    local out = next(game, rows)
-    if type(out) ~= "table" then return out end
-    out[#out + 1] = {
-      id = "overworld_wild_spawns_test_spawn",
-      label = "Test Spawn",
-      value = function() return "OPEN" end,
-      activate = function(g)
-        mod.ui.push(g, PreviewBrowser.SCREEN)
-      end,
-    }
-    return out
-  end)
-
   -- Optional Start Menu entry only while Dev Overlay is on (keeps the normal
-  -- pause menu uncluttered).
+  -- pause menu uncluttered).  The OPTIONS path lives inside the Wilds of
+  -- Kanto sub-menu (settings_menus.lua) — no top-level duplicate.
   mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
     local out = next(game, items)
     if type(out) ~= "table" then return out end

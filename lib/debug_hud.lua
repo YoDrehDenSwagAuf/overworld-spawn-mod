@@ -49,6 +49,8 @@ end
 
 function DebugHud:register()
   if self._registered then return end
+  --- "WILDS HUD" only appears in the pipeline menu when dev mode is on.
+  if not Config.debug(self.mod) then self._registered = true; return end
   local mod = self.mod
   local hud = self
 

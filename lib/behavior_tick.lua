@@ -13,6 +13,7 @@ local Surface = V.require("surface")
 local WaterSpawn = V.require("water_spawn")
 local SafariCompat = V.require("safari_compat")
 local Grass = V.require("grass")
+local PaletteWatch = V.require("palette_watch")
 
 local BehaviorTick = {}
 BehaviorTick.__index = BehaviorTick
@@ -83,6 +84,13 @@ function BehaviorTick:step(ctx)
   local world = self.mod.world
   local ow = world and world.overworld and world:overworld()
   if not ow or not ow.map or not ow.player then return end
+
+  -- PaletteFX COLORS mode watcher: on a redpp <-> non-redpp flip, re-resolve
+  -- sprite art so the colored/-grayscale switch lands without a restart.
+  if not self._paletteWatch then
+    self._paletteWatch = PaletteWatch.new(self.mod, logic)
+  end
+  self._paletteWatch:tick(world and world.game, ow)
 
   self.voxel:refreshPresence()
 

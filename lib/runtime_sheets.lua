@@ -10,6 +10,7 @@
 -- and never an OS absolute path.
 local V = ...
 local JsonDecode = V.require("json_decode")
+local Config = V.require("config")
 
 local RuntimeSheets = {}
 RuntimeSheets.__index = RuntimeSheets
@@ -163,6 +164,16 @@ function RuntimeSheets:resolveRelativePath(speciesId, variant)
       -- Prefer written sheets; still accept "cached" from a re-run.
       local status = entry.status
       if status == nil or status == "written" or status == "cached" then
+        -- Colored runtime sheets are the default (entry.path); the
+        -- -grayscale sheets serve every PaletteFX mode except redpp
+        -- (ADVANCED), which bakes real per-tile color.
+        if not Config.paletteFxRedpp() then
+          local grayPath = entry.grayscalePath
+          if type(grayPath) == "string" and grayPath ~= ""
+             and self:_assetPresent(grayPath) then
+            return grayPath, v, entry
+          end
+        end
         if self:_assetPresent(entry.path) then
           return entry.path, v, entry
         end

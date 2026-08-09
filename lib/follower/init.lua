@@ -167,7 +167,7 @@ function Follower:install(opts)
 end
 
 function Follower:_installPartyLeaderItems()
-  -- Extend party submenu with LEADER (sets controlled mon) when hooks exist.
+  -- Extend party submenu: LEADER sets the controlled mon, ACTIVE clears it.
   local mod = self.mod
   local selection = self.selection
   local control = self.control
@@ -180,25 +180,75 @@ function Follower:_installPartyLeaderItems()
           or not selection.healthy(mon) then
         return out
       end
-      -- Avoid duplicating if already present.
-      local hasLeader = false
+      -- Strip legacy LEADER/FOLLOWING rows and avoid duplication.
+      local clean = {}
       for _, row in ipairs(out) do
-        if row and (row.label == "LEADER" or row.label == "FOLLOWER"
-            or row.label == "FOLLOWING") then
-          hasLeader = true
+        if row and row.label ~= "LEADER"
+           and row.label ~= "FOLLOWING" then
+          clean[#clean + 1] = row
         end
       end
-      if not hasLeader then
+      out = clean
+
+      -- Skip if our row is already present.
+      for _, row in ipairs(out) do
+        if row and (row.label == "FOLLOWER" or row.label == "ACTIVE") then
+          return out
+        end
+      end
+
+      -- Is this mon already the active follower?
+      local active = control:getActiveFollowerMon(game)
+      local isActive = active and mon
+        and (active == mon or active.species == mon.species)
+
+      if isActive then
         out[#out + 1] = {
-          label = "LEADER",
+          label = "ACTIVE",
+          onSelect = function(selected, selectedGame)
+            -- Clear selection state so the mon no longer shows ACTIVE.
+            if selection and selection.state then
+              selection.state:clearSelection()
+            end
+            control:clearLeader(selectedGame)
+            control:setFollowerCount(selectedGame, 0)
+            if selectedGame and selectedGame.save then
+              selectedGame.save.followerPartyIndex = nil
+              selectedGame.save.pokepcFollowerCount = 0
+            end
+            control._optCache.follower_count = 0
+            control._pendingMapTrailerSync = true
+            local msg = (mon.nickname or mon.species or "It") .. " is no longer following."
+            if selectedGame and selectedGame.stack and mod and mod.ui and mod.ui.TextBox then
+              pcall(function()
+                selectedGame.stack:push(mod.ui.TextBox.new(selectedGame, msg))
+              end)
+            end
+          end,
+        }
+      else
+        out[#out + 1] = {
+          label = "FOLLOWER",
           onSelect = function(selected, selectedGame)
             local party = selectedGame and selectedGame.save
               and selectedGame.save.party or {}
             for i, m in ipairs(party) do
               if m == selected then
+                -- Ensure at least 1 follower when explicitly selected.
+                if control:followerCount(selectedGame) <= 0 then
+                  control:setFollowerCount(selectedGame, 1)
+                  control._optCache.follower_count = 1
+                  if selectedGame and selectedGame.save then
+                    selectedGame.save.pokepcFollowerCount = 1
+                  end
+                  -- Also write to mod.options so the settings menu reflects it.
+                  if mod and mod.options and mod.options.set then
+                    pcall(function() mod.options:set("follower_count", 1) end)
+                  end
+                end
                 control:setLeaderParty(selectedGame, i)
                 selection:selectFollower(selected, selectedGame, {})
-                control:syncAll(selectedGame, selectedGame.overworld)
+                control._pendingMapTrailerSync = true
                 break
               end
             end
@@ -209,6 +259,27 @@ function Follower:_installPartyLeaderItems()
     end)
   end)
   self._leaderMenuWrapped = true
+end
+
+--- Called from main.lua when an external mod (e.g. Followers EX) hooks into
+-- Wilds via setOptionsChangedHandler.  The call happens mid-init — the
+-- external mod continues wrapping hooks AFTER it returns.  Mark a pending
+-- flag; the actual restore + reinstall runs deferred (on the first
+-- world.stepped or via processPendingExternalHook()) so all mods have
+-- finished loading before we strip their hook layers.
+function Follower:disableExternalFollowersIfHooked()
+  self._pendingExternalModCleanup = true
+  self.compat:restoreFollowersExIfPresent()
+  self.compat:restorePokePcIfPresent()
+end
+
+function Follower:processPendingExternalModCleanup()
+  if not self._pendingExternalModCleanup then return end
+  self._pendingExternalModCleanup = false
+  pcall(function()
+    self.control:restore()
+    self.control:install()
+  end)
 end
 
 function Follower:reassertAfterModsLoaded(game)
