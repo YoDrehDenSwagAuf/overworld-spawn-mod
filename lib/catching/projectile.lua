@@ -1,9 +1,14 @@
 -- Temporary Poké Ball projectile + wobble / click / break on the target tile.
--- Uses native SpriteRenderer-compatible entities (Flat 2D + Voxel pose path).
+-- Uses native SpriteRenderer entities (Flat 2D + Voxel / Dramatic Shape pose path).
 --
--- Lifecycle contract: every Ball entity created here MUST be removed via
--- Projectile:cleanup() (idempotent). Presentation phases owned here:
---   FLYING → MISS_HOLD | WOBBLE → SUCCESS_CLICK | FAIL_BREAK → DONE
+-- CRITICAL CONTRACT:
+--   Ball entities may be inserted into ow.entities. Therefore entity:pose() MUST
+--   remain the native SpriteRenderer pose — never return nil to suppress drawing.
+--   Small visual size comes from 6×6 art centered in a 16×16 transparent canvas
+--   (SPRITE_WILDS_BALL_* / *_sm.png). No custom draw()/pose() overrides.
+--
+-- Lifecycle: every Ball MUST be removed via Projectile:cleanup() (idempotent).
+-- Presentation phases: FLYING → MISS_HOLD | WOBBLE → SUCCESS_CLICK | FAIL_BREAK → DONE
 local V = ...
 local Tile = V.require("tile")
 local CatchMath = V.require("catching/catch_math")
@@ -16,8 +21,9 @@ local WOBBLE_INTERVAL = 0.55
 local SUCCESS_CLICK_SEC = 0.20
 local FAIL_BREAK_SEC = 0.28
 local MISS_LAND_HOLD = 0.18
--- Visual size on the 160×144 canvas (~6px). Source PNGs stay 16×16; *_sm are 6×6.
+-- Artwork is ~6px inside a 16×16 transparent SpriteDef canvas (engine contract).
 local BALL_VISUAL_PX = 6
+local NUDGE_MAX = 2
 
 local function tryRequire(name)
   local ok, mod = pcall(require, name)
@@ -46,71 +52,53 @@ local function removeEntityFromOw(ow, entity)
   entity.registeredInWorld = false
 end
 
+local function clampNudge(v)
+  v = tonumber(v) or 0
+  if v > NUDGE_MAX then return NUDGE_MAX end
+  if v < -NUDGE_MAX then return -NUDGE_MAX end
+  return v
+end
+
+-- Positional presentation only. Never scale the SpriteRenderer entity.
 local function applyBallPresentation(ballEntity)
   if not ballEntity then return end
-  local scale = ballEntity.wildsBallPresentScale or 1
-  local alpha = ballEntity.wildsBallAlpha
-  if alpha == nil then alpha = 1 end
-  local flash = ballEntity.wildsBallFlash or 0
   local basePx = ballEntity._wildsBallBasePx or ballEntity.px or 0
   local basePy = ballEntity._wildsBallBasePy or ballEntity.py or 0
-  local nudgeX = ballEntity.wildsBallNudgeX or 0
-  local nudgeY = ballEntity.wildsBallNudgeY or 0
-  -- Keep cell anchors; presentation offsets live in pixel space.
+  local nudgeX = clampNudge(ballEntity.wildsBallNudgeX)
+  local nudgeY = clampNudge(ballEntity.wildsBallNudgeY)
   ballEntity.px = basePx + nudgeX
   ballEntity.py = basePy + nudgeY
-  ballEntity.wildsBallScale = (BALL_VISUAL_PX / CELL) * scale
-  ballEntity.wildsBallAlpha = alpha
-  ballEntity.wildsBallFlash = flash
 end
 
-local function bindBallDraw(entity, image)
-  entity.wildsBallImage = image
-  entity.wildsBallPresentScale = 1
-  entity.wildsBallAlpha = 1
-  entity.wildsBallFlash = 0
-  entity.wildsBallNudgeX = 0
-  entity.wildsBallNudgeY = 0
-  entity.wildsBallScale = BALL_VISUAL_PX / CELL
+local function tagBallEntity(entity, ballType, cellX, cellY, spriteId)
+  entity.cellX = cellX
+  entity.cellY = cellY
+  entity.px = cellX * CELL
+  entity.py = cellY * CELL
   entity._wildsBallBasePx = entity.px
   entity._wildsBallBasePy = entity.py
-  -- Suppress full-size SpriteRenderer sheet; custom draw paints the small Ball.
-  function entity:pose()
-    if self.wildsBallImage then
-      return nil
-    end
-    return self.sprite, self.px, self.py, self.facing or "down", 0, false
-  end
-  function entity:draw(camX, camY)
-    local img = self.wildsBallImage
-    if not (img and love and love.graphics) then return end
-    local lg = love.graphics
-    local iw, ih = img:getDimensions()
-    local present = self.wildsBallPresentScale or 1
-    local visual = (BALL_VISUAL_PX * present)
-    local drawScale = visual / math.max(iw, ih)
-    local alpha = self.wildsBallAlpha
-    if alpha == nil then alpha = 1 end
-    local flash = self.wildsBallFlash or 0
-    local px = (self.px or 0) - (camX or 0) + CELL * 0.5 - (iw * drawScale) * 0.5
-    local py = (self.py or 0) - (camY or 0) + CELL * 0.5 - (ih * drawScale) * 0.5
-    lg.push("all")
-    if img.setFilter then img:setFilter("nearest", "nearest") end
-    if flash > 0 then
-      lg.setColor(1, 1, 1, math.min(1, alpha))
-    else
-      lg.setColor(1, 1, 1, math.min(1, alpha))
-    end
-    lg.draw(img, px, py, 0, drawScale, drawScale)
-    if flash > 0 then
-      lg.setColor(1, 1, 1, 0.55 * flash * alpha)
-      lg.rectangle("fill", px, py, iw * drawScale, ih * drawScale)
-    end
-    lg.pop()
-  end
+  entity.wildsBallNudgeX = 0
+  entity.wildsBallNudgeY = 0
+  entity.isPokeBallEntity = true
+  entity.wildsProjectile = true
+  entity.wildsCatchProjectile = true
+  entity.passable = true
+  entity.blocking = false
+  entity.hiddenBody = false
+  entity.visible = true
+  -- Must NEVER look like a Wild / Town / water-shadow entity to VoxelAdapter.
+  entity.overworldWildSpawn = false
+  entity.townPokemon = false
+  entity.isAmbient = false
+  entity.isFollower = false
+  entity.pokemonRenderer = nil
+  entity.wildsBallType = ballType
+  entity.spriteName = spriteId
+  -- Do NOT override pose() or draw(). Native SpriteRenderer / NPC pose only.
+  return entity
 end
 
-local function makeBallEntity(game, ow, ballType, cellX, cellY, spriteId, image)
+local function makeBallEntity(game, ow, ballType, cellX, cellY, spriteId, _image)
   local data = game and game.data
   local NPC = tryRequire("src.world.NPC")
   local entity
@@ -126,6 +114,8 @@ local function makeBallEntity(game, ow, ballType, cellX, cellY, spriteId, image)
     if ok then entity = created end
   end
   if not entity then
+    -- Test / headless stub. Still exposes a non-nil pose() contract so any
+    -- accidental Voxel traversal cannot poison shared billboard lists.
     entity = {
       cellX = cellX,
       cellY = cellY,
@@ -135,20 +125,12 @@ local function makeBallEntity(game, ow, ballType, cellX, cellY, spriteId, image)
       sprite = spriteId,
       movement = "NONE",
       passable = true,
+      pose = function(self)
+        return self.sprite, self.px, self.py, self.facing or "down", 0, false
+      end,
     }
   end
-  entity.cellX = cellX
-  entity.cellY = cellY
-  entity.px = cellX * CELL
-  entity.py = cellY * CELL
-  entity.isPokeBallEntity = true
-  entity.wildsProjectile = true
-  entity.passable = true
-  entity.blocking = false
-  entity.wildsCatchProjectile = true
-  entity.hiddenBody = false
-  bindBallDraw(entity, image)
-  return entity
+  return tagBallEntity(entity, ballType, cellX, cellY, spriteId)
 end
 
 --- Axis-aligned land cell from player toward facing for `tiles` steps.
@@ -184,8 +166,10 @@ function Projectile:visualPhase()
   return "DONE"
 end
 
---- Idempotent removal from ow.entities/npcs + voxel + internal state.
-function Projectile:cleanup(ow, voxel, ballEntity)
+--- Idempotent removal from ow.entities/npcs + internal state.
+-- Does NOT call VoxelAdapter:unregister — that path is for emergency wild
+-- fallback bookkeeping and must not touch shared renderer state for Ball NPCs.
+function Projectile:cleanup(ow, _voxel, ballEntity)
   local victims = {}
   local function track(e)
     if e then victims[#victims + 1] = e end
@@ -201,9 +185,6 @@ function Projectile:cleanup(ow, voxel, ballEntity)
     if not seen[e] then
       seen[e] = true
       removeEntityFromOw(ow, e)
-      if voxel and voxel.unregister then
-        pcall(voxel.unregister, voxel, e)
-      end
     end
   end
 
@@ -241,6 +222,7 @@ function Projectile:startFlight(game, ow, opts)
     endX, endY, travel = Projectile.landCell(startX, startY, facing, power)
   end
 
+  -- image arg intentionally ignored: size comes from SpriteDef *_sm canvas art.
   local ballEntity = makeBallEntity(game, ow, ballType, startX, startY, spriteId, opts.image)
   if ow and ow.entities then
     table.insert(ow.entities, ballEntity)
@@ -297,11 +279,9 @@ function Projectile:beginWobble(game, ow, opts)
     ballEntity.py = opts.y * CELL
     ballEntity._wildsBallBasePx = ballEntity.px
     ballEntity._wildsBallBasePy = ballEntity.py
-    ballEntity.wildsBallPresentScale = 1
-    ballEntity.wildsBallAlpha = 1
-    ballEntity.wildsBallFlash = 0
     ballEntity.wildsBallNudgeX = 0
     ballEntity.wildsBallNudgeY = 0
+    ballEntity.visible = true
   end
 end
 
@@ -319,21 +299,13 @@ local function updateSuccessClick(self, wob, dt, ow, voxel)
   wob.timer = wob.timer + dt
   local t = math.min(1, wob.timer / SUCCESS_CLICK_SEC)
   local ball = wob.ballEntity
-  -- 1.0 → 0.85 → 1.0 over the click window + brief white flash.
-  local scale
-  if t < 0.45 then
-    scale = 1.0 - 0.15 * (t / 0.45)
-  else
-    scale = 0.85 + 0.15 * ((t - 0.45) / 0.55)
-  end
+  -- Brief one-pixel lift — no entity scale (SpriteRenderer contract).
   if ball then
     ball._wildsBallBasePx = wob.x * CELL
     ball._wildsBallBasePy = wob.y * CELL
-    ball.wildsBallPresentScale = scale
-    ball.wildsBallFlash = (t < 0.35) and (1 - t / 0.35) or 0
-    ball.wildsBallAlpha = 1
     ball.wildsBallNudgeX = 0
-    ball.wildsBallNudgeY = 0
+    ball.wildsBallNudgeY = (t < 0.45) and -1 or 0
+    ball.visible = true
     applyBallPresentation(ball)
   end
   if t >= 1 then
@@ -357,16 +329,17 @@ local function updateFailBreak(self, wob, dt, ow, voxel)
     ball._wildsBallBasePx = wob.x * CELL
     ball._wildsBallBasePy = wob.y * CELL
     if t < 0.35 then
-      ball.wildsBallPresentScale = 1.0 + 0.15 * (t / 0.35)
-      ball.wildsBallNudgeX = math.sin(t * 40) * 1.5
-      ball.wildsBallAlpha = 1
-      ball.wildsBallFlash = 0.7 * (1 - t / 0.35)
+      ball.wildsBallNudgeX = math.sin(t * 40) * NUDGE_MAX
+      ball.wildsBallNudgeY = 0
+      ball.visible = true
     else
       local fade = (t - 0.35) / 0.65
-      ball.wildsBallPresentScale = 1.15
-      ball.wildsBallNudgeX = (fade < 0.5 and 2 or -2)
-      ball.wildsBallAlpha = math.max(0, 1 - fade)
-      ball.wildsBallFlash = 0
+      ball.wildsBallNudgeX = (fade < 0.5 and NUDGE_MAX or -NUDGE_MAX)
+      ball.wildsBallNudgeY = 1
+      -- Hide mid-break instead of alpha-scaling the sprite sheet.
+      if fade >= 0.35 then
+        ball.visible = false
+      end
     end
     applyBallPresentation(ball)
   end
@@ -409,8 +382,9 @@ function Projectile:update(game, ow, dt, voxel)
       proj.ballEntity.py = (curY * CELL) - arcY
       proj.ballEntity._wildsBallBasePx = proj.ballEntity.px
       proj.ballEntity._wildsBallBasePy = proj.ballEntity.py
-      proj.ballEntity.wildsBallPresentScale = 1
-      proj.ballEntity.wildsBallAlpha = 1
+      proj.ballEntity.wildsBallNudgeX = 0
+      proj.ballEntity.wildsBallNudgeY = 0
+      proj.ballEntity.visible = true
       applyBallPresentation(proj.ballEntity)
     end
 
@@ -468,14 +442,13 @@ function Projectile:update(game, ow, dt, voxel)
           end
         end
       else
-        local nudgeX = math.sin(wob.timer * 22) * 2.5
+        local nudgeX = math.sin(wob.timer * 22) * NUDGE_MAX
         if ballEntity then
           ballEntity._wildsBallBasePx = wob.x * CELL
           ballEntity._wildsBallBasePy = wob.y * CELL
           ballEntity.wildsBallNudgeX = nudgeX
           ballEntity.wildsBallNudgeY = 0
-          ballEntity.wildsBallPresentScale = 1
-          ballEntity.wildsBallAlpha = 1
+          ballEntity.visible = true
           applyBallPresentation(ballEntity)
         end
       end

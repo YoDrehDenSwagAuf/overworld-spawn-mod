@@ -111,6 +111,25 @@ eq(#RangePreview._pending.cells, 3, "pending has 3 cells")
 RangePreview.clear()
 check(RangePreview._pending == nil, "clear removes pending")
 
+-- Voxel mode: ground preview disabled; pending must not survive mode switch.
+check(RangePreview.VOXEL_GROUND_PREVIEW_ENABLED == false, "Voxel ground preview off")
+catching.meter.active = true
+catching.phase = "metering"
+RangePreview.sync(catching)
+check(RangePreview._pending ~= nil, "Flat metering pending before Voxel switch")
+catching.overworld = function()
+  return { player = player, camera = cam, cameraMode = "VOXEL" }
+end
+RangePreview.sync(catching)
+check(RangePreview._pending == nil, "Voxel metering clears ground pending")
+RangePreview.drawVoxel(fakeProject, 2)
+check(RangePreview._pending == nil, "drawVoxel no-op leaves pending clear")
+-- Restore Flat overworld for later checks
+catching.overworld = function()
+  return { player = player, camera = cam, cameraMode = "FLAT" }
+end
+RangePreview.clear()
+
 -- Target highlight
 local logic = { entities = {} }
 local wild = {

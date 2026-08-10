@@ -613,6 +613,31 @@ eq(catching.projectile.BALL_VISUAL_PX, 6, "projectile visual ~6px (unchanged)")
 local BallHudMod = V.require("catching/hud")
 eq(BallHudMod.ICON_PX, 9, "HUD icon ~9px")
 
+-- Ball entity must keep a valid pose() contract (never nil for Voxel / DS).
+logic.entities = {}
+logic.spawns = {}
+ow.entities = {}
+ow.npcs = {}
+placeWild({ id = "wild_pose", x = 7, y = 5 })
+catching.selectedBallIndex = 1
+catching.meter.active = true
+catching.meter.power = 2.0
+catching.phase = "metering"
+CatchingApi._force = "fail"
+catching:_releaseThrow(game, ow)
+local ball = catching.projectile._trackedBall
+check(ball ~= nil, "flight tracks Ball entity")
+check(ball.overworldWildSpawn ~= true, "Ball is not a Wild entity")
+check(ball.wildsBallImage == nil, "Ball has no custom wildsBallImage draw path")
+check(type(ball.pose) == "function", "Ball exposes pose()")
+local poseRet = ball:pose()
+check(poseRet ~= nil, "Ball pose() must not return nil while in ow.entities")
+for _ = 1, 400 do
+  catching.projectile:update(game, ow, 0.05, logic.voxel)
+  if catching.phase == "idle" and not catching.projectile:isBusy() then break end
+end
+check(catching.projectile._trackedBall == nil, "pose-contract throw cleans Ball")
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

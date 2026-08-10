@@ -992,7 +992,7 @@ function OverworldCatching:step(ctx)
     self.hud._frame = (self.hud._frame or 0) + 1
   end
   self:pollInput(game, ow, dt)
-  -- Keep Voxel drawFx pending cells fresh each tick (clears when not metering).
+  -- Flat ground preview pending (clears when not metering or when Voxel active).
   RangePreview.sync(self)
 end
 

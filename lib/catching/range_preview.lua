@@ -1,10 +1,12 @@
 -- Temporary green throw-distance overlay on overworld cells while metering.
 -- Visual only: does not mutate map tiles, collision, occupancy, or walkability.
 --
--- Coordinate contract (critical for Dramatic Shape zoom):
---   Flat:  native overworld canvas space = cell*CELL - camera  (NO ctx.scale)
---   Voxel: Dramatic Shape project(wx,wy) from drawFx only (tile-center markers)
--- Never mix camera-subtract Flat math with window/Voxel zoom scale.
+-- Coordinate / mode contract:
+--   Flat:  native overworld canvas = cell*CELL - camera  (NO ctx.scale)
+--          full green 16×16 tile overlays while C is held.
+--   Voxel: ground preview DISABLED. HUD 1–6 meter remains.
+--          (Projected 2D markers via drawFx/project are not true floor geometry
+--          and drift with zoom; do not inject into shared Voxel drawFx.)
 local V = ...
 local Tile = V.require("tile")
 local CatchMath = V.require("catching/catch_math")
@@ -19,15 +21,27 @@ local COLOR_NORMAL = { 0.20, 0.85, 0.35, 0.32 }
 local COLOR_TARGET = { 0.15, 0.95, 0.40, 0.48 }
 local OUTLINE_TARGET = { 0.05, 0.55, 0.15, 0.85 }
 
--- Latest metering snapshot for Voxel drawFx (resolved every draw; never stale zoom).
+-- Latest metering snapshot for Flat draw. Cleared on cancel / mode switch / OFF.
 RangePreview._pending = nil
+-- When true, Voxel ground markers stay off (stability > decorative overlay).
+RangePreview.VOXEL_GROUND_PREVIEW_ENABLED = false
 
 --- Shared rounding with landCell / HUD marker.
 function RangePreview.tilesFromPower(power)
   return CatchMath.roundedPower(power)
 end
 
-function RangePreview.isVoxelActive(mod)
+local function owLooksVoxel(ow)
+  if not ow then return false end
+  if ow.cameraMode == "VOXEL" or ow.cameraMode == "voxel" then return true end
+  if ow.renderer == "DRAMATIC_SHAPE" or ow.worldRenderer == "DRAMATIC_SHAPE" then
+    return true
+  end
+  return false
+end
+
+function RangePreview.isVoxelActive(mod, ow)
+  if owLooksVoxel(ow) then return true end
   if not mod then return false end
   local ok, WaterDisplay = pcall(function() return V.require("water_display") end)
   if ok and WaterDisplay and type(WaterDisplay.isVoxelCameraActive) == "function" then
@@ -35,13 +49,8 @@ function RangePreview.isVoxelActive(mod)
     if ok2 then return active == true end
   end
   local world = mod.world
-  local ow = world and world.overworld and world:overworld()
-  if not ow then return false end
-  if ow.cameraMode == "VOXEL" or ow.cameraMode == "voxel" then return true end
-  if ow.renderer == "DRAMATIC_SHAPE" or ow.worldRenderer == "DRAMATIC_SHAPE" then
-    return true
-  end
-  return false
+  local worldOw = world and world.overworld and world:overworld()
+  return owLooksVoxel(worldOw)
 end
 
 --- Cells 1..tiles along facing from the player. No walkability filtering.
@@ -83,7 +92,8 @@ function RangePreview.worldToScreenFlat(cellX, cellY, cam)
 end
 
 --- Voxel world→screen via Dramatic Shape project(wx, wy).
--- Returns sx, sy (marker center) or nil.
+-- Kept for unit tests / future ground-plane work. Not used for live Voxel draw
+-- while VOXEL_GROUND_PREVIEW_ENABLED is false.
 function RangePreview.worldToScreenProject(cellX, cellY, project)
   if type(project) ~= "function" then return nil end
   local wx = (cellX or 0) * CELL + CELL * 0.5
@@ -98,6 +108,7 @@ function RangePreview.clear()
 end
 
 --- Refresh pending cells while metering (call from catching tick).
+-- Clears pending in Voxel mode so stale Flat cells never survive a mode switch.
 function RangePreview.sync(catching)
   if not catching or not catching.meter or not catching.meter.active
      or catching.phase ~= "metering" then
@@ -114,10 +125,16 @@ function RangePreview.sync(catching)
     RangePreview.clear()
     return nil
   end
+  local mod = catching.mod
+  if RangePreview.isVoxelActive(mod, ow) then
+    -- Voxel: no ground preview state. HUD meter is independent.
+    RangePreview.clear()
+    return nil
+  end
   local cells = RangePreview.cells(ow.player, catching.meter.power, catching.logic, ow)
   RangePreview._pending = {
     cells = cells,
-    mod = catching.mod,
+    mod = mod,
     cam = (ow.camera) or nil,
   }
   return cells
@@ -136,34 +153,6 @@ local function drawFlatCells(lg, cells, cam)
   end
 end
 
-local function drawProjectedMarkers(lg, cells, project)
-  local any = false
-  for _, cell in ipairs(cells) do
-    local sx, sy = RangePreview.worldToScreenProject(cell.x, cell.y, project)
-    if sx then
-      any = true
-      local half = cell.hasTarget and 4 or 3
-      local col = cell.hasTarget and COLOR_TARGET or COLOR_NORMAL
-      lg.setColor(col[1], col[2], col[3], col[4])
-      -- Small world-projected marker (not a fake Flat 16×16 screen rect).
-      lg.polygon("fill",
-        sx, sy - half,
-        sx + half, sy,
-        sx, sy + half,
-        sx - half, sy)
-      if cell.hasTarget then
-        lg.setColor(OUTLINE_TARGET[1], OUTLINE_TARGET[2], OUTLINE_TARGET[3], OUTLINE_TARGET[4])
-        lg.polygon("line",
-          sx, sy - half,
-          sx + half, sy,
-          sx, sy + half,
-          sx - half, sy)
-      end
-    end
-  end
-  return any
-end
-
 --- Flat / non-Voxel draw from catching present(). Skips when Voxel camera active.
 function RangePreview.draw(canvas, ctx, catching)
   RangePreview.sync(catching)
@@ -171,8 +160,8 @@ function RangePreview.draw(canvas, ctx, catching)
   if not pending or not pending.cells or #pending.cells == 0 then return end
   if not (love and love.graphics) then return end
 
-  -- Voxel uses drawFx/project exclusively — never Flat cam*scale fallback.
-  if RangePreview.isVoxelActive(pending.mod or (catching and catching.mod)) then
+  local ow = catching and catching.overworld and catching:overworld() or nil
+  if RangePreview.isVoxelActive(pending.mod or (catching and catching.mod), ow) then
     return
   end
 
@@ -186,17 +175,11 @@ function RangePreview.draw(canvas, ctx, catching)
   lg.pop()
 end
 
---- Voxel / Dramatic Shape path — called from voxel_adapter drawFx with live project().
-function RangePreview.drawVoxel(project, _scale)
-  local pending = RangePreview._pending
-  if not pending or not pending.cells or #pending.cells == 0 then return end
-  if type(project) ~= "function" then return end
-  if not (love and love.graphics) then return end
-  local lg = love.graphics
-  lg.push("all")
-  drawProjectedMarkers(lg, pending.cells, project)
-  lg.setColor(1, 1, 1, 1)
-  lg.pop()
+--- Voxel / Dramatic Shape path — intentionally a no-op for stability.
+-- Shared drawFx must not host catch preview overlays until a supported
+-- ground-plane projection exists. Callers may still invoke this safely.
+function RangePreview.drawVoxel(_project, _scale)
+  return
 end
 
 RangePreview.MAX = MAX
