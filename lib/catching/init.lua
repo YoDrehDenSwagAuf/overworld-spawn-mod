@@ -11,6 +11,7 @@ local Target = V.require("catching/target")
 local Projectile = V.require("catching/projectile")
 local RangePreview = V.require("catching/range_preview")
 local BallHud = V.require("catching/hud")
+local CatchInput = V.require("catching/input")
 local DebugLog = V.require("debug_log")
 
 local OverworldCatching = {}
@@ -94,6 +95,7 @@ function OverworldCatching.new(mod, logic)
   self.hud = BallHud.new(mod, self)
   self.selectedBallIndex = 1
   self.meter = { active = false, t = 0, power = 1, rising = true }
+  self.meterSource = nil -- "desktop" (C) | "modifier" (B+A) | nil
   self.throwHeld = false
   self.cycleHeld = false
   self.phase = "idle" -- idle | metering | flying | capturing | resolving
@@ -102,6 +104,8 @@ function OverworldCatching.new(mod, logic)
   self._ballImages = {}
   self._registered = false
   self._contentRegistered = false
+  -- Mobile/controller B-modifier adapter (additional to desktop C/Q).
+  self.catchInput = CatchInput.new(self)
   return self
 end
 
@@ -394,13 +398,22 @@ function OverworldCatching:_beginMeter()
   self.meter.power = METER_MIN
   self.meter.rising = true
   self.phase = "metering"
-  self:_catchLog("phase=metering")
+  self:_catchLog("phase=metering source=%s", tostring(self.meterSource or "desktop"))
 end
 
 function OverworldCatching:_cancelMeter()
   self.meter.active = false
   self.meter.power = METER_MIN
   if self.phase == "metering" then self.phase = "idle" end
+  self.meterSource = nil
+end
+
+function OverworldCatching:_clearPreview()
+  RangePreview.clear()
+end
+
+function OverworldCatching:_pushNoBalls(game)
+  pushText(game, self.mod, "You don't have any\nPOKé BALLs!")
 end
 
 --- Freeze wild during flight but KEEP IT VISIBLE until impact.
@@ -908,6 +921,11 @@ function OverworldCatching:cancelAll(reason)
   self.activeCapture = nil
   self.phase = "idle"
   self.throwHeld = false
+  self.meterSource = nil
+  if self.catchInput then
+    -- Meter/preview already cleared above.
+    self.catchInput:reset(reason or "cancelAll", false)
+  end
   self:_catchLog("cancel: %s", tostring(reason or "?"))
   if Config.debug(self.mod) and reason then
     DebugLog.info(self.mod, "overworld catch cancelled (%s)", tostring(reason))
@@ -949,6 +967,7 @@ function OverworldCatching:pollInput(game, ow, dt)
   if not ow or not game then return end
 
   -- Cycle ball (edge-triggered only). Allowed whenever HUD can show.
+  -- Desktop Q path — B+LEFT/RIGHT is handled by catchInput on input.step.
   local cycleDown = inputDown(game, CYCLE_KEYS)
   if cycleDown and not self.cycleHeld then
     if self:canShowHud(game, ow) and (self.phase == "idle" or self.phase == "metering") then
@@ -958,12 +977,21 @@ function OverworldCatching:pollInput(game, ow, dt)
   self.cycleHeld = cycleDown
 
   local throwDown = inputDown(game, THROW_KEYS)
+
+  -- Modifier (B+A) owns release/cancel on input.step — do not treat missing C
+  -- as a throw release while that path is metering.
+  if self.phase == "metering" and self.meterSource == "modifier" then
+    self.throwHeld = throwDown
+    return
+  end
+
   if self.phase == "metering" then
     if throwDown then
-      -- keep metering
+      -- keep metering (desktop C held)
     else
-      -- release
+      -- desktop C release
       self.throwHeld = false
+      self.meterSource = nil
       self:_releaseThrow(game, ow)
     end
     return
@@ -972,8 +1000,9 @@ function OverworldCatching:pollInput(game, ow, dt)
   if throwDown and not self.throwHeld and self:canAcceptInput(game, ow) then
     if not self:anyBalls(game) then
       -- Edge-only feedback (do not spam while held).
-      pushText(game, self.mod, "You don't have any\nPOKé BALLs!")
+      self:_pushNoBalls(game)
     else
+      self.meterSource = "desktop"
       self:_beginMeter()
     end
   end
@@ -1000,6 +1029,11 @@ function OverworldCatching:register()
   if self._registered then return end
   local mod = self.mod
   self.hud:register()
+
+  -- B-modifier path must run on input.step (before Overworld handleInput).
+  if self.catchInput then
+    self.catchInput:installHook(mod)
+  end
 
   if not (mod.content and mod.content.render_pipelines
           and mod.content.render_pipelines.register) then
@@ -1066,6 +1100,7 @@ end
 OverworldCatching.Target = Target
 OverworldCatching.CatchMath = CatchMath
 OverworldCatching.RangePreview = RangePreview
+OverworldCatching.CatchInput = CatchInput
 OverworldCatching.THROW_KEYS = THROW_KEYS
 OverworldCatching.CYCLE_KEYS = CYCLE_KEYS
 OverworldCatching.METER_CYCLE_SECONDS = METER_CYCLE_SECONDS
