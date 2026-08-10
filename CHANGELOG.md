@@ -9,6 +9,10 @@
 - Hold **C** to charge a 1–6 tile power meter, release to throw; **Q** cycles
   Poké / Great / Ultra / Master Ball from the real bag inventory (skips empty;
   **E** is not used).
+- Additional mobile/controller path (logical Gen1Recomp A/B/D-Pad, including
+  TouchControls): hold **B** + **LEFT/RIGHT** to cycle Balls; hold **B** + **A**
+  to charge, release **A** to throw. Short **B** taps stay vanilla; desktop
+  **C**/**Q** are unchanged. No Gen1Recomp core patch.
 - While charging, translucent green ground tiles preview the selected throw
   distance along facing (synced with the meter). Flat uses camera-native
   canvas space; Voxel uses Dramatic Shape `project()` from drawFx so zoom

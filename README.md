@@ -102,6 +102,8 @@ When **OW Catch** is ON (and not in Safari / menus / battle):
 | Hold **C** | Charge throw power (1–6 tiles); green ground preview shows range |
 | Release **C** | Throw the selected Ball |
 | **Q** | Cycle Ball type (Poké → Great → Ultra → Master; skips empty) |
+| Hold **B** + **LEFT** / **RIGHT** | Previous / next Ball (TouchControls / controller / logical D-Pad) |
+| Hold **B** + hold **A**, release **A** | Same charge meter / throw (mobile-friendly; short **B** stays vanilla) |
 
 Throws only hit battleable wilds directly ahead (max 6 tiles). A miss still consumes a Ball. Failed catches make the Pokémon aggressive through the normal Wilds `!` → chase → battle flow (battle starts on contact, so another Ball can be thrown if there is still distance). Safari sessions disable overworld throws so native Safari catching is not bypassed.
 

@@ -29,6 +29,12 @@
 2b. With Dramatic Shape on: hold C, mouse-wheel zoom in/out — green markers stay on the same world cells.
 2c. Force fail: Ball break → mon reappears → `!` → aggressive; with distance, throw again at the same mon before contact battle.
 2d. Throw at a human NPC → `"Ouch, yo, WTF"`; at a Town Pokémon → `"Grrrr..."` (no catch).
+2e. Mobile/controller alternative (TouchControls or gamepad logical A/B/D-Pad):
+    - Tap **B** alone → normal vanilla B (no meter / no Ball cycle).
+    - Hold **B** + tap **RIGHT** / **LEFT** → next / previous Ball; player must not walk.
+    - Hold **B** + hold **A** → same meter + green preview; release **A** → throw.
+    - While charging, release **B** first → cancel (no Ball consumed).
+    - OW CATCH **OFF**, START menu, dialogue, battle: A/B/D-Pad stay 100% vanilla.
 3. Face a wild mon 1–6 tiles ahead — hit wobbles; miss still consumes a Ball.
 4. Failed catch: mon breaks free → `!` → aggressive → normal Wilds battle.
 5. Successful catch: Party or Box message; wild removed; no battle.
