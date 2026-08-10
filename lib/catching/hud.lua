@@ -8,8 +8,8 @@ local BallHud = {}
 BallHud.__index = BallHud
 
 BallHud.PIPELINE_ID = "owwild_ball_hud"
--- Compact icons on the 160×144 canvas (~7px).
-BallHud.ICON_PX = 7
+-- Compact icons on the 160×144 canvas (thrown Balls stay ~6px; HUD slightly larger).
+BallHud.ICON_PX = 9
 
 local BALL_ORDER = { "POKE_BALL", "GREAT_BALL", "ULTRA_BALL", "MASTER_BALL" }
 local BALL_SHORT = {
@@ -144,7 +144,8 @@ function BallHud:draw(canvas, ctx)
   local meter = catching:meterState()
   if meter and meter.active then
     local mx = canvasW - 22
-    local my = 28
+    -- Sit below the larger HUD icons + quantity line.
+    local my = 2 + iconW + 12
     local rowH = 9
     local power = meter.power or 1
     local marked = CatchMath.roundedPower(power)

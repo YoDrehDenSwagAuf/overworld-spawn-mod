@@ -396,6 +396,14 @@ function VoxelAdapter:ensureHooks()
           origDrawFx(project, scale)
         end
         adapter:drawOverlayFallbackBodies(ctx, project, scale)
+        -- Catch throw-range preview: use THIS live project() so mouse-wheel
+        -- zoom / Voxel camera never drifts (never Flat cam*ctx.scale here).
+        local okPreview, RangePreview = pcall(function()
+          return V.require("catching/range_preview")
+        end)
+        if okPreview and RangePreview and RangePreview.drawVoxel then
+          pcall(RangePreview.drawVoxel, project, scale)
+        end
       end
     end
     return origDrawWorld(ctx)

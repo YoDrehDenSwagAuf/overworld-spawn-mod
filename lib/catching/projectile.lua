@@ -230,8 +230,16 @@ function Projectile:startFlight(game, ow, opts)
   local facing = opts.facing or "down"
   local power = opts.power or opts.totalDist or 1
   local isMiss = opts.miss == true
+  local hitKind = opts.hitKind or "NONE"
 
-  local endX, endY, travel = Projectile.landCell(startX, startY, facing, power)
+  local endX, endY, travel
+  if opts.destX ~= nil and opts.destY ~= nil then
+    endX = opts.destX
+    endY = opts.destY
+    travel = math.max(1, math.floor(tonumber(opts.travel) or power))
+  else
+    endX, endY, travel = Projectile.landCell(startX, startY, facing, power)
+  end
 
   local ballEntity = makeBallEntity(game, ow, ballType, startX, startY, spriteId, opts.image)
   if ow and ow.entities then
@@ -254,6 +262,7 @@ function Projectile:startFlight(game, ow, opts)
     facing = facing,
     power = power,
     miss = isMiss,
+    hitKind = hitKind,
     onImpact = opts.onImpact,
     meta = opts.meta,
   }

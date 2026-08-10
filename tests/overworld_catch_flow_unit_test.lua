@@ -609,9 +609,9 @@ eq(byKey.overworld_catching.default, true, "default ON")
 eq(Config.overworldCatchingEnabled(V.mod), true, "Config helper ON")
 
 -- Ball presentation size contract
-eq(catching.projectile.BALL_VISUAL_PX, 6, "projectile visual ~6px")
+eq(catching.projectile.BALL_VISUAL_PX, 6, "projectile visual ~6px (unchanged)")
 local BallHudMod = V.require("catching/hud")
-eq(BallHudMod.ICON_PX, 7, "HUD icon ~7px")
+eq(BallHudMod.ICON_PX, 9, "HUD icon ~9px")
 
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

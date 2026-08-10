@@ -497,9 +497,26 @@ function OverworldCatching:_revealEscapingPokemon(entity)
   entity.movementLocked = false
 end
 
+function OverworldCatching:_onEasterEggImpact(game, ow, kind, entity)
+  playSfx(game, "SFX_BALL_POOF")
+  self.projectile:cleanup(ow, self.logic and self.logic.voxel)
+  self.phase = "idle"
+  self.activeCapture = nil
+  local msg
+  if kind == Target.HitKind.NPC then
+    msg = "Ouch, yo, WTF"
+  else
+    msg = "Grrrr..."
+  end
+  self:_catchLog("easter egg kind=%s entity=%s", tostring(kind),
+    tostring(entity and (entity.name or entity.ambientSpecies or entity.id) or "?"))
+  pushText(game, self.mod, msg)
+end
+
 function OverworldCatching:_releaseThrow(game, ow)
   local power = self.meter.power or METER_MIN
   self:_cancelMeter()
+  RangePreview.clear()
 
   local ballType = self:getSelectedBall(game)
   if self:ballCount(game, ballType) <= 0 then
@@ -508,12 +525,13 @@ function OverworldCatching:_releaseThrow(game, ow)
     return
   end
 
-  local entity, dist, tx, ty, facing = Target.findAhead(self.logic, ow, ow.player, CatchMath.MAX_RANGE)
   local player = ow.player
   local px, py = player.cellX, player.cellY
-  facing = facing or Target.facingOf(player)
+  local hit = Target.scanThrowPath(self.logic, ow, player, power)
+  local Hit = Target.HitKind
+  local facing = hit.facing or Target.facingOf(player)
 
-  -- Consume on commit (hit or miss).
+  -- Consume on commit (hit, easter egg, or miss).
   if not self:consumeBall(game, ballType) then
     pushText(game, self.mod, "You don't have any\nPOKé BALLs!")
     self.phase = "idle"
@@ -521,10 +539,11 @@ function OverworldCatching:_releaseThrow(game, ow)
   end
 
   local landX, landY = Projectile.landCell(px, py, facing, power)
-  self:_catchLog("throw released power=%.2f land=(%d,%d) facing=%s",
-    power, landX, landY, tostring(facing))
+  self:_catchLog("throw released power=%.2f land=(%d,%d) facing=%s first=%s@%s",
+    power, landX, landY, tostring(facing), tostring(hit.kind), tostring(hit.distance))
 
   local ballImage = self:ballImage(ballType)
+
   local function startMissFlight(feedback)
     self.phase = "flying"
     if feedback then self.hud:showFeedback(feedback, 0.7) end
@@ -536,6 +555,7 @@ function OverworldCatching:_releaseThrow(game, ow)
       facing = facing,
       power = power,
       miss = true,
+      hitKind = Hit.NONE,
       onImpact = function()
         self.projectile:cleanup(ow, self.logic and self.logic.voxel)
         self.phase = "idle"
@@ -545,7 +565,33 @@ function OverworldCatching:_releaseThrow(game, ow)
     self:_catchLog("projectile started (miss)")
   end
 
-  if not entity then
+  -- Easter eggs: first physical Town/NPC along the throw distance.
+  if hit.kind == Hit.NPC or hit.kind == Hit.TOWN_MON then
+    self.phase = "flying"
+    self._lastDebug = {
+      target = hit.kind, ball = ballType, dist = hit.distance,
+      power = string.format("%.2f", power), quality = "easter", angle = nil,
+    }
+    self.projectile:startFlight(game, ow, {
+      ballType = ballType,
+      spriteId = "SPRITE_WILDS_BALL_" .. ballType,
+      image = ballImage,
+      startX = px, startY = py,
+      facing = facing,
+      power = hit.distance,
+      destX = hit.x, destY = hit.y,
+      travel = hit.distance,
+      miss = true, -- land-hold then cleanup via onImpact
+      hitKind = hit.kind,
+      onImpact = function()
+        self:_onEasterEggImpact(game, ow, hit.kind, hit.entity)
+      end,
+    })
+    self:_catchLog("projectile started (%s)", tostring(hit.kind))
+    return
+  end
+
+  if hit.kind ~= Hit.WILD or not hit.entity then
     self._lastDebug = {
       target = nil, ball = ballType, dist = nil,
       power = string.format("%.2f", power), quality = "miss", angle = nil,
@@ -554,6 +600,9 @@ function OverworldCatching:_releaseThrow(game, ow)
     return
   end
 
+  local entity = hit.entity
+  local dist = hit.distance
+  local tx, ty = hit.x, hit.y
   local quality = CatchMath.throwQuality(power, dist)
   local monFacing = entity.facing or (entity.behaviorState and entity.behaviorState.facing)
   local angle = CatchMath.facingAngle(px, py, entity.cellX, entity.cellY, monFacing)
@@ -582,6 +631,7 @@ function OverworldCatching:_releaseThrow(game, ow)
   local level = (record and record.level) or entity.level or entity.wildLevel or 5
 
   if quality == CatchMath.QUALITY.MISS then
+    -- Aim too far/short: Ball still travels full power distance; mon unaffected.
     startMissFlight(nil)
     return
   end
@@ -611,6 +661,7 @@ function OverworldCatching:_releaseThrow(game, ow)
     facing = facing,
     power = power,
     miss = false,
+    hitKind = Hit.WILD,
     onImpact = function(proj)
       self:_onBallImpact(game, ow, proj)
     end,
@@ -853,6 +904,7 @@ function OverworldCatching:cancelAll(reason)
   end
   self.projectile:cleanup(ow, self.logic and self.logic.voxel)
   self:_cancelMeter()
+  RangePreview.clear()
   self.activeCapture = nil
   self.phase = "idle"
   self.throwHeld = false
@@ -940,6 +992,8 @@ function OverworldCatching:step(ctx)
     self.hud._frame = (self.hud._frame or 0) + 1
   end
   self:pollInput(game, ow, dt)
+  -- Keep Voxel drawFx pending cells fresh each tick (clears when not metering).
+  RangePreview.sync(self)
 end
 
 function OverworldCatching:register()

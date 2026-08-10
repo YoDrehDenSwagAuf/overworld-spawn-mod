@@ -26,7 +26,9 @@
 
 1. With OW Catch **ON**, confirm a small Ball HUD in the top-right on a grass route.
 2. Hold **C** to charge the power meter (vertical 1–6 + green ground tiles); release to throw; **Q** cycles Balls.
-2b. Force fail: Ball break → mon reappears → `!` → aggressive; with distance, throw again at the same mon before contact battle.
+2b. With Dramatic Shape on: hold C, mouse-wheel zoom in/out — green markers stay on the same world cells.
+2c. Force fail: Ball break → mon reappears → `!` → aggressive; with distance, throw again at the same mon before contact battle.
+2d. Throw at a human NPC → `"Ouch, yo, WTF"`; at a Town Pokémon → `"Grrrr..."` (no catch).
 3. Face a wild mon 1–6 tiles ahead — hit wobbles; miss still consumes a Ball.
 4. Failed catch: mon breaks free → `!` → aggressive → normal Wilds battle.
 5. Successful catch: Party or Box message; wild removed; no battle.
