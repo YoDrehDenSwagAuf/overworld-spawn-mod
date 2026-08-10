@@ -237,6 +237,10 @@ function BehaviorTick:step(ctx)
   for id, entity in pairs(logic.entities or {}) do
     local record = logic.spawns[id]
     if record and record.state == Config.STATE.AVAILABLE and entity then
+      -- Overworld catch: freeze AI / contact while the Ball sequence runs.
+      if entity.wildsCatchLocked or entity.wildsCatchState == "capturing" then
+        -- Keep occupancy; skip behavior / battle triggers.
+      else
       local okVoxel, voxelErr = pcall(function()
         self.voxel:updateEntity(entity)
       end)
@@ -373,6 +377,7 @@ function BehaviorTick:step(ctx)
         logic:_detachFromWorld(entity)
         entity.render2DFallback = true
       end
+      end -- else (not catch-locked)
     end
   end
 end

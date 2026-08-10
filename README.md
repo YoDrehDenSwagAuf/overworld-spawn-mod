@@ -10,6 +10,7 @@ by party Pokémon — without replacing the classic Gen 1 feel.
 
 - Visible overworld Pokémon
 - Reactive encounter behaviours
+- Optional overworld Poké Ball catching with directional throws and catch bonuses
 - Integrated Pokémon followers
 - Party follower selection
 - Multiple followers
@@ -87,9 +88,22 @@ There is no second settings store.
 | Roam Mons | On / Off | On | Allow wander behaviour. |
 | Chase Mons | On / Off | On | Allow aggressive chase behaviour. |
 | Hidden Mons | On / Off | On | Allow hidden grass / cave markers. |
+| OW Catch | On / Off | On | Enables direct Poké Ball throws at visible wild Pokémon. |
 | Dev Overlay | On / Off | Off | Show behaviour labels above Pokémon. |
 
 **Test Spawn** remains available from OPTIONS / Mod Settings as an OPEN row.
+
+### Overworld Catch controls
+
+When **OW Catch** is ON (and not in Safari / menus / battle):
+
+| Input | Action |
+|-------|--------|
+| Hold **C** | Charge throw power (1–6 tiles) |
+| Release **C** | Throw the selected Ball |
+| **E** | Cycle Ball type (Poké → Great → Ultra → Master) |
+
+Throws only hit battleable wilds directly ahead (max 6 tiles). A miss still consumes a Ball. Failed catches make the Pokémon aggressive through the normal Wilds `!` → chase → battle flow. Safari sessions disable overworld throws so native Safari catching is not bypassed.
 
 ## Installation
 

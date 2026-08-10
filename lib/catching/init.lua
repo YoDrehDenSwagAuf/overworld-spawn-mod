@@ -1,0 +1,851 @@
+-- Optional overworld Poké Ball catching for Wilds of Kanto.
+-- Extends existing wild entity / battle / occupancy lifecycle — no second
+-- encounter manager. Safari sessions disable throws (native Safari only).
+local V = ...
+local Config = V.require("config")
+local Behavior = V.require("behavior")
+local Movement = V.require("movement")
+local SafariCompat = V.require("safari_compat")
+local CatchMath = V.require("catching/catch_math")
+local Target = V.require("catching/target")
+local Projectile = V.require("catching/projectile")
+local BallHud = V.require("catching/hud")
+local DebugLog = V.require("debug_log")
+
+local OverworldCatching = {}
+OverworldCatching.__index = OverworldCatching
+
+OverworldCatching.BALL_TYPES = BallHud.BALL_ORDER
+OverworldCatching.PIPELINE_ID = "owwild_catching_tick"
+
+-- Full up/down meter cycle ≈ 1.75s (responsive, not frustrating).
+local METER_CYCLE_SECONDS = 1.75
+local METER_MIN = 1
+local METER_MAX = 6
+
+local BALL_ASSET = {
+  POKE_BALL = "assets/balls/poke_ball.png",
+  GREAT_BALL = "assets/balls/great_ball.png",
+  ULTRA_BALL = "assets/balls/ultra_ball.png",
+  MASTER_BALL = "assets/balls/master_ball.png",
+}
+
+local function tryRequire(name)
+  local ok, mod = pcall(require, name)
+  if ok then return mod end
+  return nil
+end
+
+local function now()
+  if love and love.timer and love.timer.getTime then
+    return love.timer.getTime()
+  end
+  return os.clock()
+end
+
+local function playSfx(game, name)
+  pcall(function()
+    if game and game.audio and game.audio.playSfx then
+      game.audio:playSfx(name)
+    end
+  end)
+end
+
+local function pushText(game, mod, msg, onDone)
+  if not game or not msg then
+    if onDone then onDone() end
+    return
+  end
+  local finished = false
+  local function finish()
+    if finished then return end
+    finished = true
+    if onDone then onDone() end
+  end
+  local TextBox = (mod and mod.ui and mod.ui.TextBox) or tryRequire("src.render.TextBox")
+  if not (TextBox and TextBox.new and game.stack and game.stack.push) then
+    finish()
+    return
+  end
+  local ok, box = pcall(TextBox.new, game, msg, finish)
+  if ok and box then
+    local pushOk = pcall(function() game.stack:push(box) end)
+    if not pushOk then
+      finish()
+    end
+  else
+    finish()
+  end
+end
+
+function OverworldCatching.new(mod, logic)
+  local self = setmetatable({}, OverworldCatching)
+  self.mod = mod
+  self.logic = logic
+  self.projectile = Projectile.new()
+  self.hud = BallHud.new(mod, self)
+  self.selectedBallIndex = 1
+  self.meter = { active = false, t = 0, power = 1, rising = true }
+  self.throwHeld = false
+  self.cycleHeld = false
+  self.phase = "idle" -- idle | metering | flying | capturing | resolving
+  self.activeCapture = nil
+  self._lastDebug = nil
+  self._ballImages = {}
+  self._registered = false
+  self._contentRegistered = false
+  return self
+end
+
+function OverworldCatching:game()
+  return self.mod.world and self.mod.world.game
+end
+
+function OverworldCatching:overworld()
+  local world = self.mod.world
+  if not world or not world.overworld then return nil end
+  return world:overworld()
+end
+
+function OverworldCatching:registerContent()
+  if self._contentRegistered then return true end
+  local mod = self.mod
+  if not (mod.content and mod.content.sprites and mod.content.sprites.register) then
+    return false, "sprites registry unavailable"
+  end
+  for _, ballType in ipairs(OverworldCatching.BALL_TYPES) do
+    local id = "SPRITE_WILDS_BALL_" .. ballType
+    local rel = BALL_ASSET[ballType]
+    local path = mod.assets and mod.assets.path and mod.assets:path(rel) or rel
+    if not mod.content.sprites:get(id) then
+      local ok, err = pcall(function()
+        mod.content.sprites:register(id, {
+          image = path,
+          frames = 1,
+          walker = false,
+          trueColor = true,
+        })
+      end)
+      if not ok then
+        DebugLog.warn(mod, "ball sprite %s: %s", id, tostring(err))
+      end
+    end
+  end
+  self._contentRegistered = true
+  return true
+end
+
+function OverworldCatching:ballImage(ballType)
+  if self._ballImages[ballType] ~= nil then
+    return self._ballImages[ballType] or nil
+  end
+  local rel = BALL_ASSET[ballType]
+  if not rel or not (love and love.graphics and love.graphics.newImage) then
+    self._ballImages[ballType] = false
+    return nil
+  end
+  local path = self.mod.assets and self.mod.assets.path and self.mod.assets:path(rel) or rel
+  local ok, img = pcall(love.graphics.newImage, path)
+  self._ballImages[ballType] = ok and img or false
+  return ok and img or nil
+end
+
+function OverworldCatching:ballCount(game, ballType)
+  local inv = game and game.save and game.save.inventory
+  if not inv then return 0 end
+  return tonumber(inv[ballType]) or 0
+end
+
+function OverworldCatching:getSelectedBall(game)
+  local types = OverworldCatching.BALL_TYPES
+  local current = types[self.selectedBallIndex] or types[1]
+  if self:ballCount(game, current) > 0 then
+    return current
+  end
+  for i, ball in ipairs(types) do
+    if self:ballCount(game, ball) > 0 then
+      self.selectedBallIndex = i
+      return ball
+    end
+  end
+  return current
+end
+
+function OverworldCatching:cycleSelectedBall(game, direction)
+  direction = direction or 1
+  local types = OverworldCatching.BALL_TYPES
+  local total = #types
+  local start = self.selectedBallIndex
+  for _ = 1, total do
+    self.selectedBallIndex = ((self.selectedBallIndex - 1 + direction) % total) + 1
+    local ball = types[self.selectedBallIndex]
+    if self:ballCount(game, ball) > 0 or self:ballCount(game, types[start]) <= 0 then
+      -- Prefer non-zero; if all zero, still land on next type.
+      if self:ballCount(game, ball) > 0 then
+        return ball
+      end
+    end
+  end
+  -- All zero: advance one step from start.
+  self.selectedBallIndex = ((start - 1 + direction) % total) + 1
+  return types[self.selectedBallIndex]
+end
+
+function OverworldCatching:consumeBall(game, ballType)
+  local Bag = tryRequire("src.inventory.Bag")
+  local save = game and game.save
+  if not save or not save.inventory then return false end
+  if self:ballCount(game, ballType) <= 0 then return false end
+  if Bag and Bag.remove then
+    Bag.remove(save, ballType, 1)
+  else
+    local n = (save.inventory[ballType] or 0) - 1
+    if n <= 0 then save.inventory[ballType] = nil
+    else save.inventory[ballType] = n end
+  end
+  return true
+end
+
+function OverworldCatching:anyBalls(game)
+  for _, ball in ipairs(OverworldCatching.BALL_TYPES) do
+    if self:ballCount(game, ball) > 0 then return true end
+  end
+  return false
+end
+
+--- Stack / dialogue / battle / script guards.
+function OverworldCatching:playerHasControl(game, ow)
+  if not game or not ow or not ow.player then return false end
+  if ow.runner and ow.runner.isRunning and ow.runner:isRunning() then
+    return false
+  end
+  if ow.textbox and ow.textbox.active and ow.textbox:active() then
+    return false
+  end
+  if ow.engaging then return false end
+  if self.logic and self.logic.pendingBattle then return false end
+
+  local stack = game.stack
+  if stack and stack.top then
+    local top = stack:top()
+    if top and top ~= ow then
+      -- Allow only when overworld is top of stack.
+      local opaque = top.isOpaque == true
+        or (type(top.isOpaque) == "function" and top:isOpaque())
+      if opaque or top.battle or top.isBattle then
+        return false
+      end
+      -- Menus / party / PC / options typically sit above overworld.
+      if top ~= ow then return false end
+    end
+  end
+  return true
+end
+
+function OverworldCatching:safariBlocks(game, ow)
+  local mapId = ow and ow.map and ow.map.id
+  local status = SafariCompat.status(game, ow, mapId)
+  return status == SafariCompat.STATUS.ACTIVE
+end
+
+function OverworldCatching:canShowHud(game, ow)
+  if not Config.overworldCatchingEnabled(self.mod) then return false end
+  if not Config.isEnabled(self.mod) then return false end
+  if not game or not ow or not ow.player then return false end
+  if self:safariBlocks(game, ow) then return false end
+  if self.logic and self.logic.pendingBattle then return false end
+  if not self:playerHasControl(game, ow) then
+    -- Still show HUD during metering/capture on the overworld itself.
+    if self.phase == "idle" then return false end
+  end
+  return true
+end
+
+function OverworldCatching:canAcceptInput(game, ow)
+  if not Config.overworldCatchingEnabled(self.mod) then return false end
+  if not Config.isEnabled(self.mod) then return false end
+  if not self:playerHasControl(game, ow) then return false end
+  if self:safariBlocks(game, ow) then return false end
+  if self.projectile:isBusy() then return false end
+  if self.phase == "capturing" or self.phase == "resolving" or self.phase == "flying" then
+    return false
+  end
+  return true
+end
+
+function OverworldCatching:meterState()
+  if self.meter.active then return self.meter end
+  return nil
+end
+
+function OverworldCatching:debugSnapshot()
+  if self.phase == "idle" and not self.meter.active then
+    return nil
+  end
+  return self._lastDebug
+end
+
+local function inputDown(game, aliases)
+  local input = game and game.input
+  if input then
+    local downFunc = type(input.down) == "function" and function(k) return input:down(k) end
+                  or type(input.isDown) == "function" and function(k) return input:isDown(k) end
+    if downFunc then
+      for _, a in ipairs(aliases) do
+        local ok, v = pcall(downFunc, a)
+        if ok and v then return true end
+      end
+    end
+  end
+  if love and love.keyboard and love.keyboard.isDown then
+    for _, a in ipairs(aliases) do
+      if #a == 1 or a == "lshift" or a == "rshift" then
+        if love.keyboard.isDown(a) then return true end
+      end
+    end
+  end
+  return false
+end
+
+-- Throw: hold C (reference-compatible free key). Cycle: E.
+local THROW_KEYS = { "c", "throw_ball", "ow_catch_throw" }
+local CYCLE_KEYS = { "e", "cycle_ball", "ow_catch_cycle" }
+
+function OverworldCatching:_updateMeter(dt)
+  local m = self.meter
+  if not m.active then return end
+  -- Triangle wave 1↔6 over METER_CYCLE_SECONDS for a full up+down.
+  local half = METER_CYCLE_SECONDS * 0.5
+  local speed = (METER_MAX - METER_MIN) / half
+  if m.rising then
+    m.power = m.power + speed * dt
+    if m.power >= METER_MAX then
+      m.power = METER_MAX
+      m.rising = false
+    end
+  else
+    m.power = m.power - speed * dt
+    if m.power <= METER_MIN then
+      m.power = METER_MIN
+      m.rising = true
+    end
+  end
+end
+
+function OverworldCatching:_beginMeter()
+  self.meter.active = true
+  self.meter.t = 0
+  self.meter.power = METER_MIN
+  self.meter.rising = true
+  self.phase = "metering"
+end
+
+function OverworldCatching:_cancelMeter()
+  self.meter.active = false
+  self.meter.power = METER_MIN
+  if self.phase == "metering" then self.phase = "idle" end
+end
+
+function OverworldCatching:_lockTarget(entity)
+  if not entity then return end
+  entity.wildsCatchState = "capturing"
+  entity.wildsCatchLocked = true
+  entity._catchPrevVisible = entity.visible
+  entity._catchPrevVisibleSprite = entity.visibleSprite
+  entity._catchPrevCanBattle = entity.canTriggerBattle
+  entity.visible = false
+  entity.visibleSprite = false
+  entity.canTriggerBattle = false
+  entity.movementLocked = true
+  if entity.behaviorState then
+    entity.behaviorState.sightDisabled = true
+    entity.behaviorState.catchLocked = true
+  end
+  Movement.stop(entity, "CATCHING")
+  -- Detach from ow.entities while capturing (Voxel-safe); keep logic + occupancy.
+  if self.logic and self.logic._detachFromWorld then
+    self.logic:_detachFromWorld(entity)
+  end
+end
+
+function OverworldCatching:_unlockTarget(entity, opts)
+  opts = opts or {}
+  if not entity then return end
+  entity.wildsCatchState = nil
+  entity.wildsCatchLocked = false
+  entity.movementLocked = false
+  if opts.restoreVisible ~= false then
+    entity.visible = (entity._catchPrevVisible ~= false)
+    entity.visibleSprite = (entity._catchPrevVisibleSprite ~= false)
+  end
+  if opts.restoreBattle ~= false then
+    entity.canTriggerBattle = entity._catchPrevCanBattle ~= false
+  end
+  entity._catchPrevVisible = nil
+  entity._catchPrevVisibleSprite = nil
+  entity._catchPrevCanBattle = nil
+  if entity.behaviorState then
+    entity.behaviorState.catchLocked = false
+  end
+  if opts.reattach ~= false and self.logic and self.logic._attach
+     and entity.registeredInWorld ~= true then
+    pcall(function() self.logic:_attach(entity) end)
+  end
+end
+
+function OverworldCatching:_releaseThrow(game, ow)
+  local power = self.meter.power or METER_MIN
+  self:_cancelMeter()
+
+  local ballType = self:getSelectedBall(game)
+  if self:ballCount(game, ballType) <= 0 then
+    pushText(game, self.mod, "You don't have any\nPOKé BALLs!")
+    self.phase = "idle"
+    return
+  end
+
+  local entity, dist, tx, ty, facing = Target.findAhead(self.logic, ow, ow.player, CatchMath.MAX_RANGE)
+  local player = ow.player
+  local px, py = player.cellX, player.cellY
+  facing = facing or Target.facingOf(player)
+
+  -- Consume on commit (hit or miss).
+  if not self:consumeBall(game, ballType) then
+    pushText(game, self.mod, "You don't have any\nPOKé BALLs!")
+    self.phase = "idle"
+    return
+  end
+
+  if not entity then
+    -- No target: still throw a miss along facing using power range.
+    self.phase = "flying"
+    self._lastDebug = {
+      target = nil, ball = ballType, dist = nil,
+      power = string.format("%.2f", power), quality = "miss", angle = nil,
+    }
+    self.hud:showFeedback("MISS!", 0.7)
+    self.projectile:startFlight(game, ow, {
+      ballType = ballType,
+      spriteId = "SPRITE_WILDS_BALL_" .. ballType,
+      startX = px, startY = py,
+      targetX = px, targetY = py,
+      totalDist = power,
+      facing = facing,
+      power = power,
+      miss = true,
+      onImpact = function(proj)
+        self.projectile:cancel(ow, self.logic and self.logic.voxel)
+        self.phase = "idle"
+      end,
+    })
+    return
+  end
+
+  local quality = CatchMath.throwQuality(power, dist)
+  local monFacing = entity.facing or (entity.behaviorState and entity.behaviorState.facing)
+  local angle = CatchMath.facingAngle(px, py, entity.cellX, entity.cellY, monFacing)
+  local feedback = CatchMath.feedbackLabel(quality, angle)
+  if feedback then self.hud:showFeedback(feedback, 0.85) end
+
+  self._lastDebug = {
+    target = entity.species or (entity.wildSpecies) or "?",
+    ball = ballType,
+    dist = dist,
+    power = string.format("%.2f", power),
+    quality = quality,
+    angle = angle,
+  }
+
+  local record = nil
+  if self.logic and entity.id then
+    record = self.logic.spawns and self.logic.spawns[entity.id]
+  end
+
+  local species = (record and record.species) or entity.species or entity.wildSpecies or "PIDGEY"
+  local level = (record and record.level) or entity.level or entity.wildLevel or 5
+
+  if quality == CatchMath.QUALITY.MISS then
+    self.phase = "flying"
+    self.projectile:startFlight(game, ow, {
+      ballType = ballType,
+      spriteId = "SPRITE_WILDS_BALL_" .. ballType,
+      startX = px, startY = py,
+      targetX = tx, targetY = ty,
+      totalDist = dist,
+      facing = facing,
+      power = power,
+      miss = true,
+      meta = { power = power, distance = dist },
+      onImpact = function()
+        self.projectile:cancel(ow, self.logic and self.logic.voxel)
+        self.phase = "idle"
+      end,
+    })
+    return
+  end
+
+  -- HIT path: lock target, fly to tile, then catch roll + wobble.
+  self:_lockTarget(entity)
+  self.phase = "flying"
+  self.activeCapture = {
+    entity = entity,
+    record = record,
+    species = species,
+    level = level,
+    ballType = ballType,
+    quality = quality,
+    angle = angle,
+    dist = dist,
+    tx = tx, ty = ty,
+  }
+
+  self.projectile:startFlight(game, ow, {
+    ballType = ballType,
+    spriteId = "SPRITE_WILDS_BALL_" .. ballType,
+    startX = px, startY = py,
+    targetX = tx, targetY = ty,
+    totalDist = dist,
+    facing = facing,
+    power = power,
+    miss = false,
+    onImpact = function(proj)
+      self:_onBallImpact(game, ow, proj)
+    end,
+  })
+end
+
+function OverworldCatching:_onBallImpact(game, ow, proj)
+  local cap = self.activeCapture
+  if not cap or not cap.entity then
+    self.projectile:cancel(ow, self.logic and self.logic.voxel)
+    self.phase = "idle"
+    return
+  end
+
+  local entity = cap.entity
+  local species = cap.species
+  local level = cap.level
+  local ballType = cap.ballType
+  local quality = cap.quality
+  local angle = cap.angle
+
+  local Catching = tryRequire("src.battle.Catching")
+  local targetDef = (game.data and game.data.pokemon and game.data.pokemon[species])
+    or { catchRate = 255, name = species }
+  local nativeRate = targetDef.catchRate or 255
+  local rateOverride = CatchMath.effectiveCatchRate(nativeRate, level, quality, angle)
+
+  local maxHp = math.max(1, math.floor(level * 2.5 + 10))
+  local tempMon = {
+    species = species,
+    hp = maxHp,
+    stats = { hp = maxHp },
+    status = nil,
+  }
+  local rng = love and love.math and love.math.random or math.random
+  local caught, shakes = false, 3
+  if Catching and Catching.attempt then
+    caught, shakes = Catching.attempt(ballType, tempMon, targetDef, rng, rateOverride)
+  else
+    -- Headless / missing API: Master Ball always; else use rate heuristic.
+    if ballType == "MASTER_BALL" then
+      caught, shakes = true, 3
+    else
+      local roll = rng(0, 255)
+      caught = roll <= rateOverride
+      shakes = caught and 3 or 1
+    end
+  end
+
+  self.phase = "capturing"
+  self.projectile:beginWobble(game, ow, {
+    x = cap.tx, y = cap.ty,
+    ballEntity = proj.ballEntity,
+    caught = caught,
+    totalShakes = shakes or 0,
+    onResolve = function(wob)
+      self:_resolveCapture(game, ow, caught == true)
+    end,
+  })
+end
+
+function OverworldCatching:_resolveCapture(game, ow, caught)
+  local cap = self.activeCapture
+  self.phase = "resolving"
+  if not cap then
+    self.phase = "idle"
+    return
+  end
+  local entity = cap.entity
+  local species = cap.species
+  local level = cap.level
+  local speciesDef = game and game.data and game.data.pokemon and game.data.pokemon[species]
+  local speciesName = (speciesDef and speciesDef.name) or species
+
+  if caught then
+    playSfx(game, "SFX_CAUGHT_MON")
+    local Pokemon = tryRequire("src.pokemon.Pokemon")
+    local Party = tryRequire("src.pokemon.Party")
+    local Boxes = tryRequire("src.pokemon.Boxes")
+    local newMon
+    if Pokemon and Pokemon.new and game and game.data then
+      local ok, mon = pcall(Pokemon.new, game.data, species, level)
+      if ok then newMon = mon end
+    end
+    if not newMon then
+      newMon = { species = species, level = level, hp = 1, stats = { hp = 1 } }
+    end
+    -- Preserve shiny/variant metadata when present and accepted.
+    if entity and entity.shiny then newMon.shiny = true end
+    if entity and entity.variant then newMon.variant = entity.variant end
+
+    local msg = "All right!\n" .. tostring(speciesName) .. " was caught!"
+    local added = false
+    if Party and Party.add and game.save and game.save.party then
+      added = Party.add(game.save.party, newMon) == true
+    end
+    if not added and Boxes and Boxes.deposit and game.save then
+      local boxNum = Boxes.deposit(game.save, newMon)
+      if boxNum then
+        msg = msg .. "\fTransferred to\nBox " .. tostring(boxNum) .. "."
+      else
+        msg = msg .. "\fBox is full!"
+      end
+    elseif not added then
+      -- No party space and no Boxes API: still report catch; party may already hold it via stub.
+      if game.save and game.save.party and #(game.save.party) < 6 then
+        table.insert(game.save.party, newMon)
+      end
+    end
+
+    -- Clean Wilds removal (occupancy, tracking, world lists).
+    if self.logic and entity and entity.id then
+      self.logic:_despawn(entity.id, true)
+    else
+      self:_unlockTarget(entity, { reattach = false })
+    end
+    self.activeCapture = nil
+    self.phase = "idle"
+    pushText(game, self.mod, msg)
+    return
+  end
+
+  -- FAILURE: restore entity → ! alert → aggressive Wilds battle flow.
+  playSfx(game, "SFX_BALL_POOF")
+  self:_unlockTarget(entity)
+  if entity then
+    entity.visible = true
+    entity.canTriggerBattle = true
+  end
+
+  local freeMsg = "Oh no!\n" .. tostring(speciesName) .. " broke free!"
+  local logic = self.logic
+  local record = cap.record
+  if (not record) and logic and entity and entity.id then
+    record = logic.spawns and logic.spawns[entity.id]
+  end
+
+  -- TextBox onDone (or immediate fallback inside pushText) starts aggro.
+  pushText(game, self.mod, freeMsg, function()
+    self:_beginAggroAfterBreak(entity, record)
+  end)
+
+  self.activeCapture = nil
+  self.phase = "idle"
+end
+
+function OverworldCatching:_beginAggroAfterBreak(entity, record)
+  if not entity or not self.logic then return end
+  local logic = self.logic
+  record = record or (entity.id and logic.spawns and logic.spawns[entity.id])
+  if not record or record.state ~= Config.STATE.AVAILABLE then return end
+
+  local water = Behavior.isWater(entity.behavior or record.behavior)
+  local newBeh = water and Behavior.WATER_AGGRESSIVE or Behavior.AGGRESSIVE
+  local region = entity.homeRegion
+  Behavior.attach(entity, newBeh, region, math.random)
+  entity.behavior = newBeh
+  if record then record.behavior = newBeh end
+
+  local ow = self:overworld()
+  local player = ow and ow.player
+  if player and entity.cellX and entity.cellY then
+    local fdx = (player.cellX or 0) - entity.cellX
+    local fdy = (player.cellY or 0) - entity.cellY
+    local face
+    if math.abs(fdx) >= math.abs(fdy) then
+      face = (fdx >= 0) and "right" or "left"
+    else
+      face = (fdy >= 0) and "down" or "up"
+    end
+    Movement.setFacing(entity, face)
+  end
+
+  local bx = entity.behaviorState
+  if bx then
+    bx.playerDetected = true
+    bx.alertEmoteSpawned = false
+    bx.chaseReady = false
+    bx.sightDisabled = true
+    bx.alertAt = now()
+    bx.state = Behavior.STATE.ALERT
+  end
+  -- Existing ! emote + chase pipeline.
+  logic:_onAggressiveAlert(entity, record)
+end
+
+function OverworldCatching:cancelAll(reason)
+  local ow = self:overworld()
+  local entity = self.activeCapture and self.activeCapture.entity
+  if entity and entity.wildsCatchLocked then
+    self:_unlockTarget(entity)
+    entity.visible = true
+    entity.canTriggerBattle = true
+  end
+  self.projectile:cancel(ow, self.logic and self.logic.voxel)
+  self:_cancelMeter()
+  self.activeCapture = nil
+  self.phase = "idle"
+  self.throwHeld = false
+  if Config.debug(self.mod) and reason then
+    DebugLog.info(self.mod, "overworld catch cancelled (%s)", tostring(reason))
+  end
+end
+
+function OverworldCatching:onOptionsChanged(payload)
+  if not payload or payload.mod ~= self.mod.id then return end
+  if payload.key == "overworld_catching" then
+    self.hud:syncPipelineLevel()
+    self:syncPipelineLevel()
+    if payload.value == false then
+      self:cancelAll("option off")
+    end
+  elseif payload.key == "enabled" and payload.value == false then
+    self:cancelAll("wilds off")
+  end
+end
+
+function OverworldCatching:onMapExited()
+  self:cancelAll("map exited")
+end
+
+function OverworldCatching:pollInput(game, ow, dt)
+  if not Config.overworldCatchingEnabled(self.mod) then
+    if self.meter.active then self:cancelAll("option off") end
+    return
+  end
+
+  -- Always advance projectile / wobble while active.
+  self.projectile:update(game, ow, dt, self.logic and self.logic.voxel)
+
+  if self.meter.active then
+    self:_updateMeter(dt)
+  end
+
+  if not ow or not game then return end
+
+  -- Cycle ball (edge).
+  local cycleDown = inputDown(game, CYCLE_KEYS)
+  if cycleDown and not self.cycleHeld and self:canAcceptInput(game, ow) then
+    self:cycleSelectedBall(game, 1)
+  end
+  self.cycleHeld = cycleDown
+
+  local throwDown = inputDown(game, THROW_KEYS)
+  if self.phase == "metering" then
+    if throwDown then
+      -- keep metering
+    else
+      -- release
+      self.throwHeld = false
+      self:_releaseThrow(game, ow)
+    end
+    return
+  end
+
+  if throwDown and not self.throwHeld and self:canAcceptInput(game, ow) then
+    if not self:anyBalls(game) then
+      pushText(game, self.mod, "You don't have any\nPOKé BALLs!")
+    else
+      self:_beginMeter()
+    end
+  end
+  self.throwHeld = throwDown
+end
+
+function OverworldCatching:step(ctx)
+  local game = self:game()
+  local ow = self:overworld()
+  local t = now()
+  local dt = t - (self._lastT or t)
+  if dt < 0 then dt = 0 end
+  if dt > 0.1 then dt = 0.1 end
+  self._lastT = t
+  self:pollInput(game, ow, dt)
+end
+
+function OverworldCatching:register()
+  if self._registered then return end
+  local mod = self.mod
+  self.hud:register()
+
+  if not (mod.content and mod.content.render_pipelines
+          and mod.content.render_pipelines.register) then
+    return
+  end
+  local catching = self
+  mod.content.render_pipelines:register(OverworldCatching.PIPELINE_ID, {
+    label = "OW CATCH",
+    levels = { "OFF", "ON" },
+    priority = 2,
+    available = function()
+      return Config.overworldCatchingEnabled(mod) == true
+        and Config.isEnabled(mod) == true
+    end,
+    present = function(canvas, ctx)
+      catching:step(ctx)
+      return canvas
+    end,
+  })
+  self._registered = true
+  self:syncPipelineLevel()
+  self:hideFromEngineOptions()
+end
+
+function OverworldCatching:hideFromEngineOptions()
+  local ok, Pipelines = pcall(require, "src.render.Pipelines")
+  if not ok or not Pipelines or type(Pipelines.rows) ~= "function" then return end
+  if self._rowsPatched then return end
+  local origRows = Pipelines.rows
+  Pipelines.rows = function(game)
+    local rows = origRows(game)
+    local out = {}
+    for _, row in ipairs(rows or {}) do
+      if not (row and row.id == "pipeline:" .. OverworldCatching.PIPELINE_ID) then
+        out[#out + 1] = row
+      end
+    end
+    return out
+  end
+  self._rowsPatched = true
+end
+
+function OverworldCatching:syncPipelineLevel()
+  local ok, Pipelines = pcall(require, "src.render.Pipelines")
+  if not ok or not Pipelines or not Pipelines.setLevel then return end
+  if Config.overworldCatchingEnabled(self.mod) and Config.isEnabled(self.mod) then
+    Pipelines.setLevel(OverworldCatching.PIPELINE_ID, 1)
+  else
+    Pipelines.setLevel(OverworldCatching.PIPELINE_ID, 0)
+  end
+  if self.hud then self.hud:syncPipelineLevel() end
+end
+
+-- Test / export helpers
+OverworldCatching.Target = Target
+OverworldCatching.CatchMath = CatchMath
+OverworldCatching.THROW_KEYS = THROW_KEYS
+OverworldCatching.CYCLE_KEYS = CYCLE_KEYS
+OverworldCatching.METER_CYCLE_SECONDS = METER_CYCLE_SECONDS
+
+return OverworldCatching
