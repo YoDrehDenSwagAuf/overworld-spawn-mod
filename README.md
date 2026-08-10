@@ -32,6 +32,7 @@ Active collaborators on this project:
   systems
 - [TheRhysWyrill](https://github.com/TheRhysWyrill) (TRW) — PokéPC / follower
   selection / integration
+- [gamecorner-033](https://github.com/gamecorner-033) — Original PokéPC / overworld follower concepts and related work
 
 ## Encounter Behaviors
 
@@ -112,8 +113,6 @@ Legacy Followers EX / PokéPC installs are detected only for settings migration.
 
 Short credits only — full license, asset, and third-party notices live in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-- **gamecorner-033** — Original PokéPC / overworld follower concepts and related work
 
 Developer documentation:
 
