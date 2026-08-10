@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.12.2
 
 ### Yellow door-exit follow — re-seeds walk the trail, never the building
 
@@ -209,6 +209,12 @@ mode is active via luminance-based shading:
   anchor), and the stock Pikachu is parked on the player's cell explicitly
   at every fresh map entry (engine-version independent), so the whole pack
   parks under the player on Yellow too.
+
+## 1.12.1
+- Menu now supports controller.
+- A button will increment/cycle through sub-menu options.
+- Removes the duplicate "FOLLOWER" in party menu.
+- Replaces "FOLLOWER"/"FOLLOWING" with "FOLLOW"/"DISMISS".
 
 ## 1.12.0
 
