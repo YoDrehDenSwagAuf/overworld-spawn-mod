@@ -1948,8 +1948,9 @@ function SpawnRender:applyProviderSprite(entity, game)
   -- Always read the live option — never trust a stale entity field alone.
   local style = Config.spriteStyle(self.mod)
   entity.requestedSpriteStyle = style
-  -- PaletteFX COLORS mode gate: a flip between redpp (ADVANCED, colored art)
-  -- and any other mode must force a re-resolve below.
+  -- PaletteFX COLORS mode gate: a flip between ADVANCED (colored art) and
+  -- every other mode (luminance -grayscale art) must force a re-resolve
+  -- below.
   local redpp = Config.paletteFxRedpp()
   local variant = AnimatedSprites.resolveRuntimeVariant(entity)
   local species = entity.species or entity.enhancedDexId

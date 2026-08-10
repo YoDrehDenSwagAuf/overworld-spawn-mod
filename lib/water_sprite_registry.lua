@@ -139,11 +139,12 @@ function WaterSpriteRegistry:_indexEntry(kind, entry, sourceDir)
   local variant = normalizeVariant(entry.variant)
   local form = normalizeForm(entry.suffix)
   -- Colored targets are the default "normal" art (entry.target); the
-  -- -grayscale targets serve every PaletteFX mode except redpp (ADVANCED),
-  -- which bakes real per-tile color. Headless / unknown mode defaults to
-  -- colored. Entries without a grayscaleTarget (colored-only variants such
-  -- as female forms) fall back to the colored target everywhere.
-  local useGray = not Config.paletteFxRedpp()
+  -- -grayscale targets serve the luminance sheets of every non-ADVANCED
+  -- PaletteFX mode (ADVANCED alone keeps the colored art). Headless /
+  -- unknown mode defaults to colored. Entries without a grayscaleTarget
+  -- (colored-only variants such as female forms) fall back to the colored
+  -- target everywhere.
+  local useGray = not (Config.paletteFxRedpp and Config.paletteFxRedpp())
     and type(entry.grayscaleTarget) == "string" and entry.grayscaleTarget ~= ""
   local target = useGray and entry.grayscaleTarget or entry.target
   if type(target) ~= "string" or target == "" then
@@ -403,19 +404,8 @@ function WaterSpriteRegistry:_resolvePath(record, opts)
     return rel, nil, key, false
   end
 
-  -- Colored runtime sheets are the default (rel); the -grayscale sheets
-  -- serve every PaletteFX mode except redpp (ADVANCED), which bakes real
-  -- per-tile color. Every other mode serves the grayscale sheet.
-  if not Config.paletteFxRedpp() then
-    local grayPath = man and man.grayscalePath or nil
-    if type(grayPath) ~= "string" or grayPath == "" then
-      grayPath = rel:gsub("%.png$", "-grayscale.png")
-    end
-    if grayPath ~= "" and self:_assetPresent(grayPath) then
-      rel = grayPath
-    end
-  end
-
+  -- Always the original colored runtime sheet; the engine's trueColor
+  -- contract handles every COLORS mode (raw draw + markTrueColor re-blit).
   if not self:_assetPresent(rel) then
     return nil, "runtime sheet missing: " .. tostring(rel)
   end
@@ -443,6 +433,8 @@ function WaterSpriteRegistry:_resolveKindVariant(speciesId, kind, variant, form,
   if opts.silhouette and usedSilhouette then
     idKind = kind .. "_silhouette"
   end
+  -- Colored sheets render raw; the engine's trueColor contract handles
+  -- every COLORS mode.  Pre-rendered silhouettes are already shaded.
   return {
     kind = kind,
     speciesId = speciesId,

@@ -51,6 +51,14 @@ Config.DEFAULTS = {
   -- Dramatic Shape tall-grass south-row clearance for pokemon_grass_render_mode=above.
   -- Applied as pose visualY lift only (lift = e.py - visualY); does not change e.py.
   grass_above_lift_px = 8,
+  -- Master AI switch: gates the per-frame behavior tick pipeline (wander,
+  -- chase, contact battles).  OFF keeps spawns visible but frozen.
+  wilds_ai = true,
+  -- Global "encounters are silhouettes": black out overworld wild mons in
+  -- encounter zones (grass / cave land, plus water sprites) by deriving a
+  -- luminance silhouette sheet from the colored art at load — no extra
+  -- asset files.  Extends the water-only silhouette look to every encounter.
+  wild_silhouettes = false,
   enable_idle = true,
   enable_wander = true,
   enable_aggressive = true,
@@ -739,6 +747,19 @@ function Config.waterEncountersDisabled(mod)
   return Config.waterDisplayMode(mod) == "disabled"
 end
 
+-- Global Encounter Silhouettes toggle: true black-outs every overworld wild
+-- mon in an encounter zone (grass/cave land + water sprites) via luminance
+-- silhouette sheets, regardless of sprite style.
+function Config.wildSilhouettes(mod)
+  local raw, present = Config.peekSavedOption(mod, "wild_silhouettes")
+  if present then return raw == true end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local v = mod.options:get("wild_silhouettes")
+    if v ~= nil then return v == true end
+  end
+  return Config.DEFAULTS.wild_silhouettes == true
+end
+
 function Config.maxWaterMons(mod)
   return tonumber(Config.get(mod, "max_water_mons"))
       or Config.DEFAULTS.max_water_mons or 12
@@ -1136,23 +1157,58 @@ function Config.spriteColor(_mod)
   return "colored"
 end
 
---- trueColor flag for shared SpriteRenderer defs. The -grayscale art must
---- flow through the engine's shade/zone colorization so it picks up the active
---- palette (CLASSIC/DMG = green shades, monochrome = gray, etc.), which means
---- trueColor=false everywhere EXCEPT redpp (ADVANCED), where the original
---- colored art is served and must render raw.
+--- trueColor flag for the mod's SpriteRenderer defs, decided per mode.
+---
+--- Luminance-based shading: in every COLORS mode EXCEPT ADVANCED (RED++),
+--- the mod serves the luminance-encoded (-grayscale) sheets with
+--- trueColor = false, so the ENGINE's native non-trueColor path handles them
+--- exactly like a vanilla DMG sprite — SpriteRenderer bakes rOBP0 = $D0
+--- (PaletteFX.dmgObj) and the whole-canvas zone shader colors the result out
+--- of the mode's own palette.  Followers therefore conform to whichever
+--- COLORS mode is active: SGB tints them with the map palette, OG RED/BLUE
+--- with the boot-ROM object palette (green/pink), OG YELLOW with its
+--- CGBBasePalettes zones, CLASSIC / OG / OG INV with their green/gray ramps,
+--- SGB INV with the permuted palette — luminance (brightness) decides the
+--- shade, the engine decides the colors.
+---
+--- The luminance sheets are derived at load from the colored art (see
+--- luminance_sheet.lua) as 3-shade ramps whose lightest shade is clamped to
+--- r = 0.8 (< the 0.83 the OBP bake keys transparent), so no interior pixel
+--- ever punches through — no separate -grayscale asset files are shipped.
+---
+--- ADVANCED (redpp) is the one mode whose world is true-color: there the
+--- mod serves the ORIGINAL colored sheets with trueColor = true (SpriteRenderer
+--- draws raw + markTrueColor re-blits unshaded), exactly like the engine's own
+--- full-color art.  Feeding colored sheets through the non-trueColor path in
+--- any mode would hit the OBP0 bake, which keys every pixel with r > 0.83
+--- transparent — it is only designed for the engine's 4-shade DMG sheets.
+--- Callers that serve art whose trueColor they know explicitly (external
+--- PokePC packs, water runtime sheets) set def.trueColor themselves; this
+--- helper is for the built-in follower/wild sheets, whose art is luma in
+--- every non-ADVANCED mode.
 function Config.spriteTrueColor(_mod)
   return Config.paletteFxRedpp()
 end
 
--- PaletteFX mode gate for sprite art selection. The colored sheets are the
--- default "normal" art; the explicit -grayscale sheets serve every COLORS
--- mode EXCEPT redpp (ADVANCED): redpp bakes real per-tile color onto
--- overworld sprites and wants the original colored art, while every other
--- mode colorizes through the shade/zone pass where grayscale reads correctly
--- and full-color PNGs look wrong. Unavailable PaletteFX (headless / tests /
--- other engines) defaults to false so the colored targets stay the safe
--- default everywhere.
+-- PaletteFX mode gate: the genuinely monochrome modes (CLASSIC / OG /
+-- OG INV), which colorize through the whole-screen shade/zone pass.  Kept
+-- for diagnostics and the water registry's grayscaleTarget selection; the
+-- follower/wild art gate is paletteFxRedpp (every non-ADVANCED mode serves
+-- the luminance sheets, not just these three).
+function Config.paletteFxMonochrome()
+  local ok, PaletteFX = pcall(require, "src.render.PaletteFX")
+  if ok and type(PaletteFX) == "table" and PaletteFX.mode ~= nil then
+    local mode = PaletteFX.mode
+    return mode == "og" or mode == "og_inv" or mode == "classic"
+  end
+  return false
+end
+
+-- ADVANCED (RED++) mode: the engine bakes real per-tile color onto
+-- overworld sprites and its world pass runs unshaded.  Art selection and
+-- the trueColor flag gate on this: non-ADVANCED modes serve luminance
+-- (-grayscale) sheets through the engine's zone pass, ADVANCED serves the
+-- original colored sheets raw.
 function Config.paletteFxRedpp()
   local ok, PaletteFX = pcall(require, "src.render.PaletteFX")
   if ok and type(PaletteFX) == "table" and PaletteFX.mode ~= nil then

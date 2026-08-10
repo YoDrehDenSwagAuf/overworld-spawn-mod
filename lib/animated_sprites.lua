@@ -290,15 +290,11 @@ function AnimatedSprites:_normalizeFrames(rawList, cellW, cellH, errors, imageW,
 end
 
 function AnimatedSprites:_buildVariantEntry(speciesId, variantName, rawVariant, animTemplate)
-  -- The colored sheets are the default "normal" art (rawVariant.file/path);
-  -- the explicit -grayscale sheets serve every PaletteFX mode except redpp
-  -- (ADVANCED), which bakes real per-tile color onto overworld sprites.
-  -- Headless / unknown mode defaults to the colored art.
-  local useGray = not Config.paletteFxRedpp() and rawVariant ~= nil
-    and ((type(rawVariant.grayscaleFile) == "string" and rawVariant.grayscaleFile ~= "")
-      or (type(rawVariant.grayscalePath) == "string" and rawVariant.grayscalePath ~= ""))
-  local grayFile = useGray
-    and (rawVariant.grayscaleFile or rawVariant.file) or nil
+  -- Always the original colored art; the engine decides how each COLORS
+  -- mode treats it (trueColor contract in SpriteRenderer / markTrueColor).
+  -- The -grayscale siblings exist in the asset tree but are not served by
+  -- mode gate anymore.
+  local grayFile = nil
   local entry = {
     speciesId = speciesId,
     variant = variantName,

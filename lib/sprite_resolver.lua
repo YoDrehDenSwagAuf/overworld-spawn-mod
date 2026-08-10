@@ -8,6 +8,7 @@ local Config = V.require("config")
 local Surface = V.require("surface")
 local AnimatedSprites = V.require("animated_sprites")
 local Behavior = V.require("behavior")
+local LuminanceSheet = V.require("luminance_sheet")
 
 local SpriteResolver = {}
 SpriteResolver.__index = SpriteResolver
@@ -140,7 +141,43 @@ function SpriteResolver:resolveLandSprite(entity, context)
     result.spriteState = "land"
     result.spriteKind = result.providerId
     result.waterOverride = false
+    -- Global Encounter Silhouettes: black out land wild mons, but only in
+    -- actual encounter zones (grass / cave).  Followers, previews and mons
+    -- on non-encounter surfaces keep their normal art.
+    if type(Config.wildSilhouettes) == "function"
+       and Config.wildSilhouettes(self.mod)
+       and self:_inLandEncounterZone(entity) then
+      self:_applyWildSilhouette(result)
+    end
   end
+  return result
+end
+
+-- Land silhouettes are gated on the entity's resolved surface: grass and
+-- cave are where random encounters actually roll.  Entities without a
+-- surface (previews, context-only resolution) are never silhouetted.
+function SpriteResolver:_inLandEncounterZone(entity)
+  local s = entity and entity.surface
+  return s == Surface.GRASS or s == Surface.CAVE
+end
+
+-- Swap a resolved sprite for the luminance silhouette sheet (every opaque
+-- pixel → the darkest shade, so the engine's OBP0 bake renders it as the
+-- darkest zone color — a solid black-out that keeps the sprite's shape).
+-- Derivation is cached in the save dir; headless / unavailable keeps the
+-- colored art untouched (silhouettes are a rendering nicety).
+function SpriteResolver:_applyWildSilhouette(result)
+  if not result or not result.def then return result end
+  local def = result.def
+  local src = def.image
+  if type(src) ~= "string" or src == "" then return result end
+  local silo = LuminanceSheet.silhouetteFor(src)
+  if not silo then return result end
+  def.image = silo
+  def.trueColor = false
+  result.wildSilhouette = true
+  local meta = result.meta
+  if meta then meta.loadPath = silo end
   return result
 end
 
@@ -201,6 +238,18 @@ function SpriteResolver:resolveWaterSprite(entity, context)
     return result
   end
 
+  -- Global Encounter Silhouettes also black out water sprites (swim /
+  -- submerged / provider / land-fallback art).  Hidden circle markers and
+  -- native (voxel) silhouette sheets keep their own presentation.
+  local wildSilo = type(Config.wildSilhouettes) == "function"
+    and Config.wildSilhouettes(self.mod) == true
+  local function finish(result)
+    if wildSilo and result and result.def and result.def.image then
+      self:_applyWildSilhouette(result)
+    end
+    return result
+  end
+
   -- 1) Direct poke_followers submerged check (fsExists, no mod:read).
   -- Only applies when the GSC/Followers sprite style is selected; otherwise
   -- falls through to the provider chain + swimming/levitates registry so
@@ -221,17 +270,19 @@ function SpriteResolver:resolveWaterSprite(entity, context)
       end
     end
     if dex and type(dex) == "number" then
-      local redpp = Config and type(Config.paletteFxRedpp) == "function"
-        and Config.paletteFxRedpp()
+      -- Luminance-based shading: every non-ADVANCED mode derives the 3-shade
+      -- luminance sheet from the colored submerged art at load (cached in
+      -- the save dir — no separate -grayscale_submerged files) and serves it
+      -- with trueColor=false, so the engine's zone pass colors it out of the
+      -- mode palette. ADVANCED keeps the colored (shiny/normal) sheets.
+      local redpp = Config and Config.paletteFxRedpp and Config.paletteFxRedpp()
       local tryVariants
-      if redpp then
-        if variant == "shiny" then
-          tryVariants = { "shiny_submerged", "normal_submerged" }
-        else
-          tryVariants = { "normal_submerged" }
-        end
+      if not redpp then
+        tryVariants = { "normal_submerged" }
+      elseif variant == "shiny" then
+        tryVariants = { "shiny_submerged", "normal_submerged" }
       else
-        tryVariants = { "grayscale_submerged" }
+        tryVariants = { "normal_submerged" }
       end
       for _, v in ipairs(tryVariants) do
         local rel = string.format(
@@ -246,11 +297,15 @@ function SpriteResolver:resolveWaterSprite(entity, context)
             and love.filesystem.getInfo(loadPath))
            or (love and love.filesystem and love.filesystem.getInfo
                and love.filesystem.getInfo(rel)) then
+          local luma = (not redpp) and LuminanceSheet.pathFor(loadPath) or nil
+          local image = luma or loadPath
           local def = {
-            image = loadPath,
+            image = image,
             frames = 6,
             walker = true,
-            trueColor = true,
+            -- trueColor travels with the art: luminance sheets are false so
+            -- the zone pass colors them; colored (ADVANCED / headless) true.
+            trueColor = luma == nil,
             id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dex),
           }
           local meta = {
@@ -258,7 +313,7 @@ function SpriteResolver:resolveWaterSprite(entity, context)
             requestedStyle = style,
             fallbackStep = 1,
             usedVariant = v,
-            loadPath = loadPath,
+            loadPath = image,
             relativePath = rel,
             bodyRenderer = "NATIVE_SPRITE_RENDERER",
             waterSource = "poke_followers_submerged",
@@ -267,9 +322,9 @@ function SpriteResolver:resolveWaterSprite(entity, context)
             walker = true,
           }
           steps[#steps + 1] = { providerId = "poke_followers_submerged", ok = true }
-          return { def = def, meta = meta, providerId = "poke_followers_submerged",
+          return finish({ def = def, meta = meta, providerId = "poke_followers_submerged",
             fallbackStep = 1, steps = steps, spriteState = "water",
-            spriteKind = "submerged" }
+            spriteKind = "submerged" })
         end
       end
     end
@@ -308,7 +363,7 @@ function SpriteResolver:resolveWaterSprite(entity, context)
               waterOverride = false,
             }
             steps[#steps + 1] = { providerId = providerId, ok = true, water = true }
-            return result
+            return finish(result)
           end
           steps[#steps + 1] = {
             providerId = providerId, ok = false, reason = "no water sprite",
@@ -389,6 +444,11 @@ function SpriteResolver:resolveWaterSprite(entity, context)
         providerId = result.providerId, ok = true, kind = waterDef.kind,
         silhouette = waterDef.silhouette == true,
       }
+      -- Native silhouette sheets (voxel) are already dark; only black out
+      -- the coloured swimming/levitates art.
+      if wildSilo and not waterDef.silhouette then
+        self:_applyWildSilhouette(result)
+      end
       return result
     end
     steps[#steps + 1] = {
@@ -411,7 +471,7 @@ function SpriteResolver:resolveWaterSprite(entity, context)
       if landFallback.providerId == "pokemmo" then
         landFallback.spriteKind = "pokemmo"
       end
-      return landFallback
+      return finish(landFallback)
     end
   end
 
@@ -441,6 +501,10 @@ function SpriteResolver:cacheKey(entity, context, state)
   local voxel = "flat"
   local shadowMode = "none"
   local imagePath = "na"
+  -- Silhouette toggle participates in the cache key so a toggled switch is
+  -- picked up even by paths that do not invalidate the whole resolver cache.
+  local silo = (type(Config.wildSilhouettes) == "function"
+    and Config.wildSilhouettes(self.mod) == true) and "silo" or "color"
   if state == "water" then
     if type(Config.waterDisplayMode) == "function" then
       waterMode = tostring(Config.waterDisplayMode(self.mod) or "swimming_sprites")
@@ -459,9 +523,9 @@ function SpriteResolver:cacheKey(entity, context, state)
       end
     end
   end
-  return string.format("%s:%s:%s:%s:%s:%s:%s:%s:%s",
+  return string.format("%s:%s:%s:%s:%s:%s:%s:%s:%s:%s",
     tostring(speciesId), variant, form, state, style, waterMode, voxel,
-    shadowMode, imagePath)
+    shadowMode, imagePath, silo)
 end
 
 function SpriteResolver:invalidateCache()

@@ -21,6 +21,7 @@ local Config = V.require("config")
 local RuntimeSheets = V.require("runtime_sheets")
 local AnimatedSprites = V.require("animated_sprites")
 local DebugLog = V.require("debug_log")
+local LuminanceSheet = V.require("luminance_sheet")
 
 local SpriteProviders = {}
 SpriteProviders.__index = SpriteProviders
@@ -99,11 +100,10 @@ local function copyDef(def, spriteId, mod)
   if type(def) ~= "table" or type(def.image) ~= "string" or def.image == "" then
     return nil
   end
+  -- External PokePC / export-API defs know their own art: an explicit
+  -- trueColor flag wins, and unset defaults to raw (full-color art must
+  -- never be force-baked through the engine's OBP0 DMG ramp).
   local trueColor = def.trueColor ~= false
-  -- PokéPC color_mode semantics: Classic forces trueColor=false.
-  if mod and Config and Config.spriteTrueColor then
-    trueColor = Config.spriteTrueColor(mod)
-  end
   local out = {
     image = def.image,
     frames = tonumber(def.frames) or 1,
@@ -662,7 +662,8 @@ end
 -- save / chain compatibility). Assets ship split into subdirs:
 --   assets/enhanced_overworld/poke_followers/normal/follower_%03d.png  (colored)
 --   assets/enhanced_overworld/poke_followers/shiny/follower_%03d.png   (colored shiny)
---   assets/enhanced_overworld/poke_followers/grayscale/follower_%03d.png (grayscale)
+-- The luminance (-grayscale) ramps are derived at load from the colored
+-- sheets (see luminance_sheet.lua) — no separate grayscale asset files.
 -- Dex id maps 1:1. External PokePC packs remain an optional override.
 ------------------------------------------------------------------------
 
@@ -672,8 +673,8 @@ local POKE_FOLLOWERS_PROBE = POKE_FOLLOWERS_REL .. "/follower_001_normal.png"
 -- Flat file naming (all variants in one directory):
 --   follower_%03d_normal.png    (colored)
 --   follower_%03d_shiny.png     (shiny)
---   follower_%03d_grayscale.png (grayscale)
---   follower_%03d_submerged.png (submerged)
+--   follower_%03d_normal_submerged.png (colored submerged)
+--   follower_%03d_shiny_submerged.png  (colored shiny submerged)
 
 function SpriteProviders:_pokeFollowersPath(dex, render)
   if type(dex) ~= "number" or dex < 1 then return nil, nil end
@@ -687,18 +688,11 @@ function SpriteProviders:_pokeFollowersShinyPath(dex, render)
   return self:_modRelPath(rel, render)
 end
 
--- Grayscale sibling sheets serve every PaletteFX mode except redpp (ADVANCED),
--- which bakes real per-tile color and keeps the original colored art.
-function SpriteProviders:_pokeFollowersGrayscalePath(dex, render)
-  if type(dex) ~= "number" or dex < 1 then return nil, nil end
-  local rel = string.format("%s/follower_%03d_grayscale.png", POKE_FOLLOWERS_REL, dex)
-  return self:_modRelPath(rel, render)
-end
+
 
 -- Submerged (water) sheet: variant-aware naming.
 -- follower_NNN_normal_submerged.png  (colored)
 -- follower_NNN_shiny_submerged.png   (colored shiny)
--- follower_NNN_grayscale_submerged.png (grayscale)
 function SpriteProviders:_pokeFollowersSubmergedPath(dex, render, variant)
   if type(dex) ~= "number" or dex < 1 then return nil, nil end
   variant = variant or "normal"
@@ -708,10 +702,6 @@ function SpriteProviders:_pokeFollowersSubmergedPath(dex, render, variant)
 end
 
 -- Backward-compatible aliases.
-function SpriteProviders:_pokeFollowersSubmergedGrayscalePath(dex, render)
-  return self:_pokeFollowersSubmergedPath(dex, render, "grayscale")
-end
-
 function SpriteProviders:_pokeFollowersSubmergedColoredPath(dex, render)
   return self:_pokeFollowersSubmergedPath(dex, render, "normal")
 end
@@ -799,29 +789,32 @@ function SpriteProviders:_makeFollowersExProvider()
     local dex = resolveDexId(speciesId, game, mod)
     local wantShiny = normalizeVariant(variant) == "shiny"
 
-    -- Built-in pack: dex → follower_%03d.png split into normal/ (colored),
-    -- shiny/ (colored shiny) and grayscale/ subdirs. Grayscale siblings
-    -- serve every PaletteFX mode except redpp (ADVANCED), which bakes real
-    -- per-tile color and keeps the colored art.
+    -- Built-in pack: dex → follower_%03d.png split into normal/ (colored)
+    -- and shiny/ (colored shiny) subdirs. Luminance-based shading: every
+    -- COLORS mode EXCEPT ADVANCED derives a 3-shade luminance sheet from the
+    -- colored art at load (cached in the save dir — no separate -grayscale
+    -- files) and serves it with trueColor = false, so the engine's own zone
+    -- pass colors it out of the mode palette; ADVANCED serves the colored
+    -- art raw.
     if owners:_builtinPokeFollowersReady() and dex then
       local imagePath, rel = nil, nil
-      local usedVariant = "normal"
-      if not Config.paletteFxRedpp() then
-        local gPath, gRel = owners:_pokeFollowersGrayscalePath(dex, render)
-        if gPath and gRel then
-          local gExists = true
-          if mod and mod.read then
-            local ok, data = pcall(function() return mod:read(gRel) end)
-            gExists = ok and data ~= nil
-          elseif not fsExists(gRel) then
-            gExists = false
-          end
-          if gExists then
-            imagePath, rel = gPath, gRel
+      local usedVariant = wantShiny and "shiny" or "normal"
+      local redpp = Config.paletteFxRedpp and Config.paletteFxRedpp() or false
+      local lumaServed = false
+      if not redpp then
+        local cPath, cRel = owners:_pokeFollowersPath(dex, render)
+        if cPath then
+          local luma = LuminanceSheet.pathFor(cPath)
+          if luma then
+            imagePath, rel, lumaServed = luma, cRel, true
+          else
+            -- Derivation unavailable (headless): colored art stays raw.
+            imagePath, rel = cPath, cRel
           end
         end
-      elseif wantShiny then
-        -- redpp + shiny: prefer the shiny/ sheet, fall back to normal/.
+      end
+      if not imagePath and wantShiny then
+        -- prefer the shiny/ sheet, fall back to normal/.
         local sPath, sRel = owners:_pokeFollowersShinyPath(dex, render)
         if sPath and sRel then
           local sExists = true
@@ -833,7 +826,6 @@ function SpriteProviders:_makeFollowersExProvider()
           end
           if sExists then
             imagePath, rel = sPath, sRel
-            usedVariant = "shiny"
           end
         end
       end
@@ -861,7 +853,10 @@ function SpriteProviders:_makeFollowersExProvider()
         image = imagePath,
         frames = 6,
         walker = true,
-        trueColor = true,
+        -- trueColor travels with the art: luminance sheets are false so the
+        -- zone pass colors them; colored art (ADVANCED / headless fallback)
+        -- is true so it draws raw.
+        trueColor = not lumaServed,
         id = "SPRITE_OW_WILD_" .. tostring(dex),
       }
       return def, {
@@ -946,9 +941,11 @@ function SpriteProviders:_makeFollowersExProvider()
   end
 
   -- Water extension (submerged sheets).  Naming is
-  -- follower_NNN_{variant}_submerged.png.  Picks based on COLORS mode:
-  -- redpp uses normal_submerged (or shiny_submerged), grayscale/GBC
-  -- uses grayscale_submerged.
+  -- follower_NNN_{variant}_submerged.png.  Luminance-based shading: every
+  -- non-ADVANCED mode derives the 3-shade luminance sheet from the colored
+  -- submerged art at load (cached in the save dir — no separate
+  -- -grayscale_submerged files) and serves it through the engine's zone
+  -- pass; ADVANCED keeps the colored (normal/shiny) art.
   function provider:resolveWater(speciesId, variant, game)
     local okAvail, why = self:isAvailable(game)
     if not okAvail then
@@ -957,32 +954,45 @@ function SpriteProviders:_makeFollowersExProvider()
     local dex = resolveDexId(speciesId, game, mod)
     if not dex then return nil, nil, "dex unresolved" end
 
-    local redpp = Config.paletteFxRedpp and Config.paletteFxRedpp()
-    local tryVariants
-    if redpp then
-      if variant == "shiny" then
-        tryVariants = { "shiny", "normal" }
-      else
-        tryVariants = { "normal" }
+    local redpp = Config.paletteFxRedpp and Config.paletteFxRedpp() or false
+    local imagePath, rel, usedVariant = nil, nil, "normal"
+    local lumaServed = false
+    if not redpp then
+      local cPath, cRel = owners:_pokeFollowersSubmergedPath(dex, render, "normal")
+      local cExists = false
+      if cPath and cRel then
+        if mod and mod.read then
+          local ok, data = pcall(function() return mod:read(cRel) end)
+          cExists = ok and data ~= nil
+        elseif fsExists(cRel) or fsExists(cPath) then
+          cExists = true
+        end
+      end
+      if cExists then
+        local luma = LuminanceSheet.pathFor(cPath)
+        if luma then
+          imagePath, rel, lumaServed = luma, cRel, true
+        else
+          imagePath, rel = cPath, cRel
+        end
       end
     else
-      tryVariants = { "grayscale" }
-    end
-    local imagePath, rel, usedVariant = nil, nil, "normal"
-    for _, v in ipairs(tryVariants) do
-      imagePath, rel = owners:_pokeFollowersSubmergedPath(dex, render, v)
-      if imagePath and rel then
-        local exists = true
-        if mod and mod.read then
-          local ok, data = pcall(function() return mod:read(rel) end)
-          if not ok or data == nil then
-            exists = fsExists(rel) or fsExists(imagePath)
+      local tryVariants = (variant == "shiny") and { "shiny", "normal" } or { "normal" }
+      for _, v in ipairs(tryVariants) do
+        imagePath, rel = owners:_pokeFollowersSubmergedPath(dex, render, v)
+        if imagePath and rel then
+          local exists = true
+          if mod and mod.read then
+            local ok, data = pcall(function() return mod:read(rel) end)
+            if not ok or data == nil then
+              exists = fsExists(rel) or fsExists(imagePath)
+            end
+          elseif not fsExists(rel) then
+            exists = false
           end
-        elseif not fsExists(rel) then
-          exists = false
+          if exists then usedVariant = v; break end
+          imagePath, rel = nil, nil
         end
-        if exists then usedVariant = v; break end
-        imagePath, rel = nil, nil
       end
     end
     if not imagePath then
@@ -992,7 +1002,7 @@ function SpriteProviders:_makeFollowersExProvider()
       image = imagePath,
       frames = 6,
       walker = true,
-      trueColor = true,
+      trueColor = not lumaServed,
       id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dex),
     }
     return def, {
@@ -1038,9 +1048,8 @@ function SpriteProviders:resolveWater(style, speciesId, variant, game)
         meta.providerId = providerId
         meta.kind = meta.kind or "submerged"
         meta.water = true
-        if Config.spriteTrueColor then
-          def.trueColor = Config.spriteTrueColor(self.mod)
-        end
+        -- trueColor travels with the art the provider served (luminance
+        -- sheets in non-ADVANCED modes are false; colored art stays true).
         return def, meta
       end
       if err then

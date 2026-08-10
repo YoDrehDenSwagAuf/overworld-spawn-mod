@@ -7,6 +7,7 @@
 -- The Pokédex is never a spawn gate. The player is never teleported.
 local V = ...
 local Config = V.require("config")
+local LuminanceSheet = V.require("luminance_sheet")
 local EncounterPick = V.require("encounter_pick")
 local EncounterIndex = V.require("encounter_index")
 local Grass = V.require("grass")
@@ -222,17 +223,52 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
       dexId = AnimatedSprites.resolveSpeciesId(speciesId, game, self.mod)
     end
     if not dexId then return nil end
-    local redpp = Config and type(Config.paletteFxRedpp) == "function"
-      and Config.paletteFxRedpp()
-    local tryVariants
-    if redpp then
-      if variant == "shiny" then
-        tryVariants = { "shiny_submerged", "normal_submerged" }
-      else
-        tryVariants = { "normal_submerged" }
+    -- Luminance-based shading: every non-ADVANCED mode derives the 3-shade
+    -- luminance sheet from the colored submerged art at load (cached in the
+    -- save dir — no separate -grayscale_submerged files) and serves it with
+    -- trueColor=false, so the engine's zone pass colors it out of the mode
+    -- palette. ADVANCED keeps the colored (shiny/normal) submerged sheets.
+    local redpp = Config and Config.paletteFxRedpp and Config.paletteFxRedpp()
+    if not redpp then
+      local rel = string.format(
+        "assets/enhanced_overworld/poke_followers/follower_%03d_normal_submerged.png",
+        dexId)
+      local loadPath = rel
+      if self.mod and self.mod.assets and self.mod.assets.path then
+        local ok, p = pcall(function() return self.mod.assets:path(rel) end)
+        if ok and type(p) == "string" then loadPath = p end
       end
+      if (love and love.filesystem and love.filesystem.getInfo
+          and love.filesystem.getInfo(loadPath))
+         or (love and love.filesystem and love.filesystem.getInfo
+             and love.filesystem.getInfo(rel)) then
+        local luma = LuminanceSheet.pathFor(loadPath)
+        local image = luma or loadPath
+        return {
+          image = image,
+          frames = 6,
+          walker = true,
+          -- trueColor travels with the art: luminance sheets are false so
+          -- the zone pass colors them; colored (headless fallback) is true.
+          trueColor = luma == nil,
+          id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dexId),
+        }, {
+          kind = "submerged",
+          speciesId = dexId,
+          variant = "normal_submerged",
+          form = form,
+          image = image,
+          frames = 6,
+          walker = true,
+        }
+      end
+      return nil, nil
+    end
+    local tryVariants
+    if variant == "shiny" then
+      tryVariants = { "shiny_submerged", "normal_submerged" }
     else
-      tryVariants = { "grayscale_submerged" }
+      tryVariants = { "normal_submerged" }
     end
     for _, v in ipairs(tryVariants) do
       local rel = string.format(
@@ -289,7 +325,7 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
           image = waterDef.image,
           frames = waterDef.frames or 6,
           walker = true,
-          trueColor = true,
+          trueColor = waterDef.trueColor ~= false,
           id = waterDef.id,
           kind = waterDef.kind,
         }
@@ -2561,6 +2597,25 @@ function SpawnLogic:onOptionsChanged(payload)
     end
   elseif key == "cave_spawns" or key == "enable_cave_spawns" then
     self:applyCaveSpawnMode(Config.caveSpawnMode(self.mod), "options_changed")
+  elseif key == "wild_silhouettes" then
+    -- Presentation switch: rebind entity sprites to/from the silhouette
+    -- sheets without respawning.  Invalidate caches so old coloured /
+    -- silhouette SpriteRenderers are never reused.
+    self:_log("wild_silhouettes -> %s", tostring(payload.value == true))
+    if self.render then
+      local world = self.mod.world
+      local game = world and world.game
+      if self.render.invalidateAssetCache then
+        pcall(self.render.invalidateAssetCache, self.render)
+      end
+      if self.render.spriteResolver and self.render.spriteResolver.invalidateCache then
+        pcall(self.render.spriteResolver.invalidateCache, self.render.spriteResolver)
+      end
+      pcall(self.render.refreshAllEntitySprites, self.render, self, game)
+    end
+  elseif key == "wilds_ai" then
+    self:_log("wilds_ai -> %s", tostring(payload.value))
+    if self.behaviorTick then self.behaviorTick:syncPipelineLevel() end
   elseif key == "dev_overlay"
       or key == "dev_mode"
       or key == "debug_hud_always_visible"

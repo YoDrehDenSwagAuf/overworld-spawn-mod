@@ -48,6 +48,7 @@ function BehaviorTick:register()
     priority = 1,
     available = function()
       return Config.isEnabled(mod) == true
+        and Config.get(mod, "wilds_ai") ~= false
     end,
     present = function(canvas, ctx)
       tick:step(ctx)
@@ -58,12 +59,48 @@ function BehaviorTick:register()
 
   self._registered = true
   self:syncPipelineLevel()
+  self:hideFromEngineOptions()
+end
+
+--- The WILDS AI toggle lives in the Wilds of Kanto submenu, so drop the
+-- redundant "WILDS AI" row from the engine's main Options → Display list
+-- (every registered render pipeline otherwise gets a row there).  The
+-- pipeline itself stays registered — it is the per-frame AI driver — only
+-- its options row is filtered out.
+function BehaviorTick:hideFromEngineOptions()
+  local ok, Pipelines = pcall(require, "src.render.Pipelines")
+  if not ok or not Pipelines or type(Pipelines.rows) ~= "function" then return end
+  if self._rowsPatched then return end
+  local origRows = Pipelines.rows
+  local tick = self
+  Pipelines.rows = function(game)
+    local rows = origRows(game)
+    local out = {}
+    for _, row in ipairs(rows or {}) do
+      if not (row and row.id == "pipeline:" .. BehaviorTick.PIPELINE_ID) then
+        out[#out + 1] = row
+      end
+    end
+    return out
+  end
+  self._rowsPatched = true
+  self._origRows = origRows
+end
+
+function BehaviorTick:restoreEngineOptionsRow()
+  if not self._rowsPatched then return end
+  local ok, Pipelines = pcall(require, "src.render.Pipelines")
+  if ok and Pipelines and self._origRows then
+    Pipelines.rows = self._origRows
+  end
+  self._rowsPatched = false
+  self._origRows = nil
 end
 
 function BehaviorTick:syncPipelineLevel()
   local ok, Pipelines = pcall(require, "src.render.Pipelines")
   if not ok or not Pipelines or not Pipelines.setLevel then return end
-  if Config.isEnabled(self.mod) then
+  if Config.isEnabled(self.mod) and Config.get(self.mod, "wilds_ai") ~= false then
     Pipelines.setLevel(BehaviorTick.PIPELINE_ID, 1)
   else
     Pipelines.setLevel(BehaviorTick.PIPELINE_ID, 0)
@@ -72,6 +109,7 @@ end
 
 function BehaviorTick:step(ctx)
   if not Config.isEnabled(self.mod) then return end
+  if Config.get(self.mod, "wilds_ai") == false then return end
   local logic = self.logic
   if not logic or not logic.state or not logic.state.initialized then return end
 
@@ -85,8 +123,9 @@ function BehaviorTick:step(ctx)
   local ow = world and world.overworld and world:overworld()
   if not ow or not ow.map or not ow.player then return end
 
-  -- PaletteFX COLORS mode watcher: on a redpp <-> non-redpp flip, re-resolve
-  -- sprite art so the colored/-grayscale switch lands without a restart.
+  -- PaletteFX COLORS mode watcher: on an ADVANCED <-> non-ADVANCED flip,
+  -- re-resolve sprite art so the colored/-grayscale switch lands without a
+  -- restart.
   if not self._paletteWatch then
     self._paletteWatch = PaletteWatch.new(self.mod, logic)
   end

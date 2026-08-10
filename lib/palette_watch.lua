@@ -1,20 +1,21 @@
 -- PaletteFX COLORS mode watcher.
 --
--- The colored sprite art is the default; the -grayscale sheets serve every
--- PaletteFX mode except redpp (ADVANCED), which bakes real per-tile color
--- and wants the colored art. The engine exposes no mode-change event
--- (COLORS menu / hotkey 2 assign src.render.PaletteFX.mode directly), so
--- this module watches the resolved gate each frame and, on a redpp <->
--- non-redpp flip, re-resolves sprite art so the switch lands without a game
--- restart:
+-- Luminance-based shading: every COLORS mode except ADVANCED (RED++) serves
+-- the -grayscale (3-shade luminance) sheets through the engine's zone pass;
+-- ADVANCED serves the original colored sheets raw. The engine exposes no
+-- mode-change event (COLORS menu / hotkey 2 assign src.render.PaletteFX.mode
+-- directly), so this module watches the resolved gate each frame and, on an
+-- ADVANCED <-> non-ADVANCED flip, re-resolves sprite art so the switch lands
+-- without a game restart:
 --   1. AnimatedSprites caches are cleared (mapping choices and the
 --      species:variant image/quad caches are mode-dependent).
 --   2. Every live wild entity is re-applied through the provider so its
 --      SpriteRenderer sheet swaps immediately.
 --   3. The follower sprite is refreshed through its lifecycle handler.
 --
--- Only the *boundary* flip matters: toggling between non-redpp modes keeps
--- grayscale, and toggling within redpp keeps colored.
+-- Only the *boundary* flip matters: toggling between non-ADVANCED modes
+-- keeps the luminance art (the engine re-colors it per mode), and toggling
+-- within ADVANCED keeps the colored art.
 local V = ...
 local Config = V.require("config")
 

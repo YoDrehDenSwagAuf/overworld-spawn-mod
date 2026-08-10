@@ -102,6 +102,7 @@ function ControlEngine.new(mod, deps)
   self._installed = false
   self._restoreState = nil
   self._pendingMapTrailerSync = false
+  self._pendingSpawnAtPlayer = false
   self._mapExitSnapshot = nil
   self._pendingConnectionHandoff = nil
   self._optCache = {}
@@ -120,6 +121,12 @@ function ControlEngine.new(mod, deps)
     overworldUpdateCalls = 0,
     lastSource = nil,
     lastSurfing = false,
+    -- Which re-seed branch parked/placed the pack last, for the WILDS HUD:
+    -- "parked_at_player" | "trail_reform" | "behind_water" | "kept" | nil
+    lastSeed = nil,
+    entryParks = 0,
+    trailReforms = 0,
+    behindWaterSeeds = 0,
   }
   return self
 end
@@ -290,62 +297,6 @@ function ControlEngine:toggleStopFollowing(mon, game)
   local ow = game and game.overworld
   self:syncAll(game, ow)
   return mon.stopFollowing
-end
-
--- Yellow: party[1] = talkable Pikachu; chosen leader → party[2]
--- (unless leader IS that Pikachu → stays slot 1).
-function ControlEngine:ensureYellowLeaderLayout(game, leaderMon)
-  if not self:_isYellow() then return nil end
-  local save = game and game.save
-  local party = save and save.party
-  if not (party and leaderMon) then return nil end
-
-  local pikaIdx = nil
-  for i, mon in ipairs(party) do
-    if mon and mon.species == "PIKACHU" then
-      pikaIdx = i
-      break
-    end
-  end
-  if not pikaIdx then return nil end
-  local pika = party[pikaIdx]
-
-  local leadIdx = nil
-  for i, mon in ipairs(party) do
-    if mon == leaderMon then leadIdx = i; break end
-  end
-  if not leadIdx then
-    local want = ControlEngine.monIdentityKey(leaderMon)
-    for i, mon in ipairs(party) do
-      if want and ControlEngine.monIdentityKey(mon) == want then
-        leadIdx = i
-        break
-      end
-    end
-  end
-  if not leadIdx then return nil end
-  local lead = party[leadIdx]
-
-  if lead == pika then
-    if pikaIdx ~= 1 then
-      table.remove(party, pikaIdx)
-      table.insert(party, 1, pika)
-    end
-    return 1
-  end
-
-  local rest = {}
-  for _, mon in ipairs(party) do
-    if mon ~= pika and mon ~= lead then
-      rest[#rest + 1] = mon
-    end
-  end
-  local newParty = { pika, lead }
-  for i = 1, #rest do
-    newParty[#newParty + 1] = rest[i]
-  end
-  save.party = newParty
-  return 2
 end
 
 function ControlEngine:setLeaderParty(game, partyIndex)
@@ -546,6 +497,10 @@ function ControlEngine:forceYellowStockPikachuArt(ow, game)
   local npc = self:_findStockPikachu(ow)
   if not npc then return end
   game = game or self:_game()
+  -- The stock NPC renders the SELECTED leader's art (it is slot 1 of the
+  -- pack); the party Pikachu trails behind like any other party mon unless
+  -- it IS the leader. Rebinding it to the party Pikachu's art instead is
+  -- what made Pikachu take priority over the chosen follower.
   local mon = self:getActiveFollowerMon(game)
   local species = (mon and mon.species) or "PIKACHU"
   local resolved = self:resolveFollowerSprite({
@@ -657,12 +612,16 @@ function ControlEngine:partyTrailMons(game)
   local leadKey = ControlEngine.monIdentityKey(leader)
   local front = self:isPokemonFront(game)
 
-  -- Identify if stock Pikachu is active to prevent duplicate rendering.
-  -- In Yellow follow mode the stock Pikachu NPC is rebound to the ACTIVE
-  -- leader's art (forceYellowStockPikachuArt), so the leader must not also
-  -- trail: that would render the spot-1 mon twice.
+  -- Identify if stock Pikachu is active. In Yellow follow mode the stock
+  -- NPC renders the ACTIVE leader's art (forceYellowStockPikachuArt), so the
+  -- leader must not also trail (that would render the spot-1 mon twice) —
+  -- and when the leader IS Pikachu, the party Pikachu is reserved for the
+  -- stock NPC. Any other party Pikachu trails like a normal party mon.
   local isStockPikaActive = self:yellowStockFollowActive(game)
-  local skipPikaIdx = isStockPikaActive and self:_partyPikachuIndex(save) or nil
+  local pikaIdx = self:_partyPikachuIndex(save)
+  local pikaIsLeader = pikaIdx ~= nil and leadKey ~= nil
+    and ControlEngine.monIdentityKey(save.party[pikaIdx]) == leadKey
+  local skipPikaIdx = (isStockPikaActive and pikaIsLeader) and pikaIdx or nil
 
   local out = {}
   local pushed = {}  -- party indexes already in the trail (dedupe guard)
@@ -688,25 +647,19 @@ function ControlEngine:partyTrailMons(game)
   end
 
   if not front and leader then
-    -- When the stock Pikachu NPC is active (Yellow follow mode) it already
-    -- renders the leader's art via forceYellowStockPikachuArt.  The leader
-    -- must not also trail, or it renders twice ("duplicate of the first
-    -- slot").  The skipMon guard handles this, but when leadIdx is stale
-    -- (switched leaders, identity mismatch, selection-API drift), relying on
-    -- index alone misses it.  So: when stock Pika is active, skip the
-    -- leader push unconditionally; the stock NPC takes care of slot 1.
-    if not (isStockPikaActive and (leadIdx or save.followerPartyIndex)) then
-      if leadIdx and save.party and save.party[leadIdx]
-         and (save.party[leadIdx].hp or 0) > 0
-         and not skipMon(leadIdx, save.party[leadIdx]) then
-        push(save.party[leadIdx], leadIdx)
-      else
-        for i, mon in ipairs(save.party or {}) do
-          if isControlledLeader(mon, i) and (mon.hp or 0) > 0
-             and not skipMon(i, mon) then
-            push(mon, i)
-            break
-          end
+    -- The stock NPC (when active) renders the leader and reserves slot 1, so
+    -- the leader push is skipped here (skipMon blocks it below); the other
+    -- party mons — including Pikachu — trail behind in party order.
+    if leadIdx and save.party and save.party[leadIdx]
+       and (save.party[leadIdx].hp or 0) > 0
+       and not skipMon(leadIdx, save.party[leadIdx]) then
+      push(save.party[leadIdx], leadIdx)
+    else
+      for i, mon in ipairs(save.party or {}) do
+        if isControlledLeader(mon, i) and (mon.hp or 0) > 0
+           and not skipMon(i, mon) then
+          push(mon, i)
+          break
         end
       end
     end
@@ -1212,6 +1165,7 @@ function ControlEngine:_applyConnectionHandoff(ow)
   ow.pokepcTrailHead = head or { x = player.cellX, y = player.cellY }
   ow._wildsFollowerSeamActive = true
   self._pendingMapTrailerSync = false
+  self._pendingSpawnAtPlayer = false
   return true
 end
 
@@ -1430,19 +1384,140 @@ function ControlEngine.advanceTrailerStep(npc, _map, _entities, diag)
   return true
 end
 
+--- True when the pack has a REAL walked trail (at least one goal cell off
+-- the anchor) to re-form along, vs a degenerate fresh-entry parking trail.
+function ControlEngine:_seedTrailIsDistinct(ow, anchor, n)
+  local trail = ow.pokepcTrailCells or {}
+  local px = anchor and anchor.cellX or 0
+  local py = anchor and anchor.cellY or 0
+  for i = 1, math.min(n, #trail) do
+    local t = trail[i]
+    if t and (t.x ~= px or t.y ~= py) then return true end
+  end
+  return false
+end
+
+--- Re-seed trailers preferring the EXISTING trail goals (the player's
+-- actual walked path — every cell walkable and connected by construction),
+-- so a re-form after a collapse re-forms ALONG the trail instead of behind
+-- the anchor's geometric facing.  At a door the anchor's facing points INTO
+-- the building, and the behind cells can be an enclosed walkable pocket
+-- (e.g. the cells north of the Pewter Poke Center) from which the pack can
+-- never path out — the Yellow "stuck behind the Poke Center" bug.  Trail
+-- cells are never a building interior; a trailer with no trail cell parks
+-- on the anchor's own cell and walks out as the trail re-opens.
 function ControlEngine:_seedTrailBehind(ow, anchor, facing, n, game, role)
   local goals = {}
-  local occupied = {}
   local px = anchor.cellX or 0
   local py = anchor.cellY or 0
   facing = facing or anchor.facing or "down"
   role = role or "party_trailer"
-  -- Anchor cell is occupied by the player / stock leader.
-  occupied[px .. "," .. py] = true
+  local trail = ow.pokepcTrailCells or {}
+  local surface = self:_trailSurface(ow, game)
+  -- A DEGENERATE trail (no cells, or every cell the anchor's own — fresh
+  -- entry parking / nothing following yet) means there is no walked path to
+  -- re-form along; the geometric behind-facing seed is the right call there
+  -- (surf entry seeds water cells behind the player; mid-play rebuilds).
+  -- A REAL trail (distinct cells) means the pack was following the player's
+  -- path — re-form ALONG it, never behind the anchor's facing (which at a
+  -- door points INTO the building, and whose behind cells can be an
+  -- enclosed walkable pocket the pack can never path out of — the Yellow
+  -- "stuck behind the Poke Center" bug).
+  local distinct = self:_seedTrailIsDistinct(ow, anchor, n)
+  if not distinct then
+    -- Water (surf) entry with no trail: the pack must seed onto water cells
+    -- behind the player (geometric), or it would freeze on the shore.
+    if surface == "water" then
+      local occupied = {}
+      occupied[px .. "," .. py] = true
+      for i = 1, n do
+        local bx, by = self:_walkableBehind(ow, px, py, facing, i, nil, game, role, occupied)
+        goals[i] = { x = bx, y = by }
+        occupied[bx .. "," .. by] = true
+      end
+      return goals
+    end
+    -- Land with no real trail (fresh entry where the spawnAtPlayer parking
+    -- was skipped / raced, or a mid-play rebuild): park the pack on the
+    -- PLAYER's cell so it walks out as the trail opens — exactly the
+    -- Red/Blue door-exit look.  NEVER spread it behind the anchor's facing:
+    -- at a door that facing points INTO the building, and the behind cells
+    -- can be an enclosed walkable pocket the pack can never path out of
+    -- (the Yellow "loads in as the full trail, stuck behind the building"
+    -- bug).
+    local p = ow and ow.player
+    local parkX = p and p.cellX or px
+    local parkY = p and p.cellY or py
+    for i = 1, n do
+      goals[i] = { x = parkX, y = parkY }
+    end
+    return goals
+  end
   for i = 1, n do
-    local bx, by = self:_walkableBehind(ow, px, py, facing, i, nil, game, role, occupied)
-    goals[i] = { x = bx, y = by }
-    occupied[bx .. "," .. by] = true
+    local t = trail[i]
+    if t and self:isFollowerCellAllowed(game, ow, nil, t.x, t.y, {
+      surface = surface, role = role,
+    }) then
+      goals[i] = { x = t.x, y = t.y }
+    else
+      -- Off the trail (short trail / collapsed tail): park on the anchor's
+      -- cell.  The trailer walks out as the trail re-opens.
+      goals[i] = { x = px, y = py }
+    end
+  end
+  return goals
+end
+
+--- Park the stock Yellow Pikachu NPC on the player's cell after a fresh map
+-- entry. The engine's own PikachuFollower.onMapEntered does this when handed
+-- viaMapLoad, but Wilds wraps that call and cannot rely on every engine
+-- version passing the flag, so the pack seed does it explicitly: the whole
+-- train (stock NPC + trailers) walks out from under the player instead of
+-- materializing behind his facing (stuck behind buildings on door exits).
+function ControlEngine:_parkStockPikachuAtPlayer(ow)
+  local p = ow and ow.player
+  if not p then return end
+  local npc = self:_findStockPikachu(ow)
+  if not npc and self:yellowStockFollowActive(self:_game()) then
+    -- The engine's entry spawn may have been skipped (shouldSpawn
+    -- transiently false during the warp) or the transitional frame raced
+    -- it.  Ask the engine to spawn the stock Pikachu now, parked on the
+    -- player's cell (viaMapLoad = fresh-entry parking), so the pack walks
+    -- out from under him instead of trailing in behind.
+    local PF = tryRequire("src.world.PikachuFollower")
+    if PF and PF.onMapEntered then
+      pcall(function() PF.onMapEntered(self:_game(), ow, nil, true) end)
+      npc = self:_findStockPikachu(ow)
+    end
+  end
+  if not npc then return end
+  npc.cellX, npc.cellY = p.cellX, p.cellY
+  npc.px, npc.py = (p.cellX or 0) * 16, (p.cellY or 0) * 16
+  npc.targetX, npc.targetY = nil, nil
+  npc.goalX, npc.goalY = nil, nil
+  npc.moving = false
+  npc.progress = 0
+  npc.marching = nil
+  npc.hopStep = nil
+  npc.idle = nil
+  local trail = ow.pikachuTrail
+  if trail then trail.x, trail.y = p.cellX, p.cellY end
+end
+
+--- Seed every trailer ON the player's cell, mirroring the engine's stock
+-- Yellow Pikachu on a fresh map entry: the pack parks hidden under the
+-- player (draw-sort) and walks out behind him as the trail opens up, instead
+-- of materializing in the cells behind his facing (which on a building exit
+-- can land inside walls or behind the building). Anchored to the PLAYER, not
+-- the trail anchor: on Yellow the anchor is the stock Pikachu NPC, which may
+-- itself still be settling after a map entry.
+function ControlEngine:_seedTrailAtPlayer(ow, anchor, n)
+  local goals = {}
+  local p = ow and ow.player
+  local px = p and p.cellX or 0
+  local py = p and p.cellY or 0
+  for i = 1, n do
+    goals[i] = { x = px, y = py }
   end
   return goals
 end
@@ -1476,7 +1551,11 @@ end
 
 function ControlEngine:syncTrailers(game, ow, opts)
   opts = opts or {}
-  if not ow or not ow.player or not ow.map then return end
+  -- "no_context" tells update() the world wasn't ready (a transitional
+  -- frame before the new map is fully live), so it keeps the pending
+  -- map-entry seed and retries on the next update instead of letting the
+  -- pack materialize behind the player.
+  if not ow or not ow.player or not ow.map then return false, "no_context" end
   self.diag.syncTrailersCalls = (self.diag.syncTrailersCalls or 0) + 1
   local mode = self:controlMode(game)
   local want = {}
@@ -1520,6 +1599,9 @@ function ControlEngine:syncTrailers(game, ow, opts)
   local dirty = compositionDirty(trailers, want)
     or not trailersAliveInWorld(ow, trailers)
     or countChanged
+  if not dirty and not mapEnter and #trailers > 0 then
+    self.diag.lastSeed = "kept"
+  end
 
   local p = ow.player
   local anchor = self:_trailAnchor(game, ow, p)
@@ -1535,28 +1617,68 @@ function ControlEngine:syncTrailers(game, ow, opts)
     ow._wildsFollowerTrailSurface = surface
   end
 
-  if not dirty and self:yellowStockFollowActive(game) and anchor ~= p
+  -- Yellow only: re-form the train behind the stock Pikachu when the pack
+  -- has collapsed onto its cell mid-play.  This must NOT fire right after a
+  -- fresh entry, where the pack was deliberately parked on the player's
+  -- cell (spawnAtPlayer) — re-seeding behind then would undo the walk-out.
+  -- The marker is set by update() on entry parking and cleared only once
+  -- the pack has genuinely separated from the anchor (see the committed
+  -- block below).  It must also only fire when the train can actually
+  -- re-form: if the cell behind the anchor is not follower-walkable, the
+  -- re-seed falls back to the anchor's own cell, stacks the pack there, and
+  -- fires again next frame — an infinite re-seed loop that freezes the pack
+  -- against a wall/building (the Yellow door-exit "stuck up top" bug).
+  if not dirty and not ow._wildsEntryParked
+     and self:yellowStockFollowActive(game) and anchor ~= p
      and #trailers > 0 then
     local t1 = trailers[1]
     if t1 and not t1.moving
        and t1.cellX == anchor.cellX and t1.cellY == anchor.cellY then
-      mapEnter = true
+      -- Only re-form when the trail has a REAL cell for the head trailer
+      -- behind the anchor.  The anchor may be idle (pack stacked on a
+      -- standing stock Pikachu) — re-seeding onto the anchor's own cell
+      -- would loop forever.  The trail cell is the player's actual path,
+      -- never a building interior (the anchor's facing at a door points
+      -- INTO the building — the Yellow "stuck behind the Poke Center" bug).
+      local t = (ow.pokepcTrailCells or {})[1]
+      if t and (t.x ~= anchor.cellX or t.y ~= anchor.cellY)
+         and self:isFollowerCellAllowed(game, ow, t1, t.x, t.y, {
+           surface = surface, role = "party_trailer",
+         }) then
+        mapEnter = true
+      end
     end
   end
 
   if dirty then
     self:removeTrailers(ow)
     trailers = {}
-    local goals = self:_seedTrailBehind(ow, anchor, facing, #want, game, "party_trailer")
+    if opts.spawnAtPlayer then
+      self.diag.lastSeed = "parked_at_player"
+      self.diag.entryParks = (self.diag.entryParks or 0) + 1
+    elseif self:_seedTrailIsDistinct(ow, anchor, #want) then
+      self.diag.lastSeed = "trail_reform"
+      self.diag.trailReforms = (self.diag.trailReforms or 0) + 1
+    elseif self:_trailSurface(ow, game) == "water" then
+      self.diag.lastSeed = "behind_water"
+      self.diag.behindWaterSeeds = (self.diag.behindWaterSeeds or 0) + 1
+    else
+      self.diag.lastSeed = "parked_at_player"
+      self.diag.entryParks = (self.diag.entryParks or 0) + 1
+    end
+    local goals = opts.spawnAtPlayer
+      and self:_seedTrailAtPlayer(ow, anchor, #want)
+      or self:_seedTrailBehind(ow, anchor, facing, #want, game, surface)
     for i, spec in ipairs(want) do
       local role = (spec.kind == "trainer") and "trainer_trailer" or "party_trailer"
       local cell = goals[i]
       if not cell or not self:isFollowerCellAllowed(game, ow, nil, cell.x, cell.y, {
         surface = surface, role = role,
       }) then
-        local bx, by = self:_walkableBehind(ow, anchor.cellX or 0, anchor.cellY or 0,
-                                           facing, i, nil, game, role)
-        cell = { x = bx, y = by }
+        -- Trail cell invalid (surface/occupancy): park on the anchor rather
+        -- than re-picking behind its facing (which at a door points into
+        -- the building).  The pack walks out as the trail re-opens.
+        cell = { x = anchor.cellX or 0, y = anchor.cellY or 0 }
       end
       local bx, by = cell.x, cell.y
       local okNpc, npc = pcall(function()
@@ -1578,16 +1700,31 @@ function ControlEngine:syncTrailers(game, ow, opts)
     ow.pokepcTrailHead = { x = anchor.cellX, y = anchor.cellY }
     self._lastSyncedCount = wantN
   elseif mapEnter and #trailers > 0 then
-    local goals = self:_seedTrailBehind(ow, anchor, facing, #trailers, game, "party_trailer")
+    if opts.spawnAtPlayer then
+      self.diag.lastSeed = "parked_at_player"
+      self.diag.entryParks = (self.diag.entryParks or 0) + 1
+    elseif self:_seedTrailIsDistinct(ow, anchor, #trailers) then
+      self.diag.lastSeed = "trail_reform"
+      self.diag.trailReforms = (self.diag.trailReforms or 0) + 1
+    elseif self:_trailSurface(ow, game) == "water" then
+      self.diag.lastSeed = "behind_water"
+      self.diag.behindWaterSeeds = (self.diag.behindWaterSeeds or 0) + 1
+    else
+      self.diag.lastSeed = "parked_at_player"
+      self.diag.entryParks = (self.diag.entryParks or 0) + 1
+    end
+    local goals = opts.spawnAtPlayer
+      and self:_seedTrailAtPlayer(ow, anchor, #trailers)
+      or self:_seedTrailBehind(ow, anchor, facing, #trailers, game, surface)
     for i, npc in ipairs(trailers) do
       local role = npc.wildsFollowerRole or "party_trailer"
       local g = goals[i]
       if not g or not self:isFollowerCellAllowed(game, ow, npc, g.x, g.y, {
         surface = surface, role = role,
       }) then
-        local bx, by = self:_walkableBehind(ow, anchor.cellX or 0, anchor.cellY or 0,
-                                           facing, i, npc, game, role)
-        g = { x = bx, y = by }
+        -- Trail cell invalid: park on the anchor instead of re-picking
+        -- behind its facing (door-facing points into the building).
+        g = { x = anchor.cellX or 0, y = anchor.cellY or 0 }
         goals[i] = g
       end
       placeTrailerAt(npc, g.x, g.y, facing)
@@ -1628,6 +1765,18 @@ function ControlEngine:syncTrailers(game, ow, opts)
   end
 
   if committed then
+    -- The pack is walking out of the entry parking: the collapse heuristic
+    -- is allowed to re-form the train again — but only once the pack has
+    -- genuinely separated from the anchor (first trailer off its cell or
+    -- mid-step away).  Clearing on the FIRST committed step fired the
+    -- heuristic while the pack was still deliberately stacked at the entry
+    -- cell, re-seeding it behind into walls/buildings and freezing it
+    -- (the Yellow door-exit "stuck up top" bug).
+    local t1 = trailers[1]
+    if not t1 or t1.moving
+       or t1.cellX ~= anchor.cellX or t1.cellY ~= anchor.cellY then
+      ow._wildsEntryParked = nil
+    end
     local stepDir = destY > head.y and "down" or destY < head.y and "up"
                     or destX > head.x and "right" or "left"
     if head.ledgeHop == stepDir then
@@ -1721,9 +1870,11 @@ function ControlEngine:syncTrailers(game, ow, opts)
       if not self:isFollowerCellAllowed(game, ow, npc, gx, gy, {
         surface = surface, role = role,
       }) then
-        -- Goal invalid for this surface: re-pick a valid cell behind the player.
-        gx, gy = self:_walkableBehind(ow, anchor.cellX or 0, anchor.cellY or 0,
-                                      facing, i, npc, game, role)
+        -- Goal invalid for this surface: park on the anchor's cell instead of
+        -- re-picking behind its facing (a door-facing points into the
+        -- building; the behind cells may be an enclosed pocket the pack can
+        -- never path out of).  It walks out as the trail re-opens.
+        gx, gy = anchor.cellX or 0, anchor.cellY or 0
         goals[i] = { x = gx, y = gy }
       end
       if npc.cellX ~= gx or npc.cellY ~= gy then
@@ -1739,6 +1890,7 @@ function ControlEngine:syncTrailers(game, ow, opts)
       end
     end
   end
+  return true
 end
 
 --- Assign one step for a trailer toward (gx, gy). Corner-navigates, handles
@@ -1926,8 +2078,30 @@ function ControlEngine:update(game, ow, opts)
     self:forceYellowStockPikachuArt(ow, game)
     self:syncPlayerControlVisual(game, ow)
     if self._pendingMapTrailerSync or opts.mapEnter then
-      self._pendingMapTrailerSync = false
-      self:syncTrailers(game, ow, { mapEnter = true })
+      -- A fresh (non-connection) map entry parks the pack on the player's
+      -- cell so it walks out from under him instead of materializing behind
+      -- his facing (stuck behind buildings / walls on door exits).
+      local spawnAtPlayer = self._pendingSpawnAtPlayer == true
+      if spawnAtPlayer then
+        -- Park the stock Yellow Pikachu explicitly (engine version
+        -- independent) before the trailers anchor to it.  Mark the entry
+        -- parking so the Yellow collapse heuristic doesn't re-seed the pack
+        -- behind the stock on the very next frame.
+        pcall(function() self:_parkStockPikachuAtPlayer(ow) end)
+        ow._wildsEntryParked = true
+      end
+      local _, syncRes = self:syncTrailers(game, ow,
+                                           { mapEnter = true, spawnAtPlayer = spawnAtPlayer })
+      if syncRes == "no_context" then
+        -- World not live yet (transitional frame): keep the pending entry
+        -- so the next update still parks the pack at the player instead of
+        -- seeding it behind his facing.
+        self._pendingMapTrailerSync = true
+        self._pendingSpawnAtPlayer = spawnAtPlayer
+      else
+        self._pendingMapTrailerSync = false
+        self._pendingSpawnAtPlayer = false
+      end
     else
       self:syncTrailers(game, ow, {})
     end
@@ -1992,18 +2166,22 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
         if dex then
           local Config = nil
           pcall(function() Config = V.require("config") end)
-          local redpp = Config and type(Config.paletteFxRedpp) == "function"
-            and Config.paletteFxRedpp()
-          -- Build a list of variant suffixes to try, best match first.
+          local LuminanceSheet = nil
+          pcall(function() LuminanceSheet = V.require("luminance_sheet") end)
+          -- Luminance-based shading: every non-ADVANCED mode derives the
+          -- 3-shade luminance sheet from the colored submerged art at load
+          -- (cached in the save dir — no separate -grayscale_submerged
+          -- files) and serves it with trueColor=false, so the engine's zone
+          -- pass colors it out of the mode palette. ADVANCED keeps the
+          -- colored (shiny/normal) submerged sheets.
+          local redpp = Config and Config.paletteFxRedpp and Config.paletteFxRedpp()
           local tryVariants = {}
-          if redpp then
-            if shiny then
-              tryVariants = { "shiny_submerged", "normal_submerged" }
-            else
-              tryVariants = { "normal_submerged" }
-            end
+          if not redpp then
+            tryVariants = { "normal_submerged" }
+          elseif shiny then
+            tryVariants = { "shiny_submerged", "normal_submerged" }
           else
-            tryVariants = { "grayscale_submerged" }
+            tryVariants = { "normal_submerged" }
           end
           for _, v in ipairs(tryVariants) do
             local rel = string.format(
@@ -2020,11 +2198,17 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
                 and love.filesystem.getInfo(loadPath))
                or (love and love.filesystem and love.filesystem.getInfo
                    and love.filesystem.getInfo(rel)) then
+              local luma = (not redpp) and LuminanceSheet
+                and LuminanceSheet.pathFor(loadPath) or nil
+              local image = luma or loadPath
               resolved = {
-                image = loadPath,
+                image = image,
                 frames = 6,
                 walker = true,
-                trueColor = true,
+                -- trueColor travels with the art: luminance sheets are false
+                -- so the zone pass colors them; colored (ADVANCED / headless
+                -- fallback) is true so it draws raw.
+                trueColor = luma == nil,
                 id = "SPRITE_WILDS_FOLLOWER_SUBMERGED_" .. tostring(dex),
               }
               break
@@ -2105,18 +2289,10 @@ function ControlEngine:syncAll(game, ow)
   game = game or self:_game()
   ow = ow or (game and game.overworld)
   if ow then pcall(function() self:removeTrailers(ow) end) end
-  if self:_isYellow() and game and game.save
-     and game.save.pokepcLeader and game.save.pokepcLeader.source == "party" then
-    local mon = game.save.party
-      and game.save.party[game.save.pokepcLeader.index]
-    if mon then
-      local idx = self:ensureYellowLeaderLayout(game, mon)
-      if type(idx) == "number" then
-        game.save.pokepcLeader.index = idx
-        game.save.followerPartyIndex = idx
-      end
-    end
-  end
+  -- Never reorder the party here. Wilds designates the follower via save data
+  -- (pokepcLeader / followerPartyIndex), not party order, so the Yellow
+  -- Pikachu-slot-1 layout (ensureYellowLeaderLayout) is unnecessary and
+  -- caused visible party reordering when selecting a follower.
   if (self:isPokemonFront(game) or self:followerCount(game) <= 0) and ow and ow.player then
     ow.player._pokepcControlSpecies = nil
   end
@@ -2297,8 +2473,24 @@ function ControlEngine:install()
     return result
   end
 
-  local function wrappedOnMapEntered(game, ow, opts)
-    if origOnMap then origOnMap(game, ow, opts) end
+  local function wrappedOnMapEntered(game, ow, opts, ...)
+    -- Preserve the engine's trailing args: OverworldController calls
+    -- onMapEntered(Game, self, opts, true) where the 4th arg is viaMapLoad
+    -- (fresh map entry parks the stock Pikachu UNDER the player instead of
+    -- behind his facing).  Dropping it made the Yellow follower respawn
+    -- behind the player on door/warp exits and get stuck behind buildings.
+    --
+    -- Vanilla PikachuFollower.update also calls onMapEntered(game, ow)
+    -- (no viaMapLoad) whenever it finds no follower mid-frame — that spawns
+    -- the stock Pikachu BEHIND the player's facing.  While the entry parking
+    -- is still pending (the engine's entry spawn may have been skipped or
+    -- raced by a transitional frame), treat that re-spawn as a fresh entry
+    -- too, so it parks under the player instead of materializing behind him.
+    local viaMapLoad = ...
+    if viaMapLoad == nil and engine._pendingSpawnAtPlayer == true then
+      viaMapLoad = true
+    end
+    if origOnMap then origOnMap(game, ow, opts, viaMapLoad) end
     local mode = engine:controlMode(game)
     if mode == "pokemon" or mode == "lead_trainer" or mode == "pack" or engine:followerCount(game) <= 0 then
       pcall(function() engine:_removeStockPikachu(ow) end)
@@ -2306,6 +2498,10 @@ function ControlEngine:install()
       pcall(function() engine:forceYellowStockPikachuArt(ow, game) end)
     end
     engine._pendingMapTrailerSync = true
+    -- Connection crossings are re-seeded by _applyConnectionHandoff (which
+    -- clears the pending sync); every other entry (warp / door / boot) parks
+    -- the pack on the player's cell.
+    engine._pendingSpawnAtPlayer = true
     pcall(function() engine:syncPlayerControlVisual(game, ow) end)
   end
 
@@ -2353,6 +2549,12 @@ function ControlEngine:install()
         pcall(function() engine:syncPlayerControlVisual(game, ow) end)
         engine:_queueMapEntry(game, ow, payload)
         engine._pendingMapTrailerSync = true
+        -- Seamless outside-to-outside connections keep the existing train
+        -- (translated by _applyConnectionHandoff); any other entry (warp /
+        -- door / boot) parks the pack on the player's cell.
+        if not (payload and payload.via == "connection") then
+          engine._pendingSpawnAtPlayer = true
+        end
       end)
     subscribe("game.ready", function()
         local game = engine:_game()
@@ -2410,6 +2612,7 @@ function ControlEngine:install()
     engine:_restoreOverworldUpdateWrap()
     engine._mapExitSnapshot = nil
     engine._pendingConnectionHandoff = nil
+    engine._pendingSpawnAtPlayer = false
     engine._trailerUpdateOwner = nil
     if rawget(PF, Constants.CONTROL_ENGINE_STATE_KEY) == restoreState then
       rawset(PF, Constants.CONTROL_ENGINE_STATE_KEY, nil)

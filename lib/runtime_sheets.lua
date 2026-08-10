@@ -162,18 +162,9 @@ function RuntimeSheets:resolveRelativePath(speciesId, variant)
     local entry, key = self:getManifestEntry(n, v)
     if entry and type(entry.path) == "string" and entry.path ~= "" then
       -- Prefer written sheets; still accept "cached" from a re-run.
+      -- Always the original colored sheet; the engine handles COLORS modes.
       local status = entry.status
       if status == nil or status == "written" or status == "cached" then
-        -- Colored runtime sheets are the default (entry.path); the
-        -- -grayscale sheets serve every PaletteFX mode except redpp
-        -- (ADVANCED), which bakes real per-tile color.
-        if not Config.paletteFxRedpp() then
-          local grayPath = entry.grayscalePath
-          if type(grayPath) == "string" and grayPath ~= ""
-             and self:_assetPresent(grayPath) then
-            return grayPath, v, entry
-          end
-        end
         if self:_assetPresent(entry.path) then
           return entry.path, v, entry
         end
@@ -212,6 +203,8 @@ end
 function RuntimeSheets:spriteDef(speciesId, variant, spriteId)
   local loadPath, usedVariant, rel = self:resolveAssetPath(speciesId, variant)
   if not loadPath then return nil end
+  -- Colored sheets render raw; the engine's trueColor contract handles every
+  -- COLORS mode.
   return {
     image = loadPath,
     frames = RuntimeSheets.FRAMES,
