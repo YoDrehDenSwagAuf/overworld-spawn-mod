@@ -31,7 +31,7 @@ Active collaborators on this project:
 - [masterwebx](https://github.com/masterwebx) (WEX) — Followers EX / follower
   systems
 - [TheRhysWyrill](https://github.com/TheRhysWyrill) (TRW) — PokéPC / follower
-  selection / integration
+  selection / integration / Poke Followers / GSC - Sprites
 - [gamecorner-033](https://github.com/gamecorner-033) — Original PokéPC / overworld follower concepts and related work
 
 ## Encounter Behaviors
