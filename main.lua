@@ -201,6 +201,10 @@ return function(mod)
   mod.events:on("game.ready", function()
     hud:syncPipelineLevel()
     if devOverlay then devOverlay:syncPipelineLevel() end
+    -- The engine's Pipelines.applyOptions restores pipeline levels from the
+    -- save right after mods load, wiping our registered level back to OFF.
+    -- Re-assert the WILDS AI pipeline now that the world is live.
+    if behaviorTick then behaviorTick:syncPipelineLevel() end
     Config.migrateSpriteStyleOption(mod)
     Config.migrateRandomEncountersOption(mod)
     Config.migrateWaterDisplayMode(mod)
@@ -340,7 +344,7 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "1.12.0"
+  mod.exports.version = "1.12.2"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated

@@ -152,6 +152,13 @@ return {
     description = "Draw wild Pokemon fully above tall grass, or partially hidden inside it like the player and trainers.",
   },
   {
+    key = "wild_silhouettes",
+    label = "Enc Silhouette",
+    type = "toggle",
+    default = false,
+    description = "Black out overworld wild Pokémon in encounter zones (grass/cave/water) as silhouettes, keeping their shapes. Derived from the coloured art at load — no extra sprite files.",
+  },
+  {
     key = "enable_idle",
     label = "Idle Mons",
     type = "toggle",

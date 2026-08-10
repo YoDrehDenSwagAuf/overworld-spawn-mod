@@ -143,11 +143,11 @@ function SpriteService:resolveFollowerSprite(opts)
   if providers and type(providers.resolve) == "function" then
     local result = providers:resolve(style, species, variant, game)
     if result and result.def and result.def.image then
+      -- trueColor travels with the art the provider served: luminance sheets
+      -- (non-ADVANCED modes) are false so the engine's zone pass colors them;
+      -- colored sheets (ADVANCED / external packs) are true so they draw raw.
       local def = result.def
       local trueColor = def.trueColor ~= false
-      if Config.spriteTrueColor then
-        trueColor = Config.spriteTrueColor(self.mod)
-      end
       return {
         id = (role == "player_controlled") and "SPRITE_PLAYER_POKEMON"
           or (role == "party_trailer" or role == "primary") and "SPRITE_WILDS_FOLLOWER_MON"
@@ -174,8 +174,8 @@ function SpriteService:resolveFollowerSprite(opts)
         id = def.id,
         image = def.image,
         frames = def.frames or 6,
-        walker = true,
-        trueColor = true,
+        walker = def.walker ~= false,
+        trueColor = def.trueColor ~= false,
         providerId = "pokemmo",
         role = role,
         surface = "land",
@@ -204,12 +204,12 @@ function SpriteService:resolvePartyIconDef(mon, game)
   local species = mon.species or "CHARMANDER"
   local shiny = isShinyMon(mon)
   local activeStyle = Config.spriteStyle and Config.spriteStyle(self.mod)
-  -- The art set is mode-dependent (colored vs -grayscale), so the cache key
-  -- must include the redpp gate; otherwise a mid-session COLORS toggle would
-  -- keep serving the stale art.
+  -- The art set is mode-dependent (colored in ADVANCED vs luminance
+  -- -grayscale everywhere else), so the cache key must include the redpp
+  -- gate; otherwise a mid-session COLORS toggle would keep serving stale art.
   local redpp = Config.paletteFxRedpp and Config.paletteFxRedpp() or false
   local cacheKey = tostring(activeStyle or "") .. "|" .. tostring(species)
-    .. (shiny and "|s" or "|n") .. "|" .. (redpp and "r" or "g")
+    .. (shiny and "|s" or "|n") .. "|" .. (redpp and "c" or "g")
   local cached = self._partyIconDefCache[cacheKey]
   if cached then return cached end
 
@@ -335,12 +335,12 @@ function SpriteService:drawPartyIcon(game, mon, x, y, selected, counter)
   local r, g, b, a = love.graphics.getColor()
   love.graphics.setColor(1, 1, 1, 1)
 
-  -- Grayscale icons must flow through the palette shade pass in every
-  -- non-redpp mode so they colorize per palette (DMG = green shades,
-  -- monochrome = gray) exactly like the follower/wild sprites. Only redpp
-  -- (ADVANCED) serves colored art, which must bypass the shader and be
-  -- claimed as true-color so it renders raw.
-  local trueColorMode = Config.paletteFxRedpp and Config.paletteFxRedpp() or false
+  -- Luminance icons (every non-ADVANCED mode) must flow through the palette
+  -- shade pass exactly like the follower/wild sprites so they colorize per
+  -- mode. Only ADVANCED serves colored art, which must bypass the shader
+  -- and be claimed as true-color so it renders raw.
+  local trueColorMode = Config.paletteFxRedpp
+    and Config.paletteFxRedpp() or false
   if trueColorMode and love.graphics.setShader then love.graphics.setShader() end
   love.graphics.draw(img, quad, x, y, 0, sx, sy)
   if trueColorMode and love.graphics.setShader and prevShader then
@@ -485,6 +485,8 @@ function SpriteService:registerLoadPhaseSprites()
     end
   end
 
+  -- The placeholder image is the colored runtime sheet (no luminance
+  -- variant exists there), so it must draw raw as true-color in every mode.
   local spriteDef = {
     id = Constants.SPRITE_ID,
     image = image,

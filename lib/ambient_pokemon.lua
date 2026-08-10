@@ -271,9 +271,12 @@ end
 
 function AmbientPokemon:_resolveSprite(species, game)
   local style = Config.spriteStyle(self.mod)
-  local trueColor = Config.spriteTrueColor(self.mod)
+  -- The art set is mode-dependent (colored in ADVANCED vs luminance
+  -- -grayscale everywhere else), so the cache key includes the redpp gate;
+  -- a mid-session COLORS toggle must not keep serving stale art.
+  local redpp = Config.paletteFxRedpp and Config.paletteFxRedpp() or false
   local cacheKey = tostring(species) .. "|" .. tostring(style) .. "|"
-    .. (trueColor and "1" or "0")
+    .. (redpp and "c" or "g")
   self._spriteCache = self._spriteCache or {}
   local cached = self._spriteCache[cacheKey]
   if cached then return cached end
@@ -283,12 +286,14 @@ function AmbientPokemon:_resolveSprite(species, game)
   if providers and providers.resolve then
     local result = providers:resolve(style, species, "normal", game)
     if result and result.def and result.def.image then
+      -- trueColor travels with the art: luminance sheets (non-ADVANCED) are
+      -- false so the engine's zone pass colors them per mode.
       def = {
         id = "SPRITE_WILDS_AMBIENT",
         image = result.def.image,
         frames = result.def.frames or 6,
         walker = result.def.walker ~= false,
-        trueColor = trueColor,
+        trueColor = result.def.trueColor ~= false,
         providerId = result.providerId,
         style = style,
         species = species,
@@ -310,7 +315,7 @@ function AmbientPokemon:_resolveSprite(species, game)
           image = sd.image,
           frames = sd.frames or 6,
           walker = true,
-          trueColor = trueColor,
+          trueColor = sd.trueColor ~= false,
           providerId = "runtime",
           style = style,
           species = species,
@@ -348,12 +353,12 @@ function AmbientPokemon:_bindSprite(npc, species, game)
     image = def.image,
     frames = def.frames or 6,
     walker = def.walker ~= false,
-    trueColor = Config.spriteTrueColor(self.mod),
+    trueColor = def.trueColor ~= false,
   }, npc.id)
   if ok and sprite then
     npc.sprite = sprite
     npc._ambientSpriteKey = tostring(species) .. "|" .. tostring(Config.spriteStyle(self.mod))
-      .. "|" .. (Config.spriteTrueColor(self.mod) and "1" or "0")
+      .. "|" .. (def.trueColor ~= false and "1" or "0")
     return true
   end
   return false

@@ -535,6 +535,30 @@ function SettingsMenus:_openWildsRoot(game)
       end,
     },
     {
+      label = "ENC SILHOUETTE",
+      stepper = true,
+      wrap = true,
+      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
+      current = optGet(mod, "wild_silhouettes", false) == true,
+      right = (optGet(mod, "wild_silhouettes", false) == true) and "ON" or "OFF",
+      apply = function(v)
+        optSet(mod, "wild_silhouettes", v == true)
+        menus:_notifyLogic("wild_silhouettes", v == true)
+      end,
+    },
+    {
+      label = "WILDS AI",
+      stepper = true,
+      wrap = true,
+      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
+      current = optGet(mod, "wilds_ai", true) ~= false,
+      right = (optGet(mod, "wilds_ai", true) ~= false) and "ON" or "OFF",
+      apply = function(v)
+        optSet(mod, "wilds_ai", v == true)
+        menus:_notifyLogic("wilds_ai", v == true)
+      end,
+    },
+    {
       label = "IDLE MONS",
       stepper = true,
       wrap = true,

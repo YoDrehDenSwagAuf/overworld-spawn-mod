@@ -1,5 +1,215 @@
 # Changelog
 
+## 1.12.2
+
+### Yellow door-exit follow — re-seeds walk the trail, never the building
+
+- Re-seeds (the collapse-heuristic re-form, map-entry rebuilds and the
+  mid-follow step fallback) now re-form the pack ALONG the player's actual
+  walked trail cells instead of behind the anchor's geometric facing.  At a
+  door the facing points INTO the building, and the behind cells can be an
+  enclosed walkable pocket the pack can never path out of (e.g. the cells
+  north of the Pewter Poke Center) — the "exit and turn right → pack stuck
+  behind the building" bug.  Trail cells are walkable and connected by
+  construction; a trailer with no trail cell parks on the anchor and walks
+  out as the trail re-opens.  Surf entry (no trail yet) keeps the geometric
+  water behind-seed.
+- Fixed a latent nil-call (`_behindSeedCells` → `_seedTrailBehind`) that
+  silently aborted the trailer update on the non-spawnAtPlayer re-seed
+  paths, freezing the pack.
+- Land entries with no real trail yet (the spawnAtPlayer parking raced or
+  skipped, or a mid-play rebuild) now park the pack on the PLAYER's cell
+  instead of spreading it behind the anchor's facing — the "loads in as the
+  full-sized trail behind the building" symptom.  Water (surf) entry keeps
+  its geometric behind-seed onto water cells.
+- The WILDS HUD follower block now reports which re-seed branch placed the
+  pack last (`Seed=parked_at_player | trail_reform | behind_water | kept`
+  plus counters), so a live Yellow door-exit is diagnosable at a glance.
+- New regression test `follower_pewter_exit_unit_test.lua` runs the real
+  Pewter City walkability grid: door exit → walk down + turn right,
+  stop-and-go, a mid-play collapse re-form, and a pre-existing pack
+  surviving the engine's entity rebuild — the pack must trail east along
+  the street and never land north of the Poke Center.
+
+### Global Encounter Silhouettes (wild_silhouettes)
+
+- New **ENC SILHOUETTE** toggle (Wilds of Kanto submenu + Mod Settings)
+  that blacks out every overworld wild mon in an actual encounter zone
+  (grass / cave land, plus water sprites) — the water-only silhouette look
+  extended to all encounters.
+- No extra sprite files: `LuminanceSheet.silhouetteFor` derives a solid
+  black sheet from the single coloured art at load (every opaque pixel →
+  the darkest shade, alpha carries the shape), cached in the save dir
+  (`silo_v1_*`, separate namespace from the luma ramps).  Served with
+  `trueColor = false` so the engine's own bake renders it as the darkest
+  zone color; headless / derivation-unavailable keeps the coloured art.
+- Gated per-entity: land mons only silhouette on GRASS/CAVE surfaces
+  (previews, followers and non-encounter surfaces stay coloured); water
+  black-out skips hidden circle markers and native voxel silhouette
+  sheets.  Cache keys include the toggle so a live switch re-resolves
+  without a reload.
+
+### Yellow spawn-at-player — closing the stock-Pikachu respawn path
+
+- The engine's `PikachuFollower.update` calls `onMapEntered(game, ow)`
+  (no `viaMapLoad`) whenever it finds no follower mid-frame, which spawns
+  the stock Pikachu BEHIND the player's facing.  If the engine's entry
+  spawn was skipped or raced by a transitional frame, that re-spawn
+  undid the spawn-at-player parking.  `wrappedOnMapEntered` now treats a
+  no-`viaMapLoad` re-spawn as a fresh entry while the entry parking is
+  still pending, so the stock Pikachu parks under the player instead of
+  materializing behind him (Red/Blue was unaffected — no stock NPC).
+- `_parkStockPikachuAtPlayer` now spawns the stock Pikachu on demand
+  (via the engine's own spawn path, parked at the player) when it is
+  missing at entry on Yellow, instead of silently no-op'ing.
+
+### Yellow followers frozen at the entry cell ("stuck up top")
+
+- Root cause: the pack parks on the player's cell at entry, and on the
+  FIRST committed walk step the entry-parking marker cleared while the
+  pack was still stacked on the stock Pikachu's cell.  The Yellow
+  collapse heuristic (re-form the train when it stacks on the stock)
+  then fired 1–2 steps after every door exit, re-seeding the pack
+  BEHIND the anchor.  When those behind-cells were the building/wall
+  just exited, `_walkableBehind` fell back to the anchor's own cell, so
+  the re-seed stacked the pack on the anchor again — an infinite
+  re-seed loop that froze the followers at the entry cell.  Red/Blue
+  never runs the heuristic (no stock Pikachu), which is why only Yellow
+  broke.
+- The entry-parking marker now clears only once the pack has genuinely
+  separated from the anchor (first trailer off its cell or mid-step
+  away), and the heuristic only re-seeds when the cell behind the
+  anchor is actually follower-walkable — a wall-pocket pack is left in
+  place instead of being re-seeded into a re-seed loop.
+- New regression test `follower_yellow_follow_unit_test.lua` interleaves
+  the vanilla stock-Pikachu movement with the mod's update across a
+  door-exit walk and asserts the parked pack walks out and trails the
+  player (stock one cell behind, trailers in order, no gaps).
+
+### Luminance shading: hue-aware shades fix washed-out blue mons
+
+- The derived shade value now darkens blue-dominant pixels (Rec. 601 luma
+  minus a blue-chroma penalty).  Luminance alone cannot separate colors of
+  DIFFERENT hue at the same brightness, so Blastoise's light-blue shell
+  (~0.63) and cream belly (~0.66) both collapsed into the light zone and
+  the mon rendered as a white blob.  The blue shell now lands in the mid
+  zone while the cream belly keeps the light zone — the GSC look — and the
+  same fix covers Squirtle, Gyarados, Dratini, Lapras and other blue
+  bodies against cream/warm parts.  Swept all 151 follower sheets: only
+  legitimately dark mons (Gastly/Gengar/Heracross) keep no light zone.
+  Cache files are version-tagged (v3) so stale derived ramps regenerate.
+
+### WILDS AI toggle moved out of the engine's main Options
+
+- The engine's Options → Display list showed a "WILDS AI" row for the
+  `owwild_behavior_tick` render pipeline.  With the toggle now in the
+  Wilds of Kanto submenu, the mod filters that row out of
+  `Pipelines.rows` (the pipeline stays registered — it is the per-frame
+  AI driver — only its options row is hidden).
+
+### Yellow follower spawn-at-player — two real-world failure modes closed
+
+- The Yellow "collapse" heuristic re-forms the train behind the stock
+  Pikachu when the pack stacks on its cell — and it fired on the frame
+  AFTER a fresh map entry, re-seeding the deliberately parked pack
+  BEHIND the player.  Entry parking is now marked (`_wildsEntryParked`)
+  and the heuristic is skipped until the head commits its first step.
+- If the first update after a map entry runs on a not-yet-ready world
+  (transitional frame), `syncTrailers` now reports `"no_context"` and
+  `update` KEEPS the pending map-entry flags so the next frame still
+  parks the pack at the player instead of seeding it behind his facing.
+
+### WILDS AI menu toggle + reliable overworld contact battles
+
+- Added a **WILDS AI** ON/OFF toggle to the Wilds of Kanto submenu (before
+  IDLE MONS). It gates the `owwild_behavior_tick` render pipeline that runs
+  wander / chase / contact logic every frame; OFF keeps spawns visible but
+  frozen. New `wilds_ai` option, synced through `behavior_tick.lua`
+  (`available`, `syncPipelineLevel`, `step`) and `spawn_logic.lua`.
+- Fixed the AI pipeline silently switching itself OFF: the engine's
+  `Pipelines.applyOptions` restores levels from the save right after mods
+  load, wiping the level `register()` set — so the mod now re-asserts it on
+  `game.ready` (and map enter / option changes already did).
+- Walking into an overworld mon now reliably triggers a battle even when
+  the AI loop hasn't ticked that frame: `SpawnFx` ages the spawn pop-in by
+  wall-clock time as a fail-safe, so a freshly spawned mon becomes
+  battleable (and the collision / stepped battle paths no longer stall on
+  a never-finished spawn animation).
+
+### Sprite color modes — luminance-based shading, derived at load, no duplicate sheets
+
+- Luminance derivation is now per-sheet ADAPTIVE: the OBP0 bake collapses
+  every shade above r = 0.5 into one zone, so a fixed light bucket turned
+  light mons into flat white blobs (Snorlax's cream ~0.79 and body ~0.52
+  both hit c0). The sheet's lightest high-coverage color keeps the light
+  zone and a second, clearly darker light color is pulled to the mid zone,
+  restoring tonal separation (Snorlax body → c1, Dragonite orange → c1 vs
+  cream belly → c0). Cache files are version-tagged so stale derived ramps
+  regenerate automatically.
+
+Followers / surf / wild / ambient sprites now conform to whichever COLORS
+mode is active via luminance-based shading:
+
+- In every mode EXCEPT ADVANCED (RED++), the mod derives a 3-shade
+  luminance ramp from the colored sheet at load (new `luminance_sheet.lua`:
+  `love.image.newImageData` + `mapPixel` → `ImageData:encode` into the save
+  dir, cached per source) and serves it with `trueColor = false`, so the
+  ENGINE's native non-trueColor path handles it exactly like a vanilla DMG
+  sprite: SpriteRenderer bakes rOBP0 = $D0 and the whole-canvas zone shader
+  colors the result out of the mode's own palette. Brightness decides the
+  shade, the engine decides the colors — SGB tints with the map palette,
+  OG RED/BLUE with the boot-ROM object palette (green/pink), OG YELLOW
+  with its CGBBasePalettes zones, CLASSIC / OG / OG INV with their
+  green/gray ramps, SGB INV with the permuted palette.
+- ADVANCED is the one true-color mode: there the original colored sheets
+  are served with `trueColor = true` (draw raw + markTrueColor re-blit).
+- **The 502 duplicate `-grayscale` / `-grayscale_submerged` asset files are
+  deleted** — the luminance ramp is derived from the single colored source.
+  The derived ramp clamps its lightest shade to r = 0.8 (< the 0.83 the
+  engine's OBP0 bake keys transparent), so no interior pixel ever punches
+  through; the pre-made sheets were pure white at that shade in 334 files.
+  Headless environments (no LÖVE image APIs) fall back to the colored
+  sheet with `trueColor = true`.
+- `Config.spriteTrueColor()` is now the ADVANCED gate; the
+  `paletteFxMonochrome` gate is kept for diagnostics / the water registry.
+- `trueColor` travels with the art: consumers copy the flag from the
+  resolved def instead of recomputing it, so colored art (external PokePC
+  packs, water runtime sheets) always renders raw while luminance sheets
+  flow through the zone pass.
+- Fixed the surf/follow paths that hard-forced `trueColor = true` while
+  serving luminance sheets (submerged poke_followers sheets, trailer
+  water sprites, follower water resolver, water compat defs,
+  `SPRITE_PIKACHU` registration).
+
+### Yellow party order — selecting a follower no longer reorders the party
+
+- Removed the leftover `ensureYellowLeaderLayout` call from `syncAll`. In
+  Yellow, picking "Follow" on any party mon other than Pikachu physically
+  rewrote the party array to force Pikachu into slot 1; Wilds designates the
+  follower via save data (`pokepcLeader` / `followerPartyIndex`), so the
+  party order is left untouched. The now-unused function was deleted.
+- Yellow: the stock Pikachu NPC renders the SELECTED leader's art (slot 1),
+  and the party Pikachu trails like any other party mon unless it IS the
+  leader — so Pikachu appears when in the party without taking priority
+  over the chosen follower, and never renders twice.
+
+### Followers spawn at the player on map entry
+
+- After a warp / door exit / boot, the pack now parks on the player's cell
+  (like the engine's stock Yellow Pikachu) and walks out from under him as
+  the trail opens, instead of materializing in the cells behind his facing —
+  which could drop them inside walls or behind the building. Seamless
+  outside-to-outside connection crossings keep the existing translated
+  train.
+- Yellow: the `PikachuFollower.onMapEntered` wrapper was dropping the
+  engine's `viaMapLoad` flag (the 4th argument), so the stock Pikachu
+  respawned behind the player on door/warp exits instead of under him —
+  getting stuck behind buildings. The wrapper now passes the trailing args
+  through, trailer seeding anchors to the player's cell (not the trail
+  anchor), and the stock Pikachu is parked on the player's cell explicitly
+  at every fresh map entry (engine-version independent), so the whole pack
+  parks under the player on Yellow too.
+
 ## 1.12.1
 - Menu now supports controller.
 - A button will increment/cycle through sub-menu options.

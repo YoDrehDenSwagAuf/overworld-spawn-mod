@@ -113,6 +113,8 @@ Legacy Followers EX / PokéPC installs are detected only for settings migration.
 Short credits only — full license, asset, and third-party notices live in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+- **gamecorner-033** — Original PokéPC / overworld follower concepts and related work
+
 Developer documentation:
 
 - [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)

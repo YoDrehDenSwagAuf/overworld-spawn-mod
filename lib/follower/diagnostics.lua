@@ -31,6 +31,17 @@ function Diagnostics.lines(follower)
   if snap.lastRefreshReason then
     lines[#lines + 1] = "Follower refresh=" .. tostring(snap.lastRefreshReason)
   end
+  -- Control engine: which re-seed branch parked/placed the pack last.
+  -- This is the key Yellow door-exit diagnostic (parked_at_player is the
+  -- healthy "spawn at the door" state; anything else means the pack was
+  -- re-placed instead of walking out from under the player).
+  local ctl = follower.control
+  if ctl and ctl.diag then
+    lines[#lines + 1] = "Seed=" .. tostring(ctl.diag.lastSeed)
+    lines[#lines + 1] = "Seed parks=" .. tostring(ctl.diag.entryParks or 0)
+    lines[#lines + 1] = "Seed reforms=" .. tostring(ctl.diag.trailReforms or 0)
+    lines[#lines + 1] = "Seed water=" .. tostring(ctl.diag.behindWaterSeeds or 0)
+  end
   return lines
 end
 

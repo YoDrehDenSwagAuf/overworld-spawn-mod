@@ -242,7 +242,10 @@ local function isPokemonTrailer(entity)
 end
 
 -- Exact def copy for SpriteRenderer. Never invent walker sheets from static art.
-local function copySpriteDef(def)
+-- A missing trueColor falls back to the shared mode gate (colored art in the
+-- color modes, luminance art in the non-ADVANCED modes) instead of hard-claiming
+-- true-color.
+local function copySpriteDef(def, defaultTrueColor)
   local renderDef = {}
   if type(def) == "table" then
     for k, v in pairs(def) do
@@ -253,7 +256,7 @@ local function copySpriteDef(def)
   renderDef.frames = def.frames or 1
   renderDef.walker = def.walker == true
   if def.trueColor == nil then
-    renderDef.trueColor = true
+    renderDef.trueColor = (defaultTrueColor ~= false)
   else
     renderDef.trueColor = def.trueColor ~= false
   end
@@ -274,12 +277,12 @@ end
 
 -- Entity-local SpriteRenderer swap only. Never touches content registries,
 -- game.data.pokemon, or battle spriteFront / spriteBack.
-local function applySpriteDef(entity, def)
+local function applySpriteDef(entity, def, defaultTrueColor)
   if not entity or not def or type(def.image) ~= "string" then
     return false, "bad_def"
   end
 
-  local renderDef = copySpriteDef(def)
+  local renderDef = copySpriteDef(def, defaultTrueColor)
   if defAlreadyBound(entity, renderDef) then
     entity.usingFollowerSprite = true
     entity.usingEnhancedSprite = false
@@ -647,7 +650,8 @@ function FollowersWaterCompat:tickEntity(game, ow, entity, surfaceState, style, 
     return false
   end
 
-  local ok, how = applySpriteDef(entity, applyDef)
+  local ok, how = applySpriteDef(entity, applyDef,
+    Config.spriteTrueColor and Config.spriteTrueColor(self.mod))
   if ok then
     if how == "replaced" then
       self._spriteRendererNews = (self._spriteRendererNews or 0) + 1

@@ -19,6 +19,13 @@ local function clamp(v, lo, hi)
   return v
 end
 
+local function now()
+  if love and love.timer and love.timer.getTime then
+    return love.timer.getTime()
+  end
+  return os.clock()
+end
+
 -- Visible grass: body hidden briefly → appear with small lift → act.
 local GRASS_SPAWN = {
   duration = 0.45,
@@ -53,6 +60,7 @@ function SpawnFx.begin(entity, kind, opts)
   entity.spawnFx = {
     kind = kind,
     elapsed = 0,
+    beginAt = now(),
     duration = opts.duration or profile.duration,
     bodyVisibleAt = opts.bodyVisibleAt or profile.bodyAt,
     actAt = opts.actAt or profile.actAt or profile.duration,
@@ -103,6 +111,12 @@ function SpawnFx.ensureProgress(entity)
   local dur = tonumber(fx.duration) or 0.6
   local actAt = tonumber(fx.actAt) or dur
   local elapsed = tonumber(fx.elapsed) or 0
+  -- Fail-safe against a stalled/missing AI loop: when the FX was never
+  -- ticked (elapsed == 0), age it by wall-clock time so a freshly spawned
+  -- mon still becomes battleable and visible.
+  if elapsed <= 0 and fx.beginAt then
+    elapsed = now() - fx.beginAt
+  end
   local tolerance = 0.35
   -- Unlock as soon as actAt is reached, or after duration+tolerance.
   if elapsed >= actAt or elapsed >= dur + tolerance or dur <= 0 then
