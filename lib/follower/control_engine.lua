@@ -1239,11 +1239,13 @@ end
 -- so trailers navigate corners and shorelines instead of freezing (or
 -- teleporting) when the direct step is blocked. Returns { dir, x, y } or nil
 -- when no adjacent follower-allowed cell exists.
-function ControlEngine:_pickTrailerStep(game, ow, npc, gx, gy, surface, role)
+function ControlEngine:_pickTrailerStep(game, ow, npc, gx, gy, surface, role,
+                                        cellFree)
   local cx, cy = npc.cellX or 0, npc.cellY or 0
   local dx, dy = gx - cx, gy - cy
   local function allowed(sx, sy)
-    return self:isFollowerCellAllowed(game, ow, npc, sx, sy, {
+    return (not cellFree or cellFree(sx, sy, npc))
+      and self:isFollowerCellAllowed(game, ow, npc, sx, sy, {
       surface = surface, role = role,
     })
   end
@@ -1281,7 +1283,8 @@ function ControlEngine:_pickTrailerStep(game, ow, npc, gx, gy, surface, role)
          and Collision and Collision.DELTA and Collision.DELTA[dir] then
         local delta = Collision.DELTA[dir]
         local hx, hy = cx + delta[1] * 2, cy + delta[2] * 2
-        if self:isFollowerCellAllowed(game, ow, npc, hx, hy, {
+        if (not cellFree or cellFree(hx, hy, npc))
+           and self:isFollowerCellAllowed(game, ow, npc, hx, hy, {
           surface = surface, role = role,
         }) then
           consider(dir, hx, hy, true)
@@ -1878,9 +1881,12 @@ function ControlEngine:syncTrailers(game, ow, opts)
         goals[i] = { x = gx, y = gy }
       end
       if npc.cellX ~= gx or npc.cellY ~= gy then
+        local originX, originY = npc.cellX, npc.cellY
         local ok = self:_assignTrailerStep(
-          game, ow, npc, gx, gy, surface, role, stepClock, facing)
+          game, ow, npc, gx, gy, surface, role, stepClock, facing, seamCellFree)
         if ok then
+          releaseSeamCell(originX, originY, npc)
+          reserveSeamCell(npc.targetX, npc.targetY, npc)
           -- Keep the trail cell aligned with the trailer's actual aim
           -- (including ledge-hop extension) for the catch-up chain pass.
           goals[i] = { x = npc._wildsGoalX, y = npc._wildsGoalY }
@@ -1899,10 +1905,11 @@ end
 -- consecutive steps without waiting for the next goal shift. Returns true
 -- when a step started; false when blocked (no adjacent follower cell).
 function ControlEngine:_assignTrailerStep(game, ow, npc, gx, gy, surface, role,
-                                           stepClock, facing)
+                                           stepClock, facing, cellFree)
   local Collision = tryRequire("src.world.Collision")
   local far = math.abs((npc.cellX or 0) - gx) + math.abs((npc.cellY or 0) - gy)
-  local step = self:_pickTrailerStep(game, ow, npc, gx, gy, surface, role)
+  local step = self:_pickTrailerStep(game, ow, npc, gx, gy, surface, role,
+                                     cellFree)
   if not step then
     -- No valid adjacent cell (wall pocket). Only hard-warp when the trailer
     -- is so far that waiting would strand it forever; mid-range blocked
@@ -1929,7 +1936,8 @@ function ControlEngine:_assignTrailerStep(game, ow, npc, gx, gy, surface, role,
      and Collision and Collision.DELTA and Collision.DELTA[dir] then
     local d = Collision.DELTA[dir]
     local hx, hy = npc.cellX + d[1] * 2, npc.cellY + d[2] * 2
-    if self:isFollowerCellAllowed(game, ow, npc, hx, hy, {
+    if (not cellFree or cellFree(hx, hy, npc))
+       and self:isFollowerCellAllowed(game, ow, npc, hx, hy, {
       surface = surface, role = role,
     }) then
       npc.targetX = hx
