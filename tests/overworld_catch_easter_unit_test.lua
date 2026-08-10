@@ -156,6 +156,7 @@ local ow = {
 game._ow = ow
 game.stack._top = ow
 
+-- Legacy fixture (top-level index) — still supported.
 local function placeHuman(x, y, id)
   local npc = {
     id = id or "npc_1",
@@ -166,6 +167,42 @@ local function placeHuman(x, y, id)
     name = "YOUNGSTER",
     trainer = true,
   }
+  table.insert(ow.npcs, npc)
+  table.insert(ow.entities, npc)
+  return npc
+end
+
+-- Canonical Gen1Recomp NPC shape: index/trainer live on entity.def only
+-- (see src/world/NPC.lua — NPC.new does NOT copy objDef.index to self.index).
+local function placeNativePerson(x, y, opts)
+  opts = opts or {}
+  local index = opts.index or 3
+  local npc = {
+    id = opts.id or ("PALLET_TOWN_obj_" .. tostring(index)),
+    def = {
+      index = index,
+      x = x,
+      y = y,
+      sprite = opts.spriteId or "SPRITE_GIRL",
+      movement = opts.movement or "STAY",
+      range = opts.range or "DOWN",
+      text = opts.text or "TEXT_PALLETTOWN_GIRL",
+      name = opts.name or "GIRL",
+      trainerClass = opts.trainerClass,
+      trainerParty = opts.trainerParty,
+      item = opts.item,
+      pokemon = opts.pokemon,
+      pushable = opts.pushable,
+    },
+    cellX = x,
+    cellY = y,
+    facing = opts.facing or "down",
+    sprite = { def = { walker = true, frames = 6 } },
+    wanders = false,
+  }
+  if opts.trainerClass then
+    -- Native trainers also only expose trainerClass on def, not entity.
+  end
   table.insert(ow.npcs, npc)
   table.insert(ow.entities, npc)
   return npc
@@ -312,6 +349,91 @@ eq(game._lastText, "Grrrr...", "town dialogue beats NPC behind")
 local sign = { id = "sign", cellX = 8, cellY = 5, name = "SIGN" }
 ow.entities = { sign }
 check(not Target.isHumanNpc(sign), "uncertain sign not human")
+ow.npcs, ow.entities = {}, {}
+
+-- ---- Native Gen1Recomp NPC.def identity (the real bug) ----
+local nativePerson = placeNativePerson(8, 5, { id = "native_girl", index = 4 })
+check(nativePerson.index == nil, "native NPC has no top-level index")
+check(type(nativePerson.def.index) == "number", "native NPC index lives on def")
+check(Target.isHumanNpc(nativePerson), "native person classified human")
+hit = Target.scanThrowPath(logic, ow, ow.player, 3)
+eq(hit.kind, Hit.NPC, "native person HitKind.NPC at dist 3")
+eq(hit.entity, nativePerson, "native person entity selected")
+eq(hit.distance, 3, "native person distance 3")
+local originalText = nativePerson.def.text
+game._lastText = nil
+catching.meter.active = true
+catching.meter.power = 3
+catching.phase = "metering"
+catching:_releaseThrow(game, ow)
+finishFlight()
+eq(game._lastText, "Ouch, yo, WTF", "native person dialogue")
+eq(nativePerson.def.text, originalText, "NPC def.text unchanged after impact")
+eq(nativePerson.cellX, 8, "native person unmoved")
+ow.npcs, ow.entities = {}, {}
+
+-- Native trainer (trainerClass only on def)
+local nativeTrainer = placeNativePerson(8, 5, {
+  id = "native_trainer", index = 7,
+  spriteId = "SPRITE_YOUNGSTER",
+  trainerClass = "YOUNGSTER",
+  trainerParty = 1,
+  text = "TEXT_ROUTE1_YOUNGSTER",
+})
+check(nativeTrainer.trainerClass == nil, "trainerClass not on entity top-level")
+check(nativeTrainer.def.trainerClass == "YOUNGSTER", "trainerClass on def")
+check(Target.isHumanNpc(nativeTrainer), "native trainer classified human")
+hit = Target.scanThrowPath(logic, ow, ow.player, 3)
+eq(hit.kind, Hit.NPC, "native trainer HitKind.NPC")
+game._lastText = nil
+catching.meter.active = true
+catching.meter.power = 3
+catching.phase = "metering"
+catching:_releaseThrow(game, ow)
+finishFlight()
+eq(game._lastText, "Ouch, yo, WTF", "native trainer dialogue")
+eq(nativeTrainer.def.trainerClass, "YOUNGSTER", "trainer def unchanged")
+ow.npcs, ow.entities = {}, {}
+
+-- Item ball / boulder / static map mon must NOT be human
+local itemBall = placeNativePerson(8, 5, {
+  id = "item_ball", index = 9, spriteId = "SPRITE_BALL", item = "POTION",
+})
+check(not Target.isHumanNpc(itemBall), "item ball not human")
+ow.npcs, ow.entities = {}, {}
+local boulder = placeNativePerson(8, 5, {
+  id = "boulder", index = 10, spriteId = "SPRITE_BOULDER", pushable = true,
+})
+check(not Target.isHumanNpc(boulder), "boulder not human")
+ow.npcs, ow.entities = {}, {}
+local staticMon = placeNativePerson(8, 5, {
+  id = "static_mewtwo", index = 11, spriteId = "SPRITE_SLOWBRO",
+  pokemon = "MEWTWO",
+})
+check(not Target.isHumanNpc(staticMon), "static map pokemon not human")
+ow.npcs, ow.entities = {}, {}
+
+-- Follower must never be human
+local follower = placeNativePerson(8, 5, { id = "follower", index = 20 })
+follower.wildsFollower = true
+follower.isFollower = true
+check(not Target.isHumanNpc(follower), "follower not human")
+hit = Target.scanThrowPath(logic, ow, ow.player, 3)
+eq(hit.kind, Hit.NONE, "follower does not produce NPC hit")
+ow.npcs, ow.entities = {}, {}
+
+-- Wild still WILD; Town still TOWN_MON with native person behind
+local wildFront = placeWild(7, 5, "wild_front") -- dist 2
+local personBehind = placeNativePerson(9, 5, { id = "person_behind", index = 5 })
+hit = Target.scanThrowPath(logic, ow, ow.player, 6)
+eq(hit.kind, Hit.WILD, "wild before native person")
+eq(hit.entity, wildFront, "wild entity first")
+logic.entities, logic.spawns, ow.entities, ow.npcs = {}, {}, {}, {}
+local townFront = placeTown(7, 5, "town_front2")
+personBehind = placeNativePerson(9, 5, { id = "person_behind2", index = 6 })
+hit = Target.scanThrowPath(logic, ow, ow.player, 6)
+eq(hit.kind, Hit.TOWN_MON, "town before native person")
+eq(hit.entity, townFront, "town entity first")
 
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

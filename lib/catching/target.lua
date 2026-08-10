@@ -131,18 +131,74 @@ local function looksLikeExcludedNonHuman(entity)
   return false
 end
 
---- Human map NPC / trainer. Prefer positive signals; if uncertain → false.
+-- Gen1Recomp NPC.new stores the map object_event on entity.def (index,
+-- trainerClass, item, pokemon, sprite, text, …). Top-level entity.index is
+-- NOT set on native instances — that was the human easter-egg miss.
+local function mapObjectDef(entity)
+  local def = entity and entity.def
+  return type(def) == "table" and def or nil
+end
+
+local function mapObjectIndex(entity, def)
+  if type(entity.index) == "number" then return entity.index end
+  if def and type(def.index) == "number" then return def.index end
+  return nil
+end
+
+-- Non-character map objects still use the NPC class / ow.npcs list.
+local function isNonCharacterMapObject(def)
+  if not def then return false end
+  -- Item balls (ITEM_NONE "0" is a plain text prop, not a person either).
+  if def.item ~= nil then return true end
+  -- Static map Pokémon (birds, Mewtwo, Vermilion Machop, …).
+  if def.pokemon ~= nil then return true end
+  if def.pushable == true then return true end
+  local spriteId = def.sprite
+  if spriteId == "SPRITE_BOULDER" or spriteId == "SPRITE_BALL" then
+    return true
+  end
+  return false
+end
+
+local function hasTrainerSignal(entity, def)
+  if entity.trainer == true or entity.isTrainer == true then return true end
+  if entity.trainerClass or entity.trainerId or entity.trainerData then return true end
+  if type(entity.trainer) == "table" then return true end
+  if not def then return false end
+  if def.trainer == true or type(def.trainer) == "table" then return true end
+  if def.trainerClass or def.trainerId or def.trainerData then return true end
+  return false
+end
+
+--- Human map NPC / trainer. Prefer canonical Gen1Recomp NPC.def identity.
+-- If uncertain → false (never invent humans from arbitrary entities).
 function Target.isHumanNpc(entity)
   if not entity then return false end
   if looksLikeExcludedNonHuman(entity) then return false end
 
-  -- Explicit trainer markers.
-  if entity.trainer == true or entity.isTrainer == true then return true end
-  if entity.trainerClass or entity.trainerId or entity.trainerData then return true end
-  if type(entity.trainer) == "table" then return true end
+  local def = mapObjectDef(entity)
+  if isNonCharacterMapObject(def) then return false end
 
-  -- Gen1 map NPC: numeric map index + walker sprite + no Pokémon species.
-  if type(entity.index) == "number"
+  -- Explicit trainer markers (entity-level or object_event def).
+  if hasTrainerSignal(entity, def) then return true end
+
+  local index = mapObjectIndex(entity, def)
+  -- Native map person: NPC instance with object_event def + cells + sprite.
+  -- facing is set by NPC.new but must not be required (STAY/NONE ranges).
+  if def ~= nil
+     and type(index) == "number"
+     and entity.sprite ~= nil
+     and entity.cellX ~= nil
+     and entity.cellY ~= nil
+     and entity.species == nil
+     and entity.wildSpecies == nil
+     and entity.ambientSpecies == nil then
+    return true
+  end
+
+  -- Legacy / test fixtures that put index on the entity (no .def).
+  if def == nil
+     and type(entity.index) == "number"
      and entity.sprite ~= nil
      and entity.facing ~= nil
      and entity.cellX ~= nil
