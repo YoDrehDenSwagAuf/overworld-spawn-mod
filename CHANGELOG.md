@@ -6,8 +6,9 @@
 
 - New **OW CATCH** setting (`overworld_catching`, default **ON**) in
   START → OPTIONS → WILDS OF KANTO and Mod Settings.
-- Hold **C** to charge a 1–6 tile power meter, release to throw; **E** cycles
-  Poké / Great / Ultra / Master Ball from the real bag inventory.
+- Hold **C** to charge a 1–6 tile power meter, release to throw; **Q** cycles
+  Poké / Great / Ultra / Master Ball from the real bag inventory (skips empty;
+  **E** is not used).
 - Small top-right Ball HUD; directional targeting only (no side auto-aim).
 - Catch math uses native `Catching.attempt` (species catch rate + Ball type)
   with mild level / throw-quality / facing (back/side) modifiers.

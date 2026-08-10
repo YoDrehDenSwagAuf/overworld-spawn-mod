@@ -2719,7 +2719,10 @@ function SpawnLogic:_startBattle(record)
   if entity and entity.wildsAmbientPokemon then
     return false
   end
-  if entity and (entity.wildsCatchLocked or entity.wildsCatchState == "capturing") then
+  if entity and (entity.wildsCatchLocked
+                 or entity.wildsCatchPending
+                 or entity.wildsCatchState == "capturing"
+                 or entity.wildsCatchState == "pending") then
     return false
   end
 
@@ -2839,7 +2842,10 @@ function SpawnLogic:_despawnFar(ow)
       -- Never despawn an aggressive chase or an in-progress overworld catch.
       if entity and entity.behaviorState and entity.behaviorState.chasing then
         -- keep
-      elseif entity and (entity.wildsCatchLocked or entity.wildsCatchState == "capturing") then
+      elseif entity and (entity.wildsCatchLocked
+                        or entity.wildsCatchPending
+                        or entity.wildsCatchState == "capturing"
+                        or entity.wildsCatchState == "pending") then
         -- keep occupancy during Ball capture
       else
         local d = Grass.chebyshev(record.x, record.y, player.cellX, player.cellY)
@@ -2997,7 +3003,10 @@ function SpawnLogic:onCollision(allowed, ctx)
     if entity and entity.wildsAmbientPokemon then
       return allowed
     end
-    if entity and (entity.wildsCatchLocked or entity.wildsCatchState == "capturing") then
+    if entity and (entity.wildsCatchLocked
+                   or entity.wildsCatchPending
+                   or entity.wildsCatchState == "capturing"
+                   or entity.wildsCatchState == "pending") then
       return false -- occupied by capture; no battle
     end
     if entity and Config.isBattleableWild and not Config.isBattleableWild(entity) then

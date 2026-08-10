@@ -1,5 +1,9 @@
 -- Temporary Poké Ball projectile + wobble on the target tile.
 -- Uses native SpriteRenderer-compatible entities (Flat 2D + Voxel pose path).
+--
+-- Lifecycle contract: every Ball entity created here MUST be removed via
+-- Projectile:cleanup() (idempotent). Flight update clears `active` only after
+-- stashing the Ball so miss/hit/cancel paths cannot orphan it.
 local V = ...
 local Tile = V.require("tile")
 local CatchMath = V.require("catching/catch_math")
@@ -10,6 +14,7 @@ Projectile.__index = Projectile
 local CELL = Tile.CELL or 16
 local WOBBLE_INTERVAL = 0.55
 local RESOLVE_HOLD = 0.35
+local MISS_LAND_HOLD = 0.18
 
 local function tryRequire(name)
   local ok, mod = pcall(require, name)
@@ -35,6 +40,7 @@ local function removeEntityFromOw(ow, entity)
       end
     end
   end
+  entity.registeredInWorld = false
 end
 
 local function makeBallEntity(game, ow, ballType, cellX, cellY, spriteId)
@@ -72,77 +78,96 @@ local function makeBallEntity(game, ow, ballType, cellX, cellY, spriteId)
   entity.passable = true
   entity.blocking = false
   entity.wildsCatchProjectile = true
+  -- Lightweight draw for flat 2D if SpriteRenderer pose path is absent.
+  if type(entity.draw) ~= "function" then
+    function entity:draw()
+      -- Engine NPC draw path preferred; no-op fallback.
+    end
+  end
   return entity
 end
 
 --- Axis-aligned land cell from player toward facing for `tiles` steps.
-local function landCell(startX, startY, facing, tiles)
-  tiles = math.max(1, math.min(CatchMath.MAX_RANGE, math.floor(tiles + 0.5)))
+function Projectile.landCell(startX, startY, facing, tiles)
+  tiles = math.max(1, math.min(CatchMath.MAX_RANGE, math.floor((tonumber(tiles) or 1) + 0.5)))
   local dx, dy = 0, 0
   if facing == "up" then dy = -1
   elseif facing == "down" then dy = 1
   elseif facing == "left" then dx = -1
   elseif facing == "right" then dx = 1
   end
-  return startX + dx * tiles, startY + dy * tiles
+  return startX + dx * tiles, startY + dy * tiles, tiles
 end
 
 function Projectile.new()
   local self = setmetatable({}, Projectile)
   self.active = nil
   self.wobble = nil
+  self._trackedBall = nil -- authoritative Ball entity for cleanup
+  self._missHold = nil
   return self
 end
 
 function Projectile:isBusy()
-  return self.active ~= nil or self.wobble ~= nil
+  return self.active ~= nil or self.wobble ~= nil or self._missHold ~= nil
 end
 
-function Projectile:cancel(ow, voxel)
-  if self.active and self.active.ballEntity then
-    removeEntityFromOw(ow, self.active.ballEntity)
-    if voxel and voxel.unregister then
-      pcall(voxel.unregister, voxel, self.active.ballEntity)
+--- Idempotent removal from ow.entities/npcs + voxel + internal state.
+function Projectile:cleanup(ow, voxel, ballEntity)
+  local victims = {}
+  local function track(e)
+    if e then victims[#victims + 1] = e end
+  end
+  track(ballEntity)
+  track(self._trackedBall)
+  if self.active then track(self.active.ballEntity) end
+  if self.wobble then track(self.wobble.ballEntity) end
+  if self._missHold then track(self._missHold.ballEntity) end
+
+  local seen = {}
+  for _, e in ipairs(victims) do
+    if not seen[e] then
+      seen[e] = true
+      removeEntityFromOw(ow, e)
+      if voxel and voxel.unregister then
+        pcall(voxel.unregister, voxel, e)
+      end
     end
   end
-  if self.wobble and self.wobble.ballEntity then
-    removeEntityFromOw(ow, self.wobble.ballEntity)
-    if voxel and voxel.unregister then
-      pcall(voxel.unregister, voxel, self.wobble.ballEntity)
-    end
-  end
+
   self.active = nil
   self.wobble = nil
+  self._missHold = nil
+  self._trackedBall = nil
+end
+
+-- Back-compat alias used by older call sites.
+function Projectile:cancel(ow, voxel)
+  self:cleanup(ow, voxel)
 end
 
 function Projectile:startFlight(game, ow, opts)
   opts = opts or {}
-  -- Replace any in-flight Ball cleanly before starting another.
-  if self.active or self.wobble then
-    self:cancel(ow, opts.voxel)
+  if self:isBusy() then
+    self:cleanup(ow, opts.voxel)
   end
   local ballType = opts.ballType or "POKE_BALL"
   local spriteId = opts.spriteId or ("SPRITE_WILDS_BALL_" .. ballType)
   local startX = opts.startX
   local startY = opts.startY
-  local targetX = opts.targetX
-  local targetY = opts.targetY
-  local totalDist = math.max(1, opts.totalDist or 1)
   local facing = opts.facing or "down"
-  local power = opts.power or totalDist
+  local power = opts.power or opts.totalDist or 1
   local isMiss = opts.miss == true
 
-  local endX, endY = targetX, targetY
-  if isMiss then
-    endX, endY = landCell(startX, startY, facing, power)
-  end
+  -- Projectile ALWAYS travels the selected power distance along facing.
+  local endX, endY, travel = Projectile.landCell(startX, startY, facing, power)
 
   local ballEntity = makeBallEntity(game, ow, ballType, startX, startY, spriteId)
   if ow and ow.entities then
     table.insert(ow.entities, ballEntity)
   end
+  self._trackedBall = ballEntity
 
-  local travel = math.max(1, math.abs(endX - startX) + math.abs(endY - startY))
   local speed = math.max(2.2, 4.2 / (travel * 0.45))
   self.active = {
     startX = startX,
@@ -155,17 +180,19 @@ function Projectile:startFlight(game, ow, opts)
     ballEntity = ballEntity,
     totalDist = travel,
     facing = facing,
+    power = power,
     miss = isMiss,
     onImpact = opts.onImpact,
     meta = opts.meta,
   }
   playSfx(game, "SFX_BALL_TOSS")
-  return true
+  return true, endX, endY, travel
 end
 
 function Projectile:beginWobble(game, ow, opts)
   opts = opts or {}
-  local ballEntity = opts.ballEntity
+  local ballEntity = opts.ballEntity or self._trackedBall
+  self._trackedBall = ballEntity
   self.wobble = {
     x = opts.x,
     y = opts.y,
@@ -189,6 +216,19 @@ end
 
 function Projectile:update(game, ow, dt, voxel)
   dt = dt or 0.016
+
+  if self._missHold then
+    self._missHold.timer = self._missHold.timer + dt
+    if self._missHold.timer >= MISS_LAND_HOLD then
+      local cb = self._missHold.onDone
+      local ball = self._missHold.ballEntity
+      self._missHold = nil
+      self:cleanup(ow, voxel, ball)
+      if cb then cb() end
+    end
+    return
+  end
+
   if self.active then
     local proj = self.active
     proj.progress = proj.progress + proj.speed * dt
@@ -207,9 +247,22 @@ function Projectile:update(game, ow, dt, voxel)
 
     if proj.progress >= 1.0 then
       local finished = proj
+      -- Keep Ball tracked; do NOT drop the entity reference when clearing active.
+      self._trackedBall = finished.ballEntity
       self.active = nil
-      if finished.onImpact then
-        finished.onImpact(finished)
+      if finished.miss then
+        -- Brief land pause, then guaranteed cleanup.
+        self._missHold = {
+          timer = 0,
+          ballEntity = finished.ballEntity,
+          onDone = function()
+            if finished.onImpact then finished.onImpact(finished) end
+          end,
+        }
+      else
+        if finished.onImpact then
+          finished.onImpact(finished)
+        end
       end
     end
   end
@@ -241,14 +294,13 @@ function Projectile:update(game, ow, dt, voxel)
     elseif wob.phase == "RESOLVE" then
       if wob.timer >= RESOLVE_HOLD then
         local done = wob
+        local ball = done.ballEntity
         self.wobble = nil
-        removeEntityFromOw(ow, done.ballEntity)
-        if voxel and voxel.unregister and done.ballEntity then
-          pcall(voxel.unregister, voxel, done.ballEntity)
-        end
+        -- Resolve callback may start success/fail logic; Ball removed after.
         if done.onResolve then
           done.onResolve(done)
         end
+        self:cleanup(ow, voxel, ball)
       end
     end
   end

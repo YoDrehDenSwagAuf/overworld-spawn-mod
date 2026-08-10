@@ -265,6 +265,7 @@ local function placeWild(opts)
     -- mon facing left (west) → player is FRONT.
     -- mon facing right → player is BACK.
     overworldWildSpawn = true,
+    visible = true,
     visibleSprite = true,
     canTriggerBattle = true,
     state = "available",
@@ -295,13 +296,49 @@ eq(catching:getSelectedBall(game), "POKE_BALL", "selected Poké Ball")
 check(catching:consumeBall(game, "POKE_BALL"), "consume ok")
 eq(catching:ballCount(game, "POKE_BALL"), 4, "after throw count 4")
 
+-- ---- Cycle skips empty (Q default; not E) ----
+eq(OverworldCatching.CYCLE_KEYS[1], "q", "cycle default key is Q")
+check(OverworldCatching.CYCLE_KEYS[1] ~= "e", "cycle must not use E")
+catching.selectedBallIndex = 1
+eq(catching:cycleSelectedBall(game, 1), "ULTRA_BALL", "cycle skips Great(0) → Ultra")
+eq(catching:cycleSelectedBall(game, 1), "MASTER_BALL", "cycle Ultra → Master")
+eq(catching:cycleSelectedBall(game, 1), "POKE_BALL", "cycle Master → Poké")
+-- Edge hold must not multi-cycle: simulate held key by calling cycle once only
+local held = catching:getSelectedBall(game)
+eq(held, "POKE_BALL", "selection stable after edge cycle")
+
+-- ---- Meter charge ----
+catching:_beginMeter()
+eq(catching.phase, "metering", "C press → metering")
+eq(catching.meter.active, true, "meter.active true while charging")
+local p0 = catching.meter.power
+catching:_updateMeter(0.2)
+check(catching.meter.power > p0, "held C advances power")
+check(catching.meter.power >= 1 and catching.meter.power <= 6, "power stays in 1..6")
+for _ = 1, 40 do catching:_updateMeter(0.1) end
+check(catching.meter.power >= 1 and catching.meter.power <= 6, "long hold still clamps 1..6")
+
+-- ---- Projectile travels selected power distance (not auto-aim to mon) ----
+local lx, ly = catching.projectile.landCell(5, 5, "right", 2)
+eq(lx, 7, "RIGHT power 2 → x+2")
+eq(ly, 5, "RIGHT power 2 → same y")
+lx, ly = catching.projectile.landCell(5, 5, "right", 6)
+eq(lx, 11, "RIGHT power 6 → x+6")
+lx, ly = catching.projectile.landCell(5, 5, "left", 3)
+eq(lx, 2, "LEFT power 3 → x-3")
+lx, ly = catching.projectile.landCell(5, 5, "up", 4)
+eq(ly, 1, "UP power 4 → y-4")
+lx, ly = catching.projectile.landCell(5, 5, "down", 1)
+eq(ly, 6, "DOWN power 1 → y+1")
+
 -- ---- No balls message path ----
 local emptyGameInv = game.save.inventory
 game.save.inventory = {}
 check(not catching:anyBalls(game), "no balls")
 game.save.inventory = emptyGameInv
+catching:cancelAll("reset after meter")
 
--- ---- MISS: consumes ball, no catch, no battle, target remains ----
+-- ---- MISS: consumes ball, no catch, no battle, target remains, Ball removed ----
 local entity, record = placeWild({ id = "wild_miss", x = 8, y = 5 })
 local before = catching:ballCount(game, "POKE_BALL")
 CatchingApi._force = "catch" -- would catch if attempted
@@ -316,12 +353,61 @@ check(logic.entities["wild_miss"] ~= nil, "MISS keeps wild entity")
 eq(record.state, Config.STATE.AVAILABLE, "MISS keeps AVAILABLE")
 eq(#battleStarts, 0, "MISS starts no battle")
 eq(#despawned, 0, "MISS does not despawn")
+eq(entity.visible, true, "MISS leaves Pokémon visible")
+check(not entity.wildsCatchLocked, "MISS does not lock target")
+check(entity.wildsCatchState ~= "pending" and entity.wildsCatchState ~= "capturing",
+  "MISS does not leave catch state")
 -- finish projectile
 for _ = 1, 120 do
   catching.projectile:update(game, ow, 0.05, logic.voxel)
   if catching.phase == "idle" and not catching.projectile:isBusy() then break end
 end
 eq(catching.phase, "idle", "MISS cleans to idle")
+check(not catching.projectile:isBusy(), "MISS projectile not busy")
+check(catching.projectile._trackedBall == nil, "MISS clears tracked Ball")
+local ballLeft = false
+for _, e in ipairs(ow.entities) do
+  if e and e.isPokeBallEntity then ballLeft = true end
+end
+check(not ballLeft, "MISS removes Ball from ow.entities")
+
+-- ---- HIT: Pokémon stays visible during flight; hides only at impact ----
+logic.entities = {}
+logic.spawns = {}
+ow.entities = {}
+despawned = {}
+occupancyReleased = {}
+entity, record = placeWild({ id = "wild_hit_vis", x = 7, y = 5, facing = "right" })
+CatchingApi._force = "catch"
+catching.selectedBallIndex = 1
+catching.meter.active = true
+catching.meter.power = 2.0
+catching.phase = "metering"
+catching:_releaseThrow(game, ow)
+eq(catching.phase, "flying", "HIT starts flying")
+eq(entity.visible, true, "Pokémon visible during flight")
+eq(entity.wildsCatchState, "pending", "pending freeze during flight")
+eq(entity.wildsCatchLocked, false, "not fully locked until impact")
+-- Advance almost to impact but stop before wobble resolve
+local sawImpactHide = false
+for _ = 1, 200 do
+  local wasFlying = catching.phase == "flying"
+  catching.projectile:update(game, ow, 0.05, logic.voxel)
+  if wasFlying and catching.phase == "capturing" then
+    sawImpactHide = entity.visible == false and entity.wildsCatchLocked == true
+    break
+  end
+  if catching.phase == "idle" then break end
+end
+check(sawImpactHide, "Pokémon hidden only at impact")
+-- finish capture
+for _ = 1, 200 do
+  catching.projectile:update(game, ow, 0.05, logic.voxel)
+  if catching.phase == "idle" and catching.activeCapture == nil
+     and not catching.projectile:isBusy() then break end
+end
+check(logic.entities["wild_hit_vis"] == nil, "HIT success removes entity after impact path")
+game.stack._top = ow
 
 -- ---- SUCCESS ----
 logic.entities = {}

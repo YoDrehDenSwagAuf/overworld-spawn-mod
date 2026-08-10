@@ -25,7 +25,10 @@ end
 function Target.isCatchableWild(entity)
   if not entity then return false end
   if entity.wildsCatchLocked == true then return false end
-  if entity.wildsCatchState == "capturing" then return false end
+  if entity.wildsCatchPending == true then return false end
+  if entity.wildsCatchState == "capturing" or entity.wildsCatchState == "pending" then
+    return false
+  end
   if entity.isPokeBallEntity or entity.wildsProjectile then return false end
   if entity.wildsAmbientPokemon == true then return false end
   if entity.caveScenery == true then return false end
