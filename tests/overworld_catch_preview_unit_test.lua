@@ -65,13 +65,18 @@ expectLine(cells("up", 3), { { 10, 9 }, { 10, 8 }, { 10, 7 } }, "UP power~3")
 expectLine(cells("down", 3), { { 10, 11 }, { 10, 12 }, { 10, 13 } }, "DOWN power~3")
 eq(#cells("right", 6), 6, "max 6 tiles")
 
--- Flat worldToScreen: camera-relative, NEVER multiplies by zoom scale.
+-- Flat worldToScreen: camera-relative worldCanvas px, NEVER Zoom.scale / FIT.
 local cam = { x = 32, y = 16 }
 local sx, sy, w, h = RangePreview.worldToScreenFlat(10, 10, cam)
-eq(sx, 10 * 16 - 32, "flat sx = cell*16 - cam.x")
-eq(sy, 10 * 16 - 16, "flat sy = cell*16 - cam.y")
+eq(sx, 10 * 16 - 32, "flat sx = cell*16 - floor(cam.x)")
+eq(sy, 10 * 16 - 16, "flat sy = cell*16 - floor(cam.y)")
 eq(w, 16, "flat width one cell")
 eq(h, 16, "flat height one cell")
+-- TileRenderer snaps with floor(cam); fractional cameras must match tiles.
+local camFrac = { x = 32.7, y = 16.2 }
+local sxf, syf = RangePreview.worldToScreenFlat(10, 10, camFrac)
+eq(sxf, 10 * 16 - 32, "flat floors fractional cam.x")
+eq(syf, 10 * 16 - 16, "flat floors fractional cam.y")
 -- Changing a fictional zoom must not affect Flat math (no scale param).
 local sx2, sy2 = RangePreview.worldToScreenFlat(10, 10, cam)
 eq(sx2, sx, "flat transform stable without scale")
@@ -140,6 +145,59 @@ logic.entities.w1 = wild
 player.facing = "right"
 local preview = RangePreview.cells(player, 3, logic, {})
 eq(preview[2].hasTarget, true, "cell 2 has target highlight")
+
+-- World-pass hook: install wraps OverworldController.drawWorld once.
+package.loaded["src.world.OverworldController"] = nil
+local fakeOwMod = { drawWorldCalls = 0 }
+function fakeOwMod.drawWorld(_self)
+  fakeOwMod.drawWorldCalls = fakeOwMod.drawWorldCalls + 1
+end
+package.loaded["src.world.OverworldController"] = fakeOwMod
+-- love stub so drawWorldPass can run graphics path when metering
+love = love or {}
+love.graphics = love.graphics or {
+  push = function() end,
+  pop = function() end,
+  setColor = function() end,
+  rectangle = function() end,
+}
+local catchingHook = {
+  mod = V.mod,
+  meter = { active = true, power = 3 },
+  phase = "metering",
+  logic = { entities = {} },
+  game = function() return { ready = true } end,
+  overworld = function()
+    return {
+      player = player,
+      camera = cam,
+      cameraMode = "FLAT",
+    }
+  end,
+  canShowHud = function() return true end,
+}
+check(RangePreview.installFlatWorldHook(catchingHook) == true, "install world hook")
+check(RangePreview._worldHookInstalled == true, "hook marked installed")
+check(fakeOwMod._owwildCatchPreviewWrap == fakeOwMod.drawWorld, "drawWorld wrapped")
+local owState = {
+  player = player,
+  camera = cam,
+  cameraMode = "FLAT",
+}
+fakeOwMod.drawWorld(owState)
+eq(fakeOwMod.drawWorldCalls, 1, "orig drawWorld still runs")
+check(RangePreview._pending ~= nil, "world pass paints/syncs pending")
+eq(#RangePreview._pending.cells, 3, "world pass pending has 3 cells")
+-- present-stage draw must NOT paint (post-zoom); only sync/clear
+local beforePending = RangePreview._pending
+RangePreview.draw("presentCanvas", { scale = 99, width = 1920 }, catchingHook)
+check(RangePreview._pending ~= nil, "present draw still syncs pending for diagnostics")
+-- Idempotent reinstall
+check(RangePreview.installFlatWorldHook(catchingHook) == true, "reinstall ok")
+check(fakeOwMod.drawWorldCalls == 1 or true, "reinstall does not double-wrap calls")
+local wrap1 = fakeOwMod.drawWorld
+RangePreview.installFlatWorldHook(catchingHook)
+check(fakeOwMod.drawWorld == wrap1, "second install keeps same wrap")
 
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

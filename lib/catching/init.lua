@@ -1006,6 +1006,9 @@ function OverworldCatching:register()
     return
   end
   local catching = self
+  -- Flat green tiles: draw in OverworldState.drawWorld (native worldCanvas)
+  -- BEFORE survey zoom blit. Never paint them from present() (post-zoom).
+  RangePreview.installFlatWorldHook(catching)
   mod.content.render_pipelines:register(OverworldCatching.PIPELINE_ID, {
     label = "OW CATCH",
     levels = { "OFF", "ON" },
@@ -1016,11 +1019,9 @@ function OverworldCatching:register()
     end,
     present = function(canvas, ctx)
       catching:step(ctx)
-      -- Ground throw-range preview (world cells) while metering.
-      RangePreview.draw(canvas, ctx, catching)
-      -- Draw Ball HUD from the same pipeline that drives catching input.
-      -- Guarantees meter/HUD visibility whenever the tick pipeline runs
-      -- (C throw already proved this path is live). Deduped with ball_hud.
+      -- Reassert world-pass hook (mods / reloads); do not draw tiles here.
+      RangePreview.installFlatWorldHook(catching)
+      -- Ball HUD stays on present (UI/screen space, not world tiles).
       if catching.hud then
         return catching.hud:draw(canvas, ctx)
       end
