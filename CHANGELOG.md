@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Optional overworld Poké Ball catching
+
+- New **OW CATCH** setting (`overworld_catching`, default **ON**) in
+  START → OPTIONS → WILDS OF KANTO and Mod Settings.
+- Hold **C** to charge a 1–6 tile power meter, release to throw; **Q** cycles
+  Poké / Great / Ultra / Master Ball from the real bag inventory (skips empty;
+  **E** is not used).
+- While charging, translucent green ground tiles preview the selected throw
+  distance along facing (synced with the meter). Flat uses camera-native
+  canvas space; Voxel uses Dramatic Shape `project()` from drawFx so zoom
+  no longer drifts the markers.
+- Compact ~6px Ball projectiles / ~9px HUD icons; success click + fail break
+  presentation before cleanup.
+- Easter eggs: Ball hit on a human NPC → `"Ouch, yo, WTF"`; Town/Ambient
+  Pokémon → `"Grrrr..."` (no catch/battle; Ball cleaned).
+- Failed catches use `!` → AGGRESSIVE/chase (no forced instant battle); the
+  same aggressive wild stays catchable until a real battle starts.
+- Small top-right Ball HUD; directional targeting only (no side auto-aim).
+- Catch math uses native `Catching.attempt` (species catch rate + Ball type)
+  with mild level / throw-quality / facing (back/side) modifiers.
+- Success removes the wild via Wilds despawn + Party/Box deposit; failure
+  restores the mon, shows `!`, forces aggressive behaviour, and uses the
+  existing Wilds battle pipeline. Safari sessions disable throws.
+- Inspired by Gen1PC-OverworldEncounters catching concepts (reimplemented for
+  Wilds entity / occupancy / battle architecture — not a verbatim port).
+
 ## 1.12.2
 
 ### Yellow door-exit follow — re-seeds walk the trail, never the building

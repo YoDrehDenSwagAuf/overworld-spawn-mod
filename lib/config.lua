@@ -59,6 +59,8 @@ Config.DEFAULTS = {
   -- luminance silhouette sheet from the colored art at load — no extra
   -- asset files.  Extends the water-only silhouette look to every encounter.
   wild_silhouettes = false,
+  -- Optional overworld Poké Ball throws at visible wilds (default ON).
+  overworld_catching = true,
   enable_idle = true,
   enable_wander = true,
   enable_aggressive = true,
@@ -172,6 +174,11 @@ end
 
 function Config.isEnabled(mod)
   return Config.get(mod, "enabled") == true
+end
+
+--- Optional overworld Poké Ball catching (live-toggleable).
+function Config.overworldCatchingEnabled(mod)
+  return Config.get(mod, "overworld_catching") ~= false
 end
 
 -- Public Dev Overlay toggle. Migrates legacy debug / Dev Mode when unset.

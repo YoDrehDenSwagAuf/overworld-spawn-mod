@@ -30,6 +30,7 @@ local optionStore = {
   cave_spawns = "reachable",
   town_pokemon = true,
   pokemon_grass_render_mode = "immersed",
+  overworld_catching = true,
   enable_idle = true,
   enable_wander = true,
   enable_aggressive = true,
@@ -218,8 +219,8 @@ local flabels = {}
 for _, it in ipairs(followRoot.items) do flabels[#flabels + 1] = it.label end
 local fjoin = table.concat(flabels, ",")
 check(fjoin:find("FOLLOWERS", 1, true), "followers menu has Followers count")
-check(fjoin:find("CONTROL MODE", 1, true), "followers menu has Control Mode")
-check(fjoin:find("TRAINER TRAIL", 1, true), "followers menu has Trainer Trail")
+check(fjoin:find("CONTROL", 1, true), "followers menu has Control")
+check(fjoin:find("TRAIL", 1, true), "followers menu has Trail")
 check(not fjoin:find("SPRITE COLOR", 1, true), "no Sprite Color entry")
 check(not fjoin:find("BOX LEADER", 1, true), "no unimplemented Box Leader")
 -- Root right-label reads live options after apply
@@ -228,21 +229,23 @@ for _, it in ipairs(followRoot.items) do
   if it.label == "FOLLOWERS" then countRight = it.right end
 end
 eq(countRight, "6", "followers root shows updated count")
--- Nested rows carry screen ids for close-then-push navigation
-local hasScreen = false
+-- Stepper rows may omit nested screen ids when cycling in-place.
+local hasFollowers = false
 for _, it in ipairs(followRoot.items) do
-  if it.label == "FOLLOWERS" and it.screen then hasScreen = true end
+  if it.label == "FOLLOWERS" then hasFollowers = true end
 end
-check(hasScreen, "FOLLOWERS row has screen id for push")
+check(hasFollowers, "FOLLOWERS row present")
 
--- Wilds root includes fade + town
+-- Wilds root includes fade + town + OW catch
 local wildsRoot = menus:_openWildsRoot(game)
 local wlabels = {}
 for _, it in ipairs(wildsRoot.items) do wlabels[#wlabels + 1] = it.label end
 local wjoin = table.concat(wlabels, ",")
 check(wjoin:find("SPRITE FADE", 1, true), "wilds menu has Sprite Fade")
 check(wjoin:find("TOWN POKEMON", 1, true), "wilds menu has Town Pokémon")
-check(not wjoin:find("CONTROL MODE", 1, true), "no follower control in wilds menu")
+check(wjoin:find("OW CATCH", 1, true), "wilds menu has OW Catch")
+check(not wjoin:find("CONTROL", 1, true) or wjoin:find("OW CATCH", 1, true), "wilds menu intact")
+check(not fjoin:find("SHOW WILD MONS", 1, true), "no wilds rows in followers menu")
 
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

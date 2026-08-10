@@ -388,17 +388,29 @@ function VoxelAdapter:ensureHooks()
 
   local adapter = self
   local origDrawWorld = def.drawWorld
+  -- One-time wrap only (def._owwildDrawWrapped). Always restore ctx.drawFx so
+  -- reused Dramatic Shape contexts cannot accumulate nested wrappers across
+  -- frames / Flat↔Voxel toggles (that corruption breaks player/Pokémon poses).
   def.drawWorld = function(ctx)
-    local origDrawFx = ctx and ctx.drawFx
-    if ctx then
-      ctx.drawFx = function(project, scale)
-        if type(origDrawFx) == "function" then
-          origDrawFx(project, scale)
-        end
-        adapter:drawOverlayFallbackBodies(ctx, project, scale)
-      end
+    if not ctx then
+      return origDrawWorld(ctx)
     end
-    return origDrawWorld(ctx)
+    local origDrawFx = ctx.drawFx
+    ctx.drawFx = function(project, scale)
+      if type(origDrawFx) == "function" then
+        origDrawFx(project, scale)
+      end
+      adapter:drawOverlayFallbackBodies(ctx, project, scale)
+      -- Intentionally NO RangePreview.drawVoxel here.
+      -- Voxel ground markers are disabled until a true ground-plane projection
+      -- exists; Flat green tiles remain on the independent Flat draw path.
+    end
+    local ok, result = pcall(origDrawWorld, ctx)
+    ctx.drawFx = origDrawFx
+    if not ok then
+      error(result, 0)
+    end
+    return result
   end
   def._owwildDrawWrapped = true
 

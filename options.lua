@@ -19,8 +19,8 @@
 --   Wilds of Kanto    → enabled, spawn_density, random_encounters,
 --                       water_spawns, cave_spawns, sprite_style, sprite_fade,
 --                       town_pokemon, pokemon_grass_render_mode,
---                       enable_idle, enable_wander, enable_aggressive,
---                       enable_hidden, dev_overlay
+--                       overworld_catching, enable_idle, enable_wander,
+--                       enable_aggressive, enable_hidden, dev_overlay
 
 return {
   -- ------- Core gameplay
@@ -157,6 +157,13 @@ return {
     type = "toggle",
     default = false,
     description = "Black out overworld wild Pokémon in encounter zones (grass/cave/water) as silhouettes, keeping their shapes. Derived from the coloured art at load — no extra sprite files.",
+  },
+  {
+    key = "overworld_catching",
+    label = "OW Catch",
+    type = "toggle",
+    default = true,
+    description = "Enables direct Poké Ball throws at visible wild Pokémon.",
   },
   {
     key = "enable_idle",

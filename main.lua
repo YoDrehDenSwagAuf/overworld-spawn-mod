@@ -13,6 +13,7 @@
 --   lib/cell_occupancy.lua  - atomic spawn / move cell reservations
 --   lib/followers_water_compat.lua - optional Followers EX water sprites
 --   lib/follower/           - unified follower core (selection/lifecycle/talk)
+--   lib/catching/           - optional overworld Poké Ball catching
 --   lib/diagnostics.lua     - status derivation for HUD/logs
 --   options.lua             - Mod Manager option schema
 --
@@ -104,6 +105,14 @@ return function(mod)
   })
   ambient:install()
 
+  local OverworldCatching = V.require("catching/init")
+  local catching = OverworldCatching.new(mod, logic)
+  logic.catching = catching
+  local catchRegOk, catchRegErr = catching:registerContent()
+  if not catchRegOk then
+    DebugLog.warn(mod, "overworld catch ball sprites: %s", tostring(catchRegErr))
+  end
+
   local spriteStyleMenu = SpriteStyleMenu.new(mod, logic)
   local settingsMenus = SettingsMenus.new(mod, logic, follower, ambient)
 
@@ -114,6 +123,7 @@ return function(mod)
   spriteStyleMenu:register()
   -- settingsMenus:register() after handleOptionsChanged is wired below
   behaviorTick:register()
+  catching:register()
   devOverlay:register()
 
   mod.log:info("overworld_wild_spawns loaded (enabled=%s overlay=%s debug=%s sprites=%d missing=%d)",
@@ -146,6 +156,7 @@ return function(mod)
       logic:_restoreVanillaEncounters("map.exited error")
     end
     pcall(function() ambient:onMapExited(ev) end)
+    pcall(function() catching:onMapExited(ev) end)
   end)
 
   mod.events:on("map.reloaded", function(ev)
@@ -205,6 +216,7 @@ return function(mod)
     -- save right after mods load, wiping our registered level back to OFF.
     -- Re-assert the WILDS AI pipeline now that the world is live.
     if behaviorTick then behaviorTick:syncPipelineLevel() end
+    if catching then catching:syncPipelineLevel() end
     Config.migrateSpriteStyleOption(mod)
     Config.migrateRandomEncountersOption(mod)
     Config.migrateWaterDisplayMode(mod)
@@ -319,6 +331,7 @@ return function(mod)
     end
     pcall(function() follower:onOptionsChanged(payload) end)
     pcall(function() ambient:onOptionsChanged(payload) end)
+    pcall(function() catching:onOptionsChanged(payload) end)
     if payload and payload.mod == mod.id and payload.key == "enabled" then
       syncFeatureState()
     end
@@ -351,8 +364,12 @@ return function(mod)
   mod.exports.spriteProviders = render.spriteProviders
   mod.exports.follower = follower
   mod.exports.ambient = ambient
+  mod.exports.catching = catching
   mod.exports.handleOptionsChanged = handleOptionsChanged
   mod.exports.isBattleableWild = Config.isBattleableWild
+  mod.exports.overworldCatchingEnabled = function()
+    return Config.overworldCatchingEnabled(mod)
+  end
   mod.exports.getActiveFollowerMon = function(game, needHealthy)
     return follower:getActiveFollowerMon(game, needHealthy ~= false)
   end

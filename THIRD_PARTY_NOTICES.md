@@ -31,6 +31,12 @@ See the asset-specific documentation and credits for details.
   **concepts** adapted from PokéPC Followers (gamecorner-033) and Followers EX
   (masterwebx) live under `lib/follower/`. Upstream assets are not required at
   runtime; Wilds uses built-in Poke Followers / GSC or HGSS/PokeMMO sheets.
+- Optional overworld catching **concepts** (Ball selection, 1–6 tile throws,
+  projectile arc, wobble, native catch attempt, Party/Box deposit) were
+  reimplemented for Wilds under `lib/catching/`, inspired by
+  [Gen1PC-OverworldEncounters](https://github.com/gamecorner-033/Gen1PC-OverworldEncounters)
+  (`src/catching.lua`) by gamecorner-033. Wilds does not copy that module
+  verbatim and routes failure through its own aggressive / battle pipeline.
 - ShockSlayer / Pokémon Crystal Clear overworld art remains credited via the
   PokéPC / follower lineage for GSC-style walker art.
 - TRW / DAX / Antigravity and other authors named in upstream follower credits

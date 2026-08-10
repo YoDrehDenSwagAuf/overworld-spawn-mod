@@ -559,6 +559,18 @@ function SettingsMenus:_openWildsRoot(game)
       end,
     },
     {
+      label = "OW CATCH",
+      stepper = true,
+      wrap = true,
+      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
+      current = optGet(mod, "overworld_catching", true) ~= false,
+      right = (optGet(mod, "overworld_catching", true) ~= false) and "ON" or "OFF",
+      apply = function(v)
+        optSet(mod, "overworld_catching", v == true)
+        menus:_notifyLogic("overworld_catching", v == true)
+      end,
+    },
+    {
       label = "IDLE MONS",
       stepper = true,
       wrap = true,
@@ -691,6 +703,16 @@ function SettingsMenus:register()
         { label = "OFF", value = false },
       }, optGet(mod, "enabled", true) ~= false, function(v)
         menus:_setOption("enabled", v == true, game)
+      end)
+    end,
+  })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":ow_catch", {
+    new = function(game)
+      return menus:_openChoice(game, "OW CATCH", {
+        { label = "ON", value = true },
+        { label = "OFF", value = false },
+      }, optGet(mod, "overworld_catching", true) ~= false, function(v)
+        menus:_setOption("overworld_catching", v == true, game)
       end)
     end,
   })
@@ -894,8 +916,8 @@ SettingsMenus.FOLLOWERS_OPTION_KEYS = {
 SettingsMenus.WILDS_OPTION_KEYS = {
   "enabled", "spawn_density", "random_encounters", "water_spawns",
   "cave_spawns", "sprite_style", "sprite_fade", "town_pokemon",
-  "pokemon_grass_render_mode", "enable_idle", "enable_wander",
-  "enable_aggressive", "enable_hidden", "dev_overlay",
+  "pokemon_grass_render_mode", "overworld_catching", "enable_idle",
+  "enable_wander", "enable_aggressive", "enable_hidden", "dev_overlay",
 }
 
 return SettingsMenus

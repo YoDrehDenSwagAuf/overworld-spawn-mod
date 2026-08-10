@@ -535,6 +535,9 @@ function SpawnLogic:_clearMap(mapId)
 end
 
 function SpawnLogic:clearAll()
+  if self.catching and self.catching.cancelAll then
+    pcall(function() self.catching:cancelAll("clearAll") end)
+  end
   local maps = {}
   for mapId in pairs(self.byMap) do maps[#maps + 1] = mapId end
   for _, mapId in ipairs(maps) do
@@ -2519,6 +2522,9 @@ function SpawnLogic:onMapEntered(ev)
 end
 
 function SpawnLogic:onMapExited(ev)
+  if self.catching and self.catching.cancelAll then
+    pcall(function() self.catching:cancelAll("map exited") end)
+  end
   if ev.mapId then self:_clearMap(ev.mapId) end
   if self.overlay then self.overlay:clear() end
   -- Safari flee state must not leak onto the next map.
@@ -2713,6 +2719,12 @@ function SpawnLogic:_startBattle(record)
   if entity and entity.wildsAmbientPokemon then
     return false
   end
+  if entity and (entity.wildsCatchLocked
+                 or entity.wildsCatchPending
+                 or entity.wildsCatchState == "capturing"
+                 or entity.wildsCatchState == "pending") then
+    return false
+  end
 
   local game = gameOf(self.mod)
   local mapId = record.mapId or (ow.map and ow.map.id) or self.activeMapId
@@ -2827,9 +2839,14 @@ function SpawnLogic:_despawnFar(ow)
   for id, record in pairs(self.spawns) do
     if record.state == Config.STATE.AVAILABLE then
       local entity = self.entities[id]
-      -- Never despawn an aggressive chase.
+      -- Never despawn an aggressive chase or an in-progress overworld catch.
       if entity and entity.behaviorState and entity.behaviorState.chasing then
         -- keep
+      elseif entity and (entity.wildsCatchLocked
+                        or entity.wildsCatchPending
+                        or entity.wildsCatchState == "capturing"
+                        or entity.wildsCatchState == "pending") then
+        -- keep occupancy during Ball capture
       else
         local d = Grass.chebyshev(record.x, record.y, player.cellX, player.cellY)
         if d > maxDist then
@@ -2985,6 +3002,12 @@ function SpawnLogic:onCollision(allowed, ctx)
     entity = entity or self.entities[id]
     if entity and entity.wildsAmbientPokemon then
       return allowed
+    end
+    if entity and (entity.wildsCatchLocked
+                   or entity.wildsCatchPending
+                   or entity.wildsCatchState == "capturing"
+                   or entity.wildsCatchState == "pending") then
+      return false -- occupied by capture; no battle
     end
     if entity and Config.isBattleableWild and not Config.isBattleableWild(entity) then
       return allowed
