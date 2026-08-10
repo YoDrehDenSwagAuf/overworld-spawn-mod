@@ -2,11 +2,14 @@
 -- Draws onto the render-pipeline canvas (must setCanvas), matching DebugHud.
 local V = ...
 local Config = V.require("config")
+local CatchMath = V.require("catching/catch_math")
 
 local BallHud = {}
 BallHud.__index = BallHud
 
 BallHud.PIPELINE_ID = "owwild_ball_hud"
+-- Compact icons on the 160×144 canvas (~7px).
+BallHud.ICON_PX = 7
 
 local BALL_ORDER = { "POKE_BALL", "GREAT_BALL", "ULTRA_BALL", "MASTER_BALL" }
 local BALL_SHORT = {
@@ -99,8 +102,8 @@ function BallHud:draw(canvas, ctx)
   local canvasW = (ctx and ctx.width) or 160
   if canvasW > 200 then canvasW = 160 end
   local y = 2
-  local iconW = 12
-  local gap = 2
+  local iconW = BallHud.ICON_PX
+  local gap = 3
   local startX = canvasW - 4 - (#BALL_ORDER * (iconW + gap))
 
   for i, ballType in ipairs(BALL_ORDER) do
@@ -116,6 +119,7 @@ function BallHud:draw(canvas, ctx)
 
     local img = catching:ballImage(ballType)
     if img then
+      if img.setFilter then img:setFilter("nearest", "nearest") end
       lg.setColor(1, 1, 1, alpha)
       local iw, ih = img:getDimensions()
       local s = iconW / math.max(iw, ih)
@@ -131,7 +135,7 @@ function BallHud:draw(canvas, ctx)
 
     if selectedHere then
       lg.setColor(0, 0, 0, 1)
-      lg.rectangle("line", bx, y, iconW, iconW)
+      lg.rectangle("line", bx - 1, y - 1, iconW + 2, iconW + 2)
       drawText(Font, lg, "x" .. tostring(count), bx - 1, y + iconW + 1)
     end
   end
@@ -143,7 +147,7 @@ function BallHud:draw(canvas, ctx)
     local my = 28
     local rowH = 9
     local power = meter.power or 1
-    local marked = math.max(1, math.min(6, math.floor(power + 0.5)))
+    local marked = CatchMath.roundedPower(power)
 
     -- Panel background
     lg.setColor(1, 1, 1, 1)

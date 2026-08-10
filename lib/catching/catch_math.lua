@@ -5,6 +5,15 @@ local CatchMath = {}
 
 CatchMath.MAX_RANGE = 6
 
+--- Shared rounding for HUD marker, ground preview, and landCell.
+-- 1.0–1.49 → 1 … 5.5–6.0 → 6
+function CatchMath.roundedPower(power)
+  local n = math.floor((tonumber(power) or 1) + 0.5)
+  if n < 1 then return 1 end
+  if n > CatchMath.MAX_RANGE then return CatchMath.MAX_RANGE end
+  return n
+end
+
 CatchMath.QUALITY = {
   PERFECT = "perfect",
   GREAT = "great",

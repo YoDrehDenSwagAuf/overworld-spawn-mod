@@ -64,6 +64,15 @@ check(not Target.isCatchableWild(makeWild({ trailer = true, overworldWildSpawn =
 check(not Target.isCatchableWild(makeWild({ hidden = true, visibleSprite = false })), "hidden marker not catchable")
 check(not Target.isCatchableWild(makeWild({ locked = true })), "catch-locked not catchable")
 check(not Target.isCatchableWild(makeWild({ state = "REMOVED" })), "removed not catchable")
+-- Aggressive wilds with temporary ! emote remain catchable.
+local aggro = makeWild({ id = "aggro" })
+aggro.alertIcon = true
+aggro.behavior = "AGGRESSIVE"
+check(Target.isCatchableWild(aggro), "aggressive+alertIcon catchable")
+aggro.behaviorState = { battleStarted = true }
+check(not Target.isCatchableWild(aggro), "battleStarted blocks catch")
+aggro.behaviorState = { battlePending = true }
+check(not Target.isCatchableWild(aggro), "battlePending blocks catch")
 
 local player = { cellX = 5, cellY = 5, facing = "right" }
 local logic = { entities = {} }

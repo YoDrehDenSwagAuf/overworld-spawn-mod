@@ -34,7 +34,12 @@ function Target.isCatchableWild(entity)
   if entity.caveScenery == true then return false end
   if entity.wildsFollower == true or entity.pokepcTrailer == true then return false end
   if entity.isFollower == true or entity.follower == true then return false end
-  if entity.alertIcon or entity.fxOnly or entity.overworldWildOverlay then return false end
+  -- Pure FX overlays are never catchable. A real wild with a temporary !
+  -- emote (alertIcon) MUST stay catchable — including AGGRESSIVE retries.
+  if entity.fxOnly or entity.overworldWildOverlay then return false end
+  if entity.alertIcon == true and entity.overworldWildSpawn ~= true then
+    return false
+  end
   -- Visible only: hidden grass/cave markers are battleable on contact but not throw targets.
   if entity.hiddenEncounter == true then return false end
   if entity.visibleSprite == false then return false end
@@ -48,7 +53,13 @@ function Target.isCatchableWild(entity)
   if entity.overworldWildSpawn ~= true then return false end
   local st = entity.state
   if st == "REMOVED" or st == Config.STATE.REMOVED then return false end
+  -- Block only once a real battle transition has begun — not mere AGGRESSIVE.
   if st == Config.STATE.ENCOUNTER_STARTING or st == Config.STATE.IN_BATTLE then
+    return false
+  end
+  local bx = entity.behaviorState
+  if bx and (bx.battleStarted == true or bx.battlePending == true
+             or bx.state == "BATTLE_PENDING") then
     return false
   end
   return true

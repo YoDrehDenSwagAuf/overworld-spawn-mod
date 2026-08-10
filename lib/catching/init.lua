@@ -9,6 +9,7 @@ local SafariCompat = V.require("safari_compat")
 local CatchMath = V.require("catching/catch_math")
 local Target = V.require("catching/target")
 local Projectile = V.require("catching/projectile")
+local RangePreview = V.require("catching/range_preview")
 local BallHud = V.require("catching/hud")
 local DebugLog = V.require("debug_log")
 
@@ -23,11 +24,18 @@ local METER_CYCLE_SECONDS = 1.75
 local METER_MIN = 1
 local METER_MAX = 6
 
+-- Keep full-res sources; runtime / sprite registration prefers compact *_sm.
 local BALL_ASSET = {
   POKE_BALL = "assets/balls/poke_ball.png",
   GREAT_BALL = "assets/balls/great_ball.png",
   ULTRA_BALL = "assets/balls/ultra_ball.png",
   MASTER_BALL = "assets/balls/master_ball.png",
+}
+local BALL_ASSET_SM = {
+  POKE_BALL = "assets/balls/poke_ball_sm.png",
+  GREAT_BALL = "assets/balls/great_ball_sm.png",
+  ULTRA_BALL = "assets/balls/ultra_ball_sm.png",
+  MASTER_BALL = "assets/balls/master_ball_sm.png",
 }
 
 local function tryRequire(name)
@@ -115,7 +123,7 @@ function OverworldCatching:registerContent()
   end
   for _, ballType in ipairs(OverworldCatching.BALL_TYPES) do
     local id = "SPRITE_WILDS_BALL_" .. ballType
-    local rel = BALL_ASSET[ballType]
+    local rel = BALL_ASSET_SM[ballType] or BALL_ASSET[ballType]
     local path = mod.assets and mod.assets.path and mod.assets:path(rel) or rel
     if not mod.content.sprites:get(id) then
       local ok, err = pcall(function()
@@ -139,13 +147,22 @@ function OverworldCatching:ballImage(ballType)
   if self._ballImages[ballType] ~= nil then
     return self._ballImages[ballType] or nil
   end
-  local rel = BALL_ASSET[ballType]
-  if not rel or not (love and love.graphics and love.graphics.newImage) then
+  if not (love and love.graphics and love.graphics.newImage) then
     self._ballImages[ballType] = false
     return nil
   end
+  -- Prefer compact nearest-neighbor assets for projectile + HUD.
+  local rel = BALL_ASSET_SM[ballType] or BALL_ASSET[ballType]
   local path = self.mod.assets and self.mod.assets.path and self.mod.assets:path(rel) or rel
   local ok, img = pcall(love.graphics.newImage, path)
+  if (not ok or not img) and BALL_ASSET[ballType] then
+    local full = self.mod.assets and self.mod.assets.path
+      and self.mod.assets:path(BALL_ASSET[ballType]) or BALL_ASSET[ballType]
+    ok, img = pcall(love.graphics.newImage, full)
+  end
+  if ok and img and img.setFilter then
+    pcall(img.setFilter, img, "nearest", "nearest")
+  end
   self._ballImages[ballType] = ok and img or false
   return ok and img or nil
 end
@@ -456,11 +473,28 @@ function OverworldCatching:_unlockTarget(entity, opts)
   entity._catchPrevCanBattle = nil
   if entity.behaviorState then
     entity.behaviorState.catchLocked = false
+    -- Do not leave a permanent catch-only sight lock; aggro path re-applies its own.
+    if opts.clearSightLock ~= false then
+      entity.behaviorState.sightDisabled = false
+    end
   end
   if opts.reattach ~= false and self.logic and self.logic._attach
      and entity.registeredInWorld ~= true then
     pcall(function() self.logic:_attach(entity) end)
   end
+end
+
+--- Mid-break reveal: Pokémon pops out of the Ball before cleanup/aggro.
+function OverworldCatching:_revealEscapingPokemon(entity)
+  if not entity then return end
+  self:_unlockTarget(entity)
+  entity.visible = true
+  entity.visibleSprite = true
+  entity.canTriggerBattle = true
+  entity.wildsCatchState = nil
+  entity.wildsCatchLocked = false
+  entity.wildsCatchPending = nil
+  entity.movementLocked = false
 end
 
 function OverworldCatching:_releaseThrow(game, ow)
@@ -490,12 +524,14 @@ function OverworldCatching:_releaseThrow(game, ow)
   self:_catchLog("throw released power=%.2f land=(%d,%d) facing=%s",
     power, landX, landY, tostring(facing))
 
+  local ballImage = self:ballImage(ballType)
   local function startMissFlight(feedback)
     self.phase = "flying"
     if feedback then self.hud:showFeedback(feedback, 0.7) end
     self.projectile:startFlight(game, ow, {
       ballType = ballType,
       spriteId = "SPRITE_WILDS_BALL_" .. ballType,
+      image = ballImage,
       startX = px, startY = py,
       facing = facing,
       power = power,
@@ -570,6 +606,7 @@ function OverworldCatching:_releaseThrow(game, ow)
   self.projectile:startFlight(game, ow, {
     ballType = ballType,
     spriteId = "SPRITE_WILDS_BALL_" .. ballType,
+    image = ballImage,
     startX = px, startY = py,
     facing = facing,
     power = power,
@@ -644,6 +681,15 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
     ballEntity = (proj and proj.ballEntity) or self.projectile._trackedBall,
     caught = caught,
     totalShakes = shakes or 0,
+    onEscapeReveal = function()
+      -- Pokémon pops out near the end of FAIL_BREAK (before Ball cleanup).
+      local capNow = self.activeCapture
+      if capNow and capNow.entity then
+        self:_revealEscapingPokemon(capNow.entity)
+        capNow.escapedVisible = true
+        self:_catchLog("escape reveal")
+      end
+    end,
     onResolve = function(wob)
       self:_resolveCapture(game, ow, caught == true)
     end,
@@ -666,7 +712,7 @@ function OverworldCatching:_resolveCapture(game, ow, caught)
 
   if caught then
     self:_catchLog("resolving success")
-    playSfx(game, "SFX_CAUGHT_MON")
+    -- Catch SFX already played at SUCCESS_CLICK start.
     local Pokemon = tryRequire("src.pokemon.Pokemon")
     local Party = tryRequire("src.pokemon.Party")
     local Boxes = tryRequire("src.pokemon.Boxes")
@@ -695,17 +741,16 @@ function OverworldCatching:_resolveCapture(game, ow, caught)
         msg = msg .. "\fBox is full!"
       end
     elseif not added then
-      -- No party space and no Boxes API: still report catch; party may already hold it via stub.
       if game.save and game.save.party and #(game.save.party) < 6 then
         table.insert(game.save.party, newMon)
       end
     end
 
-    -- Clean Wilds removal (occupancy, tracking, world lists).
+    -- Stay hidden; despawn via Wilds canonical path (no reappear).
     if self.logic and entity and entity.id then
       self.logic:_despawn(entity.id, true)
     else
-      self:_unlockTarget(entity, { reattach = false })
+      self:_unlockTarget(entity, { reattach = false, restoreVisible = false })
     end
     self.activeCapture = nil
     self.phase = "idle"
@@ -713,13 +758,19 @@ function OverworldCatching:_resolveCapture(game, ow, caught)
     return
   end
 
-  -- FAILURE: restore entity → ! alert → aggressive Wilds battle flow.
+  -- FAILURE after FAIL_BREAK visuals: Ball already cleaned by Projectile.
+  -- Do NOT force BattleState here — only ! → AGGRESSIVE/chase; contact starts battle.
   self:_catchLog("resolving failure")
-  playSfx(game, "SFX_BALL_POOF")
-  self:_unlockTarget(entity)
-  if entity then
+  if not cap.escapedVisible then
+    self:_revealEscapingPokemon(entity)
+  elseif entity then
     entity.visible = true
+    entity.visibleSprite = true
     entity.canTriggerBattle = true
+    entity.wildsCatchLocked = false
+    entity.wildsCatchPending = nil
+    entity.wildsCatchState = nil
+    entity.movementLocked = false
   end
 
   local freeMsg = "Oh no!\n" .. tostring(speciesName) .. " broke free!"
@@ -729,13 +780,13 @@ function OverworldCatching:_resolveCapture(game, ow, caught)
     record = logic.spawns and logic.spawns[entity.id]
   end
 
-  -- TextBox onDone (or immediate fallback inside pushText) starts aggro.
+  self.activeCapture = nil
+  self.phase = "idle"
+
+  -- TextBox onDone (or immediate fallback inside pushText) starts aggro/chase only.
   pushText(game, self.mod, freeMsg, function()
     self:_beginAggroAfterBreak(entity, record)
   end)
-
-  self.activeCapture = nil
-  self.phase = "idle"
 end
 
 function OverworldCatching:_beginAggroAfterBreak(entity, record)
@@ -750,6 +801,15 @@ function OverworldCatching:_beginAggroAfterBreak(entity, record)
   Behavior.attach(entity, newBeh, region, math.random)
   entity.behavior = newBeh
   if record then record.behavior = newBeh end
+
+  -- Ensure catch locks are fully clear so a second throw can target this mon.
+  entity.wildsCatchState = nil
+  entity.wildsCatchLocked = false
+  entity.wildsCatchPending = nil
+  entity.movementLocked = false
+  entity.canTriggerBattle = true
+  entity.visible = true
+  entity.visibleSprite = true
 
   local ow = self:overworld()
   local player = ow and ow.player
@@ -770,11 +830,14 @@ function OverworldCatching:_beginAggroAfterBreak(entity, record)
     bx.playerDetected = true
     bx.alertEmoteSpawned = false
     bx.chaseReady = false
+    bx.battleStarted = false
+    bx.battlePending = false
+    bx.catchLocked = false
     bx.sightDisabled = true
     bx.alertAt = now()
     bx.state = Behavior.STATE.ALERT
   end
-  -- Existing ! emote + chase pipeline.
+  -- Existing ! emote + chase pipeline (battle only on later contact).
   logic:_onAggressiveAlert(entity, record)
 end
 
@@ -899,6 +962,8 @@ function OverworldCatching:register()
     end,
     present = function(canvas, ctx)
       catching:step(ctx)
+      -- Ground throw-range preview (world cells) while metering.
+      RangePreview.draw(canvas, ctx, catching)
       -- Draw Ball HUD from the same pipeline that drives catching input.
       -- Guarantees meter/HUD visibility whenever the tick pipeline runs
       -- (C throw already proved this path is live). Deduped with ball_hud.
@@ -945,6 +1010,7 @@ end
 -- Test / export helpers
 OverworldCatching.Target = Target
 OverworldCatching.CatchMath = CatchMath
+OverworldCatching.RangePreview = RangePreview
 OverworldCatching.THROW_KEYS = THROW_KEYS
 OverworldCatching.CYCLE_KEYS = CYCLE_KEYS
 OverworldCatching.METER_CYCLE_SECONDS = METER_CYCLE_SECONDS

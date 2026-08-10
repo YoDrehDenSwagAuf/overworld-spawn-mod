@@ -9,6 +9,12 @@
 - Hold **C** to charge a 1–6 tile power meter, release to throw; **Q** cycles
   Poké / Great / Ultra / Master Ball from the real bag inventory (skips empty;
   **E** is not used).
+- While charging, translucent green ground tiles preview the selected throw
+  distance along facing (synced with the meter).
+- Compact ~6px Ball projectiles / ~7px HUD icons; success click + fail break
+  presentation before cleanup.
+- Failed catches use `!` → AGGRESSIVE/chase (no forced instant battle); the
+  same aggressive wild stays catchable until a real battle starts.
 - Small top-right Ball HUD; directional targeting only (no side auto-aim).
 - Catch math uses native `Catching.attempt` (species catch rate + Ball type)
   with mild level / throw-quality / facing (back/side) modifiers.

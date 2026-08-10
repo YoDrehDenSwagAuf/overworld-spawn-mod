@@ -409,7 +409,7 @@ end
 check(logic.entities["wild_hit_vis"] == nil, "HIT success removes entity after impact path")
 game.stack._top = ow
 
--- ---- SUCCESS ----
+-- ---- SUCCESS (+ SUCCESS_CLICK visual) ----
 logic.entities = {}
 logic.spawns = {}
 ow.entities = {}
@@ -422,12 +422,19 @@ catching.meter.active = true
 catching.meter.power = 2.0 -- dist 2 → PERFECT
 catching.phase = "metering"
 catching:_releaseThrow(game, ow)
--- fly + wobble
-for _ = 1, 200 do
+local sawWobble, sawClick, sawFailBreak = false, false, false
+for _ = 1, 400 do
   catching.projectile:update(game, ow, 0.05, logic.voxel)
+  local vp = catching.projectile:visualPhase()
+  if vp == "WOBBLE" then sawWobble = true end
+  if vp == "SUCCESS_CLICK" then sawClick = true end
+  if vp == "FAIL_BREAK" then sawFailBreak = true end
   if catching.phase == "idle" and not catching.projectile:isBusy()
      and catching.activeCapture == nil then break end
 end
+check(sawWobble, "success passed through WOBBLE")
+check(sawClick, "success passed through SUCCESS_CLICK")
+check(not sawFailBreak, "success never enters FAIL_BREAK")
 check(logic.entities["wild_ok"] == nil, "success removes wild entity")
 check(#despawned >= 1, "success used Wilds despawn")
 check(#occupancyReleased >= 1, "success released occupancy")
@@ -435,6 +442,7 @@ check(#game.save.party == partyBefore + 1, "success added to party")
 eq(#battleStarts, 0, "success starts no battle")
 eq(catching.phase, "idle", "success clears capture state")
 check(not catching.projectile:isBusy(), "projectile removed")
+check(catching.projectile._trackedBall == nil, "success clears tracked Ball")
 game.stack._top = ow
 
 -- ---- Master Ball hit guarantees capture ----
@@ -480,7 +488,7 @@ end
 catching:cancelAll("test reset")
 game.stack._top = ow
 
--- ---- FAILURE → aggro / ! path (not custom battle) ----
+-- ---- FAILURE → FAIL_BREAK → aggro / ! (not custom battle) ----
 logic.entities = {}
 logic.spawns = {}
 ow.entities = {}
@@ -495,19 +503,88 @@ catching.meter.active = true
 catching.meter.power = 2.0
 catching.phase = "metering"
 catching:_releaseThrow(game, ow)
-for _ = 1, 200 do
+local sawFailWobble, sawFailBreak, sawSuccessClick = false, false, false
+local sawRevealBeforeIdle = false
+for _ = 1, 400 do
   catching.projectile:update(game, ow, 0.05, logic.voxel)
+  local vp = catching.projectile:visualPhase()
+  if vp == "WOBBLE" then sawFailWobble = true end
+  if vp == "FAIL_BREAK" then
+    sawFailBreak = true
+    if entity.visible == true then sawRevealBeforeIdle = true end
+  end
+  if vp == "SUCCESS_CLICK" then sawSuccessClick = true end
   if catching.phase == "idle" and catching.activeCapture == nil
      and not catching.projectile:isBusy() then break end
 end
+check(sawFailWobble, "fail passed through WOBBLE")
+check(sawFailBreak, "fail passed through FAIL_BREAK")
+check(not sawSuccessClick, "fail never enters SUCCESS_CLICK")
+check(sawRevealBeforeIdle or entity.visible == true, "Pokémon reappears during/after break")
 check(logic.entities["wild_fail"] ~= nil, "fail keeps wild entity")
 eq(entity.visible, true, "fail restores visibility")
 eq(entity.wildsCatchLocked, false, "fail clears catch lock")
+check(not entity.wildsCatchPending, "fail clears pending")
 check(entity.behavior == Behavior.AGGRESSIVE, "fail transitions to AGGRESSIVE")
 check(#alertCalls >= 1, "! alert path called")
 eq(#battleStarts, 0, "fail does not custom-start battle directly")
 eq(#despawned, 0, "fail does not despawn")
+check(not catching.projectile:isBusy(), "fail Ball cleaned")
+local failBallLeft = false
+for _, e in ipairs(ow.entities) do
+  if e and e.isPokeBallEntity then failBallLeft = true end
+end
+check(not failBallLeft, "fail removes Ball from ow.entities")
 game.stack._top = ow
+
+-- ---- Re-catch same AGGRESSIVE mon before battle starts ----
+local Target = OverworldCatching.Target
+-- Simulate ! emote flag that previously blocked targeting.
+entity.alertIcon = true
+check(Target.isCatchableWild(entity), "aggressive+alertIcon still catchable")
+local found, fdist = Target.findAhead(logic, ow, ow.player, 6)
+check(found == entity, "findAhead retargets aggressive mon")
+eq(fdist, 2, "retarget distance still 2")
+eq(#battleStarts, 0, "no battle yet before second throw")
+check(catching:canAcceptInput(game, ow), "input accepted before battle")
+CatchingApi._force = "catch"
+local ballsBeforeRetry = catching:ballCount(game, "POKE_BALL")
+catching.selectedBallIndex = 1
+catching.meter.active = true
+catching.meter.power = 2.0
+catching.phase = "metering"
+catching:_releaseThrow(game, ow)
+eq(catching:ballCount(game, "POKE_BALL"), ballsBeforeRetry - 1, "second throw consumes ball")
+eq(catching.phase, "flying", "second catch flight starts")
+for _ = 1, 400 do
+  catching.projectile:update(game, ow, 0.05, logic.voxel)
+  if catching.phase == "idle" and catching.activeCapture == nil
+     and not catching.projectile:isBusy() then break end
+end
+check(logic.entities["wild_fail"] == nil, "second throw can catch aggressive mon")
+eq(#battleStarts, 0, "successful re-catch starts no battle")
+game.stack._top = ow
+
+-- ---- pendingBattle / battle transition rejects throws ----
+logic.entities = {}
+logic.spawns = {}
+ow.entities = {}
+entity, record = placeWild({ id = "wild_battle", x = 7, y = 5, facing = "right" })
+entity.behavior = Behavior.AGGRESSIVE
+Behavior.attach(entity, Behavior.AGGRESSIVE, nil, function() return 1 end)
+logic.pendingBattle = { id = "wild_battle" }
+check(not catching:canAcceptInput(game, ow), "pendingBattle blocks throw")
+logic.pendingBattle = nil
+entity.state = Config.STATE.ENCOUNTER_STARTING
+check(not Target.isCatchableWild(entity), "ENCOUNTER_STARTING not catchable")
+entity.state = "available"
+entity.behaviorState.battleStarted = true
+check(not Target.isCatchableWild(entity), "battleStarted not catchable")
+entity.behaviorState.battleStarted = false
+entity.behaviorState.battlePending = true
+check(not Target.isCatchableWild(entity), "battlePending not catchable")
+entity.behaviorState.battlePending = false
+check(Target.isCatchableWild(entity), "aggressive without battle is catchable again")
 
 -- ---- Live setting OFF cancels ----
 optionStore.overworld_catching = true
@@ -530,6 +607,11 @@ for _, row in ipairs(schema) do byKey[row.key] = row end
 check(byKey.overworld_catching ~= nil, "overworld_catching in schema")
 eq(byKey.overworld_catching.default, true, "default ON")
 eq(Config.overworldCatchingEnabled(V.mod), true, "Config helper ON")
+
+-- Ball presentation size contract
+eq(catching.projectile.BALL_VISUAL_PX, 6, "projectile visual ~6px")
+local BallHudMod = V.require("catching/hud")
+eq(BallHudMod.ICON_PX, 7, "HUD icon ~7px")
 
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
