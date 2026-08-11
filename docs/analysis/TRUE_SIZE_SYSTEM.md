@@ -58,11 +58,24 @@ All call `VariableSize.applyToDef` / preserve geometry fields.
 ## Follower visual trail spacing
 
 Logical footprint stays **one cell**. When `effectiveMode == true_size`,
-`ControlEngine` consumes older points from `pokepcTrailHistory` using
+`ControlEngine` consumes older points from `pokepcTrailHistory` using a
+**continuous desired gap** derived from each adjacent pair's visual WIDTH
+(`SpeciesGeometry.desiredFollowGapPx`), mapped to sticky 1/2-cell trail lag
+with hysteresis (switch up at ~25px, down at ~21px). Exceptional species use
+modest px floors (≤36), not coarse 3-tile jumps.
 
-`gap = max(gap(previous), gap(current))` from `SpeciesGeometry.followGap`.
+Door/warp/park transitions arm a **2-step spacing warmup** (Classic 1-cell
+seed) before adaptive spacing resumes. Seamless outdoor connections keep the
+translated train and do not reset warmup.
 
 Classic / Voxel-effective-Classic keep the historic 1-cell snake.
+
+## Party / OPTIONS menu previews
+
+Party-menu icons (`SpriteService:drawPartyIcon`) always draw into a fixed
+**16×16** UI box. Selected sprite style / True Size sheets may supply the
+artwork, but `frameWidth`/`frameHeight` are used only for sheet slicing —
+never as the UI footprint. Fit is uniform (aspect-preserving) and centered.
 
 ## Wild vs Follower geometry (root cause of Wild clipping)
 

@@ -106,8 +106,8 @@ for dex, exp in pairs(EXPECT) do
         exp.name .. " binds native HGSS sheet")
 end
 
--- Onix follower gap override still 3; Rattata small gap 1.
-eq(SpeciesGeometry.followGap(95), 3, "Onix follow gap override")
+-- Onix follower gap override is a modest 2 cells (continuous px, not 3-tile jump).
+eq(SpeciesGeometry.followGap(95), 2, "Onix follow gap override cells=2")
 check(SpeciesGeometry.followGap(19) >= 1, "Rattata follow gap >= 1")
 
 -- Classic mode strips geometry (no regression).

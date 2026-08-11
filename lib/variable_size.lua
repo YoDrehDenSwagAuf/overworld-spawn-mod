@@ -182,9 +182,14 @@ function VariableSize.canApplyTrueSize(mod, opts)
 end
 
 --- Visual follower trail gap in cells when True Size is effective; else 1.
+-- Continuous width→px mapping with a 1/2-cell cap (no coarse 3-cell jumps).
 function VariableSize.visualFollowGap(mod, speciesId, opts)
   if not VariableSize.canApplyTrueSize(mod, opts) then
     return 1
+  end
+  if SpeciesGeometry.desiredFollowGapPx and SpeciesGeometry.cellsForGapPx then
+    local px = SpeciesGeometry.desiredFollowGapPx(nil, speciesId, mod, opts)
+    return SpeciesGeometry.cellsForGapPx(px)
   end
   return SpeciesGeometry.followGap(speciesId, mod)
 end

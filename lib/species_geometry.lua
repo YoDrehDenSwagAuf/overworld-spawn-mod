@@ -15,8 +15,7 @@ SpeciesGeometry.SIZE_CLASSES = {
   XXL = { minH = 36, maxH = 42, label = "XXL" },
 }
 
--- Visual follower convoy trail gaps (cells). Collision footprint stays 1 cell.
--- Art-direction spacing only — used when True Size effective mode is active.
+-- Documentation / legacy class→cell map (no longer the live spacing authority).
 SpeciesGeometry.FOLLOW_GAP_BY_CLASS = {
   XS = 1,
   S = 1,
@@ -26,13 +25,27 @@ SpeciesGeometry.FOLLOW_GAP_BY_CLASS = {
   XXL = 2,
 }
 
--- Manual trail-gap overrides (dex → cells). Prefer readability over literal width.
-SpeciesGeometry.FOLLOW_GAP_OVERRIDES = {
-  [95] = 3,  -- Onix
-  [130] = 3, -- Gyarados
-  [131] = 2, -- Lapras
-  [143] = 2, -- Snorlax
+-- Continuous True Size follower spacing (pixels along trail history).
+SpeciesGeometry.CELL_PX = 16
+SpeciesGeometry.GAP_PX_MIN = 16
+SpeciesGeometry.GAP_PX_TYPICAL_MAX = 28
+SpeciesGeometry.GAP_PX_OVERRIDE_MAX = 36
+-- Hysteresis thresholds when mapping desired px → sticky trail-cell lag.
+SpeciesGeometry.GAP_HYSTERESIS_UP_PX = 25   -- 1 → 2
+SpeciesGeometry.GAP_HYSTERESIS_DOWN_PX = 21 -- 2 → 1
+SpeciesGeometry.FRONT_OVERHANG_FACTOR = 0.50
+SpeciesGeometry.BACK_OVERHANG_FACTOR = 0.30
+
+-- Exceptional desired-gap floor in pixels (not coarse 3-cell jumps).
+SpeciesGeometry.FOLLOW_GAP_PX_OVERRIDES = {
+  [95] = 32,  -- Onix
+  [130] = 34, -- Gyarados
+  [131] = 26, -- Lapras
+  [143] = 26, -- Snorlax
 }
+
+-- Deprecated cell overrides — kept as empty alias so old readers don't nil-index.
+SpeciesGeometry.FOLLOW_GAP_OVERRIDES = {}
 
 SpeciesGeometry.TABLE_REL = "assets/generated/true_size/species_table.lua"
 SpeciesGeometry.JSON_REL = "assets/generated/true_size/species_geometry.json"
@@ -113,6 +126,124 @@ function SpeciesGeometry.entryFor(speciesId, mod)
   return t[dex], dex
 end
 
+local function packFrameWidth(entry, packId)
+  if type(entry) ~= "table" or type(entry.packs) ~= "table" then return nil end
+  local preferred = {
+    packId,
+    "pokemmo",
+    "followers",
+    "pokedex",
+    "swimming",
+    "levitate",
+  }
+  for _, id in ipairs(preferred) do
+    if type(id) == "string" then
+      local pack = entry.packs[id]
+      local fw = pack and tonumber(pack.frameWidth)
+      if fw and fw > 0 then return fw end
+    end
+  end
+  for _, pack in pairs(entry.packs) do
+    local fw = type(pack) == "table" and tonumber(pack.frameWidth)
+    if fw and fw > 0 then return fw end
+  end
+  return nil
+end
+
+--- Visual WIDTH used for follower spacing (body footprint, not height).
+-- Prefers nativeVisualWidth; falls back to pack frameWidth; else Classic 16.
+function SpeciesGeometry.visualWidth(speciesId, mod, opts)
+  opts = opts or {}
+  local entry = select(1, SpeciesGeometry.entryFor(speciesId, mod))
+  if not entry then return SpeciesGeometry.CELL_PX end
+  local nw = tonumber(entry.nativeVisualWidth)
+  if nw and nw > 0 then return nw end
+  local sw = tonumber(entry.scaledVisualWidth)
+  if sw and sw > 0 then return sw end
+  return packFrameWidth(entry, opts.packId) or SpeciesGeometry.CELL_PX
+end
+
+--- Visible height hint for UI fitting (optional).
+function SpeciesGeometry.visualHeight(speciesId, mod, opts)
+  opts = opts or {}
+  local entry = select(1, SpeciesGeometry.entryFor(speciesId, mod))
+  if not entry then return SpeciesGeometry.CELL_PX end
+  local nh = tonumber(entry.nativeVisualHeight)
+  if nh and nh > 0 then return nh end
+  local sh = tonumber(entry.scaledVisualHeight)
+  if sh and sh > 0 then return sh end
+  if type(entry.packs) == "table" then
+    local pack = entry.packs[opts.packId or "pokemmo"]
+      or entry.packs.pokemmo
+      or entry.packs.followers
+    local fh = pack and tonumber(pack.frameHeight)
+    if fh and fh > 0 then return fh end
+  end
+  return SpeciesGeometry.CELL_PX
+end
+
+local function clamp(n, lo, hi)
+  if n < lo then return lo end
+  if n > hi then return hi end
+  return n
+end
+
+local function overhangPx(width)
+  return math.max(0, (tonumber(width) or SpeciesGeometry.CELL_PX) - SpeciesGeometry.CELL_PX)
+end
+
+--- Continuous desired visual gap in pixels between two convoy members.
+-- previousSpeciesId nil → trainer (~16px). Uses WIDTH overhang only.
+function SpeciesGeometry.desiredFollowGapPx(previousSpeciesId, currentSpeciesId, mod, opts)
+  opts = opts or {}
+  local frontW = SpeciesGeometry.CELL_PX
+  if previousSpeciesId ~= nil then
+    frontW = SpeciesGeometry.visualWidth(previousSpeciesId, mod, opts)
+  end
+  local backW = SpeciesGeometry.visualWidth(currentSpeciesId, mod, opts)
+  local gap = SpeciesGeometry.CELL_PX
+    + overhangPx(frontW) * SpeciesGeometry.FRONT_OVERHANG_FACTOR
+    + overhangPx(backW) * SpeciesGeometry.BACK_OVERHANG_FACTOR
+
+  local curDex = SpeciesGeometry.normalizeDex(currentSpeciesId)
+  local prevDex = SpeciesGeometry.normalizeDex(previousSpeciesId)
+  local ov = (curDex and SpeciesGeometry.FOLLOW_GAP_PX_OVERRIDES[curDex])
+    or (prevDex and SpeciesGeometry.FOLLOW_GAP_PX_OVERRIDES[prevDex])
+  local hasOverride = type(ov) == "number" and ov > 0
+  if hasOverride then
+    gap = math.max(gap, ov)
+  end
+
+  local maxPx = hasOverride
+    and SpeciesGeometry.GAP_PX_OVERRIDE_MAX
+    or SpeciesGeometry.GAP_PX_TYPICAL_MAX
+  return clamp(gap, SpeciesGeometry.GAP_PX_MIN, maxPx)
+end
+
+--- Map a desired pixel gap to a discrete trail-cell lag (no sticky state).
+-- Caps at 2 cells — exceptional 3-cell jumps are retired.
+function SpeciesGeometry.cellsForGapPx(gapPx)
+  gapPx = tonumber(gapPx) or SpeciesGeometry.CELL_PX
+  if gapPx >= SpeciesGeometry.GAP_HYSTERESIS_UP_PX then
+    return 2
+  end
+  return 1
+end
+
+--- Sticky hysteresis helper: avoid oscillating 1↔2 around the midpoint.
+function SpeciesGeometry.applyGapHysteresis(gapPx, stickyCells)
+  gapPx = tonumber(gapPx) or SpeciesGeometry.CELL_PX
+  local sticky = math.floor(tonumber(stickyCells) or 1)
+  if sticky < 1 then sticky = 1 end
+  if sticky > 2 then sticky = 2 end
+  if sticky <= 1 then
+    if gapPx >= SpeciesGeometry.GAP_HYSTERESIS_UP_PX then return 2 end
+    return 1
+  end
+  if gapPx < SpeciesGeometry.GAP_HYSTERESIS_DOWN_PX then return 1 end
+  return 2
+end
+
 --- Derive a spacing class from native / scaled visual height when present.
 local function classFromNativeHeight(h)
   h = tonumber(h) or 0
@@ -125,39 +256,17 @@ local function classFromNativeHeight(h)
 end
 
 --- Desired follower trail distance in cells for a species (visual only).
--- Returns 1 when geometry is missing (Classic-equivalent spacing).
--- Prefer explicit FOLLOW_GAP_OVERRIDES, then class from nativeVisualHeight,
--- then legacy entry.class (XS–XXL documentation classes — not HGSS sizing authority).
+-- Continuous width→px→cells (no sticky). Classic callers still get 1 via
+-- VariableSize.visualFollowGap when True Size is inactive.
 function SpeciesGeometry.followGap(speciesId, mod)
-  local dex = SpeciesGeometry.normalizeDex(speciesId)
-  if not dex then return 1 end
-  local override = SpeciesGeometry.FOLLOW_GAP_OVERRIDES[dex]
-  if type(override) == "number" and override >= 1 then
-    return math.floor(override)
-  end
-  local entry = select(1, SpeciesGeometry.entryFor(dex, mod))
-  local class = entry and entry.class or nil
-  if entry then
-    local nh = tonumber(entry.scaledVisualHeight) or tonumber(entry.nativeVisualHeight)
-    if nh and nh > 0 then
-      class = classFromNativeHeight(nh)
-    end
-  end
-  class = class or "M"
-  local gap = SpeciesGeometry.FOLLOW_GAP_BY_CLASS[class] or 1
-  if type(gap) ~= "number" or gap < 1 then gap = 1 end
-  return math.floor(gap)
+  local px = SpeciesGeometry.desiredFollowGapPx(nil, speciesId, mod)
+  return SpeciesGeometry.cellsForGapPx(px)
 end
 
---- Spacing between two convoy members: max(gap(previous), gap(current)).
--- previousSpeciesId may be nil (trainer) → uses max(1, gap(current)).
+--- Spacing between two convoy members from the pair's desired visual gap.
 function SpeciesGeometry.followGapBetween(previousSpeciesId, currentSpeciesId, mod)
-  local cur = SpeciesGeometry.followGap(currentSpeciesId, mod)
-  if previousSpeciesId == nil then
-    return math.max(1, cur)
-  end
-  local prev = SpeciesGeometry.followGap(previousSpeciesId, mod)
-  return math.max(prev, cur)
+  local px = SpeciesGeometry.desiredFollowGapPx(previousSpeciesId, currentSpeciesId, mod)
+  return SpeciesGeometry.cellsForGapPx(px)
 end
 
 -- packId: followers | pokemmo | pokedex | swimming | levitate
@@ -190,6 +299,11 @@ function SpeciesGeometry.summary(mod)
     if type(dex) == "number" and type(e) == "table" then
       n = n + 1
       local c = e.class or "?"
+      if e.nativeVisualHeight and e.nativeVisualHeight > 0 then
+        c = classFromNativeHeight(e.nativeVisualHeight)
+      elseif e.scaledVisualHeight and e.scaledVisualHeight > 0 then
+        c = classFromNativeHeight(e.scaledVisualHeight)
+      end
       classes[c] = (classes[c] or 0) + 1
       if e.manualOverride then overrides = overrides + 1 end
     end

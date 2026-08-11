@@ -610,6 +610,10 @@ function ControlEngine:_visualTrailSpacingActive()
   return VariableSize.canApplyTrueSize(self.mod) == true
 end
 
+-- Door/warp/park entries: keep Classic 1-cell spacing for N committed steps
+-- so adaptive gaps do not sample a still-empty trail history.
+ControlEngine.SPACING_WARMUP_STEPS = 2
+
 function ControlEngine:_speciesIdForTrailSource(source)
   if not source then return nil end
   if type(source) == "number" then return source end
@@ -636,6 +640,61 @@ function ControlEngine:_speciesIdForTrailSource(source)
   return nil
 end
 
+function ControlEngine:_beginSpacingWarmup(ow, steps)
+  if not ow then return end
+  local n = tonumber(steps) or self.SPACING_WARMUP_STEPS
+  if n < 0 then n = 0 end
+  ow._wildsSpacingWarmupSteps = n
+  ow.pokepcTrailGapCells = {}
+end
+
+function ControlEngine:_clearSpacingState(ow)
+  if not ow then return end
+  ow._wildsSpacingWarmupSteps = nil
+  ow.pokepcTrailGapCells = nil
+end
+
+--- Tick door/warp spacing warmup on each committed player/head step.
+function ControlEngine:_tickSpacingWarmup(ow)
+  if not ow then return end
+  local left = tonumber(ow._wildsSpacingWarmupSteps) or 0
+  if left <= 0 then
+    ow._wildsSpacingWarmupSteps = nil
+    return
+  end
+  left = left - 1
+  if left <= 0 then
+    ow._wildsSpacingWarmupSteps = nil
+  else
+    ow._wildsSpacingWarmupSteps = left
+  end
+end
+
+--- Pair-specific trail lag in cells (True Size only). Uses continuous
+-- desiredGapPx from visual WIDTH + hysteresis; never teleports.
+function ControlEngine:_pairGapCells(ow, index, previousSource, source)
+  if not self:_visualTrailSpacingActive() then return 1 end
+  if ow and (tonumber(ow._wildsSpacingWarmupSteps) or 0) > 0 then
+    return 1
+  end
+  local ok, SpeciesGeometry = pcall(function() return V.require("species_geometry") end)
+  if not ok or not SpeciesGeometry or not SpeciesGeometry.desiredFollowGapPx then
+    return 1
+  end
+  local prevId = self:_speciesIdForTrailSource(previousSource)
+  local curId = self:_speciesIdForTrailSource(source)
+  local gapPx = SpeciesGeometry.desiredFollowGapPx(prevId, curId, self.mod)
+  if ow then
+    ow.pokepcTrailGapCells = ow.pokepcTrailGapCells or {}
+    local sticky = ow.pokepcTrailGapCells[index] or 1
+    local cells = SpeciesGeometry.applyGapHysteresis(gapPx, sticky)
+    ow.pokepcTrailGapCells[index] = cells
+    return cells
+  end
+  return SpeciesGeometry.cellsForGapPx(gapPx)
+end
+
+--- Legacy helper: species-only preferred cells (no sticky / no warmup).
 function ControlEngine:_followGapForSource(source)
   if not self:_visualTrailSpacingActive() then return 1 end
   local ok, SpeciesGeometry = pcall(function() return V.require("species_geometry") end)
@@ -653,26 +712,30 @@ function ControlEngine:_pushTrailHistory(ow, x, y)
     ow.pokepcTrailHistory = history
   end
   table.insert(history, 1, { x = x, y = y })
-  -- Max convoy ~6 × max gap 3, plus slack for ledge double-steps.
+  -- Max convoy ~6 × max gap 2, plus slack for ledge double-steps.
   while #history > 24 do
     table.remove(history)
   end
 end
 
 function ControlEngine:_clearTrailHistory(ow)
-  if ow then ow.pokepcTrailHistory = {} end
+  if ow then
+    ow.pokepcTrailHistory = {}
+    ow.pokepcTrailGapCells = {}
+  end
 end
 
---- Assign trailer goals from vacated-cell history using size-aware lag.
--- gap_i = max(gap(previous), gap(current)); lag accumulates through the convoy.
+--- Assign trailer goals from vacated-cell history using pair-aware lag.
+-- Each adjacent pair derives its own desired visual gap; lag accumulates.
+-- When history is shorter than the desired lag, use the farthest valid sample
+-- (never invent positions).
 function ControlEngine:_goalsFromTrailHistory(ow, trailers, fallbackX, fallbackY)
   local history = (ow and ow.pokepcTrailHistory) or {}
   local goals = {}
   local lag = 0
-  local prevGap = 1
+  local prevSource = nil -- trainer
   for i, npc in ipairs(trailers or {}) do
-    local gap = self:_followGapForSource(npc)
-    local stepGap = (i == 1) and math.max(1, gap) or math.max(prevGap, gap)
+    local stepGap = self:_pairGapCells(ow, i, prevSource, npc)
     lag = lag + stepGap
     local cell = history[lag]
     if cell then
@@ -682,7 +745,7 @@ function ControlEngine:_goalsFromTrailHistory(ow, trailers, fallbackX, fallbackY
       goals[i] = last and { x = last.x, y = last.y }
         or { x = fallbackX, y = fallbackY }
     end
-    prevGap = gap
+    prevSource = npc
   end
   return goals
 end
@@ -1533,20 +1596,17 @@ function ControlEngine:_seedTrailBehind(ow, anchor, facing, n, game, role)
       local occupied = {}
       occupied[px .. "," .. py] = true
       local lag = 0
-      local prevGap = 1
       local gapSources = ow and ow.pokepcTrailers
+      local prevSource = nil
       for i = 1, n do
-        local gap = 1
-        if gapSources and gapSources[i] then
-          gap = self:_followGapForSource(gapSources[i])
-        end
-        local stepGap = (i == 1) and math.max(1, gap) or math.max(prevGap, gap)
+        local source = gapSources and gapSources[i] or nil
+        local stepGap = self:_pairGapCells(ow, i, prevSource, source)
         lag = lag + stepGap
         local bx, by = self:_walkableBehind(
           ow, px, py, facing, lag, nil, game, role, occupied)
         goals[i] = { x = bx, y = by }
         occupied[bx .. "," .. by] = true
-        prevGap = gap
+        prevSource = source
       end
       return goals
     end
@@ -1781,6 +1841,9 @@ function ControlEngine:syncTrailers(game, ow, opts)
     end
     if opts.spawnAtPlayer then
       self:_clearTrailHistory(ow)
+      -- Door/warp/park: freeze adaptive True Size spacing until a few
+      -- normal overworld steps rebuild fresh trail history.
+      self:_beginSpacingWarmup(ow, self.SPACING_WARMUP_STEPS)
     end
     local goals = opts.spawnAtPlayer
       and self:_seedTrailAtPlayer(ow, anchor, #want)
@@ -1828,6 +1891,10 @@ function ControlEngine:syncTrailers(game, ow, opts)
     else
       self.diag.lastSeed = "parked_at_player"
       self.diag.entryParks = (self.diag.entryParks or 0) + 1
+    end
+    if opts.spawnAtPlayer then
+      self:_clearTrailHistory(ow)
+      self:_beginSpacingWarmup(ow, self.SPACING_WARMUP_STEPS)
     end
     local goals = opts.spawnAtPlayer
       and self:_seedTrailAtPlayer(ow, anchor, #trailers)
@@ -1918,17 +1985,40 @@ function ControlEngine:syncTrailers(game, ow, opts)
         head.ledgeHop = nil
       end
       local vacatedX, vacatedY = head.x, head.y
+      -- Flat↔Voxel effective-mode flips: ease back into adaptive spacing.
+      -- Local ow marker — do not consume VariableSize.pollEffectiveModeChange
+      -- (spawn_logic owns that poll for world rebinds).
+      do
+        local okVS, VariableSize = pcall(function()
+          return V.require("variable_size")
+        end)
+        if okVS and VariableSize and VariableSize.effectiveMode then
+          local effective = VariableSize.effectiveMode(self.mod)
+          local prev = ow._wildsLastSpacingEffective
+          ow._wildsLastSpacingEffective = effective
+          if prev and prev ~= effective then
+            if effective == "true_size" then
+              self:_beginSpacingWarmup(ow, self.SPACING_WARMUP_STEPS)
+            else
+              self:_clearSpacingState(ow)
+            end
+          end
+        end
+      end
       if self:_visualTrailSpacingActive() then
         -- Visual-only: consume older trail-history points for large sprites.
         -- Logical footprint / collision remain one cell per trailer.
         self:_pushTrailHistory(ow, vacatedX, vacatedY)
         ow.pokepcTrailCells = self:_goalsFromTrailHistory(
           ow, trailers, vacatedX, vacatedY)
+        -- Decrement after assigning goals so both warmup steps stay Classic.
+        self:_tickSpacingWarmup(ow)
       else
         -- Classic / Voxel-effective-Classic: exact historic 1-cell snake.
         if ow.pokepcTrailHistory and #ow.pokepcTrailHistory > 0 then
           self:_clearTrailHistory(ow)
         end
+        self:_clearSpacingState(ow)
         local goals = ow.pokepcTrailCells or {}
         for i = #trailers, 2, -1 do
           local prev = goals[i - 1]

@@ -105,6 +105,97 @@ function SpriteService:_fallbackImage()
   return self:_modAssetPath("assets/fallback/pokemon_missing.png")
 end
 
+--- Fixed party/OPTIONS icon slot (Classic menu footprint). UI never adopts
+-- world True Size frameWidth/frameHeight as the drawn size.
+SpriteService.PARTY_ICON_BOX = 16
+
+--- Uniform fit of a source frame into a fixed UI box. Preserves aspect ratio;
+-- nearest-neighbor scaling is applied by the caller. Optional visibleW/H prefer
+-- body bounds over padded canvas size for the fit scale.
+function SpriteService.partyIconFit(frameW, frameH, box, visibleW, visibleH)
+  box = tonumber(box) or SpriteService.PARTY_ICON_BOX
+  frameW = math.max(1, tonumber(frameW) or box)
+  frameH = math.max(1, tonumber(frameH) or box)
+  local fitW = tonumber(visibleW)
+  local fitH = tonumber(visibleH)
+  if not (fitW and fitW > 0) then fitW = frameW end
+  if not (fitH and fitH > 0) then fitH = frameH end
+  -- Never let "visible" exceed the actual frame (would under-scale).
+  fitW = math.min(fitW, frameW)
+  fitH = math.min(fitH, frameH)
+  local scale = 1
+  if fitW > box or fitH > box then
+    scale = math.min(box / fitW, box / fitH)
+  end
+  local drawW = frameW * scale
+  local drawH = frameH * scale
+  -- When only frame bounds are known, keep the whole frame inside the box.
+  -- With visible body bounds, allow padded canvas to overflow — drawPartyIcon
+  -- scissors to the fixed UI slot so the body can fill the preview.
+  local usedVisible = tonumber(visibleW) and tonumber(visibleH)
+  if not usedVisible and (drawW > box or drawH > box) then
+    scale = math.min(box / frameW, box / frameH)
+    drawW = frameW * scale
+    drawH = frameH * scale
+  end
+  local ox = (box - drawW) / 2
+  local oy = (box - drawH) / 2
+  return scale, ox, oy, drawW, drawH
+end
+
+function SpriteService:clearPartyIconCache()
+  self._partyIconDefCache = {}
+end
+
+--- Re-bind party-menu art from the *requested* Pokémon Size, ignoring Voxel
+-- effectiveMode. UI previews are independent of world rendering.
+function SpriteService:_applyPartyMenuUiDef(def, species, style, variant)
+  if type(def) ~= "table" or type(def.image) ~= "string" then return def end
+  local VariableSize = V.require("variable_size")
+  local dex = self:dexOf(species)
+  local requested = VariableSize.requestedMode
+    and VariableSize.requestedMode(self.mod)
+    or "classic"
+  local work = {
+    image = def.image,
+    frames = def.frames,
+    walker = def.walker,
+    trueColor = def.trueColor,
+    id = def.id,
+  }
+  local info
+  -- Force requested mode and ignore Voxel so OPTIONS previews stay consistent.
+  work, info = VariableSize.applyToDef(self.mod, work, {
+    speciesId = dex,
+    style = style,
+    variant = variant,
+    mode = requested,
+    voxelActive = false,
+  })
+  def.image = work.image
+  def.frames = work.frames or def.frames
+  def.walker = work.walker
+  def.trueColor = work.trueColor ~= false
+  -- Keep frame geometry only for correct sheet slicing — draw ignores it.
+  def.frameWidth = work.frameWidth
+  def.frameHeight = work.frameHeight
+  def.anchorX = nil
+  def.anchorY = nil
+  def.uiPreview = true
+  def.variableSize = info and info.applied or false
+  -- Prefer native visible body for fit when the geometry table exposes it.
+  local okSG, SpeciesGeometry = pcall(function()
+    return V.require("species_geometry")
+  end)
+  if okSG and SpeciesGeometry and dex then
+    local vw = SpeciesGeometry.visualWidth and SpeciesGeometry.visualWidth(dex, self.mod)
+    local vh = SpeciesGeometry.visualHeight and SpeciesGeometry.visualHeight(dex, self.mod)
+    if vw and vw > 0 then def.uiVisibleWidth = vw end
+    if vh and vh > 0 then def.uiVisibleHeight = vh end
+  end
+  return def
+end
+
 --- Resolve a follower land/water sprite matching the active configured style.
 function SpriteService:resolveFollowerSprite(opts)
   opts = opts or {}
@@ -115,6 +206,15 @@ function SpriteService:resolveFollowerSprite(opts)
   local role = opts.role or "primary"
   local game = opts.game
   local variant = shiny and "shiny" or "normal"
+  local uiPreview = role == "party_menu"
+
+  local function finish(def)
+    if not def then return def end
+    if uiPreview then
+      return self:_applyPartyMenuUiDef(def, species, style, variant)
+    end
+    return def
+  end
 
   -- Water: prefer existing Wilds water resolver (swimming / levitates).
   if (surface == "surfing" or surface == "water") and self.logic
@@ -125,7 +225,7 @@ function SpriteService:resolveFollowerSprite(opts)
       allowLandFallback = false,
     })
     if def and def.image then
-      return {
+      return finish({
         id = def.id or "SPRITE_WILDS_FOLLOWER_WATER",
         image = def.image,
         frames = def.frames or 6,
@@ -138,7 +238,7 @@ function SpriteService:resolveFollowerSprite(opts)
         providerId = "water",
         role = role,
         surface = surface,
-      }
+      })
     end
   end
 
@@ -152,7 +252,7 @@ function SpriteService:resolveFollowerSprite(opts)
       -- colored sheets (ADVANCED / external packs) are true so they draw raw.
       local def = result.def
       local trueColor = def.trueColor ~= false
-      return {
+      return finish({
         id = (role == "player_controlled") and "SPRITE_PLAYER_POKEMON"
           or (role == "party_trailer" or role == "primary") and "SPRITE_WILDS_FOLLOWER_MON"
           or def.id or Constants.SPRITE_ID,
@@ -167,7 +267,7 @@ function SpriteService:resolveFollowerSprite(opts)
         providerId = result.providerId,
         role = role,
         surface = "land",
-      }
+      })
     end
   end
 
@@ -180,12 +280,17 @@ function SpriteService:resolveFollowerSprite(opts)
     if def and def.image then
       local VariableSize = V.require("variable_size")
       local info
-      def, info = VariableSize.applyToDef(self.mod, def, {
+      local applyOpts = {
         speciesId = dex,
         style = style,
         variant = variant,
-      })
-      return {
+      }
+      if uiPreview then
+        applyOpts.mode = VariableSize.requestedMode(self.mod)
+        applyOpts.voxelActive = false
+      end
+      def, info = VariableSize.applyToDef(self.mod, def, applyOpts)
+      return finish({
         id = def.id,
         image = def.image,
         frames = def.frames or 6,
@@ -199,11 +304,11 @@ function SpriteService:resolveFollowerSprite(opts)
         role = role,
         surface = "land",
         variableSize = info and info.applied or false,
-      }
+      })
     end
   end
 
-  return {
+  return finish({
     id = Constants.SPRITE_ID,
     image = self:_fallbackImage(),
     frames = 1,
@@ -212,13 +317,13 @@ function SpriteService:resolveFollowerSprite(opts)
     providerId = "fallback",
     role = role,
     surface = surface,
-  }
+  })
 end
 
 
 --- Resolve sprite definition for a Party Pokémon matching user's configured style.
--- Cached per style+species+variant so the party menu doesn't re-run the full
--- provider chain on every icon draw.
+-- Cached per style+species+variant+size so the party menu doesn't re-run the
+-- full provider chain on every icon draw. Footprint is always the fixed UI box.
 function SpriteService:resolvePartyIconDef(mon, game)
   if not mon then return nil end
   local species = mon.species or "CHARMANDER"
@@ -228,8 +333,13 @@ function SpriteService:resolvePartyIconDef(mon, game)
   -- -grayscale everywhere else), so the cache key must include the redpp
   -- gate; otherwise a mid-session COLORS toggle would keep serving stale art.
   local redpp = Config.paletteFxRedpp and Config.paletteFxRedpp() or false
+  local sizeMode = "classic"
+  if Config.pokemonSizeMode then
+    sizeMode = Config.pokemonSizeMode(self.mod) or sizeMode
+  end
   local cacheKey = tostring(activeStyle or "") .. "|" .. tostring(species)
     .. (shiny and "|s" or "|n") .. "|" .. (redpp and "c" or "g")
+    .. "|" .. tostring(sizeMode)
   local cached = self._partyIconDefCache[cacheKey]
   if cached then return cached end
 
@@ -273,9 +383,10 @@ function SpriteService:getPartyIconImage(imagePath)
 end
 
 --- Generates a Love2D Quad extracting a frame from a walking sprite sheet
---- (16×96, 6 frames stacked vertically → 16×16 frames). Frame 0 is STAND
---- down (front-facing idle); frame 3 is WALK down (the vanilla party-icon
---- blink alternate). Single-frame defs (e.g. pokedex fronts) draw whole.
+--- (Classic 16×96 → 16×16, or True Size sheets with stamped frameWidth/
+--- frameHeight). Frame 0 is STAND down; frame 3 is WALK down blink.
+--- Single-frame defs (e.g. pokedex fronts) draw whole.
+--- Prefer def.frameWidth/frameHeight for slicing; never use them as UI size.
 function SpriteService:getPartyMonIconQuad(def, imgWidth, imgHeight, frameIndex)
   if not (love and love.graphics and love.graphics.newQuad) then return nil end
   if type(def) ~= "table" then return nil end
@@ -284,13 +395,34 @@ function SpriteService:getPartyMonIconQuad(def, imgWidth, imgHeight, frameIndex)
   if imgWidth < 1 or imgHeight < 1 then return nil end
 
   local frames = tonumber(def.frames) or 1
-  local frameWidth, frameHeight = imgWidth, imgHeight
+  local frameWidth = tonumber(def.frameWidth)
+  local frameHeight = tonumber(def.frameHeight)
   local index = tonumber(frameIndex) or 0
-  if frames > 1 and imgHeight >= frames * 16 then
+
+  if frameWidth and frameWidth > 0 and frameHeight and frameHeight > 0 then
+    if frames > 1 then
+      index = math.max(0, math.min(frames - 1, index))
+    else
+      index = 0
+    end
+  elseif frames > 1 and imgHeight >= frames * 16 then
     frameWidth = imgWidth
     frameHeight = math.floor(imgHeight / frames)
     index = math.max(0, math.min(frames - 1, index))
+  else
+    frameWidth = imgWidth
+    frameHeight = imgHeight
+    index = 0
   end
+
+  -- Clamp so a mismatched def cannot sample outside the sheet.
+  if frameWidth > imgWidth then frameWidth = imgWidth end
+  if frames > 1 and frameHeight * frames > imgHeight then
+    frameHeight = math.floor(imgHeight / frames)
+  elseif frameHeight > imgHeight then
+    frameHeight = imgHeight
+  end
+
   return love.graphics.newQuad(0, index * frameHeight, frameWidth, frameHeight,
                                imgWidth, imgHeight)
 end
@@ -346,10 +478,12 @@ function SpriteService:drawPartyIcon(game, mon, x, y, selected, counter)
   local quad = self:getPartyMonIconQuad(def, iw, ih, frameIndex)
   if not quad then return false end
 
-  -- Oversized art (e.g. pokedex front pics) scales to the 16x16 icon slot.
+  -- Fixed UI footprint: always the Classic 16×16 party slot. True Size world
+  -- geometry must not change the menu icon's physical size — fit + center.
+  local box = SpriteService.PARTY_ICON_BOX
   local qw, qh = quadDrawnSize(quad, iw, ih)
-  local sx, sy = 1, 1
-  if qw > 16 or qh > 16 then sx, sy = 16 / qw, 16 / qh end
+  local scale, ox, oy, drawW, drawH = SpriteService.partyIconFit(
+    qw, qh, box, def.uiVisibleWidth, def.uiVisibleHeight)
 
   local prevShader = love.graphics.getShader and love.graphics.getShader()
   local r, g, b, a = love.graphics.getColor()
@@ -362,18 +496,31 @@ function SpriteService:drawPartyIcon(game, mon, x, y, selected, counter)
   local trueColorMode = Config.paletteFxRedpp
     and Config.paletteFxRedpp() or false
   if trueColorMode and love.graphics.setShader then love.graphics.setShader() end
-  love.graphics.draw(img, quad, x, y, 0, sx, sy)
+
+  local scissorOn = false
+  if love.graphics.setScissor and love.graphics.intersectScissor then
+    local okSc = pcall(love.graphics.intersectScissor, x, y, box, box)
+    scissorOn = okSc
+  elseif love.graphics.setScissor then
+    local okSc = pcall(love.graphics.setScissor, x, y, box, box)
+    scissorOn = okSc
+  end
+
+  love.graphics.draw(img, quad, x + ox, y + oy, 0, scale, scale)
+
+  if scissorOn and love.graphics.setScissor then
+    pcall(love.graphics.setScissor)
+  end
+
   if trueColorMode and love.graphics.setShader and prevShader then
     love.graphics.setShader(prevShader)
   end
 
   if trueColorMode then
-    -- Claim the rect out of the shade-remap pass (the engine re-blits it
-    -- unshaded on top of the colorized frame). Without this the zone shader
-    -- re-tints the icon back to the classic palette.
+    -- Claim the fixed UI box (not the world frame) out of the shade-remap pass.
     local PF = tryRequire("src.render.PaletteFX")
     if PF and type(PF.markTrueColor) == "function" then
-      pcall(PF.markTrueColor, x, y, qw * sx, qh * sy)
+      pcall(PF.markTrueColor, x, y, box, box)
     end
   end
 

@@ -31,6 +31,15 @@
 
 ## Unreleased
 
+### True Size polish — fixed UI previews + smoother follower spacing
+
+- Party / OPTIONS Pokémon icons stay in a fixed **16×16** UI box. True Size
+  sheets may still supply the selected style art, but world geometry no longer
+  changes the menu icon footprint (uniform fit + center; Voxel ignored for UI).
+- Follower True Size spacing uses continuous visual-WIDTH desired gaps with
+  1/2-cell hysteresis (no coarse 3-tile jumps). Door/warp parks arm a 2-step
+  Classic spacing warmup; seamless connections keep continuity.
+
 ### Optional overworld Poké Ball catching
 
 - New **OW CATCH** setting (`overworld_catching`, default **ON**) in
