@@ -141,21 +141,46 @@ function Selection:selectFollower(mon, game, opts)
 end
 
 --- Ensure selection still points at a valid party mon after party mutations.
+--- Ensure selection still points at a valid party mon after party mutations.
+-- When the selected mon is merely fainted (still in party), a healthy
+-- substitute is returned but the selection is NOT overwritten — so the
+-- original leader reclaims their slot when revived.
 function Selection:reconcile(game)
   local party = self:getParty(game)
   if not party or #party == 0 then
     return nil
   end
-  local mon, slot = self:getActiveFollowerMon(game, true)
-  if mon then
-    local key = monFingerprint(mon)
-    if key and (key ~= self.state.selectedMonKey or slot ~= self.state.selectedSlot) then
-      self.state:setSelection(key, slot)
+
+  -- Check the selected mon first — if it's healthy, update and return.
+  -- If it's fainted but still in party, return a substitute WITHOUT
+  -- overwriting the selection.
+  local selKey = self.state.selectedMonKey
+  if selKey then
+    for i, m in ipairs(party) do
+      if fingerprintsMatch(selKey, m) then
+        if healthy(m) then
+          -- Selected mon is healthy — refresh fingerprint if needed.
+          local key = monFingerprint(m)
+          if key and (key ~= selKey or i ~= self.state.selectedSlot) then
+            self.state:setSelection(key, i)
+          end
+          return m, i
+        end
+        -- Selected mon is fainted but still in party.
+        -- Find a healthy substitute without overwriting selection.
+        for j, m2 in ipairs(party) do
+          if healthy(m2) and not fingerprintsMatch(selKey, m2) then
+            return m2, j
+          end
+        end
+        return nil  -- no other healthy mon
+      end
     end
-    return mon, slot
   end
-  -- Selected fainted / removed: fall back to first healthy and persist.
-  mon, slot = self:getActiveFollowerMon(game, false)
+
+  -- No selection, or selected mon is gone from party.
+  -- Pick first healthy as new permanent leader.
+  local mon, slot = self:getActiveFollowerMon(game, false)
   if mon and healthy(mon) then
     self.state:setSelection(monFingerprint(mon), slot)
     return mon, slot

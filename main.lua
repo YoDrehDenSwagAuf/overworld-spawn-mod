@@ -166,6 +166,9 @@ return function(mod)
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("map.reloaded error")
     end
+    -- WIP merge: hide followers during the reload and re-sync them at the
+    -- player once the map is live again (healing animation, etc.).
+    pcall(function() follower:onMapReloaded(ev) end)
   end)
 
   mod.events:on("world.stepped", function(ev)

@@ -218,4 +218,149 @@ function LuminanceSheet.silhouetteFor(coloredPath)
   return result
 end
 
+-- Submerged derivation: keep original colours unchanged — the sprite
+-- stays fully coloured.  Only the lower portion of each frame is made
+-- transparent below a flat horizontal waterline, giving the illusion of
+-- the Pokémon wading / swimming half-submerged (like the surf sprite).
+-- The waterline height bobs up and down across the 6 animation frames
+-- in a staggered pattern (~12 px total range on a 16 px classic frame)
+-- so the sprite appears to rise and sink as it animates.  The waterline
+-- is horizontal — the same height for every column in a frame — so the
+-- submerged region is a clean horizontal band.  No pre-made
+-- _submerged.png files needed.  Same save-dir cache as the others.
+local SUBMERGED_ALGO_VERSION = 15 -- v15: foam + blue water line, moved up 1px
+local function submergedCacheFileName(sourcePath)
+  local key = tostring(sourcePath):gsub("[^%w%.%-_]", "_")
+  if #key > 80 then key = key:sub(#key - 79) end
+  return "submerged_v" .. SUBMERGED_ALGO_VERSION .. "_" .. key .. ".png"
+end
+
+local submergedCache = {}
+
+-- Waterline is a subtle sine wave (surf-sprite style) with a small
+-- ±1 px amplitude — barely noticeable, just enough to avoid looking
+-- like a sterile straight line.
+local WATERLINE_FRAC = 0.88  -- only bottom ~2 rows hidden
+local WAVE_AMP = 1           -- ±1 px, very subtle
+
+-- Surf-style water surface: white foam crest + blue water line.
+local FOAM_R = 0.90
+local FOAM_G = 0.94
+local FOAM_B = 1.0
+local WATER_R = 0.30
+local WATER_G = 0.55
+local WATER_B = 0.85
+
+function LuminanceSheet.submergedFor(coloredPath)
+  if type(coloredPath) ~= "string" or coloredPath == "" then return nil end
+  if not LuminanceSheet.available() then return nil end
+  if submergedCache[coloredPath] then return submergedCache[coloredPath] end
+
+  local ok, result = pcall(function()
+    if not love.filesystem.getInfo(CACHE_DIR) then
+      love.filesystem.createDirectory(CACHE_DIR)
+    end
+    local out = CACHE_DIR .. "/" .. submergedCacheFileName(coloredPath)
+    if not love.filesystem.getInfo(out) then
+      local id = love.image.newImageData(coloredPath)
+      local iw, ih = id:getWidth(), id:getHeight()
+      local frameWidth = iw
+      local frameHeight = math.floor(ih / 6)
+      local baseWl = math.max(2, math.min(frameHeight - 2,
+        math.floor(frameHeight * WATERLINE_FRAC + 0.5)))
+      id:mapPixel(function(x, y, r, g, b, a)
+        if a <= 0 then return r, g, b, a end
+        local yInFrame = y % frameHeight
+        local wave = math.sin((x / math.max(1, frameWidth - 1)) * math.pi * 2)
+        local wl = math.max(2, math.min(frameHeight - 2,
+          baseWl + math.floor(WAVE_AMP * wave + 0.5)))
+        if yInFrame > wl then
+          return r, g, b, 0   -- below water → hidden
+        end
+        if yInFrame == wl - 1 then
+          return FOAM_R, FOAM_G, FOAM_B, a  -- white foam crest
+        end
+        if yInFrame == wl then
+          return WATER_R, WATER_G, WATER_B, a  -- blue water line
+        end
+        return r, g, b, a     -- above water → original colour
+      end)
+      id:encode("png", out)
+    end
+    return out
+  end)
+
+  if not ok or type(result) ~= "string" or result == "" then
+    return nil
+  end
+  submergedCache[coloredPath] = result
+  return result
+end
+
+--- Apply the submerged waterline mask to an already-derived luminance
+--- sheet.  Used in non-ADVANCED colour modes where the coloured sprite
+--- has already been converted to the 3-shade luminance ramp.  The
+--- waterline (foam crest + blue line) uses fixed luminance shade values
+--- so the zone pass colours them consistently regardless of mode.
+local SUBMERGED_LUMA_VERSION = 1
+local function submergedLumaCacheFileName(sourcePath)
+  local key = tostring(sourcePath):gsub("[^%w%.%-_]", "_")
+  if #key > 80 then key = key:sub(#key - 79) end
+  return "subluma_v" .. SUBMERGED_LUMA_VERSION .. "_" .. key .. ".png"
+end
+
+local submergedLumaCache = {}
+
+-- Luminance shade values for the foam crest and water line.
+-- These are the same shades used by pathFor: SHADE_LIGHT, SHADE_MID,
+-- SHADE_DARK.  Foam = lightest, water = mid.
+local FOAM_LUMA = 0.8
+local WATER_LUMA = 0.45
+
+function LuminanceSheet.submergedFromLuma(lumaPath)
+  if type(lumaPath) ~= "string" or lumaPath == "" then return nil end
+  if not LuminanceSheet.available() then return nil end
+  if submergedLumaCache[lumaPath] then return submergedLumaCache[lumaPath] end
+
+  local ok, result = pcall(function()
+    if not love.filesystem.getInfo(CACHE_DIR) then
+      love.filesystem.createDirectory(CACHE_DIR)
+    end
+    local out = CACHE_DIR .. "/" .. submergedLumaCacheFileName(lumaPath)
+    if not love.filesystem.getInfo(out) then
+      local id = love.image.newImageData(lumaPath)
+      local iw, ih = id:getWidth(), id:getHeight()
+      local frameWidth = iw
+      local frameHeight = math.floor(ih / 6)
+      local baseWl = math.max(2, math.min(frameHeight - 2,
+        math.floor(frameHeight * WATERLINE_FRAC + 0.5)))
+      id:mapPixel(function(x, y, r, g, b, a)
+        if a <= 0 then return r, g, b, a end
+        local yInFrame = y % frameHeight
+        local wave = math.sin((x / math.max(1, frameWidth - 1)) * math.pi * 2)
+        local wl = math.max(2, math.min(frameHeight - 2,
+          baseWl + math.floor(WAVE_AMP * wave + 0.5)))
+        if yInFrame > wl then
+          return r, g, b, 0
+        end
+        if yInFrame == wl - 1 then
+          return FOAM_LUMA, FOAM_LUMA, FOAM_LUMA, a
+        end
+        if yInFrame == wl then
+          return WATER_LUMA, WATER_LUMA, WATER_LUMA, a
+        end
+        return r, g, b, a
+      end)
+      id:encode("png", out)
+    end
+    return out
+  end)
+
+  if not ok or type(result) ~= "string" or result == "" then
+    return nil
+  end
+  submergedLumaCache[lumaPath] = result
+  return result
+end
+
 return LuminanceSheet

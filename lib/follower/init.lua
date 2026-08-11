@@ -356,6 +356,24 @@ function Follower:onMapEntered(ev)
   end
 end
 
+--- Called on map.reloaded (e.g. after healing at a Pokemon Center).
+-- Removes all followers from view, then queues a spawn-at-player sync
+-- so they reappear together at the leader's position.
+function Follower:onMapReloaded(ev)
+  if not self.control._installed then return end
+  local engine = self.control.engine
+  if not engine then return end
+  -- Remove all followers from the overworld immediately so they
+  -- disappear during the reload (healing animation, etc.).
+  local game = self.mod and self.mod.world and self.mod.world.game
+  local ow = game and game.overworld
+  if ow then
+    pcall(function() engine:removeTrailers(ow) end)
+  end
+  engine._pendingMapTrailerSync = true
+  engine._pendingSpawnAtPlayer = true
+end
+
 function Follower:onSaveLoaded()
   local game = self.mod and self.mod.world and self.mod.world.game
   self.settings:alignSave(game)

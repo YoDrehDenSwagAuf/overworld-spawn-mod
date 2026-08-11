@@ -86,6 +86,10 @@ local function copySpriteDef(def)
   return out
 end
 
+--- Build a SpriteRenderer def carrying True Size geometry (frameWidth /
+-- frameHeight / anchorX / anchorY) so follower sprites render at the
+-- effective species size (HGSS style → True Size).  Geometry travels from
+-- the resolver; extras are merged on top.
 local function spriteDefWithGeometry(resolved, extras)
   local def = {
     id = resolved.id or "SPRITE_WILDS_FOLLOWER_MON",
@@ -358,9 +362,11 @@ function ControlEngine:getLeaderMon(game)
     if mon then return mon, "box" end
   end
 
-  -- Prefer Wilds selection when available.
+  -- Prefer Wilds selection when available.  needHealthy=true so a
+  -- fainted leader is skipped — reconcile will have already picked a
+  -- healthy substitute without overwriting the selection.
   if self.selection and type(self.selection.getActiveFollowerMon) == "function" then
-    local ok, mon, slot = pcall(self.selection.getActiveFollowerMon, self.selection, game, false)
+    local ok, mon, slot = pcall(self.selection.getActiveFollowerMon, self.selection, game, true)
     if ok and mon then return mon, "party", slot end
   end
 
@@ -600,8 +606,8 @@ function ControlEngine:_trailAnchor(game, ow, player)
   return player
 end
 
---- True Size Flat only: visual trail spacing. Classic / Voxel-effective-Classic
--- keep the historic 1-cell snake. Never mutates pokemon_size / collision.
+--- True Size: check whether visual trail spacing (followGap) is active.
+-- Controlled by the same option toggle as wild sizing.
 function ControlEngine:_visualTrailSpacingActive()
   local ok, VariableSize = pcall(function() return V.require("variable_size") end)
   if not ok or not VariableSize or not VariableSize.canApplyTrueSize then
@@ -610,6 +616,7 @@ function ControlEngine:_visualTrailSpacingActive()
   return VariableSize.canApplyTrueSize(self.mod) == true
 end
 
+--- Return a numeric species id for a trail source (mon table, spec, or npc).
 function ControlEngine:_speciesIdForTrailSource(source)
   if not source then return nil end
   if type(source) == "number" then return source end
@@ -636,6 +643,8 @@ function ControlEngine:_speciesIdForTrailSource(source)
   return nil
 end
 
+--- Size-aware follower gap for a single mon in the trail convoy.
+-- @return integer gap (1 for Classic, >= 1 for True Size)
 function ControlEngine:_followGapForSource(source)
   if not self:_visualTrailSpacingActive() then return 1 end
   local ok, SpeciesGeometry = pcall(function() return V.require("species_geometry") end)
@@ -645,6 +654,7 @@ function ControlEngine:_followGapForSource(source)
   return SpeciesGeometry.followGap(self:_speciesIdForTrailSource(source), self.mod)
 end
 
+--- Record a trail-head position into the per-overworld history ring buffer.
 function ControlEngine:_pushTrailHistory(ow, x, y)
   if not ow then return end
   local history = ow.pokepcTrailHistory
@@ -659,29 +669,53 @@ function ControlEngine:_pushTrailHistory(ow, x, y)
   end
 end
 
+--- Clear trail history (map change, re-seed, etc.).
 function ControlEngine:_clearTrailHistory(ow)
   if ow then ow.pokepcTrailHistory = {} end
 end
 
 --- Assign trailer goals from vacated-cell history using size-aware lag.
 -- gap_i = max(gap(previous), gap(current)); lag accumulates through the convoy.
+--
+-- The cell the trail head currently occupies (the player's cell) is never a
+-- valid goal: when the player doubles back over walked ground, that cell
+-- sits inside the history buffer and a lag index can land on it — the
+-- follower then walks INTO the player, the True Size reversal
+-- "slingshot".  Lag skips past any head-cell entries (and the fallback is
+-- filtered too), so followers always aim behind the head.
 function ControlEngine:_goalsFromTrailHistory(ow, trailers, fallbackX, fallbackY)
   local history = (ow and ow.pokepcTrailHistory) or {}
   local goals = {}
   local lag = 0
   local prevGap = 1
+  local head = ow and ow.pokepcTrailHead
+  local hx, hy = head and head.x, head and head.y
+  local function offHead(c)
+    return c and (hx == nil or c.x ~= hx or c.y ~= hy)
+  end
   for i, npc in ipairs(trailers or {}) do
     local gap = self:_followGapForSource(npc)
     local stepGap = (i == 1) and math.max(1, gap) or math.max(prevGap, gap)
     lag = lag + stepGap
-    local cell = history[lag]
-    if cell then
-      goals[i] = { x = cell.x, y = cell.y }
+    local cell
+    if hx ~= nil then
+      -- Walk forward from the exact lag until a non-head cell is found
+      -- (the lag slot itself can be the head cell on a doubled-back path).
+      for scan = lag, #history do
+        if offHead(history[scan]) then
+          cell = history[scan]
+          break
+        end
+      end
     else
-      local last = history[#history]
-      goals[i] = last and { x = last.x, y = last.y }
-        or { x = fallbackX, y = fallbackY }
+      cell = history[lag]
     end
+    if not cell then
+      local last = history[#history]
+      if offHead(last) then cell = last end
+    end
+    goals[i] = cell and { x = cell.x, y = cell.y }
+      or { x = fallbackX, y = fallbackY }
     prevGap = gap
   end
   return goals
@@ -714,6 +748,24 @@ function ControlEngine:partyTrailMons(game)
   local leader, leadSrc = self:getLeaderMon(game)
   local leadIdx = self:_leaderPartyIndex(game, leader, leadSrc)
   local leadKey = ControlEngine.monIdentityKey(leader)
+  -- Detect when the active leader is a stand-in for a fainted selected
+  -- mon — the substitute only appears at the player's feet, not in the
+  -- trail, so it doesn't look like a duplicate.
+  --
+  -- NOTE: selKey is Selection's monFingerprint (colon-separated
+  -- species:otId:dv:...), NOT ControlEngine.monIdentityKey (pipe-separated
+  -- species|level|nickname|otId|...).  Comparing them directly never
+  -- matches even for the same mon, which always flagged a substitute and
+  -- dropped the leader trailer in Red/Blue (no stock Pikachu renders it).
+  -- Compare the leader's own fingerprint in the selection format instead.
+  local selKey = self.selection and self.selection.state
+    and self.selection.state.selectedMonKey
+  local leadIsSubstitute = false
+  if selKey and leader and self.selection
+     and type(self.selection.monFingerprint) == "function" then
+    local leadFp = self.selection.monFingerprint(leader)
+    leadIsSubstitute = leadFp ~= nil and leadFp ~= selKey
+  end
   local front = self:isPokemonFront(game)
 
   -- Identify if stock Pikachu is active. In Yellow follow mode the stock
@@ -750,7 +802,7 @@ function ControlEngine:partyTrailMons(game)
     return false
   end
 
-  if not front and leader then
+  if not front and leader and not leadIsSubstitute then
     -- The stock NPC (when active) renders the leader and reserves slot 1, so
     -- the leader push is skipped here (skipMon blocks it below); the other
     -- party mons — including Pikachu — trail behind in party order.
@@ -1265,6 +1317,10 @@ function ControlEngine:_applyConnectionHandoff(ow)
   ow._wildsFollowerSeamActive = true
   self._pendingMapTrailerSync = false
   self._pendingSpawnAtPlayer = false
+  -- Suppress catch-up during the connection drain so the trail drains at
+  -- normal cadence — one follower per goal shift — instead of overlapping
+  -- and slingshotting ahead.
+  ow._wildsEntryCooldown = #snapshot.trailers + 2
   return true
 end
 
@@ -1532,21 +1588,10 @@ function ControlEngine:_seedTrailBehind(ow, anchor, facing, n, game, role)
     if surface == "water" then
       local occupied = {}
       occupied[px .. "," .. py] = true
-      local lag = 0
-      local prevGap = 1
-      local gapSources = ow and ow.pokepcTrailers
       for i = 1, n do
-        local gap = 1
-        if gapSources and gapSources[i] then
-          gap = self:_followGapForSource(gapSources[i])
-        end
-        local stepGap = (i == 1) and math.max(1, gap) or math.max(prevGap, gap)
-        lag = lag + stepGap
-        local bx, by = self:_walkableBehind(
-          ow, px, py, facing, lag, nil, game, role, occupied)
+        local bx, by = self:_walkableBehind(ow, px, py, facing, i, nil, game, role, occupied)
         goals[i] = { x = bx, y = by }
         occupied[bx .. "," .. by] = true
-        prevGap = gap
       end
       return goals
     end
@@ -1764,11 +1809,41 @@ function ControlEngine:syncTrailers(game, ow, opts)
   end
 
   if dirty then
+    -- When count is unchanged and trailers already exist (only species
+    -- shifted, e.g. revive or party menu reorder), swap mon references
+    -- in-place so positions are preserved.
+    if #trailers > 0 and #trailers == #want then
+      for i, spec in ipairs(want) do
+        local npc = trailers[i]
+        if npc and spec.kind == "mon" and npc.pokepcMon ~= spec.mon then
+          npc.pokepcMon = spec.mon
+          -- Species art re-resolves on the next render pass via the
+          -- existing sprite def (same image path, different species).
+          -- Do NOT set npc.sprite = nil — that can crash renderers
+          -- that dereference sprite without nil-checking.
+        end
+      end
+      -- Refresh sprites so each trailer shows its new mon's art.
+      self:_refreshTrailerMonSprites(game, ow)
+      -- Force water sprite refresh if applicable.
+      if self:_trailSurface(ow, game) == "water" then
+        ow._lastTrailSurface = nil
+      end
+      self._lastSyncedCount = wantN
+      self.diag.lastSeed = "species_swap"
+    -- Count changed mid-play (not a map entry): preserve existing trailer
+    -- positions.  When count decreased (faint), trim excess from tail and
+    -- update mon refs.  When count increased (heal, party change), add new
+    -- trailers at the anchor.  On map entry (spawnAtPlayer or fresh map),
+    -- do a full destroy+re-seed via the normal path.
+    elseif mapEnter or opts.spawnAtPlayer then
+    -- Full re-seed for map entries: the old positions are from a different map.
     self:removeTrailers(ow)
     trailers = {}
     if opts.spawnAtPlayer then
       self.diag.lastSeed = "parked_at_player"
       self.diag.entryParks = (self.diag.entryParks or 0) + 1
+      self:_clearTrailHistory(ow)
     elseif self:_seedTrailIsDistinct(ow, anchor, #want) then
       self.diag.lastSeed = "trail_reform"
       self.diag.trailReforms = (self.diag.trailReforms or 0) + 1
@@ -1779,9 +1854,6 @@ function ControlEngine:syncTrailers(game, ow, opts)
       self.diag.lastSeed = "parked_at_player"
       self.diag.entryParks = (self.diag.entryParks or 0) + 1
     end
-    if opts.spawnAtPlayer then
-      self:_clearTrailHistory(ow)
-    end
     local goals = opts.spawnAtPlayer
       and self:_seedTrailAtPlayer(ow, anchor, #want)
       or self:_seedTrailBehind(ow, anchor, facing, #want, game, surface)
@@ -1791,9 +1863,6 @@ function ControlEngine:syncTrailers(game, ow, opts)
       if not cell or not self:isFollowerCellAllowed(game, ow, nil, cell.x, cell.y, {
         surface = surface, role = role,
       }) then
-        -- Trail cell invalid (surface/occupancy): park on the anchor rather
-        -- than re-picking behind its facing (which at a door points into
-        -- the building).  The pack walks out as the trail re-opens.
         cell = { x = anchor.cellX or 0, y = anchor.cellY or 0 }
       end
       local bx, by = cell.x, cell.y
@@ -1813,43 +1882,118 @@ function ControlEngine:syncTrailers(game, ow, opts)
     end
     ow.pokepcTrailers = trailers
     ow.pokepcTrailCells = goals
-    ow.pokepcTrailHead = { x = anchor.cellX, y = anchor.cellY }
+    ow.pokepcTrailHead = {
+      x = anchor.targetX or anchor.cellX,
+      y = anchor.targetY or anchor.cellY,
+    }
     self._lastSyncedCount = wantN
-  elseif mapEnter and #trailers > 0 then
     if opts.spawnAtPlayer then
-      self.diag.lastSeed = "parked_at_player"
-      self.diag.entryParks = (self.diag.entryParks or 0) + 1
-    elseif self:_seedTrailIsDistinct(ow, anchor, #trailers) then
-      self.diag.lastSeed = "trail_reform"
-      self.diag.trailReforms = (self.diag.trailReforms or 0) + 1
-    elseif self:_trailSurface(ow, game) == "water" then
-      self.diag.lastSeed = "behind_water"
-      self.diag.behindWaterSeeds = (self.diag.behindWaterSeeds or 0) + 1
+      ow._wildsEntryCooldown = #trailers + 2
+    end
     else
+    -- Mid-play count change (faint, heal, party menu) or initial sync
+    -- without mapEnter (Red/Blue boot).
+    local oldN = 0
+    for _ in ipairs(trailers) do oldN = oldN + 1 end
+    if oldN > 0 then
+      -- Build a clean list of kept trailers (trim tail if count decreased).
+      local keepN = math.min(oldN, #want)
+      local kept = {}
+      local keptGoals = {}
+      for i = 1, keepN do
+        local npc = trailers[i]
+        local spec = want[i]
+        if npc and spec then
+          npc.pokepcMon = spec.mon
+          npc.pokepcTrailerKind = spec.kind
+          npc.wildsFollowerRole = (spec.kind == "trainer") and "trainer_trailer" or "party_trailer"
+          kept[i] = npc
+          local cell = ow.pokepcTrailCells and ow.pokepcTrailCells[i]
+          keptGoals[i] = cell or { x = npc.cellX or anchor.cellX or 0, y = npc.cellY or anchor.cellY or 0 }
+        end
+      end
+      -- Remove excess trailers from world lists (trimmed tail).
+      for i = keepN + 1, oldN do
+        local old = trailers[i]
+        if old then
+          local keepEnt, keepNpc = {}, {}
+          for _, e in ipairs(ow.entities or {}) do
+            if e ~= old then keepEnt[#keepEnt + 1] = e end
+          end
+          for _, n in ipairs(ow.npcs or {}) do
+            if n ~= old then keepNpc[#keepNpc + 1] = n end
+          end
+          ow.entities, ow.npcs = keepEnt, keepNpc
+        end
+      end
+      -- Add new trailers at anchor (count increased).
+      for i = oldN + 1, #want do
+        local spec = want[i]
+        local role = (spec.kind == "trainer") and "trainer_trailer" or "party_trailer"
+        local bx = anchor.cellX or 0
+        local by = anchor.cellY or 0
+        local okNpc, npc = pcall(function()
+          return self:makeTrailer(game, ow, bx, by, facing, spec.kind, spec.mon, i)
+        end)
+        if okNpc and npc then
+          placeTrailerAt(npc, bx, by, facing)
+          table.insert(ow.npcs, npc)
+          table.insert(ow.entities, npc)
+          kept[i] = npc
+          keptGoals[i] = { x = bx, y = by }
+        end
+      end
+      ow.pokepcTrailers = kept
+      ow.pokepcTrailCells = keptGoals
+      -- Refresh sprites so each trailer shows its new mon's art.
+      self:_refreshTrailerMonSprites(game, ow)
+      -- Force water sprite refresh if applicable.
+      if self:_trailSurface(ow, game) == "water" then
+        ow._lastTrailSurface = nil
+      end
+      self.diag.lastSeed = "count_changed"
+    else
+      -- No existing trailers (e.g. Red/Blue boot): seed new pack
+      -- parked at the player so they walk out under him.
+      self:removeTrailers(ow)
+      trailers = {}
       self.diag.lastSeed = "parked_at_player"
       self.diag.entryParks = (self.diag.entryParks or 0) + 1
-    end
-    local goals = opts.spawnAtPlayer
-      and self:_seedTrailAtPlayer(ow, anchor, #trailers)
-      or self:_seedTrailBehind(ow, anchor, facing, #trailers, game, surface)
-    for i, npc in ipairs(trailers) do
-      local role = npc.wildsFollowerRole or "party_trailer"
-      local g = goals[i]
-      if not g or not self:isFollowerCellAllowed(game, ow, npc, g.x, g.y, {
-        surface = surface, role = role,
-      }) then
-        -- Trail cell invalid: park on the anchor instead of re-picking
-        -- behind its facing (door-facing points into the building).
-        g = { x = anchor.cellX or 0, y = anchor.cellY or 0 }
-        goals[i] = g
+      self:_clearTrailHistory(ow)
+      local goals = self:_seedTrailAtPlayer(ow, anchor, #want)
+      for i, spec in ipairs(want) do
+        local role = (spec.kind == "trainer") and "trainer_trailer" or "party_trailer"
+        local cell = goals[i]
+        if not cell or not self:isFollowerCellAllowed(game, ow, nil, cell.x, cell.y, {
+          surface = surface, role = role,
+        }) then
+          cell = { x = anchor.cellX or 0, y = anchor.cellY or 0 }
+        end
+        local bx, by = cell.x, cell.y
+        local okNpc, npc = pcall(function()
+          return self:makeTrailer(game, ow, bx, by, facing, spec.kind, spec.mon, i)
+        end)
+        if not okNpc or not npc then
+          logWarn(self.mod, "trailer spawn failed slot %s: %s", tostring(i), tostring(npc))
+        else
+          placeTrailerAt(npc, bx, by, facing)
+          table.insert(ow.npcs, npc)
+          table.insert(ow.entities, npc)
+          local slot = #trailers + 1
+          trailers[slot] = npc
+          goals[slot] = { x = bx, y = by }
+        end
       end
-      placeTrailerAt(npc, g.x, g.y, facing)
-      if want[i] and want[i].kind == "mon" then
-        npc.pokepcMon = want[i].mon
-      end
+      ow.pokepcTrailers = trailers
+      ow.pokepcTrailCells = goals
+      ow._wildsEntryCooldown = #trailers + 2
     end
-    ow.pokepcTrailCells = goals
-    ow.pokepcTrailHead = { x = anchor.cellX, y = anchor.cellY }
+    ow.pokepcTrailHead = {
+      x = anchor.targetX or anchor.cellX,
+      y = anchor.targetY or anchor.cellY,
+    }
+    self._lastSyncedCount = wantN
+    end  -- inner else (count changed or initial sync)
   end
 
   local destX = anchor.targetX or anchor.cellX
@@ -1918,6 +2062,12 @@ function ControlEngine:syncTrailers(game, ow, opts)
         head.ledgeHop = nil
       end
       local vacatedX, vacatedY = head.x, head.y
+      -- Publish the new head position BEFORE trail-goal selection so
+      -- _goalsFromTrailHistory can exclude the cell the player is entering
+      -- (on a doubled-back path that cell can sit inside the history
+      -- buffer — a lag goal on it makes followers walk into the player,
+      -- the True Size "slingshot").
+      head.x, head.y = destX, destY
       if self:_visualTrailSpacingActive() then
         -- Visual-only: consume older trail-history points for large sprites.
         -- Logical footprint / collision remain one cell per trailer.
@@ -1940,7 +2090,6 @@ function ControlEngine:syncTrailers(game, ow, opts)
         end
         ow.pokepcTrailCells = goals
       end
-      head.x, head.y = destX, destY
     end
   end
 
@@ -1950,13 +2099,17 @@ function ControlEngine:syncTrailers(game, ow, opts)
   -- next goal shift). Mid-step trailers are left to advanceAllTrailers.
   local Collision = tryRequire("src.world.Collision")
   local goals = ow.pokepcTrailCells or {}
-  -- A translated train can momentarily become geometrically out of order
-  -- while its members catch up at different speeds. During seam settlement,
-  -- reserve both occupied cells and in-flight targets so no trailer can enter
-  -- a cell until its current occupant has actually vacated it.
-  local seamReservations
+  -- Reserve both occupied cells and in-flight targets so no trailer can
+  -- enter a cell until its current occupant has actually vacated it.  This
+  -- is the main step-assignment loop's equivalent of the chain pass's
+  -- occupied tracking: on a doubled-back path the lag-indexed goals can
+  -- alias to one physical cell, and two followers stepping into it overlap
+  -- and then shoot ahead (the True Size "slingshot").  During seam
+  -- settlement the trainer's cell is reserved as well, since a translated
+  -- train can momentarily sit geometrically out of order while its members
+  -- catch up at different speeds.
+  local seamReservations = {}
   if ow._wildsFollowerSeamActive then
-    seamReservations = {}
     if p.moving and p.targetX ~= nil and p.targetY ~= nil then
       -- The convoy may enter the trainer's origin on the same cadence while
       -- the trainer vacates it; reserve only the trainer's destination.
@@ -1964,13 +2117,13 @@ function ControlEngine:syncTrailers(game, ow, opts)
     elseif p.cellX ~= nil and p.cellY ~= nil then
       seamReservations[tostring(p.cellX) .. "," .. tostring(p.cellY)] = p
     end
-    for _, trailer in ipairs(trailers) do
-      if not trailer.moving and trailer.cellX ~= nil and trailer.cellY ~= nil then
-        seamReservations[tostring(trailer.cellX) .. "," .. tostring(trailer.cellY)] = trailer
-      end
-      if trailer.moving and trailer.targetX ~= nil and trailer.targetY ~= nil then
-        seamReservations[tostring(trailer.targetX) .. "," .. tostring(trailer.targetY)] = trailer
-      end
+  end
+  for _, trailer in ipairs(trailers) do
+    if not trailer.moving and trailer.cellX ~= nil and trailer.cellY ~= nil then
+      seamReservations[tostring(trailer.cellX) .. "," .. tostring(trailer.cellY)] = trailer
+    end
+    if trailer.moving and trailer.targetX ~= nil and trailer.targetY ~= nil then
+      seamReservations[tostring(trailer.targetX) .. "," .. tostring(trailer.targetY)] = trailer
     end
   end
   local function seamCellFree(x, y, npc)
@@ -2033,9 +2186,29 @@ end
 function ControlEngine:_assignTrailerStep(game, ow, npc, gx, gy, surface, role,
                                            stepClock, facing, cellFree)
   local Collision = tryRequire("src.world.Collision")
+  -- A follower must never walk onto the cell the trail head currently
+  -- occupies (the player's cell).  Path doubling (a reversal over walked
+  -- ground) can leave a stale goal or step aim on that cell; stepping in
+  -- reads as the True Size "slingshot".  The follower holds position until
+  -- the goal shifts away.  Parked pack members already on the head cell
+  -- are exempt — they step OFF it normally during the entry drain.
+  local head = ow and ow.pokepcTrailHead
+  local hx, hy = head and head.x, head and head.y
+  local onHead = (npc.cellX or 0) == hx and (npc.cellY or 0) == hy
+  if hx ~= nil and hy ~= nil and gx == hx and gy == hy and not onHead then
+    return false
+  end
   local far = math.abs((npc.cellX or 0) - gx) + math.abs((npc.cellY or 0) - gy)
   local step = self:_pickTrailerStep(game, ow, npc, gx, gy, surface, role,
                                      cellFree)
+  -- The picked step can still land on the head cell even when the goal is
+  -- behind it (the goal lies on the far side of the player, e.g. after a
+  -- second reversal).  The follower holds position instead of walking
+  -- through the player; it resumes once the head moves away.
+  if step and hx ~= nil and hy ~= nil and not onHead
+     and step.x == hx and step.y == hy then
+    return false
+  end
   if not step then
     -- No valid adjacent cell (wall pocket). Only hard-warp when the trailer
     -- is so far that waiting would strand it forever; mid-range blocked
@@ -2108,6 +2281,44 @@ function ControlEngine:_chainCatchUpSteps(game, ow, stepClock)
   stepClock = stepClock or (p and (p.stepFramesCur or p.stepFrames)) or 16
   local surface = self:_trailSurface(ow, game)
   local assigned = 0
+  -- Track cells occupied by other trailers (including mid-step targets)
+  -- so followers can't step on top of each other — the root cause of
+  -- the "slingshot" effect where overlapping followers shoot ahead.
+  local occupied = {}
+  for _, npc in ipairs(trailers) do
+    if npc then
+      occupied[(npc.cellX or 0) .. "," .. (npc.cellY or 0)] = true
+      if npc.moving and npc.targetX ~= nil and npc.targetY ~= nil then
+        occupied[npc.targetX .. "," .. npc.targetY] = true
+      end
+    end
+  end
+  local function cellFree(x, y, selfNpc)
+    -- A cell is free if no OTHER trailer occupies it (current cell or
+    -- mid-step target).  A trailer's own current cell is always free
+    -- (it's stepping away from it).  A moving trailer's current cell is
+    -- also free for others — the occupant is vacating it.
+    local key = x .. "," .. y
+    local owner = occupied[key]
+    if not owner then return true end
+    -- selfNpc is the npc passed by _pickTrailerStep; if a table is stored
+    -- as value we can compare identity.  Our occupied set uses `true` as
+    -- values, so we check by key only and allow self-vacancy: if the
+    -- occupying trailer is moving, its current cell will be vacated.
+    for _, npc in ipairs(trailers) do
+      local cx, cy = npc.cellX or 0, npc.cellY or 0
+      if cx == x and cy == y then
+        if npc == selfNpc then return true end  -- self
+        if npc.moving then return true end     -- vacating
+        return false
+      end
+      if npc.moving and npc.targetX == x and npc.targetY == y then
+        if npc == selfNpc then return true end  -- self
+        return false  -- another trailer heading here
+      end
+    end
+    return false
+  end
   for i, npc in ipairs(trailers) do
     if npc and not npc.moving then
       local gx, gy = npc._wildsGoalX, npc._wildsGoalY
@@ -2121,8 +2332,13 @@ function ControlEngine:_chainCatchUpSteps(game, ow, stepClock)
           surface = surface, role = npc.wildsFollowerRole or "party_trailer",
         }) then
           local ok = self:_assignTrailerStep(game, ow, npc, gx, gy, surface,
-            npc.wildsFollowerRole or "party_trailer", stepClock, facing)
+            npc.wildsFollowerRole or "party_trailer", stepClock, facing, cellFree)
           if ok then
+            -- Mark the step target as occupied so later trailers don't
+            -- step into it.
+            if npc.targetX ~= nil and npc.targetY ~= nil then
+              occupied[npc.targetX .. "," .. npc.targetY] = true
+            end
             -- Chain at catch-up cadence for normal steps; ledge hops keep
             -- full-length frames so the arc animation plays out properly.
             if not npc.hopStep then
@@ -2254,9 +2470,15 @@ function ControlEngine:update(game, ow, opts)
     end
 
     self:advanceAllTrailers(ow)
-    -- Stragglers re-step the moment they land so the pack closes gaps
-    -- continuously instead of freezing between goal shifts.
-    self:_chainCatchUpSteps(game, ow)
+    -- After parking the pack on the player during a map entry, suppress
+    -- catch-up steps for a brief cooldown so the trail expands naturally
+    -- one follower per step.  Without this, followers stepping from a
+    -- shared cell can overlap and slingshot ahead.
+    if ow._wildsEntryCooldown and ow._wildsEntryCooldown > 0 then
+      ow._wildsEntryCooldown = ow._wildsEntryCooldown - 1
+    else
+      self:_chainCatchUpSteps(game, ow)
+    end
     self:_finishConnectionHandoffIfComplete(ow)
     self:_traceSurf(game, ow)
   end)
@@ -2293,8 +2515,10 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
       local resolved = nil
 
       if surface == "water" then
-        -- Load the submerged poke_followers sheet directly.  Naming is
-        -- follower_NNN_{variant}_submerged.png; pick based on COLORS mode.
+        -- Derive the submerged poke_followers art at load from the coloured
+        -- LAND sheet (follower_NNN_{variant}.png) via LuminanceSheet.submergedFor
+        -- — waterline mask + foam/blue water line, cached in the save dir, no
+        -- separate _submerged.png files.  Pick the sheet by COLORS mode.
         local dex = AnimatedSprites and AnimatedSprites.resolveSpeciesId
           and AnimatedSprites.resolveSpeciesId(species, game, self.mod)
         if dex then
@@ -2303,19 +2527,18 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
           local LuminanceSheet = nil
           pcall(function() LuminanceSheet = V.require("luminance_sheet") end)
           -- Luminance-based shading: every non-ADVANCED mode derives the
-          -- 3-shade luminance sheet from the colored submerged art at load
-          -- (cached in the save dir — no separate -grayscale_submerged
-          -- files) and serves it with trueColor=false, so the engine's zone
-          -- pass colors it out of the mode palette. ADVANCED keeps the
-          -- colored (shiny/normal) submerged sheets.
+          -- 3-shade luminance sheet from the submerged art at load (cached
+          -- in the save dir) and serves it with trueColor=false, so the
+          -- engine's zone pass colors it out of the mode palette. ADVANCED
+          -- keeps the submerged colored (shiny/normal) sheet.
           local redpp = Config and Config.paletteFxRedpp and Config.paletteFxRedpp()
           local tryVariants = {}
           if not redpp then
-            tryVariants = { "normal_submerged" }
+            tryVariants = { "normal" }
           elseif shiny then
-            tryVariants = { "shiny_submerged", "normal_submerged" }
+            tryVariants = { "shiny", "normal" }
           else
-            tryVariants = { "normal_submerged" }
+            tryVariants = { "normal" }
           end
           for _, v in ipairs(tryVariants) do
             local rel = string.format(
@@ -2332,20 +2555,23 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
                 and love.filesystem.getInfo(loadPath))
                or (love and love.filesystem and love.filesystem.getInfo
                    and love.filesystem.getInfo(rel)) then
-              local luma = (not redpp) and LuminanceSheet
-                and LuminanceSheet.pathFor(loadPath) or nil
-              local image = luma or loadPath
-              resolved = {
-                image = image,
-                frames = 6,
-                walker = true,
-                -- trueColor travels with the art: luminance sheets are false
-                -- so the zone pass colors them; colored (ADVANCED / headless
-                -- fallback) is true so it draws raw.
-                trueColor = luma == nil,
-                id = "SPRITE_WILDS_FOLLOWER_SUBMERGED_" .. tostring(dex),
-              }
-              break
+              local subPath = LuminanceSheet and LuminanceSheet.submergedFor(loadPath)
+              if subPath then
+                local luma = (not redpp) and LuminanceSheet
+                  and LuminanceSheet.pathFor(subPath) or nil
+                local image = luma or subPath
+                resolved = {
+                  image = image,
+                  frames = 6,
+                  walker = true,
+                  -- trueColor travels with the art: luminance sheets are false
+                  -- so the zone pass colors them; colored (ADVANCED / headless
+                  -- fallback) is true so it draws raw.
+                  trueColor = luma == nil,
+                  id = "SPRITE_WILDS_FOLLOWER_SUBMERGED_" .. tostring(dex),
+                }
+                break
+              end
             end
           end
         end
@@ -2375,6 +2601,43 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
       end
       npc.wildsFollowerWater = (surface == "water")
       npc.spriteState = surface
+    end
+  end
+end
+
+--- Resolve sprite art for every mon trailer from its current pokepcMon.
+-- Call after species-swap or count-changed inline updates to refresh sprites
+-- so a trailer doesn't keep showing the old mon's art after its mon ref changed.
+function ControlEngine:_refreshTrailerMonSprites(game, ow, surface)
+  if not (ow and ow.pokepcTrailers) then return end
+  local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
+  if not (SpriteRenderer and SpriteRenderer.new) then return end
+  surface = surface or self:_trailSurface(ow, game) or "land"
+
+  for _, npc in ipairs(ow.pokepcTrailers) do
+    if npc and npc.pokepcTrailerKind == "mon" and npc.pokepcMon then
+      local mon = npc.pokepcMon
+      local species = mon.species or npc._wildsFollowerSpecies
+      if species then
+        local shiny = isShinyMon(mon) or (npc.pokepcShiny == true)
+        local resolved = self:resolveFollowerSprite({
+          species = species,
+          shiny = shiny,
+          form = mon.form,
+          surface = surface,
+          role = "party_trailer",
+          game = game,
+        })
+        if resolved and resolved.image then
+          local ok, sprite = pcall(SpriteRenderer.new, spriteDefWithGeometry(resolved, {
+            pokepcShiny = shiny and true or false,
+          }), npc.id)
+          if ok and sprite then
+            npc.sprite = sprite
+            npc._wildsFollowerSpecies = species
+          end
+        end
+      end
     end
   end
 end
@@ -2514,12 +2777,40 @@ function ControlEngine:_installOverworldUpdateWrap()
     engine.diag.overworldUpdateCalls = (engine.diag.overworldUpdateCalls or 0) + 1
     -- After vanilla: player.targetX/Y for this logic frame are committed,
     -- and stock npc:update has already run (trailer.update is a no-op).
-    pcall(function()
-      engine:update(engine:_game(), owSelf, {
-        dt = dt,
-        source = "overworld",
-      })
-    end)
+    --
+    -- Cutscene gate: during dialogs / healing animations the vanilla
+    -- PikachuFollower.shouldSpawn returns false.  When it does and the
+    -- player isn't surfing (surfing also trips vanilla shouldSpawn but
+    -- trailers still need to follow on water), purge trailers and skip
+    -- the engine update so they stay hidden for the cutscene duration.
+    --
+    -- During map transitions (pending handoff or sync is queued) the
+    -- player state may be indeterminate — never treat as cutscene.
+    local game = engine:_game()
+    local vanillaSpawn = engine._vanillaShouldSpawn
+    local transitioning = engine._pendingConnectionHandoff ~= nil
+      or engine._pendingMapTrailerSync == true
+    -- The cutscene gate is Yellow-only: vanilla shouldSpawn reflects the
+    -- stock Pikachu (healing/dialog hiding).  In Red/Blue vanilla
+    -- shouldSpawn is false whenever no Pikachu is in the party — gating on
+    -- it would freeze the whole pack on land (Red/Blue hides trailers via
+    -- map.exited -> removeTrailers instead).
+    local yellow = engine:_isYellow()
+    local inCutscene = yellow and not transitioning
+      and vanillaSpawn and not vanillaSpawn(game, owSelf)
+      and not (owSelf.player and owSelf.player.surfing)
+    if inCutscene then
+      -- Skip the engine update so trailers aren't re-added to entities
+      -- during the cutscene.  The engine's own rendering system hides
+      -- NPCs during dialogs / healing — our job is to not fight it.
+    else
+      pcall(function()
+        engine:update(game, owSelf, {
+          dt = dt,
+          source = "overworld",
+        })
+      end)
+    end
     return a, b, c, d, e
   end
   OverworldState.update = owUpdateWrap
@@ -2543,6 +2834,67 @@ function ControlEngine:_restoreOverworldUpdateWrap()
   self._owOrigUpdate = nil
 end
 
+--- Install mod event subscriptions (map.entered, game.ready, etc.).
+-- Called from install() before the PF check, so Red/Blue also gets events.
+function ControlEngine:_installEventSubscriptions()
+  local engine = self
+  local mod = self.mod
+  if not (mod and mod.events and mod.events.on) then return end
+
+  local function subscribe(name, callback)
+    local ok, off = pcall(mod.events.on, mod.events, name, callback)
+    if ok and type(off) == "function" then
+      engine._eventOff[#engine._eventOff + 1] = off
+    elseif not ok then
+      logWarn(mod, "event subscription failed (%s): %s", tostring(name), tostring(off))
+    end
+  end
+  subscribe("mod.options_changed", function(payload)
+      if payload and (payload.mod == mod.id) then
+        engine._optCache = {}
+      end
+    end)
+  subscribe("map.exited", function(payload)
+      local game = engine:_game()
+      local ow = game and game.overworld
+      engine:_captureMapExit(game, ow, payload)
+      -- Remove trailers from the overworld so they disappear during
+      -- transitions (healing, warps, doors).  Connection handoffs
+      -- reattach them in _applyConnectionHandoff; other entries
+      -- re-create them fresh via spawnAtPlayer.
+      pcall(function() engine:removeTrailers(ow) end)
+    end)
+  subscribe("map.entered", function(payload)
+      local game = engine:_game()
+      local ow = game and game.overworld
+      pcall(function() engine:syncPlayerControlVisual(game, ow) end)
+      engine:_queueMapEntry(game, ow, payload)
+      engine._pendingMapTrailerSync = true
+      -- Seamless outside-to-outside connections keep the existing train
+      -- (translated by _applyConnectionHandoff); any other entry (warp /
+      -- door / boot / healing) parks the pack on the player's cell.
+      if not (payload and payload.via == "connection") then
+        engine._pendingSpawnAtPlayer = true
+        -- Remove any leftover trailers from the previous map immediately
+        -- so they don't remain visible during transitions (healing, etc.)
+        -- before the next update() processes the spawn-at-player sync.
+        if ow then pcall(function() engine:removeTrailers(ow) end) end
+      end
+    end)
+  subscribe("game.ready", function()
+      local game = engine:_game()
+      engine._mapExitSnapshot = nil
+      engine._pendingConnectionHandoff = nil
+      engine:alignSaveFromOptions(game)
+      pcall(function()
+        engine:syncPlayerControlVisual(game, game and game.overworld)
+      end)
+      engine._pendingMapTrailerSync = true
+      engine._pendingSpawnAtPlayer = true
+      pcall(function() engine:_installTalkWrap() end)
+    end)
+end
+
 --- Install PikachuFollower hooks. Idempotent; restores previous on reinstall.
 -- Returns false, "no_engine" when NPC/PikachuFollower are unavailable (tests).
 function ControlEngine:install()
@@ -2550,11 +2902,32 @@ function ControlEngine:install()
     self:restore()
   end
 
+  -- Always install the OverworldController update wrap so trailers
+  -- tick in every version (Red / Blue / Yellow).  This must succeed
+  -- even when PikachuFollower is absent (Red / Blue).
+  local owWrapOk = self:_installOverworldUpdateWrap()
+
+  -- Always install event subscriptions (map.entered, game.ready, etc.)
+  -- regardless of PF availability.  Red/Blue needs these for the OW
+  -- update wrap to work (it relies on _pendingMapTrailerSync).
+  self:_installEventSubscriptions()
+
   local PF = tryRequire("src.world.PikachuFollower")
   local NPC = tryRequire("src.world.NPC")
   if not PF or not NPC then
+    -- Red / Blue: no PikachuFollower, but OverworldController.update
+    -- is now wrapped and events are subscribed.  Return partial so
+    -- lifecycle does NOT install its own hooks (which also need PF) —
+    -- trailers are handled by the OW update wrap alone.
+    if owWrapOk then
+      self._installed = true
+      return true, "ow_only"
+    end
     return false, "no_engine"
   end
+
+  -- PF is available: set the trailer update owner (overworld or fallback).
+  self._trailerUpdateOwner = owWrapOk and "overworld" or "pikachu_follower"
 
   -- Hot-reload: restore any previous control-engine install first.
   local previous = rawget(PF, Constants.CONTROL_ENGINE_STATE_KEY)
@@ -2579,10 +2952,6 @@ function ControlEngine:install()
   local origFollowerUpdate = PF.update
   local origOnMap = PF.onMapEntered
   local origStarterInParty = PF.starterInParty
-
-  -- Prefer OverworldController.update as the sole trailer tick owner.
-  local owWrapOk = self:_installOverworldUpdateWrap()
-  self._trailerUpdateOwner = owWrapOk and "overworld" or "pikachu_follower"
 
   local function wrappedUpdate(game, ow, ...)
     engine.diag.wrappedUpdateCalls = (engine.diag.wrappedUpdateCalls or 0) + 1
@@ -2650,52 +3019,6 @@ function ControlEngine:install()
   pcall(function() self:_installOverworldUpdateWrap() end)
   if self._owUpdateWrapped then
     self._trailerUpdateOwner = "overworld"
-  end
-
-  local mod = self.mod
-  if mod and mod.events and mod.events.on then
-    local function subscribe(name, callback)
-      local ok, off = pcall(mod.events.on, mod.events, name, callback)
-      if ok and type(off) == "function" then
-        engine._eventOff[#engine._eventOff + 1] = off
-      elseif not ok then
-        logWarn(mod, "event subscription failed (%s): %s", tostring(name), tostring(off))
-      end
-    end
-    subscribe("mod.options_changed", function(payload)
-        if payload and (payload.mod == mod.id) then
-          engine._optCache = {}
-        end
-      end)
-    subscribe("map.exited", function(payload)
-        local game = engine:_game()
-        local ow = game and game.overworld
-        engine:_captureMapExit(game, ow, payload)
-      end)
-    subscribe("map.entered", function(payload)
-        local game = engine:_game()
-        local ow = game and game.overworld
-        pcall(function() engine:syncPlayerControlVisual(game, ow) end)
-        engine:_queueMapEntry(game, ow, payload)
-        engine._pendingMapTrailerSync = true
-        -- Seamless outside-to-outside connections keep the existing train
-        -- (translated by _applyConnectionHandoff); any other entry (warp /
-        -- door / boot) parks the pack on the player's cell.
-        if not (payload and payload.via == "connection") then
-          engine._pendingSpawnAtPlayer = true
-        end
-      end)
-    subscribe("game.ready", function()
-        local game = engine:_game()
-        engine._mapExitSnapshot = nil
-        engine._pendingConnectionHandoff = nil
-        engine:alignSaveFromOptions(game)
-        pcall(function()
-          engine:syncPlayerControlVisual(game, game and game.overworld)
-        end)
-        engine._pendingMapTrailerSync = true
-        pcall(function() engine:_installTalkWrap() end)
-      end)
   end
 
   local restoreState = {

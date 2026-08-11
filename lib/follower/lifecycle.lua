@@ -47,10 +47,6 @@ local function defAlreadyBound(entity, def)
   return cur.image == def.image
      and cur.frames == def.frames
      and cur.walker == def.walker
-     and cur.frameWidth == def.frameWidth
-     and cur.frameHeight == def.frameHeight
-     and cur.anchorX == def.anchorX
-     and cur.anchorY == def.anchorY
 end
 
 function Lifecycle.new(mod, state, selection)
@@ -153,6 +149,8 @@ function Lifecycle:purgeFollowerEntities(ow)
           and ent.pikachuFollower == true)
     )
     -- Never purge Followers EX trailers (external ownership).
+    -- Also never purge Wilds-owned pokepcTrailers — they're managed
+    -- by ControlEngine:syncTrailers, not the leader lifecycle.
     if ent and ent.pokepcTrailer == true then
       isFollower = false
     end

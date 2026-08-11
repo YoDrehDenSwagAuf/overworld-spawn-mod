@@ -19,10 +19,11 @@ by party Pokémon — without replacing the classic Gen 1 feel.
 - Cave spawn filtering
 - Safari compatibility
 - Multiple sprite styles
-- Optional **Pokémon Size** (Classic / True Size) — relative species scale in Flat;
-  automatically uses Classic geometry while an incompatible Dramatic Shape Voxel
-  renderer is active (saved preference is unchanged)
-- Town / Ambient Pokémon
+- Sprite size tied to Sprite Style — GSC sprites use **Classic** (one-tile 16×16)
+  presentation, HGSS sprites use **True Size** (larger relative species sizes;
+  Classic geometry is used automatically while an incompatible Dramatic Shape
+  Voxel renderer is active)
+- Town / Indoor / Ambient Pokémon
 - Red / Blue / Yellow
 - Dramatic Shape Voxel compatibility
 
@@ -83,9 +84,10 @@ There is no second settings store.
 | Random Enc | On / Off | On | Classic step-based random encounters. |
 | Water Mons | Swim Sprites / Hid Silhouette / Silhouettes / Classic Enc / Disabled | Swim Sprites | How water Pokémon appear. |
 | Cave Spawns | Reachable Only / Mixed | Reachable Only | Cave spawn reachability filter. |
-| Sprite Style | Poke Followers / GSC · HGSS / PokeMMO · Pokédex | Poke Followers / GSC | Overworld sprite style for wilds and followers. |
+| Sprite Style | Poke Followers / GSC · HGSS / PokeMMO · Pokédex | Poke Followers / GSC | Overworld sprite style for wilds and followers. Sprite size follows the style: GSC sprites use Classic (16×16) presentation, HGSS sprites use True Size (larger species-accurate sizes). There is no separate Pokémon Size option. |
 | Sprite Fade | Solid / Faded | Solid | Opacity of normal wild sprites (Solid = fully opaque). |
 | Town Pokémon | On / Off | On | Peaceful ambient Pokémon in safe towns and interiors. |
+| Indoor Pokémon | On / Off | On | Ambient Pokémon inside buildings (Poké Centers, houses, labs, gates). |
 | Grass View | Above / Immersed | Immersed | Draw wilds above tall grass or immersed in it. |
 | Idle Mons | On / Off | On | Allow idle look behaviour. |
 | Roam Mons | On / Off | On | Allow wander behaviour. |

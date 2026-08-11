@@ -1,6 +1,7 @@
 -- Variable-size / True Size support for Gen1Recomp SpriteRenderer (#1016 / PR #1020).
 --
--- requestedMode  = user option (pokemon_size) — NEVER rewritten when Voxel toggles
+-- requestedMode  = derived from Sprite Style (GSC→Classic, HGSS→True Size) —
+--                   never rewritten when Voxel toggles
 -- effectiveMode  = what rendering actually uses (Classic while Voxel + incompatible DS)
 --
 -- Dramatic Shape without variableSpriteGeometry → effective Classic.
@@ -194,7 +195,7 @@ function VariableSize.logVoxelFallback(mod, reason)
   _loggedFallback = true
   local msg = string.format(
     "[WildsOfKanto][DEV] True Size suspended while Voxel renderer is active (%s). "
-      .. "Saved pokemon_size option is unchanged; Flat restores True Size automatically.",
+      .. "Sprite size follows Sprite Style (HGSS→True Size); Flat restores it automatically.",
     tostring(reason))
   if DebugLog and DebugLog.warn then
     DebugLog.warn(mod, "%s", msg)

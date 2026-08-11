@@ -250,10 +250,13 @@ function SpriteResolver:resolveWaterSprite(entity, context)
     return result
   end
 
-  -- 1) Direct poke_followers submerged check (fsExists, no mod:read).
+  -- 1) poke_followers submerged art for the GSC/Followers style.
   -- Only applies when the GSC/Followers sprite style is selected; otherwise
   -- falls through to the provider chain + swimming/levitates registry so
   -- the user's chosen style (e.g. HGSS) is respected.
+  -- The submerged look is DERIVED at load from the coloured poke_followers
+  -- LAND sheet via LuminanceSheet.submergedFor (waterline mask + foam/blue
+  -- water line, cached in the save dir) — no separate _submerged.png files.
   local useGscSubmerged = false
   if Config and type(Config.normalizeSpriteStyle) == "function" then
     useGscSubmerged = Config.normalizeSpriteStyle(style) == "followers"
@@ -271,18 +274,18 @@ function SpriteResolver:resolveWaterSprite(entity, context)
     end
     if dex and type(dex) == "number" then
       -- Luminance-based shading: every non-ADVANCED mode derives the 3-shade
-      -- luminance sheet from the colored submerged art at load (cached in
-      -- the save dir — no separate -grayscale_submerged files) and serves it
-      -- with trueColor=false, so the engine's zone pass colors it out of the
-      -- mode palette. ADVANCED keeps the colored (shiny/normal) sheets.
+      -- luminance sheet from the submerged art at load (cached in the save
+      -- dir) and serves it with trueColor=false, so the engine's zone pass
+      -- colors it out of the mode palette. ADVANCED keeps the submerged
+      -- colored (shiny/normal) sheet and serves it with trueColor=true.
       local redpp = Config and Config.paletteFxRedpp and Config.paletteFxRedpp()
       local tryVariants
       if not redpp then
-        tryVariants = { "normal_submerged" }
+        tryVariants = { "normal" }
       elseif variant == "shiny" then
-        tryVariants = { "shiny_submerged", "normal_submerged" }
+        tryVariants = { "shiny", "normal" }
       else
-        tryVariants = { "normal_submerged" }
+        tryVariants = { "normal" }
       end
       for _, v in ipairs(tryVariants) do
         local rel = string.format(
@@ -297,34 +300,37 @@ function SpriteResolver:resolveWaterSprite(entity, context)
             and love.filesystem.getInfo(loadPath))
            or (love and love.filesystem and love.filesystem.getInfo
                and love.filesystem.getInfo(rel)) then
-          local luma = (not redpp) and LuminanceSheet.pathFor(loadPath) or nil
-          local image = luma or loadPath
-          local def = {
-            image = image,
-            frames = 6,
-            walker = true,
-            -- trueColor travels with the art: luminance sheets are false so
-            -- the zone pass colors them; colored (ADVANCED / headless) true.
-            trueColor = luma == nil,
-            id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dex),
-          }
-          local meta = {
-            providerId = "poke_followers_submerged",
-            requestedStyle = style,
-            fallbackStep = 1,
-            usedVariant = v,
-            loadPath = image,
-            relativePath = rel,
-            bodyRenderer = "NATIVE_SPRITE_RENDERER",
-            waterSource = "poke_followers_submerged",
-            kind = "submerged",
-            frames = 6,
-            walker = true,
-          }
-          steps[#steps + 1] = { providerId = "poke_followers_submerged", ok = true }
-          return finish({ def = def, meta = meta, providerId = "poke_followers_submerged",
-            fallbackStep = 1, steps = steps, spriteState = "water",
-            spriteKind = "submerged" })
+          local subPath = LuminanceSheet.submergedFor(loadPath)
+          if subPath then
+            local luma = (not redpp) and LuminanceSheet.pathFor(subPath) or nil
+            local image = luma or subPath
+            local def = {
+              image = image,
+              frames = 6,
+              walker = true,
+              -- trueColor travels with the art: luminance sheets are false so
+              -- the zone pass colors them; colored (ADVANCED / headless) true.
+              trueColor = luma == nil,
+              id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dex),
+            }
+            local meta = {
+              providerId = "poke_followers_submerged",
+              requestedStyle = style,
+              fallbackStep = 1,
+              usedVariant = v,
+              loadPath = image,
+              relativePath = rel,
+              bodyRenderer = "NATIVE_SPRITE_RENDERER",
+              waterSource = "poke_followers_submerged",
+              kind = "submerged",
+              frames = 6,
+              walker = true,
+            }
+            steps[#steps + 1] = { providerId = "poke_followers_submerged", ok = true }
+            return finish({ def = def, meta = meta, providerId = "poke_followers_submerged",
+              fallbackStep = 1, steps = steps, spriteState = "water",
+              spriteKind = "submerged" })
+          end
         end
       end
     end

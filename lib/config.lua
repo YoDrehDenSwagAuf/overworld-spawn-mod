@@ -31,16 +31,23 @@ Config.DEFAULTS = {
   -- sprite_color removed: sheets always render true-color (24-bit PNG packs
   -- must never be force-baked to the 4-shade DMG ramp).
   sprite_style = "followers",
-  -- Pokémon visual size: classic = current 16×16 runtime geometry (safe default).
-  -- true_size = Gen1Recomp variable-size SpriteDef geometry when the engine API
-  -- is present and (if Voxel is on) Dramatic Shape consumes getPoseGeometry.
-  pokemon_size = "classic", -- classic | true_size
+  -- Pokémon size is tied to Sprite Style (no separate option):
+  --   GSC sprites (followers) → Classic (one-tile 16×16 presentation)
+  --   HGSS sprites (pokemmo)  → True Size (variable-size SpriteDef geometry
+  --                             when the engine API is present and, if Voxel
+  --                             is on, Dramatic Shape consumes getPoseGeometry)
+  --   Pokédex sprites         → Classic
+  -- pokemon_size is kept only as a migration fallback default; the option was
+  -- removed and saved values are ignored.
+  pokemon_size = "classic", -- legacy fallback (option removed)
   -- Follower control (built-in; replaces FOLLOWERS_EX options).
   follow_control = "trainer", -- trainer | pokemon
   trainer_trail = false,
   follower_count = 1, -- 0–6 extra party trailers
   -- Peaceful ambient NPCs in towns / safe interiors (not wild battles).
   town_pokemon = true,
+  -- Ambient NPCs inside buildings (Poké Centers, houses, labs, etc.).
+  indoor_pokemon = true,
   -- Legacy key kept for save migration only (Mon Sprites toggle).
   use_animated_overworld_sprites = true,
   pokemon_grass_render_mode = "immersed",
@@ -335,11 +342,6 @@ local VALID_POKEMON_SIZES = {
   true_size = true,
 }
 
-local POKEMON_SIZE_CONFIRM = {
-  classic = "CLASSIC",
-  true_size = "TRUE SIZE",
-}
-
 -- Migrate legacy / unknown save values onto the public three-choice set.
 -- Internal provider ids (followers_ex / poke_followers) map to public "followers".
 function Config.normalizeSpriteStyle(value)
@@ -413,22 +415,18 @@ function Config.normalizePokemonSize(value)
   return "classic"
 end
 
+-- Pokémon size is tied to Sprite Style (the separate Pokémon Size option was
+-- removed): GSC sprites → Classic, HGSS sprites → True Size, Pokédex → Classic.
+-- Saved pokemon_size values are ignored (migration / legacy only).
 function Config.pokemonSizeMode(mod)
-  local raw, present = Config.peekSavedOption(mod, "pokemon_size")
-  if present then
-    return Config.normalizePokemonSize(raw)
+  local style = Config.spriteStyle(mod)
+  if style == "pokemmo" then
+    return "true_size"
   end
-  if mod and mod.options and type(mod.options.get) == "function" then
-    local v = mod.options:get("pokemon_size")
-    if v ~= nil then
-      return Config.normalizePokemonSize(v)
-    end
-  end
-  return Config.normalizePokemonSize(Config.DEFAULTS.pokemon_size)
+  return "classic"
 end
 
 Config.VALID_POKEMON_SIZES = VALID_POKEMON_SIZES
-Config.POKEMON_SIZE_CONFIRM = POKEMON_SIZE_CONFIRM
 
 function Config.spriteStyle(mod)
   local rawStyle, stylePresent = Config.peekSavedOption(mod, "sprite_style")
@@ -631,44 +629,6 @@ end
 
 Config.VALID_SPRITE_STYLES = VALID_SPRITE_STYLES
 Config.SPRITE_STYLE_CONFIRM = SPRITE_STYLE_CONFIRM
-
-function Config.setPokemonSize(mod, value, source, opts)
-  opts = opts or {}
-  value = Config.normalizePokemonSize(value)
-  if not VALID_POKEMON_SIZES[value] then
-    return false, "invalid pokemon_size: " .. tostring(value)
-  end
-  local game = resolveGame(mod, opts)
-  writeOptionBucket(mod, game, "pokemon_size", value)
-
-  local render = opts.render
-  local logic = opts.logic
-  if (not render or not logic) and mod and mod.exports then
-    render = render or mod.exports.render
-    logic = logic or mod.exports.logic
-  end
-  local refreshed = 0
-  if render and logic and type(render.refreshAllEntitySprites) == "function" then
-    if type(render.invalidateAssetCache) == "function" then
-      pcall(render.invalidateAssetCache, render)
-    end
-    local ok, n = pcall(render.refreshAllEntitySprites, render, logic, game)
-    if ok and type(n) == "number" then refreshed = n end
-  end
-
-  local confirmMsg = opts.message
-  if not confirmMsg and opts.confirm ~= false then
-    confirmMsg = "SIZE: " .. (POKEMON_SIZE_CONFIRM[value] or value:upper())
-  end
-  confirmText(game, mod, confirmMsg)
-
-  if source and mod and mod.log and type(mod.log.info) == "function" then
-    pcall(mod.log.info, mod.log,
-      "pokemon_size set to %s via %s (refreshed=%d)",
-      value, tostring(source), refreshed)
-  end
-  return true, refreshed
-end
 
 local VALID_SPAWN_AMOUNTS = {
   low = true,
@@ -1424,6 +1384,37 @@ function Config.setTownPokemon(mod, value, source, opts)
   local confirmMsg = opts.message
   if not confirmMsg and opts.confirm ~= false then
     confirmMsg = "TOWN: " .. (on and "ON" or "OFF")
+  end
+  confirmText(game, mod, confirmMsg)
+  return true, on
+end
+
+function Config.indoorPokemonEnabled(mod)
+  local raw, present = Config.peekSavedOption(mod, "indoor_pokemon")
+  if present then return raw == true end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local v = mod.options:get("indoor_pokemon")
+    if v ~= nil then return v == true end
+  end
+  return Config.DEFAULTS.indoor_pokemon == true
+end
+
+function Config.setIndoorPokemon(mod, value, source, opts)
+  opts = opts or {}
+  local on = (value == true or value == "on" or value == "ON")
+  if value == false or value == "off" or value == "OFF" then on = false end
+  local game = resolveGame(mod, opts)
+  writeOptionBucket(mod, game, "indoor_pokemon", on)
+  local ambient = opts.ambient
+  if not ambient and mod and mod.exports then
+    ambient = mod.exports.ambient
+  end
+  if ambient and type(ambient.onIndoorPokemonToggled) == "function" then
+    pcall(ambient.onIndoorPokemonToggled, ambient, on, game)
+  end
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "INDOOR: " .. (on and "ON" or "OFF")
   end
   confirmText(game, mod, confirmMsg)
   return true, on

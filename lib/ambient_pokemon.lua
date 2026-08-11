@@ -504,6 +504,17 @@ function AmbientPokemon:spawnForMap(game, ow)
     return 0
   end
 
+  -- Indoor toggle: skip buildings when Indoor Mons is OFF.
+  if not Config.indoorPokemonEnabled(self.mod) then
+    local kind = AmbientPokemon.classifyMap(game, mapId, map)
+    local indoorKinds = { pokecenter = true, house = true, mart = true, lab = true, gate = true }
+    if indoorKinds[kind] then
+      self:clearAll(ow)
+      self.activeMapId = mapId
+      return 0
+    end
+  end
+
   -- Already populated for this map.
   if self.activeMapId == mapId then
     local n = 0

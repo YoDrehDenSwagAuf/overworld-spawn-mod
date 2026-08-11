@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Pokémon Size tied to Sprite Style (option removed)
+
+- Removed the **Pokémon Size** (Classic / True Size) option from Mod Settings
+  and the in-game OPTIONS menu. Sprite size now follows **Sprite Style**:
+  - GSC sprites (Poke Followers / GSC) → **Classic** (one-tile 16×16)
+  - HGSS sprites (HGSS / PokeMMO) → **True Size** (larger species-relative sizes)
+  - Pokédex sprites → **Classic**
+- Changing Sprite Style live-rebinds wilds, followers, Town Pokémon, and water
+  sprites to the matching size; the True Size Voxel fallback (Classic geometry
+  while an incompatible Dramatic Shape renderer is active) is unchanged.
+- Re-enabled overworld Poké Ball catching (OW Catch / Catch HUD options) that
+  had been locally disabled.
+
+### Swimming sprite luminance derivation (followers / trailers)
+
+- The GSC / Poke Followers and party-trailer water paths now derive the
+  submerged look at load from the coloured poke_followers **LAND** sheets via
+  `LuminanceSheet.submergedFor` (waterline mask + foam/blue water line, cached
+  in the save dir) — the same runtime derivation the wild path already used —
+  instead of loading separate `follower_NNN_*_submerged.png` files. Non-ADVANCED
+  COLORS modes serve the derived 3-shade luminance ramp with `trueColor=false`
+  so the engine's zone pass colors it out of the mode palette; ADVANCED serves
+  the submerged coloured sheet raw. This restores luminance-correct swimming
+  sprites for followers and trailers now that the separate submerged asset
+  files are no longer shipped.
+
 ## 1.14.0
 
 ### True Size for all Gen1 species (Classic fallback sacred)

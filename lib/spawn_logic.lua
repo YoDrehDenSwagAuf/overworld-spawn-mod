@@ -223,15 +223,14 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
       dexId = AnimatedSprites.resolveSpeciesId(speciesId, game, self.mod)
     end
     if not dexId then return nil end
-    -- Luminance-based shading: every non-ADVANCED mode derives the 3-shade
-    -- luminance sheet from the colored submerged art at load (cached in the
-    -- save dir — no separate -grayscale_submerged files) and serves it with
-    -- trueColor=false, so the engine's zone pass colors it out of the mode
-    -- palette. ADVANCED keeps the colored (shiny/normal) submerged sheets.
+    -- Derive the submerged look from the normal coloured poke_followers
+    -- sheet at load — no separate _submerged.png files.  Luminance-based
+    -- shading: every non-ADVANCED mode then derives the 3-shade luminance
+    -- sheet from the submerged art; ADVANCED keeps the submerged coloured.
     local redpp = Config and Config.paletteFxRedpp and Config.paletteFxRedpp()
     if not redpp then
       local rel = string.format(
-        "assets/enhanced_overworld/poke_followers/follower_%03d_normal_submerged.png",
+        "assets/enhanced_overworld/poke_followers/follower_%03d_normal.png",
         dexId)
       local loadPath = rel
       if self.mod and self.mod.assets and self.mod.assets.path then
@@ -242,33 +241,34 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
           and love.filesystem.getInfo(loadPath))
          or (love and love.filesystem and love.filesystem.getInfo
              and love.filesystem.getInfo(rel)) then
-        local luma = LuminanceSheet.pathFor(loadPath)
-        local image = luma or loadPath
-        return {
-          image = image,
-          frames = 6,
-          walker = true,
-          -- trueColor travels with the art: luminance sheets are false so
-          -- the zone pass colors them; colored (headless fallback) is true.
-          trueColor = luma == nil,
-          id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dexId),
-        }, {
-          kind = "submerged",
-          speciesId = dexId,
-          variant = "normal_submerged",
-          form = form,
-          image = image,
-          frames = 6,
-          walker = true,
-        }
+        local subPath = LuminanceSheet.submergedFor(loadPath)
+        if subPath then
+          local luma = LuminanceSheet.pathFor(subPath)
+          local image = luma or subPath
+          return {
+            image = image,
+            frames = 6,
+            walker = true,
+            trueColor = luma == nil,
+            id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dexId),
+          }, {
+            kind = "submerged",
+            speciesId = dexId,
+            variant = "normal",
+            form = form,
+            image = image,
+            frames = 6,
+            walker = true,
+          }
+        end
       end
       return nil, nil
     end
     local tryVariants
     if variant == "shiny" then
-      tryVariants = { "shiny_submerged", "normal_submerged" }
+      tryVariants = { "shiny", "normal" }
     else
-      tryVariants = { "normal_submerged" }
+      tryVariants = { "normal" }
     end
     for _, v in ipairs(tryVariants) do
       local rel = string.format(
@@ -283,21 +283,24 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
           and love.filesystem.getInfo(loadPath))
          or (love and love.filesystem and love.filesystem.getInfo
              and love.filesystem.getInfo(rel)) then
-        return {
-          image = loadPath,
-          frames = 6,
-          walker = true,
-          trueColor = true,
-          id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dexId),
-        }, {
-          kind = "submerged",
-          speciesId = dexId,
-          variant = v,
-          form = form,
-          image = loadPath,
-          frames = 6,
-          walker = true,
-        }
+        local subPath = LuminanceSheet.submergedFor(loadPath)
+        if subPath then
+          return {
+            image = subPath,
+            frames = 6,
+            walker = true,
+            trueColor = true,
+            id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dexId),
+          }, {
+            kind = "submerged",
+            speciesId = dexId,
+            variant = v,
+            form = form,
+            image = subPath,
+            frames = 6,
+            walker = true,
+          }
+        end
       end
     end
     return nil, nil
@@ -2656,11 +2659,11 @@ function SpawnLogic:onOptionsChanged(payload)
       if self.overlay then self.overlay:clear() end
     end
   elseif key == "sprite_style"
-      or key == "use_animated_overworld_sprites"
-      or key == "pokemon_size" then
+      or key == "use_animated_overworld_sprites" then
     -- Legacy Mon Sprites toggles map onto sprite_style via Config.spriteStyle.
-    -- pokemon_size never mutates when Voxel toggles — only this option handler
-    -- or Flat↔Voxel effective-mode rebind refreshes presentation.
+    -- Sprite size follows sprite_style (GSC→Classic, HGSS→True Size), so this
+    -- handler refreshes both together; Flat↔Voxel effective-mode rebind also
+    -- refreshes presentation without touching any saved option.
     local world = self.mod.world
     local game = world and world.game
     self.render:invalidateAssetCache()
@@ -2892,7 +2895,8 @@ function SpawnLogic:_wander(ow)
 end
 
 --- When Voxel toggles, effectiveMode may flip Classic↔True Size while the
---- saved pokemon_size option stays unchanged. Rebind all visual consumers.
+--- requested size (derived from sprite_style) stays unchanged. Rebind all
+--- visual consumers.
 function SpawnLogic:_pollTrueSizeEffectiveMode()
   local VariableSize = V.require("variable_size")
   local changed, effective = VariableSize.pollEffectiveModeChange(self.mod)
@@ -2928,7 +2932,7 @@ function SpawnLogic:_pollTrueSizeEffectiveMode()
   if ambient and ambient.refreshSprites then
     pcall(ambient.refreshSprites, ambient, game)
   end
-  self:_log("True Size effectiveMode -> %s (requested=%s; option unchanged)",
+  self:_log("True Size effectiveMode -> %s (requested=%s)",
             tostring(effective), tostring(VariableSize.requestedMode(self.mod)))
 end
 
@@ -2936,7 +2940,7 @@ function SpawnLogic:onStepped(ev)
   self.state.updateCallbackCount = self.state.updateCallbackCount + 1
   self.state.updateCallbackActive = true
 
-  -- Flat↔Voxel: rebind True Size ↔ Classic without touching saved pokemon_size.
+  -- Flat↔Voxel: rebind True Size ↔ Classic (size follows sprite_style).
   self:_pollTrueSizeEffectiveMode()
 
   if Config.debug(self.mod) and self.state.updateCallbackCount == 1 then

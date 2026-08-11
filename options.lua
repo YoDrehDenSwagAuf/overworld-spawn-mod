@@ -17,11 +17,16 @@
 --   Poke Followers EX → follow_control, trainer_trail, follower_count
 --                       (+ Leader via party menu hint)
 --   Wilds of Kanto    → enabled, spawn_density, random_encounters,
---                       water_spawns, cave_spawns, sprite_style, pokemon_size,
---                       sprite_fade, town_pokemon, pokemon_grass_render_mode,
+--                       water_spawns, cave_spawns, sprite_style, sprite_fade,
+--                       town_pokemon, pokemon_grass_render_mode,
 --                       overworld_catching, catch_hud_size, enable_idle,
 --                       enable_wander, enable_aggressive, enable_hidden,
 --                       dev_overlay
+--
+-- Pokémon size is not a separate option: it is tied to Sprite Style.
+--   GSC sprites (followers)   → Classic (one-tile 16×16 presentation)
+--   HGSS sprites (pokemmo)    → True Size (larger relative species sizes)
+--   Pokédex sprites           → Classic
 
 return {
   -- ------- Core gameplay
@@ -42,18 +47,7 @@ return {
       { "HGSS / PokeMMO", "pokemmo" },
       { "Pokédex", "pokedex" },
     },
-    description = "Overworld sprite style for wild Pokémon and followers. Poke Followers / GSC is the built-in default. Water Pokémon still use Swimming or Levitates sprites when available.",
-  },
-  {
-    key = "pokemon_size",
-    label = "Pokémon Size",
-    type = "choice",
-    default = "classic",
-    choices = {
-      { "Classic", "classic" },
-      { "True Size", "true_size" },
-    },
-    description = "Classic keeps the original one-tile (16×16) sprite presentation. True Size uses larger relative species sizes in normal 2D (Flat) gameplay and automatically falls back to Classic while an incompatible Voxel renderer is active. Your True Size preference is preserved across Voxel toggles.",
+    description = "Overworld sprite style for wild Pokémon and followers. Poke Followers / GSC is the built-in default. Sprite size follows the style: GSC sprites use Classic (16×16) presentation, HGSS sprites use True Size (larger relative species sizes). Water Pokémon still use Swimming or Levitates sprites when available.",
   },
   {
     key = "sprite_fade",
@@ -167,7 +161,7 @@ return {
     key = "wild_silhouettes",
     label = "Enc Silhouette",
     type = "toggle",
-    default = false,
+    default = true,
     description = "Black out overworld wild Pokémon in encounter zones (grass/cave/water) as silhouettes, keeping their shapes. Derived from the coloured art at load — no extra sprite files.",
   },
   {
