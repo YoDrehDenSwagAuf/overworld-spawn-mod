@@ -312,6 +312,8 @@ function SpriteResolver:resolveWaterSprite(entity, context)
               -- the zone pass colors them; colored (ADVANCED / headless) true.
               trueColor = luma == nil,
               id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dex),
+              artFamily = "poke_followers_submerged",
+              spriteStyle = style,
             }
             local meta = {
               providerId = "poke_followers_submerged",
@@ -322,22 +324,34 @@ function SpriteResolver:resolveWaterSprite(entity, context)
               relativePath = rel,
               bodyRenderer = "NATIVE_SPRITE_RENDERER",
               waterSource = "poke_followers_submerged",
+              artFamily = "poke_followers_submerged",
               kind = "submerged",
               frames = 6,
               walker = true,
             }
             steps[#steps + 1] = { providerId = "poke_followers_submerged", ok = true }
-            return finish({ def = def, meta = meta, providerId = "poke_followers_submerged",
+            local result = {
+              def = def, meta = meta, providerId = "poke_followers_submerged",
               fallbackStep = 1, steps = steps, spriteState = "water",
-              spriteKind = "submerged" })
+              spriteKind = "submerged",
+            }
+            self:_devLogWaterResolve(result, speciesId or dex, style)
+            return finish(result)
           end
         end
       end
     end
   end
 
+  local styleNorm = style
+  if Config and type(Config.normalizeSpriteStyle) == "function" then
+    styleNorm = Config.normalizeSpriteStyle(style) or style
+  end
+
   -- 2) Provider water (skip when Voxel silhouettes need Wilds silhouette sheets).
-  if not wantSilhouette and self.spriteProviders then
+  -- HGSS/pokemmo skips this step so Followers provider water can never steal
+  -- the presentation; water registry owns HGSS-compatible swim/levitate art.
+  if not wantSilhouette and self.spriteProviders and styleNorm ~= "pokemmo" then
     local chain = self.spriteProviders:chainForStyle(style)
     for _, providerId in ipairs(chain) do
       fallbackStep = fallbackStep + 1
@@ -346,6 +360,10 @@ function SpriteResolver:resolveWaterSprite(entity, context)
         local avail = true
         if provider.isAvailable then
           avail = select(1, provider:isAvailable(game))
+        end
+        -- Style-owned water: never take Followers submerged under non-followers.
+        if providerId == "followers_ex" and styleNorm ~= "followers" then
+          avail = false
         end
         if avail then
           local def, meta = self:_tryProviderWater(provider, speciesId or entity and entity.species, variant, game)
@@ -357,7 +375,12 @@ function SpriteResolver:resolveWaterSprite(entity, context)
             meta.usedVariant = meta.usedVariant or variant
             meta.bodyRenderer = "NATIVE_SPRITE_RENDERER"
             meta.waterSource = "provider"
+            meta.artFamily = meta.artFamily
+              or (providerId == "followers_ex" and "poke_followers_submerged")
+              or providerId
             meta.loadPath = def.image
+            def.artFamily = def.artFamily or meta.artFamily
+            def.spriteStyle = style
             local result = {
               def = def,
               meta = meta,
@@ -369,6 +392,7 @@ function SpriteResolver:resolveWaterSprite(entity, context)
               waterOverride = false,
             }
             steps[#steps + 1] = { providerId = providerId, ok = true, water = true }
+            self:_devLogWaterResolve(result, speciesId, style)
             return finish(result)
           end
           steps[#steps + 1] = {
@@ -382,16 +406,24 @@ function SpriteResolver:resolveWaterSprite(entity, context)
       providerId = "provider_water", ok = false,
       reason = "skipped for native silhouette sheets",
     }
+  elseif styleNorm == "pokemmo" then
+    steps[#steps + 1] = {
+      providerId = "provider_water", ok = false,
+      reason = "skipped: HGSS water uses registry art family",
+    }
   end
 
-  -- 2–3) Wilds swimming / levitates registry.
+  -- 2–3) Wilds swimming / levitates registry (HGSS-compatible water family).
   -- Voxel silhouettes: native pre-rendered silhouette sheets (same kind order).
   -- Flat silhouettes keep colour sheets + runtime tint (handled at draw).
   if self.waterRegistry and self.waterRegistry.ready then
     fallbackStep = fallbackStep + 1
     local preferred = self.waterRegistry:preferredKindFor(speciesId)
     local waterDef, waterErr = self.waterRegistry:resolve(
-      speciesId, variant, preferred, form, { silhouette = wantSilhouette })
+      speciesId, variant, preferred, form, {
+        silhouette = wantSilhouette,
+        style = styleNorm,
+      })
     if waterDef then
       local providerTag = "water_" .. waterDef.kind
       if waterDef.silhouette then
@@ -410,6 +442,7 @@ function SpriteResolver:resolveWaterSprite(entity, context)
         relativePath = waterDef.relativePath,
         bodyRenderer = "NATIVE_SPRITE_RENDERER",
         waterSource = "wilds",
+        artFamily = waterDef.artFamily or "hgss_water",
         waterKind = waterDef.kind,
         form = waterDef.formKey,
         frames = waterDef.frames,
@@ -436,6 +469,8 @@ function SpriteResolver:resolveWaterSprite(entity, context)
         frameHeight = waterDef.frameHeight,
         anchorX = waterDef.anchorX,
         anchorY = waterDef.anchorY,
+        artFamily = waterDef.artFamily or "hgss_water",
+        spriteStyle = styleNorm,
       }
       if meta.waterFlatShadow then
         WaterShadowRenderer.tagDef(def, "silhouette")
@@ -469,6 +504,7 @@ function SpriteResolver:resolveWaterSprite(entity, context)
       if wildSilo and not waterDef.silhouette then
         self:_applyWildSilhouette(result)
       end
+      self:_devLogWaterResolve(result, speciesId, style)
       return result
     end
     steps[#steps + 1] = {
@@ -507,6 +543,34 @@ function SpriteResolver:resolveWaterSprite(entity, context)
     fallbackReason = "no swimming or levitates asset",
     error = "all water resolvers failed",
   }
+end
+
+-- Temporary DEV diagnostic: log final water image path once per
+-- species+style+kind so HGSS vs Followers art families can be verified in-game.
+function SpriteResolver:_devLogWaterResolve(result, speciesId, style)
+  if not result or not result.def then return end
+  if not (Config and Config.debug and Config.debug(self.mod)) then return end
+  self._waterDevLogged = self._waterDevLogged or {}
+  local def = result.def
+  local meta = result.meta or {}
+  local key = string.format("%s|%s|%s|%s",
+    tostring(speciesId), tostring(style), tostring(result.spriteKind or meta.waterKind or "?"),
+    tostring(meta.artFamily or def.artFamily or "?"))
+  if self._waterDevLogged[key] then return end
+  self._waterDevLogged[key] = true
+  local DebugLog = V.require("debug_log")
+  if not (DebugLog and DebugLog.info) then return end
+  DebugLog.info(self.mod,
+    "WATER_RESOLVE species=%s style=%s kind=%s provider=%s artFamily=%s image=%s rel=%s fw=%s fh=%s",
+    tostring(speciesId),
+    tostring(style),
+    tostring(result.spriteKind or meta.waterKind or "?"),
+    tostring(result.providerId or meta.providerId or "?"),
+    tostring(meta.artFamily or def.artFamily or "?"),
+    tostring(def.image or meta.loadPath or "?"),
+    tostring(meta.relativePath or def.relativePath or "?"),
+    tostring(def.frameWidth or "?"),
+    tostring(def.frameHeight or "?"))
 end
 
 function SpriteResolver:cacheKey(entity, context, state)
@@ -561,6 +625,7 @@ end
 
 function SpriteResolver:invalidateCache()
   self.cache = {}
+  self._waterDevLogged = {}
   if self.waterRegistry and self.waterRegistry.invalidateCache then
     pcall(self.waterRegistry.invalidateCache, self.waterRegistry)
   end

@@ -191,5 +191,5 @@ This refactor does **not** claim to fix Wild clipping. If a native-size
 Rattata still clips in Wild encounters, the bug remains in the Wild
 render/rebind path — do not hide it by shrinking art.
 
-Generator stats: `{"hgss_written": 0, "hgss_cached": 0, "hgss_missing": 0, "hgss_resized": 0, "hgss_pad_only": 0, "hgss_warnings": 0, "followers_written": 0, "followers_cached": 0, "followers_missing": 0, "pokedex_written": 0, "pokedex_cached": 0, "pokedex_missing": 0, "swimming_written": 0, "swimming_cached": 0, "swimming_missing": 0, "levitate_written": 42, "levitate_cached": 0, "levitate_missing": 130, "levitate_audit": {"speciesCount": 21, "warningCount": 0, "failCount": 0}}`
+Generator stats: `{"hgss_written": 0, "hgss_cached": 0, "hgss_missing": 0, "hgss_resized": 0, "hgss_pad_only": 0, "hgss_warnings": 0, "followers_written": 0, "followers_cached": 0, "followers_missing": 0, "pokedex_written": 0, "pokedex_cached": 0, "pokedex_missing": 0, "swimming_written": 0, "swimming_cached": 0, "swimming_missing": 0, "levitate_written": 42, "levitate_cached": 0, "levitate_missing": 130, "levitate_audit": {"speciesCount": 21, "warningCount": 3, "failCount": 0}}`
 

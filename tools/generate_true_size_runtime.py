@@ -68,11 +68,19 @@ WATER_WIDTH_RATIO_WARN = 1.35
 WATER_AREA_RATIO_WARN = 1.35
 WATER_AREA_RATIO_FAIL = 1.50
 WATER_HEIGHT_FAIL_PX = 1  # runtime opaque height may exceed land by at most this
-# Tiny final art-direction bias after land-authority normalization.
-# Keeps mathematical matching, then pulls water/levitate a few percent smaller
-# so in-game perceived size matches land (never larger).
-WATER_PRESENTATION_SCALE = 0.95
-LEVITATE_PRESENTATION_SCALE = 0.95
+# Perceived-size blend (height dominates; area secondary; width soft).
+WATER_HEIGHT_WEIGHT = 0.60
+WATER_AREA_WEIGHT = 0.30
+WATER_WIDTH_WEIGHT = 0.10
+# Target perceived water/land ratio (<1 → water slightly smaller than land).
+WATER_PERCEIVED_TARGET = 0.97
+# Tiny final bias after per-species perceived matching (not the primary fix).
+WATER_PRESENTATION_SCALE = 0.98
+LEVITATE_PRESENTATION_SCALE = 0.98
+# Audit thresholds on final perceived ratio.
+WATER_PERCEIVED_WARN_LO = 0.90
+WATER_PERCEIVED_WARN_HI = 1.04
+WATER_PERCEIVED_FAIL_HI = 1.06
 
 # Prototype species for native-HGSS validation before regenerating all 151.
 PROTOTYPE_SPECIES = (19, 9, 95)  # Rattata, Blastoise, Onix
@@ -128,22 +136,86 @@ def measure_sheet_opaque_bounds(path: Path, frames: int = 6):
     return opaque_bounds_union(tiles)
 
 
+def _median_int(values: list[int]) -> int:
+    if not values:
+        return 0
+    xs = sorted(int(v) for v in values)
+    return int(xs[len(xs) // 2])
+
+
+def frame_opaque_metrics(tile: Image.Image) -> dict | None:
+    """Per-frame opaque metrics: bbox W/H + real opaque pixel count."""
+    if tile.mode != "RGBA":
+        tile = tile.convert("RGBA")
+    bbox = visible_bounds(tile)
+    if bbox is None:
+        return None
+    w = int(bbox[2] - bbox[0])
+    h = int(bbox[3] - bbox[1])
+    alpha = tile.crop(bbox).getchannel("A")
+    # Count non-transparent pixels (perceived body mass, includes foam).
+    opaque = 0
+    for px in alpha.getdata():
+        if px:
+            opaque += 1
+    return {
+        "visibleWidth": w,
+        "visibleHeight": h,
+        "opaquePixelCount": int(opaque),
+        "bboxArea": w * h,
+    }
+
+
+def median_frame_metrics(tiles: list[Image.Image]) -> dict | None:
+    """Robust species size from per-frame medians (not union max)."""
+    rows = [frame_opaque_metrics(t) for t in tiles]
+    rows = [r for r in rows if r and r["opaquePixelCount"] > 0]
+    if not rows:
+        return None
+    return {
+        "visibleWidth": _median_int([r["visibleWidth"] for r in rows]),
+        "visibleHeight": _median_int([r["visibleHeight"] for r in rows]),
+        "opaquePixelCount": _median_int([r["opaquePixelCount"] for r in rows]),
+        "frameCount": len(rows),
+        "perFrame": rows,
+        # Union bbox kept for diagnostics only — NOT size authority.
+        "unionVisibleWidth": max(r["visibleWidth"] for r in rows),
+        "unionVisibleHeight": max(r["visibleHeight"] for r in rows),
+    }
+
+
+def measure_sheet_median_metrics(path: Path, frames: int = 6) -> dict | None:
+    if not path.exists():
+        return None
+    im = Image.open(path).convert("RGBA")
+    if frames < 1:
+        frames = 1
+    fw, fh = im.width, im.height // frames
+    if fw < 1 or fh < 1:
+        return None
+    tiles = [im.crop((0, i * fh, fw, (i + 1) * fh)) for i in range(frames)]
+    return median_frame_metrics(tiles)
+
+
 def hgss_land_reference_visible_bounds(dex: int) -> dict | None:
-    """Opaque HGSS LAND visible footprint — absolute size authority.
+    """Opaque HGSS LAND perceived size authority (per-frame medians).
 
     Uses generated HGSS land runtime (normal first). Never rewrites land PNGs.
-    Returns width/height/area from alpha bounds across all frames.
+    Median W/H/opaque-pixels avoid side-frame union inflation (e.g. Poliwag).
     """
     for variant in ("normal", "shiny"):
         path = OUT_ROOT / "hgss" / f"{dex:03d}-{variant}.png"
-        bounds = measure_sheet_opaque_bounds(path, frames=6)
-        if bounds and bounds["visibleHeight"] > 0 and bounds["visibleWidth"] > 0:
-            w = int(bounds["visibleWidth"])
-            h = int(bounds["visibleHeight"])
+        metrics = measure_sheet_median_metrics(path, frames=6)
+        if metrics and metrics["visibleHeight"] > 0 and metrics["visibleWidth"] > 0:
             return {
-                "visibleWidth": w,
-                "visibleHeight": h,
-                "visibleArea": w * h,
+                "visibleWidth": int(metrics["visibleWidth"]),
+                "visibleHeight": int(metrics["visibleHeight"]),
+                # Perceived area = opaque pixel count (not bbox W×H).
+                "visibleArea": int(metrics["opaquePixelCount"]),
+                "opaquePixelCount": int(metrics["opaquePixelCount"]),
+                "unionVisibleWidth": int(metrics["unionVisibleWidth"]),
+                "unionVisibleHeight": int(metrics["unionVisibleHeight"]),
+                "metric": "median_frame",
                 "variant": variant,
                 "path": str(path.relative_to(ROOT)),
             }
@@ -156,6 +228,21 @@ def hgss_land_reference_visible_height(dex: int) -> int | None:
     return int(b["visibleHeight"]) if b else None
 
 
+def perceived_size_coefficient(src: dict, land: dict) -> float:
+    """Linear coefficient: perceivedRatio ≈ coefficient * uniformScale."""
+    land_w = max(1, int(land["visibleWidth"]))
+    land_h = max(1, int(land["visibleHeight"]))
+    land_area = max(1, int(land.get("opaquePixelCount") or land.get("visibleArea") or 1))
+    src_w = max(1, int(src["visibleWidth"]))
+    src_h = max(1, int(src["visibleHeight"]))
+    src_area = max(1, int(src.get("opaquePixelCount") or src.get("visibleArea") or 1))
+    return (
+        WATER_HEIGHT_WEIGHT * (src_h / float(land_h))
+        + WATER_AREA_WEIGHT * math.sqrt(src_area / float(land_area))
+        + WATER_WIDTH_WEIGHT * (src_w / float(land_w))
+    )
+
+
 def compute_land_authority_scale(
     land: dict,
     source: dict,
@@ -164,49 +251,61 @@ def compute_land_authority_scale(
     area_ratio_limit: float = WATER_AREA_RATIO_LIMIT,
     multiplier: float = 1.0,
     presentation_bias: float = 1.0,
+    perceived_target: float = WATER_PERCEIVED_TARGET,
 ) -> dict:
-    """Uniform NN scale so water/levitate never exceed HGSS land authority.
+    """Uniform NN scale so water/levitate match HGSS land perceived size.
 
-    Primary: height (never upscale above land).
-    Secondary: width cap (pose may be wider, not absurd).
-    Tertiary: opaque-area soft cap.
-    Final: optional tiny presentation bias (<1) after safety rules.
+    1) Per-species perceived-size scale from median land vs source metrics.
+    2) Hard caps: height ≤ land median, width ≤ land-union×limit (pose OK),
+       opaque area ≤ land×limit.
+    3) Tiny presentation bias (<1) after matching — never the primary fix.
+    Never upscales past land authority.
     """
     land_w = max(1, int(land["visibleWidth"]))
     land_h = max(1, int(land["visibleHeight"]))
-    land_area = max(1, int(land.get("visibleArea") or (land_w * land_h)))
+    land_area = max(1, int(land.get("opaquePixelCount") or land.get("visibleArea") or (land_w * land_h)))
+    # Width ceiling uses the wider land footprint (union) so side-pose land
+    # frames and legitimate swim width are not crushed by a skinny median.
+    land_w_cap = max(
+        land_w,
+        int(land.get("unionVisibleWidth") or 0),
+    )
     src_w = max(1, int(source["visibleWidth"]))
     src_h = max(1, int(source["visibleHeight"]))
-    src_area = max(1, int(source.get("visibleArea") or (src_w * src_h)))
+    src_area = max(1, int(source.get("opaquePixelCount") or source.get("visibleArea") or (src_w * src_h)))
 
-    # Never upscale beyond land height authority.
+    coef = perceived_size_coefficient(
+        {"visibleWidth": src_w, "visibleHeight": src_h, "opaquePixelCount": src_area},
+        {"visibleWidth": land_w, "visibleHeight": land_h, "opaquePixelCount": land_area},
+    )
+    target = float(perceived_target or 1.0)
+    if target <= 0:
+        target = WATER_PERCEIVED_TARGET
+    # Primary: match perceived body size of THIS species' land sprite.
+    if coef > 1e-9:
+        species_scale = target / coef
+    else:
+        species_scale = 1.0
+    species_scale = min(1.0, species_scale)
+
     height_scale = min(1.0, land_h / float(src_h))
-    # Integer pixel cap so NN rounding cannot sneak past the width limit.
-    max_w = max(1, int(math.floor(land_w * float(width_ratio_limit) + 1e-9)))
+    max_w = max(1, int(math.floor(land_w_cap * float(width_ratio_limit) + 1e-9)))
     max_area = max(1, int(math.floor(land_area * float(area_ratio_limit) + 1e-9)))
-    scaled_w_after_h = src_w * height_scale
-    if scaled_w_after_h > max_w and src_w > 0:
+    if src_w > 0 and (src_w * species_scale) > max_w:
         width_limit_scale = max_w / float(src_w)
     else:
-        width_limit_scale = height_scale
-    final_scale = min(height_scale, width_limit_scale)
-
-    # Area safety — further uniform downscale if still too bulky.
-    pred_w = max(1.0, src_w * final_scale)
-    pred_h = max(1.0, src_h * final_scale)
-    pred_area = pred_w * pred_h
-    area_ratio = pred_area / float(land_area)
-    area_limit_scale = final_scale
-    if pred_area > max_area and src_area > 0:
+        width_limit_scale = species_scale
+    if src_area > 0 and (src_area * (species_scale ** 2)) > max_area:
         area_limit_scale = math.sqrt(max_area / float(src_area))
-        final_scale = min(final_scale, area_limit_scale)
+    else:
+        area_limit_scale = species_scale
+
+    final_scale = min(species_scale, height_scale, width_limit_scale, area_limit_scale)
 
     mult = float(multiplier or 1.0)
-    # Declarative per-species multiplier may only shrink further.
     if 0 < mult < 1.0:
         final_scale *= mult
 
-    # Global presentation bias after normalization (art-direction polish).
     bias = float(presentation_bias or 1.0)
     if 0 < bias < 1.0:
         final_scale *= bias
@@ -215,11 +314,11 @@ def compute_land_authority_scale(
         final_scale = min(1.0, height_scale)
     final_scale = min(final_scale, height_scale, 1.0)
 
-    # Tighten against integer NN rounding so width/area caps still hold.
+    # Tighten against integer NN rounding so hard caps still hold.
     for _ in range(6):
         out_w = max(1, int(round(src_w * final_scale)))
         out_h = max(1, int(round(src_h * final_scale)))
-        out_area = out_w * out_h
+        out_area = max(1, int(round(src_area * (final_scale ** 2))))
         over_w = out_w > max_w
         over_h = out_h > land_h
         over_a = out_area > max_area
@@ -235,7 +334,6 @@ def compute_land_authority_scale(
         next_scale = min(candidates)
         next_scale = min(next_scale, height_scale, 1.0)
         if abs(next_scale - final_scale) < 1e-9:
-            # Guaranteed integer fit: step down by one source pixel in scale space.
             final_scale = max(0.01, (max(1, out_w - 1)) / float(src_w))
             final_scale = min(final_scale, height_scale, 1.0)
         else:
@@ -243,21 +341,33 @@ def compute_land_authority_scale(
 
     out_w = max(1, int(round(src_w * final_scale)))
     out_h = max(1, int(round(src_h * final_scale)))
+    out_area = max(1, int(round(src_area * (final_scale ** 2))))
+    perc = (
+        WATER_HEIGHT_WEIGHT * (out_h / float(land_h))
+        + WATER_AREA_WEIGHT * math.sqrt(out_area / float(land_area))
+        + WATER_WIDTH_WEIGHT * (out_w / float(land_w))
+    )
     return {
+        "speciesScale": round(species_scale, 6),
+        "perceivedCoefficient": round(coef, 6),
+        "perceivedTarget": target,
+        "predictedPerceivedRatio": round(perc, 4),
         "heightScale": round(height_scale, 6),
         "widthLimitScale": round(width_limit_scale, 6),
         "areaLimitScale": round(area_limit_scale, 6),
         "finalVisualScale": round(final_scale, 6),
         "predictedOpaqueWidth": out_w,
         "predictedOpaqueHeight": out_h,
-        "predictedOpaqueArea": out_w * out_h,
+        "predictedOpaqueArea": out_area,
         "predictedWidthRatio": round(out_w / float(land_w), 4),
         "predictedHeightRatio": round(out_h / float(land_h), 4),
-        "predictedAreaRatio": round((out_w * out_h) / float(land_area), 4),
+        "predictedAreaRatio": round(out_area / float(land_area), 4),
         "widthRatioLimit": float(width_ratio_limit),
         "areaRatioLimit": float(area_ratio_limit),
+        "widthCapLandWidth": land_w_cap,
         "multiplier": mult,
         "presentationBias": bias,
+        "landMetric": land.get("metric") or "median_frame",
     }
 
 
@@ -892,25 +1002,38 @@ def generate_matched_pack_for_dex(
     source_bounds = shared_alpha_bounds(tiles)
     snap = True
     resize_reason_override = None
+    src_bounds = None
 
     if pack in ("swimming", "levitate") and land_reference:
-        src_bounds = {
-            "visibleWidth": int((source_bounds or {}).get("nativeVisualWidth") or 0),
-            "visibleHeight": int((source_bounds or {}).get("nativeVisualHeight") or 0),
-        }
-        if src_bounds["visibleWidth"] <= 0 or src_bounds["visibleHeight"] <= 0:
-            # Empty source — fall through to classic-sized empty sheet.
-            src_bounds = {"visibleWidth": 16, "visibleHeight": 16}
-        src_bounds["visibleArea"] = src_bounds["visibleWidth"] * src_bounds["visibleHeight"]
+        src_metrics = median_frame_metrics(tiles)
+        if src_metrics and src_metrics["visibleWidth"] > 0 and src_metrics["visibleHeight"] > 0:
+            src_bounds = {
+                "visibleWidth": int(src_metrics["visibleWidth"]),
+                "visibleHeight": int(src_metrics["visibleHeight"]),
+                "visibleArea": int(src_metrics["opaquePixelCount"]),
+                "opaquePixelCount": int(src_metrics["opaquePixelCount"]),
+                "metric": "median_frame",
+                "unionVisibleWidth": int(src_metrics["unionVisibleWidth"]),
+                "unionVisibleHeight": int(src_metrics["unionVisibleHeight"]),
+            }
+        else:
+            # Fallback: union crop window (legacy).
+            src_bounds = {
+                "visibleWidth": int((source_bounds or {}).get("nativeVisualWidth") or 16),
+                "visibleHeight": int((source_bounds or {}).get("nativeVisualHeight") or 16),
+            }
+            src_bounds["visibleArea"] = src_bounds["visibleWidth"] * src_bounds["visibleHeight"]
+            src_bounds["opaquePixelCount"] = src_bounds["visibleArea"]
+            src_bounds["metric"] = "union_fallback"
         mult = float(ov.get("waterVisualScaleMultiplier", 1.0) or 1.0)
         bias = WATER_PRESENTATION_SCALE if pack == "swimming" else LEVITATE_PRESENTATION_SCALE
         scale_info = compute_land_authority_scale(
             land_reference, src_bounds, multiplier=mult, presentation_bias=bias)
         visual_scale = float(scale_info["finalVisualScale"])
         target_h = None
-        ref_source = "hgss_land_opaque_bounds"
+        ref_source = "hgss_land_median_frame"
         snap = False
-        resize_reason_override = "match_hgss_land_authority"
+        resize_reason_override = "match_hgss_land_perceived_size"
         allow_resample = True
         ref_h = int(land_reference["visibleHeight"])
         ref_w = int(land_reference["visibleWidth"])
@@ -965,20 +1088,54 @@ def generate_matched_pack_for_dex(
     out_path = out_dir / out_name
     rel = f"assets/generated/true_size/{pack}/{out_name}"
     key = f"{dex}:{variant}"
-    opaque = opaque_bounds_union(cards)
-    runtime_w = int(opaque["visibleWidth"]) if opaque else 0
-    runtime_h = int(opaque["visibleHeight"]) if opaque else 0
-    runtime_area = runtime_w * runtime_h
+    runtime_metrics = median_frame_metrics(cards)
+    if runtime_metrics:
+        runtime_w = int(runtime_metrics["visibleWidth"])
+        runtime_h = int(runtime_metrics["visibleHeight"])
+        runtime_area = int(runtime_metrics["opaquePixelCount"])
+    else:
+        opaque = opaque_bounds_union(cards)
+        runtime_w = int(opaque["visibleWidth"]) if opaque else 0
+        runtime_h = int(opaque["visibleHeight"]) if opaque else 0
+        runtime_area = runtime_w * runtime_h
     land_w = int(land_reference["visibleWidth"]) if land_reference else ref_w
     land_h = int(land_reference["visibleHeight"]) if land_reference else ref_h
-    land_area = int(land_reference["visibleArea"]) if land_reference else max(1, land_w * land_h)
-    src_w = int(meta.get("nativeVisualWidth") or 0)
-    src_h = int(meta.get("nativeVisualHeight") or 0)
-    src_area = src_w * src_h
+    land_area = int(land_reference.get("opaquePixelCount") or land_reference.get("visibleArea") or 0) if land_reference else max(1, land_w * land_h)
+    if land_area <= 0:
+        land_area = max(1, land_w * land_h)
+    # Source metrics used for authority (median when available).
+    src_med_w = int((src_bounds or {}).get("visibleWidth") or 0)
+    src_med_h = int((src_bounds or {}).get("visibleHeight") or 0)
+    src_med_a = int((src_bounds or {}).get("opaquePixelCount") or 0)
+    if src_med_w <= 0 or src_med_h <= 0:
+        src_med_w = int(meta.get("nativeVisualWidth") or 0)
+        src_med_h = int(meta.get("nativeVisualHeight") or 0)
+        src_med_a = src_med_w * src_med_h
+    src_w, src_h = src_med_w, src_med_h
+    src_area = src_med_a if src_med_a > 0 else (src_w * src_h)
+    # Actual perceived ratio from median land vs runtime median.
+    if land_w > 0 and land_h > 0 and land_area > 0 and runtime_w > 0 and runtime_h > 0 and runtime_area > 0:
+        perceived_ratio = (
+            WATER_HEIGHT_WEIGHT * (runtime_h / float(land_h))
+            + WATER_AREA_WEIGHT * math.sqrt(runtime_area / float(land_area))
+            + WATER_WIDTH_WEIGHT * (runtime_w / float(land_w))
+        )
+    else:
+        perceived_ratio = None
+    # Pre-correction perceived ratio from source medians (audit "before").
+    if land_w > 0 and land_h > 0 and land_area > 0 and src_w > 0 and src_h > 0 and src_area > 0:
+        perceived_before = (
+            WATER_HEIGHT_WEIGHT * (src_h / float(land_h))
+            + WATER_AREA_WEIGHT * math.sqrt(src_area / float(land_area))
+            + WATER_WIDTH_WEIGHT * (src_w / float(land_w))
+        )
+    else:
+        perceived_before = None
     record = {
         "speciesId": dex,
         "path": rel,
         "sourceImage": str(src.relative_to(ROOT)),
+        "artFamily": "hgss_water",
         "nativeVisualWidth": meta["nativeVisualWidth"],
         "nativeVisualHeight": meta["nativeVisualHeight"],
         "scaledVisualWidth": meta["scaledVisualWidth"],
@@ -986,12 +1143,17 @@ def generate_matched_pack_for_dex(
         "landReferenceVisibleWidth": land_w or None,
         "landReferenceVisibleHeight": land_h or None,
         "landReferenceVisibleArea": land_area if land_w and land_h else None,
-        "sourceVisibleWidth": src_w,
-        "sourceVisibleHeight": src_h,
+        "landReferenceUnionWidth": int((land_reference or {}).get("unionVisibleWidth") or 0) or None,
+        "landReferenceUnionHeight": int((land_reference or {}).get("unionVisibleHeight") or 0) or None,
+        "landReferenceMetric": (land_reference or {}).get("metric") or None,
+        "sourceVisibleWidth": src_med_w or src_w,
+        "sourceVisibleHeight": src_med_h or src_h,
         "sourceVisibleArea": src_area,
         "runtimeOpaqueWidth": runtime_w or None,
         "runtimeOpaqueHeight": runtime_h or None,
         "runtimeOpaqueArea": runtime_area or None,
+        "perceivedRatioBefore": round(perceived_before, 4) if perceived_before is not None else None,
+        "perceivedRatio": round(perceived_ratio, 4) if perceived_ratio is not None else None,
         "runtimeFrameWidth": fw,
         "runtimeFrameHeight": fh,
         "anchorX": meta["anchorX"],
@@ -1006,6 +1168,9 @@ def generate_matched_pack_for_dex(
     }
     if scale_info:
         record.update({
+            "speciesScale": scale_info.get("speciesScale"),
+            "perceivedCoefficient": scale_info.get("perceivedCoefficient"),
+            "perceivedTarget": scale_info.get("perceivedTarget"),
             "heightScale": scale_info["heightScale"],
             "widthLimitScale": scale_info["widthLimitScale"],
             "areaLimitScale": scale_info["areaLimitScale"],
@@ -1085,7 +1250,7 @@ def generate_water_for_dex(dex, kind, entry, force, stats, manifest, layout):
 
 
 def audit_presentation_pack(pack: str, manifest: dict) -> dict:
-    """Sorted deviation audit for swimming/levitate vs HGSS land authority."""
+    """Sorted perceived-size audit for swimming/levitate vs HGSS land."""
     rows = []
     warns = []
     fails = []
@@ -1099,11 +1264,19 @@ def audit_presentation_pack(pack: str, manifest: dict) -> dict:
         run_w = int(sheet.get("runtimeOpaqueWidth") or 0)
         run_h = int(sheet.get("runtimeOpaqueHeight") or 0)
         run_area = int(sheet.get("runtimeOpaqueArea") or (run_w * run_h) or 0)
-        if land_w <= 0 or land_h <= 0 or run_w <= 0 or run_h <= 0:
+        if land_w <= 0 or land_h <= 0 or run_w <= 0 or run_h <= 0 or run_area <= 0:
             continue
         wr = run_w / float(land_w)
         hr = run_h / float(land_h)
         ar = run_area / float(land_area)
+        perc = sheet.get("perceivedRatio")
+        if perc is None:
+            perc = (
+                WATER_HEIGHT_WEIGHT * hr
+                + WATER_AREA_WEIGHT * math.sqrt(ar)
+                + WATER_WIDTH_WEIGHT * wr
+            )
+        perc = float(perc)
         row = {
             "dex": dex,
             "pack": pack,
@@ -1111,43 +1284,70 @@ def audit_presentation_pack(pack: str, manifest: dict) -> dict:
             "runtime": f"{run_w}x{run_h}",
             "landVisibleWidth": land_w,
             "landVisibleHeight": land_h,
+            "landOpaqueArea": land_area,
             "runtimeOpaqueWidth": run_w,
             "runtimeOpaqueHeight": run_h,
+            "runtimeOpaqueArea": run_area,
             "widthRatio": round(wr, 4),
             "heightRatio": round(hr, 4),
             "areaRatio": round(ar, 4),
+            "perceivedRatioBefore": sheet.get("perceivedRatioBefore"),
+            "perceivedRatio": round(perc, 4),
+            "perceivedAbsDeviation": round(abs(perc - 1.0), 4),
             "finalVisualScale": sheet.get("finalVisualScale"),
+            "speciesScale": sheet.get("speciesScale"),
+            "presentationBias": sheet.get("presentationBias"),
+            "artFamily": sheet.get("artFamily"),
         }
         rows.append(row)
         reasons = []
         if run_h > land_h + WATER_HEIGHT_FAIL_PX:
             reasons.append(f"height {run_h}>{land_h}+{WATER_HEIGHT_FAIL_PX}")
+        if perc > WATER_PERCEIVED_FAIL_HI:
+            reasons.append(f"perceivedRatio {perc:.3f}>{WATER_PERCEIVED_FAIL_HI}")
         if ar > WATER_AREA_RATIO_FAIL:
             reasons.append(f"areaRatio {ar:.3f}>{WATER_AREA_RATIO_FAIL}")
         if reasons:
             fails.append({**row, "reasons": reasons})
         else:
             warn_reasons = []
+            if perc < WATER_PERCEIVED_WARN_LO or perc > WATER_PERCEIVED_WARN_HI:
+                warn_reasons.append(
+                    f"perceivedRatio {perc:.3f} outside "
+                    f"[{WATER_PERCEIVED_WARN_LO},{WATER_PERCEIVED_WARN_HI}]"
+                )
             if wr > WATER_WIDTH_RATIO_WARN:
                 warn_reasons.append(f"widthRatio {wr:.3f}>{WATER_WIDTH_RATIO_WARN}")
             if ar > WATER_AREA_RATIO_WARN:
                 warn_reasons.append(f"areaRatio {ar:.3f}>{WATER_AREA_RATIO_WARN}")
             if warn_reasons:
                 warns.append({**row, "reasons": warn_reasons})
-    rows.sort(key=lambda r: r["areaRatio"], reverse=True)
+    rows.sort(key=lambda r: r["perceivedAbsDeviation"], reverse=True)
     audit = {
         "pack": pack,
         "limits": {
+            "perceivedTarget": WATER_PERCEIVED_TARGET,
+            "perceivedWarnLo": WATER_PERCEIVED_WARN_LO,
+            "perceivedWarnHi": WATER_PERCEIVED_WARN_HI,
+            "perceivedFailHi": WATER_PERCEIVED_FAIL_HI,
             "widthRatioLimit": WATER_WIDTH_RATIO_LIMIT,
             "areaRatioLimit": WATER_AREA_RATIO_LIMIT,
             "widthRatioWarn": WATER_WIDTH_RATIO_WARN,
             "areaRatioWarn": WATER_AREA_RATIO_WARN,
             "areaRatioFail": WATER_AREA_RATIO_FAIL,
             "heightFailPx": WATER_HEIGHT_FAIL_PX,
+            "presentationBias": WATER_PRESENTATION_SCALE if pack == "swimming" else LEVITATE_PRESENTATION_SCALE,
+            "weights": {
+                "height": WATER_HEIGHT_WEIGHT,
+                "area": WATER_AREA_WEIGHT,
+                "width": WATER_WIDTH_WEIGHT,
+            },
         },
         "speciesCount": len(rows),
         "warningCount": len(warns),
         "failCount": len(fails),
+        "sortedByPerceivedDeviation": rows,
+        # Back-compat alias for older unit tests.
         "sortedByAreaRatio": rows,
         "warnings": warns,
         "failures": fails,
@@ -1159,13 +1359,14 @@ def audit_presentation_pack(pack: str, manifest: dict) -> dict:
         "",
         f"Species: {len(rows)}  Warnings: {len(warns)}  Failures: {len(fails)}",
         "",
-        "| Dex | Land | Runtime | W ratio | H ratio | Area ratio | Scale |",
-        "| --- | --- | --- | ---: | ---: | ---: | ---: |",
+        "| Dex | Land | Runtime | Perc before | Perc after | Scale |",
+        "| --- | --- | --- | ---: | ---: | ---: |",
     ]
     for r in rows[:40]:
         md_lines.append(
-            f"| {r['dex']:03d} | {r['land']} | {r['runtime']} | {r['widthRatio']:.2f} | "
-            f"{r['heightRatio']:.2f} | {r['areaRatio']:.2f} | {r.get('finalVisualScale')} |"
+            f"| {r['dex']:03d} | {r['land']} | {r['runtime']} | "
+            f"{r.get('perceivedRatioBefore') or '-'} | {r['perceivedRatio']:.3f} | "
+            f"{r.get('finalVisualScale')} |"
         )
     (OUT_ROOT / f"{pack}_size_audit.md").write_text("\n".join(md_lines) + "\n")
     print(
@@ -1459,9 +1660,9 @@ def main(argv=None) -> int:
 
     if packs in ("all", "swimming"):
         man = {"schemaVersion": 2, "pack": "swimming", "sheets": {}, "notes": [
-            "ORIGINAL water_sprites/swimming.",
-            "HGSS LAND opaque footprint is absolute size authority.",
-            "Uniform NN scale: height primary, width/area caps; never larger than land.",
+            "ORIGINAL water_sprites/swimming (HGSS/PokeMMO art family — not poke_followers).",
+            "Per-species perceived-size match to HGSS LAND median frame metrics.",
+            "Uniform NN scale + tiny presentation bias; never larger than land.",
         ]}
         for dex in species_list:
             generate_water_for_dex(dex, "swimming", updates[dex], args.force, stats, man, layout)
@@ -1475,9 +1676,9 @@ def main(argv=None) -> int:
 
     if packs in ("all", "levitate"):
         man = {"schemaVersion": 2, "pack": "levitate", "sheets": {}, "notes": [
-            "ORIGINAL water_sprites/levitates.",
-            "HGSS LAND opaque footprint is absolute size authority.",
-            "Uniform NN scale: height primary, width/area caps; never larger than land.",
+            "ORIGINAL water_sprites/levitates (HGSS/PokeMMO art family — not poke_followers).",
+            "Per-species perceived-size match to HGSS LAND median frame metrics.",
+            "Uniform NN scale + tiny presentation bias; never larger than land.",
         ]}
         for dex in species_list:
             generate_water_for_dex(dex, "levitates", updates[dex], args.force, stats, man, layout)
