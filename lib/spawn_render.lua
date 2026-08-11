@@ -2039,7 +2039,13 @@ function SpawnRender:applyProviderSprite(entity, game)
   -- below.
   local redpp = Config.paletteFxRedpp()
   local variant = AnimatedSprites.resolveRuntimeVariant(entity)
-  local species = entity.species or entity.enhancedDexId
+  -- Prefer numeric dex. entity.species is often a name ("ONIX"); passing that
+  -- into VariableSize.applyToDef made packGeometry fail, stripped frame
+  -- geometry, and left the true_size image → SpriteRenderer baked 16×16 quads.
+  local dexId = tonumber(entity.enhancedDexId)
+    or AnimatedSprites.resolveSpeciesId(entity.species, game, self.mod)
+    or tonumber(entity.species)
+  local species = dexId or entity.species or entity.enhancedDexId
   local map = game and game.overworld and game.overworld.map
   local WaterDisplay = V.require("water_display")
   local voxelActive = WaterDisplay.isVoxelCameraActive(self.mod)
@@ -2056,7 +2062,7 @@ function SpawnRender:applyProviderSprite(entity, game)
       game = game,
       map = map,
       surface = entity.surface,
-      speciesId = entity.enhancedDexId or species,
+      speciesId = dexId or entity.enhancedDexId or entity.species,
       variant = variant,
       voxelActive = voxelActive,
       nativeSilhouette = voxelActive
@@ -2094,15 +2100,19 @@ function SpawnRender:applyProviderSprite(entity, game)
   local VariableSize = V.require("variable_size")
   local effectiveSize = VariableSize.effectiveMode(self.mod, { voxelActive = voxelActive })
   local cur = entity.sprite and entity.sprite.def
-  -- Do NOT coerce missing geometry to 16 — that hid True Size↔Classic
-  -- mismatches and let 16×16 SpriteRenderer instances stick on variable sheets.
-  if cur and cur.image == result.def.image
+  local inst = entity.sprite
+  -- Compare BOTH SpriteDef and SpriteRenderer INSTANCE geometry.
+  -- Gen1Recomp draws from sprite.frameWidth (copied at new), not def alone.
+  -- Do NOT coerce missing geometry to 16 — that hid True Size↔Classic mismatches.
+  if cur and inst and cur.image == result.def.image
      and (cur.frames or 1) == (result.def.frames or 1)
      and (cur.walker == true) == (result.def.walker == true)
      and cur.frameWidth == result.def.frameWidth
      and cur.frameHeight == result.def.frameHeight
      and cur.anchorX == result.def.anchorX
      and cur.anchorY == result.def.anchorY
+     and inst.frameWidth == result.def.frameWidth
+     and inst.frameHeight == result.def.frameHeight
      and entity.spriteProviderId == result.providerId
      and entity.spriteState == result.spriteState
      and entity.requestedSpriteStyle == style
@@ -2189,7 +2199,9 @@ function SpawnRender:applyProviderSprite(entity, game)
     end
     local geoInfo
     def, geoInfo = VariableSize.applyToDef(self.mod, def, {
-      speciesId = species or entity.enhancedDexId or entity.species,
+      -- Always numeric dex when available (never bare species name).
+      speciesId = dexId or entity.enhancedDexId or entity.species,
+      game = game,
       style = style,
       variant = variant,
       voxelActive = voxelActive,
@@ -2216,8 +2228,18 @@ function SpawnRender:applyProviderSprite(entity, game)
   if not ok or not sprite then
     return false
   end
+  -- Gen1Recomp copies def → instance at new(). Catch def/instance drift early.
+  if tonumber(def.frameWidth) and sprite.frameWidth ~= math.floor(tonumber(def.frameWidth)) then
+    DebugLog.error(self.mod,
+      "True Size INSTANCE mismatch after SpriteRenderer.new def=%sx%s instance=%sx%s img=%s",
+      tostring(def.frameWidth), tostring(def.frameHeight),
+      tostring(sprite.frameWidth), tostring(sprite.frameHeight),
+      tostring(def.image))
+  end
   self._spriteRendererNews = (self._spriteRendererNews or 0) + 1
   entity._wildsSpriteRendererNews = (entity._wildsSpriteRendererNews or 0) + 1
+  entity._wildsSpriteRendererId = tostring(sprite)
+  entity._wildsLastBindReason = "applyProviderSprite"
 
   local nativeSheet = (def.walker == true and (def.frames or 1) >= 6)
     or (entity.variableSizeApplied and tonumber(def.frameWidth)

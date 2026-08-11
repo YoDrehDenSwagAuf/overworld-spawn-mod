@@ -252,9 +252,54 @@ local function stripGeometry(def)
 end
 
 local function geometryValid(pack)
+  if type(pack) ~= "table" then return false end
   local fw = tonumber(pack.frameWidth)
   local fh = tonumber(pack.frameHeight)
   return fw and fw > 0 and fh and fh > 0
+end
+
+local function looksLikeTrueSizePath(path)
+  return type(path) == "string" and path:find("true_size/", 1, true) ~= nil
+end
+
+--- Resolve speciesId to a Gen1 dex number. Wild entities often store
+--- entity.species as a name ("ONIX"); packGeometry only accepts 1..151.
+local function resolveDex(mod, speciesId, opts)
+  local dex = SpeciesGeometry.normalizeDex(speciesId)
+  if dex then return dex end
+  if speciesId == nil then return nil end
+  opts = opts or {}
+  local ok, AnimatedSprites = pcall(V.require, "animated_sprites")
+  if ok and AnimatedSprites and type(AnimatedSprites.resolveSpeciesId) == "function" then
+    local resolved = AnimatedSprites.resolveSpeciesId(speciesId, opts.game, mod)
+    dex = SpeciesGeometry.normalizeDex(resolved)
+    if dex then return dex end
+  end
+  return nil
+end
+
+--- Preserve already-stamped True Size geometry when rebind cannot resolve a pack.
+-- CRITICAL: never clear frameWidth/Height while leaving a true_size/ image —
+-- SpriteRenderer.new would then bake 16×16 quads on a tall sheet (Wild crop).
+local function preserveExistingTrueSize(def, reason, extra)
+  extra = extra or {}
+  if geometryValid(def) and looksLikeTrueSizePath(def.image) then
+    if def.anchorX == nil then def.anchorX = tonumber(def.frameWidth) / 2 end
+    if def.anchorY == nil then def.anchorY = tonumber(def.frameHeight) end
+    local info = {
+      applied = true,
+      reason = reason or "preserve_existing_geometry",
+      frameWidth = tonumber(def.frameWidth),
+      frameHeight = tonumber(def.frameHeight),
+      anchorX = def.anchorX,
+      anchorY = def.anchorY,
+      requestedMode = VariableSize.MODE_TRUE_SIZE,
+      effectiveMode = VariableSize.MODE_TRUE_SIZE,
+    }
+    for k, v in pairs(extra) do info[k] = v end
+    return def, info
+  end
+  return nil
 end
 
 --- Apply True Size geometry when effective; otherwise strip to Classic defaults.
@@ -270,6 +315,8 @@ function VariableSize.applyToDef(mod, def, opts)
     if type(why) == "string" and why:find("voxel_ds_incompatible", 1, true) == 1 then
       VariableSize.logVoxelFallback(mod, why)
     end
+    -- Classic effective: drop variable geometry. Image may still be swapped
+    -- by the caller; consumers must not pass true_size sheets without geometry.
     stripGeometry(def)
     return def, {
       applied = false,
@@ -280,27 +327,47 @@ function VariableSize.applyToDef(mod, def, opts)
   end
 
   local speciesId = opts.speciesId or opts.dex
+  local dex = resolveDex(mod, speciesId, opts)
   local style = opts.style or (Config.spriteStyle and Config.spriteStyle(mod)) or "followers"
   local packId = opts.packId or VariableSize.packIdForStyle(style, opts.presentation)
-  local pack, dex = SpeciesGeometry.packGeometry(speciesId, packId, mod)
+  local pack = select(1, SpeciesGeometry.packGeometry(dex or speciesId, packId, mod))
   if not pack or not geometryValid(pack) then
+    local keptDef, keptInfo = preserveExistingTrueSize(def, "preserve_existing_geometry", {
+      packId = packId,
+      dex = dex,
+      unresolvedSpeciesId = speciesId,
+    })
+    if keptDef then
+      if DebugLog and DebugLog.debug then
+        DebugLog.debug(mod,
+          "True Size: preserved existing geometry (unresolved speciesId=%s)",
+          tostring(speciesId))
+      end
+      return keptDef, keptInfo
+    end
     stripGeometry(def)
     return def, {
       applied = false,
       reason = "no_geometry",
+      unresolvedSpeciesId = speciesId,
       requestedMode = VariableSize.MODE_TRUE_SIZE,
       effectiveMode = VariableSize.MODE_TRUE_SIZE,
     }
   end
 
   local variant = opts.variant
-  local rel = select(1, SpeciesGeometry.relativePath(speciesId, packId, variant, mod))
+  local rel = select(1, SpeciesGeometry.relativePath(dex or speciesId, packId, variant, mod))
   if not rel or not assetPresent(mod, rel) then
     if variant == "shiny" or variant == "s" or variant == true then
-      rel = select(1, SpeciesGeometry.relativePath(speciesId, packId, "normal", mod))
+      rel = select(1, SpeciesGeometry.relativePath(dex or speciesId, packId, "normal", mod))
     end
   end
   if not rel or not assetPresent(mod, rel) then
+    local keptDef, keptInfo = preserveExistingTrueSize(def, "preserve_existing_geometry_asset", {
+      packId = packId,
+      dex = dex,
+    })
+    if keptDef then return keptDef, keptInfo end
     stripGeometry(def)
     if DebugLog and DebugLog.debug then
       DebugLog.debug(mod, "True Size asset missing for dex=%s pack=%s — Classic fallback",

@@ -68,22 +68,25 @@ Classic / Voxel-effective-Classic keep the historic 1-cell snake.
 
 **Symptom:** True Size Wilds clipped on land, grass, **and** water; Followers
 of the same species rendered correctly. Grass alone was not the root cause.
+Onix artwork + Follower Onix proved Gen1Recomp variable SpriteRenderer works.
 
-**Root cause:** Wild `SpriteDef` rebuilds dropped `frameWidth` / `frameHeight` /
-`anchorX` / `anchorY`, so Gen1Recomp `SpriteRenderer` fell back to **16×16**
-quads on taller True Size sheets. Water rebinds then called
-`VariableSize.applyToDef` without `presentation`/`packId`, swapping swimming
-sheets for land packs.
+**Root cause (final):** `applyProviderSprite` re-called `VariableSize.applyToDef`
+with `speciesId = entity.species` (a **name** like `"ONIX"`). `packGeometry`
+only accepts dex `1..151`, so apply failed with `no_geometry`, **stripped**
+`frameWidth`/`frameHeight`, but **left the `true_size/` image**.  
+`SpriteRenderer.new` then baked **16×16 quads** on the tall sheet → cropped
+Wild. Followers pass numeric dex via `spriteDefWithGeometry`.
 
-**First divergence:** Follower `spriteDefWithGeometry` always copies geometry;
-Wild `Entity.new` / water resolver / `applyProviderSprite` did not.
+Secondary issues fixed earlier: Wild def copies dropping geometry; water rebind
+without `presentation`/`packId`; skip checks using `(frameWidth or 16)`.
 
-**Fix:** Preserve geometry on every Wild def copy; pass `presentation`/`packId`
-into `applyToDef` for water/levitate; treat missing geometry as unequal in
-skip-rebuild checks (`or 16` hid mismatches).
+**Fix:** Prefer `enhancedDexId` / resolved dex in `applyProviderSprite`; resolve
+species names inside `applyToDef`; **never** clear geometry while a `true_size/`
+image remains; compare SpriteRenderer **instance** `frameWidth`/`frameHeight`
+in skip-rebuild checks (draw uses instance values, not only `def`).
 
-Logical footprint stays 16×16. Visual geometry comes from `sprite.def` /
-`getPoseGeometry()`.
+Logical footprint stays 16×16. Visual geometry comes from `sprite.frameWidth`
+/ `getPoseGeometry()`.
 
 ## Grass / scaleInfo
 
