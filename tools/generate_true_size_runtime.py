@@ -19,6 +19,7 @@ Classic assets are never overwritten. Voxel remains Classic at runtime.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import math
 import sys
@@ -78,6 +79,54 @@ def visible_bounds(im: Image.Image):
     if im.mode != "RGBA":
         im = im.convert("RGBA")
     return im.getchannel("A").getbbox()
+
+
+def opaque_bounds_union(tiles: list[Image.Image]):
+    """Tight union of opaque (alpha>0) pixels across tiles."""
+    boxes = [visible_bounds(t) for t in tiles]
+    if not any(boxes):
+        return None
+    ux0 = min(b[0] for b in boxes if b)
+    uy0 = min(b[1] for b in boxes if b)
+    ux1 = max(b[2] for b in boxes if b)
+    uy1 = max(b[3] for b in boxes if b)
+    return {
+        "minX": ux0,
+        "minY": uy0,
+        "maxX": ux1,
+        "maxY": uy1,
+        "visibleWidth": ux1 - ux0,
+        "visibleHeight": uy1 - uy0,
+    }
+
+
+def measure_sheet_opaque_bounds(path: Path, frames: int = 6):
+    """Opaque content bounds of a generated vertical walker sheet."""
+    if not path.exists():
+        return None
+    im = Image.open(path).convert("RGBA")
+    if frames < 1:
+        frames = 1
+    fw, fh = im.width, im.height // frames
+    if fw < 1 or fh < 1:
+        return None
+    tiles = [im.crop((0, i * fh, fw, (i + 1) * fh)) for i in range(frames)]
+    return opaque_bounds_union(tiles)
+
+
+def hgss_land_reference_visible_height(dex: int) -> int | None:
+    """Perceived HGSS LAND body height — size authority for water/levitate.
+
+    Uses opaque alpha height of the generated HGSS land runtime (normal first),
+    NOT the padded union crop window (which can include empty margins when
+    shiny/normal source bounds differ). Land PNGs are never rewritten here.
+    """
+    for variant in ("normal", "shiny"):
+        path = OUT_ROOT / "hgss" / f"{dex:03d}-{variant}.png"
+        bounds = measure_sheet_opaque_bounds(path, frames=6)
+        if bounds and bounds["visibleHeight"] > 0:
+            return int(bounds["visibleHeight"])
+    return None
 
 
 def crop_tile(src: Image.Image, col: int, row: int, tw: int, th: int) -> Image.Image:
@@ -547,6 +596,10 @@ def write_species_geometry_lua(table: dict[int, dict], path: Path) -> None:
             )
         ov_flag = "true" if e.get("manualOverride") else "false"
         sizing = e.get("sizing") or "legacy_target_height"
+        land_ref = e.get("landReferenceVisibleHeight")
+        land_ref_part = ""
+        if land_ref is not None:
+            land_ref_part = f"landReferenceVisibleHeight={int(land_ref)},"
         lines.append(
             f"  [{dex}]={{sizing={json.dumps(sizing)},class={json.dumps(e.get('class', 'M'))},"
             f"nativeVisualWidth={int(e.get('nativeVisualWidth') or 0)},"
@@ -554,6 +607,7 @@ def write_species_geometry_lua(table: dict[int, dict], path: Path) -> None:
             f"visualScale={float(e.get('visualScale') or 1.0)},"
             f"heightM={float(e.get('heightM') or 0)},"
             f"manualOverride={ov_flag},"
+            f"{land_ref_part}"
             f"packs={{{','.join(pack_parts)}}}}},"
         )
     lines.append("}")
@@ -679,12 +733,29 @@ def generate_matched_pack_for_dex(
     stats: dict,
     manifest: dict,
     frames: int = 6,
+    *,
+    reference_visible_height: int | None = None,
 ) -> None:
-    """Generate a non-HGSS pack sheet fitted to HGSS perceived visible height."""
+    """Generate a non-HGSS pack sheet fitted to HGSS perceived visible height.
+
+    reference_visible_height: optional opaque LAND body height authority.
+    When omitted, falls back to entry scaled/native visual height (crop window).
+    Water/levitate should pass the opaque land measurement so swimming art does
+    not grow just because the land crop window includes empty margins.
+    """
     out_dir = OUT_ROOT / pack
     out_dir.mkdir(parents=True, exist_ok=True)
-    ref_h = int(entry.get("scaledVisualHeight") or entry.get("nativeVisualHeight") or 16)
+    if reference_visible_height is not None and int(reference_visible_height) > 0:
+        ref_h = int(reference_visible_height)
+        ref_source = "hgss_land_opaque_height"
+    else:
+        ref_h = int(entry.get("scaledVisualHeight") or entry.get("nativeVisualHeight") or 16)
+        ref_source = "entry_scaled_visual_height"
     ov = override_for(dex)
+    # Optional tiny art-direction multiplier (rare; keep declarative + small).
+    mult = float(ov.get("waterVisualScaleMultiplier", 1.0) or 1.0)
+    if pack in ("swimming", "levitate") and abs(mult - 1.0) > 1e-6:
+        ref_h = max(1, int(round(ref_h * mult)))
     # Match HGSS visible body height; pack-specific canvas follows content.
     cards, meta = compose_native_sheet(
         tiles,
@@ -702,6 +773,8 @@ def generate_matched_pack_for_dex(
         cards = cards[:1]
         frames = 1
     entry["packs"][pack] = pack_entry(fw, fh, meta["anchorX"], meta["anchorY"], pack)
+    if pack in ("swimming", "levitate"):
+        entry["landReferenceVisibleHeight"] = ref_h
 
     name = src.name.lower()
     if "shiny" in name or name.endswith("-s.png") or name.endswith("_s.png"):
@@ -713,22 +786,18 @@ def generate_matched_pack_for_dex(
     out_path = out_dir / out_name
     rel = f"assets/generated/true_size/{pack}/{out_name}"
     key = f"{dex}:{variant}"
-    if out_path.exists() and not force:
-        manifest["sheets"][key] = {
-            "path": rel, "status": "cached",
-            "runtimeFrameWidth": fw, "runtimeFrameHeight": fh,
-        }
-        stats[f"{pack}_cached"] += 1
-        return
-    sheet = stack_sheet(cards, fw, fh)
-    sheet.save(out_path, optimize=True)
-    manifest["sheets"][key] = {
+    # Record actual opaque runtime height for regression contracts.
+    opaque = opaque_bounds_union(cards)
+    record = {
         "speciesId": dex,
         "path": rel,
-        "status": "written",
         "sourceImage": str(src.relative_to(ROOT)),
         "nativeVisualWidth": meta["nativeVisualWidth"],
         "nativeVisualHeight": meta["nativeVisualHeight"],
+        "scaledVisualWidth": meta["scaledVisualWidth"],
+        "scaledVisualHeight": meta["scaledVisualHeight"],
+        "runtimeOpaqueWidth": opaque["visibleWidth"] if opaque else None,
+        "runtimeOpaqueHeight": opaque["visibleHeight"] if opaque else None,
         "runtimeFrameWidth": fw,
         "runtimeFrameHeight": fh,
         "anchorX": meta["anchorX"],
@@ -738,8 +807,18 @@ def generate_matched_pack_for_dex(
         "wasResized": meta["wasResized"],
         "resizeReason": meta["resizeReason"],
         "hgssReferenceVisibleHeight": ref_h,
+        "hgssReferenceSource": ref_source,
         "frames": frames,
     }
+    if out_path.exists() and not force:
+        record["status"] = "cached"
+        manifest["sheets"][key] = record
+        stats[f"{pack}_cached"] += 1
+        return
+    sheet = stack_sheet(cards, fw, fh)
+    sheet.save(out_path, optimize=True)
+    record["status"] = "written"
+    manifest["sheets"][key] = record
     stats[f"{pack}_written"] += 1
 
 
@@ -774,6 +853,10 @@ def generate_pokedex_for_dex(dex, layout, entry, force, stats, manifest):
 def generate_water_for_dex(dex, kind, entry, force, stats, manifest, layout):
     pack = "levitate" if kind == "levitates" else "swimming"
     sources = water_sources(kind)
+    # LAND opaque body height is the species size authority for water art.
+    land_h = hgss_land_reference_visible_height(dex)
+    if land_h is None:
+        land_h = int(entry.get("scaledVisualHeight") or entry.get("nativeVisualHeight") or 0) or None
     found = False
     for (sid, variant), src in sources.items():
         if sid != dex:
@@ -783,7 +866,9 @@ def generate_water_for_dex(dex, kind, entry, force, stats, manifest, layout):
         tw, th = im.width // 4, im.height // 4
         tiles = extract_grid_tiles(im, layout, tw, th)
         generate_matched_pack_for_dex(
-            dex, pack, tiles, src, entry, force, stats, manifest, frames=6)
+            dex, pack, tiles, src, entry, force, stats, manifest, frames=6,
+            reference_visible_height=land_h,
+        )
     if not found:
         stats[f"{pack}_missing"] = stats.get(f"{pack}_missing", 0) + 1
 
@@ -1008,12 +1093,22 @@ def main(argv=None) -> int:
     if args.prototype or set(species_list) <= set(PROTOTYPE_SPECIES):
         snapshot_old_targetheight(species_list)
 
-    existing = load_existing_table() if (args.prototype or len(species_list) < 151) else {}
+    existing = load_existing_table() if (args.prototype or len(species_list) < 151 or args.pack != "all") else {}
     updates: dict[int, dict] = {}
     refs = {a["speciesId"]: a for a in analyses}
 
     for dex in species_list:
-        updates[dex] = build_species_entry(dex, layout, heights, refs.get(dex))
+        # Partial pack runs must keep already-measured pack geometry (e.g. do not
+        # wipe followers/pokemmo when only regenerating swimming).
+        if dex in existing and args.pack != "all":
+            updates[dex] = copy.deepcopy(existing[dex])
+            # Refresh land size authority fields from current HGSS analysis when present.
+            ref = refs.get(dex)
+            if ref and updates[dex].get("sizing") == "native":
+                updates[dex]["nativeVisualWidth"] = ref["nativeVisualWidth"]
+                updates[dex]["nativeVisualHeight"] = ref["nativeVisualHeight"]
+        else:
+            updates[dex] = build_species_entry(dex, layout, heights, refs.get(dex))
 
     stats = {k: 0 for k in (
         "hgss_written", "hgss_cached", "hgss_missing", "hgss_resized", "hgss_pad_only",

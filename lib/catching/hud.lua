@@ -1,5 +1,6 @@
 -- Small top-right Poké Ball inventory HUD + throw power meter.
 -- Draws onto the render-pipeline canvas (must setCanvas), matching DebugHud.
+-- catch_hud_size scales this UI component only — thrown Balls stay ~6px.
 local V = ...
 local Config = V.require("config")
 local CatchMath = V.require("catching/catch_math")
@@ -8,10 +9,10 @@ local BallHud = {}
 BallHud.__index = BallHud
 
 BallHud.PIPELINE_ID = "owwild_ball_hud"
--- Default icon px when setting is 5 (5 + catch_hud_size). Thrown Balls stay ~6px.
-BallHud.ICON_PX = 10
-BallHud.ICON_PX_MIN = 6
-BallHud.ICON_PX_MAX = 15
+-- Default icon px when setting is 5 (~1.08× of 12). Thrown Balls stay ~6px.
+BallHud.ICON_PX = 13
+BallHud.ICON_PX_MIN = 8
+BallHud.ICON_PX_MAX = 20
 
 local BALL_ORDER = { "POKE_BALL", "GREAT_BALL", "ULTRA_BALL", "MASTER_BALL" }
 local BALL_SHORT = {
@@ -36,37 +37,47 @@ function BallHud.iconPx(mod)
 end
 
 --- Layout metrics for the current Catch HUD Size (nearest-neighbor icons).
+--- Scales the compact HUD as one component: icons, gaps, quantity, meter Y.
 function BallHud.layout(mod, canvasW)
   canvasW = canvasW or 160
   if canvasW > 200 then canvasW = 160 end
+  local scale = Config.catchHudScale(mod)
   local iconW = BallHud.iconPx(mod)
-  -- Keep four icons + gaps inside the 160px canvas; shrink gap at large sizes.
-  local gap = 3
-  if iconW >= 13 then
-    gap = 2
+  -- Keep four icons + gaps inside the 160px canvas; shrink gap as icons grow.
+  local gap = math.max(1, math.floor(3 * scale + 0.5))
+  if iconW >= 16 then
+    gap = math.min(gap, 2)
   end
-  if iconW >= 15 then
+  if iconW >= 18 then
     gap = 1
   end
   local rowW = #BALL_ORDER * iconW + (#BALL_ORDER - 1) * gap
   local startX = canvasW - 4 - rowW
   if startX < 2 then
-    gap = math.max(1, gap - 1)
+    gap = 1
     rowW = #BALL_ORDER * iconW + (#BALL_ORDER - 1) * gap
     startX = math.max(2, canvasW - 4 - rowW)
   end
+  -- If size 10 still overflows, nudge left edge; never clip the right side.
+  if startX + rowW > canvasW - 2 then
+    startX = math.max(2, canvasW - 2 - rowW)
+  end
   local iconY = 2
-  local qtyY = iconY + iconW + 1
-  -- Power meter sits below icons + quantity line; tighten slightly at large icons.
-  local meterY = iconY + iconW + ((iconW >= 13) and 10 or 12)
+  local qtyPad = math.max(1, math.floor(scale + 0.5))
+  local qtyY = iconY + iconW + qtyPad
+  -- Power meter sits below icons + quantity line; modest spacing with scale.
+  local meterY = qtyY + math.max(8, math.floor(10 * scale + 0.5))
+  local border = iconW + 2
   return {
     canvasW = canvasW,
+    scale = scale,
     iconW = iconW,
     gap = gap,
     startX = startX,
     iconY = iconY,
     qtyY = qtyY,
     meterY = meterY,
+    selectedBorder = border,
   }
 end
 
@@ -179,7 +190,8 @@ function BallHud:draw(canvas, ctx)
 
     if selectedHere then
       lg.setColor(0, 0, 0, 1)
-      lg.rectangle("line", bx - 1, y - 1, iconW + 2, iconW + 2)
+      local border = layout.selectedBorder or (iconW + 2)
+      lg.rectangle("line", bx - 1, y - 1, border, border)
       drawText(Font, lg, "x" .. tostring(count), bx - 1, layout.qtyY)
     end
   end
