@@ -1184,11 +1184,17 @@ function Entity.new(game, mod, render, record)
   if resolvedProvider and resolvedProvider.def
      and type(resolvedProvider.def.image) == "string"
      and not isOsAbsolutePath(resolvedProvider.def.image) then
+    -- Same contract as follower spriteDefWithGeometry: never drop
+    -- frameWidth/Height/anchor when copying a provider/water def.
     drawDef = {
       image = resolvedProvider.def.image,
       frames = resolvedProvider.def.frames or 1,
       trueColor = resolvedProvider.def.trueColor ~= false,
       id = resolvedProvider.def.id or spriteId,
+      frameWidth = resolvedProvider.def.frameWidth,
+      frameHeight = resolvedProvider.def.frameHeight,
+      anchorX = resolvedProvider.def.anchorX,
+      anchorY = resolvedProvider.def.anchorY,
     }
     if resolvedProvider.def.walker then
       drawDef.walker = true
@@ -1198,6 +1204,9 @@ function Entity.new(game, mod, render, record)
     end
     drawPath = drawDef.image
     nativeSheet = (drawDef.walker == true and (drawDef.frames or 1) >= 6)
+      or (tonumber(drawDef.frameWidth) and tonumber(drawDef.frameHeight)
+          and tonumber(drawDef.frameWidth) > 0
+          and tonumber(drawDef.frameHeight) > 0)
     self.usingFallback = (resolvedProvider.providerId == "black")
     self.spriteVariant = (resolvedProvider.meta and resolvedProvider.meta.usedVariant)
       or variant
@@ -1249,13 +1258,22 @@ function Entity.new(game, mod, render, record)
     drawDef = buildDef(spriteId, drawPath, drawFrames, drawWalker)
   end
 
-  -- True Size prototype: apply Gen1Recomp geometry when eligible (Charizard/HGSS).
+  -- True Size: apply / reaffirm Gen1Recomp geometry. Water must keep the
+  -- swimming/levitate pack — never rebind through the land style pack.
   if drawDef then
     local VariableSize = V.require("variable_size")
     local voxelActive = false
     if render.voxel and render.voxel.isVoxelCameraActive then
       local okV, active = pcall(render.voxel.isVoxelCameraActive, render.voxel)
       voxelActive = okV and active == true
+    end
+    local kind = self.spriteKind
+      or (resolvedProvider and resolvedProvider.spriteKind)
+    local presentation, packId = nil, nil
+    if kind == "swimming" then
+      presentation, packId = "swimming", "swimming"
+    elseif kind == "levitates" or kind == "levitate" then
+      presentation, packId = "levitate", "levitate"
     end
     local geoInfo
     drawDef, geoInfo = VariableSize.applyToDef(mod, drawDef, {
@@ -1264,6 +1282,8 @@ function Entity.new(game, mod, render, record)
       variant = self.spriteVariant or variant,
       voxelActive = voxelActive,
       spriteId = drawDef.id or spriteId,
+      presentation = presentation,
+      packId = packId,
     })
     if geoInfo and geoInfo.applied then
       self.variableSizeApplied = true
@@ -1271,6 +1291,7 @@ function Entity.new(game, mod, render, record)
       self.runtimeRelativePath = geoInfo.relativePath or self.runtimeRelativePath
       self.runtimeLoadPath = geoInfo.loadPath or self.runtimeLoadPath
       nativeSheet = (drawDef.walker == true and (drawDef.frames or 1) >= 6)
+        or (tonumber(drawDef.frameWidth) and tonumber(drawDef.frameHeight))
       drawPath = drawDef.image
     else
       self.variableSizeApplied = false
@@ -2073,11 +2094,15 @@ function SpawnRender:applyProviderSprite(entity, game)
   local VariableSize = V.require("variable_size")
   local effectiveSize = VariableSize.effectiveMode(self.mod, { voxelActive = voxelActive })
   local cur = entity.sprite and entity.sprite.def
+  -- Do NOT coerce missing geometry to 16 — that hid True Size↔Classic
+  -- mismatches and let 16×16 SpriteRenderer instances stick on variable sheets.
   if cur and cur.image == result.def.image
      and (cur.frames or 1) == (result.def.frames or 1)
      and (cur.walker == true) == (result.def.walker == true)
-     and (cur.frameWidth or 16) == (result.def.frameWidth or 16)
-     and (cur.frameHeight or 16) == (result.def.frameHeight or 16)
+     and cur.frameWidth == result.def.frameWidth
+     and cur.frameHeight == result.def.frameHeight
+     and cur.anchorX == result.def.anchorX
+     and cur.anchorY == result.def.anchorY
      and entity.spriteProviderId == result.providerId
      and entity.spriteState == result.spriteState
      and entity.requestedSpriteStyle == style
@@ -2135,16 +2160,19 @@ function SpawnRender:applyProviderSprite(entity, game)
   }
 
   -- Copy provider def exactly for native walkers; never invent walker=true.
+  -- Explicitly keep True Size geometry (follower spriteDefWithGeometry parity).
   local def = {
     image = result.def.image,
     frames = result.def.frames or 1,
     trueColor = result.def.trueColor ~= false,
     id = result.def.id or ("SPRITE_OW_WILD_" .. tostring(species)),
+    frameWidth = result.def.frameWidth,
+    frameHeight = result.def.frameHeight,
+    anchorX = result.def.anchorX,
+    anchorY = result.def.anchorY,
   }
   if result.def.walker == true then def.walker = true end
   if result.def.pokepcShiny then def.pokepcShiny = true end
-  -- Retain any extra SpriteRenderer fields the provider already published
-  -- (including Gen1Recomp frameWidth/Height/anchorX/Y when True Size applies).
   for k, v in pairs(result.def) do
     if def[k] == nil then def[k] = v end
   end
@@ -2152,6 +2180,13 @@ function SpawnRender:applyProviderSprite(entity, game)
   -- Re-evaluate True Size at bind time (Voxel may have toggled since resolve).
   do
     local VariableSize = V.require("variable_size")
+    local kind = result.spriteKind or entity.spriteKind
+    local presentation, packId = nil, nil
+    if kind == "swimming" then
+      presentation, packId = "swimming", "swimming"
+    elseif kind == "levitates" or kind == "levitate" then
+      presentation, packId = "levitate", "levitate"
+    end
     local geoInfo
     def, geoInfo = VariableSize.applyToDef(self.mod, def, {
       speciesId = species or entity.enhancedDexId or entity.species,
@@ -2159,6 +2194,8 @@ function SpawnRender:applyProviderSprite(entity, game)
       variant = variant,
       voxelActive = voxelActive,
       spriteId = def.id,
+      presentation = presentation,
+      packId = packId,
     })
     if geoInfo then
       entity.variableSizeApplied = geoInfo.applied == true
@@ -2183,6 +2220,8 @@ function SpawnRender:applyProviderSprite(entity, game)
   entity._wildsSpriteRendererNews = (entity._wildsSpriteRendererNews or 0) + 1
 
   local nativeSheet = (def.walker == true and (def.frames or 1) >= 6)
+    or (entity.variableSizeApplied and tonumber(def.frameWidth)
+        and tonumber(def.frameHeight))
   entity.sprite = sprite
   entity.legacySprite = sprite
   entity.spriteId = def.id

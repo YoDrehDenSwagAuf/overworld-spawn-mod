@@ -417,15 +417,29 @@ function SpriteResolver:resolveWaterSprite(entity, context)
         waterFlatShadow = waterDef.silhouette == true and context.voxelActive == true,
         waterShadowKind = waterDef.silhouette and "silhouette" or nil,
       }
+      -- Preserve True Size geometry from WaterSpriteRegistry.applyToDef.
+      -- Dropping frameWidth/Height here forced SpriteRenderer back to 16×16
+      -- quads on variable sheets (Wilds clip; Followers never take this path).
       local def = {
         image = waterDef.image,
         frames = waterDef.frames,
         walker = true,
         trueColor = true,
         id = waterDef.id,
+        frameWidth = waterDef.frameWidth,
+        frameHeight = waterDef.frameHeight,
+        anchorX = waterDef.anchorX,
+        anchorY = waterDef.anchorY,
       }
       if meta.waterFlatShadow then
         WaterShadowRenderer.tagDef(def, "silhouette")
+      end
+      if waterDef.variableSize then
+        meta.variableSize = true
+        meta.frameWidth = waterDef.frameWidth
+        meta.frameHeight = waterDef.frameHeight
+        meta.anchorX = waterDef.anchorX
+        meta.anchorY = waterDef.anchorY
       end
       local result = {
         def = def,

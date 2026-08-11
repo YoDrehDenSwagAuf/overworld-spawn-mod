@@ -287,17 +287,18 @@ function GrassOcclusion.drawClippedCellBottom(renderer, cx, cy, camX, camY, cove
   local sy = cy * cell - math.floor(camY or 0)
   local feetY = sy + cell
   local prev = pushScissor(sx, feetY - coverPx, cell, coverPx)
-  love.graphics.setColor(1, 1, 1, 1)
-  -- Prefer the public drawCellBottom (color-0 key shader) when not wrapping;
-  -- from inside the wrap we call the original / Raw+shader equivalent.
-  if _origDrawCellBottom then
-    _origDrawCellBottom(renderer, cx, cy, camX, camY)
-  elseif type(renderer.drawCellBottom) == "function" then
-    renderer:drawCellBottom(cx, cy, camX, camY)
-  elseif type(renderer.drawCellBottomRaw) == "function" then
-    renderer:drawCellBottomRaw(cx, cy, camX, camY)
-  end
+  -- Always restore scissor even if the tile draw throws — a leaked scissor
+  -- would clip every later entity (Wild land/water included).
+  local ok, err = pcall(function()
+    love.graphics.setColor(1, 1, 1, 1)
+    if _origDrawCellBottom then
+      _origDrawCellBottom(renderer, cx, cy, camX, camY)
+    elseif type(renderer.drawCellBottomRaw) == "function" then
+      renderer:drawCellBottomRaw(cx, cy, camX, camY)
+    end
+  end)
   popScissor(prev)
+  if not ok then return false, err end
   return true
 end
 

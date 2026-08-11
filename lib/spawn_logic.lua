@@ -328,6 +328,10 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
           trueColor = waterDef.trueColor ~= false,
           id = waterDef.id,
           kind = waterDef.kind,
+          frameWidth = waterDef.frameWidth,
+          frameHeight = waterDef.frameHeight,
+          anchorX = waterDef.anchorX,
+          anchorY = waterDef.anchorY,
         }
         local meta = {
           kind = waterDef.kind,
@@ -337,6 +341,10 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
           image = waterDef.image,
           frames = waterDef.frames or 6,
           walker = true,
+          frameWidth = waterDef.frameWidth,
+          frameHeight = waterDef.frameHeight,
+          anchorX = waterDef.anchorX,
+          anchorY = waterDef.anchorY,
         }
         return spriteDef, meta
       end

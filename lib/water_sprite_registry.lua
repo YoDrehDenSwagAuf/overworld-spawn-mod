@@ -469,6 +469,7 @@ function WaterSpriteRegistry:_resolveKindVariant(speciesId, kind, variant, form,
     if info and info.applied then
       def.relativePath = info.relativePath or def.relativePath
       def.variableSize = true
+      def.loadPath = info.loadPath or def.loadPath
     end
   end
   return def
