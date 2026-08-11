@@ -104,6 +104,18 @@ modules.config = {
     end
     return modules.config.normalizeSpriteStyle(v)
   end,
+  normalizePokemonSize = function(value)
+    if value == "true_size" or value == true then return "true_size" end
+    return "classic"
+  end,
+  pokemonSizeMode = function(mod)
+    local v = savedOpts.pokemon_size
+    if v == nil and mod and mod.options and mod.options.get then
+      v = mod.options:get("pokemon_size")
+    end
+    if v == "true_size" then return "true_size" end
+    return "classic"
+  end,
   useAnimatedOverworldSprites = function(mod)
     return modules.config.spriteStyle(mod) ~= "pokedex"
   end,

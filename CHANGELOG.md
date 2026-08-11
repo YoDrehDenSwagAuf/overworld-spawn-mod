@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.14.0
+
+### True Size for all Gen1 species (Classic fallback sacred)
+
+- Generalizes the Charizard prototype into a data-driven True Size system for
+  all 151 land species plus swimming / levitate presentations where assets exist.
+- **requestedMode** vs **effectiveMode**: Voxel with incompatible Dramatic Shape
+  uses Classic geometry automatically; the saved `pokemon_size` preference is
+  never rewritten, and Flat restores True Size on live rebind.
+- New runtime assets under `assets/generated/true_size/` (HGSS from original
+  followsprites, Followers/GSC, Pokédex 1-frame stand-ins, swimming, levitate).
+- Wilds, followers, and Town Pokémon share `lib/species_geometry.lua`.
+- Classic 16×16 pipelines and Voxel stability remain unchanged.
+
+## 1.13.0
+
+### Variable-size / True Size prototype (experimental)
+
+- Inspected Gen1Recomp #1016 / PR #1020: SpriteDef now supports
+  `frameWidth` / `frameHeight` / `anchorX` / `anchorY` with
+  `SpriteRenderer:getPoseGeometry` (bottom-center default).
+- Inspected Dramatic Shape **1.7.9**: `SpriteBillboards.buildCard` is still
+  fixed 16×16 and does **not** call the geometry API — no DS monkey-patch.
+- New **Pokémon Size** option: **Classic** (default) | **True Size**.
+- Charizard-only HGSS Flat prototype (32×32 frames from original
+  `followsprites`, not degraded 16×16 runtime). Voxel + True Size falls back
+  to Classic with a DEV log until DS supports variable billboards.
+- Full 151 migration intentionally **not** started.
+
 ## Unreleased
 
 ### Optional overworld Poké Ball catching

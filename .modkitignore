@@ -14,6 +14,7 @@ tests/voxel_overlay_unit_test.lua
 tests/sprite_providers_unit_test.lua
 tests/water_sprites_unit_test.lua
 tests/random_enc_unit_test.lua
+tests/variable_size_unit_test.lua
 
 # Repo / authoring tooling (not runtime).
 scripts/bootstrap.sh
@@ -35,6 +36,8 @@ assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png
 tools/generate_followsprites_mapping.ps1
 tools/generate_runtime_sprite_sheets.ps1
 tools/generate_runtime_sprite_sheets.py
+tools/generate_variable_size_prototype.py
+tools/generate_true_size_runtime.py
 tools/generate_water_runtime_sheets.ps1
 tools/generate_water_runtime_sheets.py
 tools/validate_water_sprites.ps1

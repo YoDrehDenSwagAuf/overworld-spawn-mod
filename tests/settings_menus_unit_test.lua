@@ -242,6 +242,7 @@ local wlabels = {}
 for _, it in ipairs(wildsRoot.items) do wlabels[#wlabels + 1] = it.label end
 local wjoin = table.concat(wlabels, ",")
 check(wjoin:find("SPRITE FADE", 1, true), "wilds menu has Sprite Fade")
+check(wjoin:find("POKEMON SIZE", 1, true), "wilds menu has Pokémon Size")
 check(wjoin:find("TOWN POKEMON", 1, true), "wilds menu has Town Pokémon")
 check(wjoin:find("OW CATCH", 1, true), "wilds menu has OW Catch")
 check(wjoin:find("CATCH HUD", 1, true), "wilds menu has Catch HUD")

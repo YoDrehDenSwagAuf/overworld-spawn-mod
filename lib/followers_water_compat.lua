@@ -273,6 +273,10 @@ local function defAlreadyBound(entity, renderDef)
   return cur.image == renderDef.image
      and (cur.frames or 1) == (renderDef.frames or 1)
      and (cur.walker == true) == (renderDef.walker == true)
+     and cur.frameWidth == renderDef.frameWidth
+     and cur.frameHeight == renderDef.frameHeight
+     and cur.anchorX == renderDef.anchorX
+     and cur.anchorY == renderDef.anchorY
 end
 
 -- Entity-local SpriteRenderer swap only. Never touches content registries,

@@ -17,8 +17,8 @@
 --   Poke Followers EX → follow_control, trainer_trail, follower_count
 --                       (+ Leader via party menu hint)
 --   Wilds of Kanto    → enabled, spawn_density, random_encounters,
---                       water_spawns, cave_spawns, sprite_style, sprite_fade,
---                       town_pokemon, pokemon_grass_render_mode,
+--                       water_spawns, cave_spawns, sprite_style, pokemon_size,
+--                       sprite_fade, town_pokemon, pokemon_grass_render_mode,
 --                       overworld_catching, catch_hud_size, enable_idle,
 --                       enable_wander, enable_aggressive, enable_hidden,
 --                       dev_overlay
@@ -43,6 +43,17 @@ return {
       { "Pokédex", "pokedex" },
     },
     description = "Overworld sprite style for wild Pokémon and followers. Poke Followers / GSC is the built-in default. Water Pokémon still use Swimming or Levitates sprites when available.",
+  },
+  {
+    key = "pokemon_size",
+    label = "Pokémon Size",
+    type = "choice",
+    default = "classic",
+    choices = {
+      { "Classic", "classic" },
+      { "True Size", "true_size" },
+    },
+    description = "Classic keeps the original one-tile (16×16) sprite presentation. True Size uses larger relative species sizes in normal 2D (Flat) gameplay and automatically falls back to Classic while an incompatible Voxel renderer is active. Your True Size preference is preserved across Voxel toggles.",
   },
   {
     key = "sprite_fade",

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "purpose": "variable_size_prototype",
+  "species": {
+    "6:normal": {
+      "dex": 6,
+      "variant": "normal",
+      "path": "assets/generated/variable_size_prototype/hgss/006-normal.png",
+      "sourcePath": "assets/enhanced_overworld/followsprites/006-b-n.png",
+      "tileWidth": 32,
+      "tileHeight": 32,
+      "frameWidth": 32,
+      "frameHeight": 32,
+      "anchorX": 16.0,
+      "anchorY": 32,
+      "frames": 6,
+      "walker": true,
+      "class": "XL",
+      "idleWalkDistinct": true,
+      "method": "shared_bbox_nearest_pad",
+      "scale": 1.0,
+      "resized": false,
+      "contentWidth": 29,
+      "contentHeight": 24,
+      "unionBox": [
+        2,
+        4,
+        31,
+        28
+      ],
+      "sourceFilter": "NEAREST",
+      "sourceAssets": "assets/enhanced_overworld/followsprites (original)",
+      "degradedRuntimeUsedAsSource": false
+    },
+    "6:shiny": {
+      "dex": 6,
+      "variant": "shiny",
+      "path": "assets/generated/variable_size_prototype/hgss/006-shiny.png",
+      "sourcePath": "assets/enhanced_overworld/followsprites/006-b-s.png",
+      "tileWidth": 32,
+      "tileHeight": 32,
+      "frameWidth": 32,
+      "frameHeight": 32,
+      "anchorX": 16.0,
+      "anchorY": 32,
+      "frames": 6,
+      "walker": true,
+      "class": "XL",
+      "idleWalkDistinct": true,
+      "method": "shared_bbox_nearest_pad",
+      "scale": 1.0,
+      "resized": false,
+      "contentWidth": 29,
+      "contentHeight": 26,
+      "unionBox": [
+        2,
+        4,
+        31,
+        30
+      ],
+      "sourceFilter": "NEAREST",
+      "sourceAssets": "assets/enhanced_overworld/followsprites (original)",
+      "degradedRuntimeUsedAsSource": false
+    }
+  },
+  "notes": [
+    "Charizard-only prototype for Gen1Recomp variable-size SpriteRenderer (#1016 / PR #1020).",
+    "Built from ORIGINAL HGSS followsprites, not from 16x16 followsprites_runtime.",
+    "Nearest-neighbor only; shared bbox; bottom-center anchor."
+  ]
+}

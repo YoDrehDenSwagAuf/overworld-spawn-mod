@@ -1184,11 +1184,17 @@ function Entity.new(game, mod, render, record)
   if resolvedProvider and resolvedProvider.def
      and type(resolvedProvider.def.image) == "string"
      and not isOsAbsolutePath(resolvedProvider.def.image) then
+    -- Same contract as follower spriteDefWithGeometry: never drop
+    -- frameWidth/Height/anchor when copying a provider/water def.
     drawDef = {
       image = resolvedProvider.def.image,
       frames = resolvedProvider.def.frames or 1,
       trueColor = resolvedProvider.def.trueColor ~= false,
       id = resolvedProvider.def.id or spriteId,
+      frameWidth = resolvedProvider.def.frameWidth,
+      frameHeight = resolvedProvider.def.frameHeight,
+      anchorX = resolvedProvider.def.anchorX,
+      anchorY = resolvedProvider.def.anchorY,
     }
     if resolvedProvider.def.walker then
       drawDef.walker = true
@@ -1198,6 +1204,9 @@ function Entity.new(game, mod, render, record)
     end
     drawPath = drawDef.image
     nativeSheet = (drawDef.walker == true and (drawDef.frames or 1) >= 6)
+      or (tonumber(drawDef.frameWidth) and tonumber(drawDef.frameHeight)
+          and tonumber(drawDef.frameWidth) > 0
+          and tonumber(drawDef.frameHeight) > 0)
     self.usingFallback = (resolvedProvider.providerId == "black")
     self.spriteVariant = (resolvedProvider.meta and resolvedProvider.meta.usedVariant)
       or variant
@@ -1247,6 +1256,47 @@ function Entity.new(game, mod, render, record)
       self.spriteProviderId = "pokedex"
     end
     drawDef = buildDef(spriteId, drawPath, drawFrames, drawWalker)
+  end
+
+  -- True Size: apply / reaffirm Gen1Recomp geometry. Water must keep the
+  -- swimming/levitate pack — never rebind through the land style pack.
+  if drawDef then
+    local VariableSize = V.require("variable_size")
+    local voxelActive = false
+    if render.voxel and render.voxel.isVoxelCameraActive then
+      local okV, active = pcall(render.voxel.isVoxelCameraActive, render.voxel)
+      voxelActive = okV and active == true
+    end
+    local kind = self.spriteKind
+      or (resolvedProvider and resolvedProvider.spriteKind)
+    local presentation, packId = nil, nil
+    if kind == "swimming" then
+      presentation, packId = "swimming", "swimming"
+    elseif kind == "levitates" or kind == "levitate" then
+      presentation, packId = "levitate", "levitate"
+    end
+    local geoInfo
+    drawDef, geoInfo = VariableSize.applyToDef(mod, drawDef, {
+      speciesId = dexId or record.species,
+      style = style,
+      variant = self.spriteVariant or variant,
+      voxelActive = voxelActive,
+      spriteId = drawDef.id or spriteId,
+      presentation = presentation,
+      packId = packId,
+    })
+    if geoInfo and geoInfo.applied then
+      self.variableSizeApplied = true
+      self.variableSizeReason = geoInfo.reason
+      self.runtimeRelativePath = geoInfo.relativePath or self.runtimeRelativePath
+      self.runtimeLoadPath = geoInfo.loadPath or self.runtimeLoadPath
+      nativeSheet = (drawDef.walker == true and (drawDef.frames or 1) >= 6)
+        or (tonumber(drawDef.frameWidth) and tonumber(drawDef.frameHeight))
+      drawPath = drawDef.image
+    else
+      self.variableSizeApplied = false
+      self.variableSizeReason = geoInfo and geoInfo.reason or nil
+    end
   end
 
   if isOsAbsolutePath(drawPath) then
@@ -1325,16 +1375,35 @@ function Entity.new(game, mod, render, record)
   -- Instrument resolveImage so diagnostics see Dramatic Shape texture fetches.
   render:_instrumentResolveImage(self, self.sprite)
 
-  -- Native 16×16 sheets need no extra 2D scale. Legacy battle fronts still do.
+  -- Native sheets: Classic stays 16×16 scaleInfo. True Size mirrors SpriteDef
+  -- frame geometry so grass occlusion / diagnostics use the feet-anchored size.
   if self.nativeSpriteRenderer then
-    self.scaleInfo = {
-      scale = 1, final2DScale = 1, contentW = CELL, contentH = CELL,
-      renderedW = CELL, renderedH = CELL, originalW = CELL, originalH = RuntimeSheets.SHEET_H,
-      logicalFootprintTiles = 1, grassOcclusionHeight = 6,
-    }
+    local fw = drawDef and tonumber(drawDef.frameWidth) or nil
+    local fh = drawDef and tonumber(drawDef.frameHeight) or nil
+    if self.variableSizeApplied and fw and fh and fw > 0 and fh > 0 then
+      local grassH = GrassOcclusion.computeTrueSizeCover(fh)
+      local frames = tonumber(drawDef.frames) or RuntimeSheets.FRAMES or 6
+      self.scaleInfo = {
+        scale = 1, final2DScale = 1,
+        contentW = fw, contentH = fh,
+        renderedW = fw, renderedH = fh,
+        originalW = fw, originalH = fh * frames,
+        logicalFootprintTiles = 1,
+        grassOcclusionHeight = grassH,
+        frameWidth = fw, frameHeight = fh,
+        anchorX = drawDef.anchorX, anchorY = drawDef.anchorY,
+      }
+      self.grassOcclusionHeight = grassH
+    else
+      self.scaleInfo = {
+        scale = 1, final2DScale = 1, contentW = CELL, contentH = CELL,
+        renderedW = CELL, renderedH = CELL, originalW = CELL, originalH = RuntimeSheets.SHEET_H,
+        logicalFootprintTiles = 1, grassOcclusionHeight = 6,
+      }
+      self.grassOcclusionHeight = 6
+    end
     self.visualScale = 1
     self.final2DScale = 1
-    self.grassOcclusionHeight = 6
     self.voxelScale = 1
   else
     local minSize = Config.get(mod, "min_sprite_size") or Config.DEFAULTS.min_sprite_size
@@ -1385,6 +1454,13 @@ function Entity:_grassTuck()
     or pokemonRenderer == SpawnRender.RENDERER.WORLD_BILLBOARD_LEGACY
     or pokemonRenderer == SpawnRender.RENDERER.WORLD_BILLBOARD_BLACK_FALLBACK
 
+  -- True Size Flat: TileRenderer wrap draws a clipped feet-band (or skips in
+  -- Above). Never compensate with tuck — that fought the fixed 8px overdraw.
+  if not overlayEmergency
+     and GrassOcclusion.usesTrueSizeFeetBand(self, self.mod) then
+    return self.tuck or 0
+  end
+
   -- World billboards: immersed uses DS native grass (no tuck). Above uses a
   -- small visualY lift so feet clear the late grass mesh (object occlusion stays).
   if worldBillboard then
@@ -1397,7 +1473,7 @@ function Entity:_grassTuck()
     return self.tuck or 0
   end
 
-  -- Flat path and emergency overlay.
+  -- Classic Flat path and emergency overlay.
   return GrassOcclusion.tuckDelta(self, {
     mode = mode,
     engineOverdrawExpected = (mode == GrassOcclusion.MODE_ABOVE)
@@ -1769,6 +1845,16 @@ function Entity:draw(camX, camY)
       drawBody()
     end
 
+    -- True Size Flat: queue clipped feet-band (or Above skip) so the engine's
+    -- immediately-following drawCellBottom does not paint a full 8px tile.
+    -- Classic entities leave the queue empty → vanilla drawCellBottom.
+    if not skipBody and GrassOcclusion.usesTrueSizeFeetBand(self, self.mod)
+       and self.inGrassOverlay then
+      local world = self.mod and self.mod.world
+      local ow = world and world.overworld and world:overworld()
+      GrassOcclusion.queueTrueSizeFeetBand(self, camX, camY, ow and ow.map)
+    end
+
     -- Spatial emergency overlay only: world billboards get DS tall-grass.
     -- Never draw custom grass for NATIVE / WORLD_BILLBOARD_* success paths.
     local emergency = self.pokemonRenderer == SpawnRender.RENDERER.SPATIAL_OVERLAY_EMERGENCY
@@ -1953,7 +2039,13 @@ function SpawnRender:applyProviderSprite(entity, game)
   -- below.
   local redpp = Config.paletteFxRedpp()
   local variant = AnimatedSprites.resolveRuntimeVariant(entity)
-  local species = entity.species or entity.enhancedDexId
+  -- Prefer numeric dex. entity.species is often a name ("ONIX"); passing that
+  -- into VariableSize.applyToDef made packGeometry fail, stripped frame
+  -- geometry, and left the true_size image → SpriteRenderer baked 16×16 quads.
+  local dexId = tonumber(entity.enhancedDexId)
+    or AnimatedSprites.resolveSpeciesId(entity.species, game, self.mod)
+    or tonumber(entity.species)
+  local species = dexId or entity.species or entity.enhancedDexId
   local map = game and game.overworld and game.overworld.map
   local WaterDisplay = V.require("water_display")
   local voxelActive = WaterDisplay.isVoxelCameraActive(self.mod)
@@ -1970,7 +2062,7 @@ function SpawnRender:applyProviderSprite(entity, game)
       game = game,
       map = map,
       surface = entity.surface,
-      speciesId = entity.enhancedDexId or species,
+      speciesId = dexId or entity.enhancedDexId or entity.species,
       variant = variant,
       voxelActive = voxelActive,
       nativeSilhouette = voxelActive
@@ -2005,10 +2097,22 @@ function SpawnRender:applyProviderSprite(entity, game)
     or (result.meta and result.meta.shadowRendererMode)
     or shadowMode
   -- Skip rebuild when the same provider image / surface / water mode is bound.
+  local VariableSize = V.require("variable_size")
+  local effectiveSize = VariableSize.effectiveMode(self.mod, { voxelActive = voxelActive })
   local cur = entity.sprite and entity.sprite.def
-  if cur and cur.image == result.def.image
+  local inst = entity.sprite
+  -- Compare BOTH SpriteDef and SpriteRenderer INSTANCE geometry.
+  -- Gen1Recomp draws from sprite.frameWidth (copied at new), not def alone.
+  -- Do NOT coerce missing geometry to 16 — that hid True Size↔Classic mismatches.
+  if cur and inst and cur.image == result.def.image
      and (cur.frames or 1) == (result.def.frames or 1)
      and (cur.walker == true) == (result.def.walker == true)
+     and cur.frameWidth == result.def.frameWidth
+     and cur.frameHeight == result.def.frameHeight
+     and cur.anchorX == result.def.anchorX
+     and cur.anchorY == result.def.anchorY
+     and inst.frameWidth == result.def.frameWidth
+     and inst.frameHeight == result.def.frameHeight
      and entity.spriteProviderId == result.providerId
      and entity.spriteState == result.spriteState
      and entity.requestedSpriteStyle == style
@@ -2018,7 +2122,8 @@ function SpawnRender:applyProviderSprite(entity, game)
      and entity.waterFlatShadow == wantFlatShadow
      and entity.shadowRendererMode == resultShadowMode
      and entity.waterVoxelActive == voxelActive
-     and entity.paletteRedpp == redpp then
+     and entity.paletteRedpp == redpp
+     and entity._wildsEffectiveSize == effectiveSize then
     entity.requestedSpriteStyle = style
     entity.spriteFallbackStep = result.fallbackStep
     entity.spriteProviderMeta = result.meta
@@ -2028,6 +2133,7 @@ function SpawnRender:applyProviderSprite(entity, game)
     entity.waterFlatShadow = wantFlatShadow
     entity.shadowRendererMode = resultShadowMode
     entity.waterVoxelActive = voxelActive
+    entity._wildsEffectiveSize = effectiveSize
     entity.paletteRedpp = redpp
     if self.spriteResolver then
       self.spriteResolver:applyEntityMeta(entity, result)
@@ -2064,27 +2170,80 @@ function SpawnRender:applyProviderSprite(entity, game)
   }
 
   -- Copy provider def exactly for native walkers; never invent walker=true.
+  -- Explicitly keep True Size geometry (follower spriteDefWithGeometry parity).
   local def = {
     image = result.def.image,
     frames = result.def.frames or 1,
     trueColor = result.def.trueColor ~= false,
     id = result.def.id or ("SPRITE_OW_WILD_" .. tostring(species)),
+    frameWidth = result.def.frameWidth,
+    frameHeight = result.def.frameHeight,
+    anchorX = result.def.anchorX,
+    anchorY = result.def.anchorY,
   }
   if result.def.walker == true then def.walker = true end
   if result.def.pokepcShiny then def.pokepcShiny = true end
-  -- Retain any extra SpriteRenderer fields the provider already published.
   for k, v in pairs(result.def) do
     if def[k] == nil then def[k] = v end
+  end
+
+  -- Re-evaluate True Size at bind time (Voxel may have toggled since resolve).
+  do
+    local VariableSize = V.require("variable_size")
+    local kind = result.spriteKind or entity.spriteKind
+    local presentation, packId = nil, nil
+    if kind == "swimming" then
+      presentation, packId = "swimming", "swimming"
+    elseif kind == "levitates" or kind == "levitate" then
+      presentation, packId = "levitate", "levitate"
+    end
+    local geoInfo
+    def, geoInfo = VariableSize.applyToDef(self.mod, def, {
+      -- Always numeric dex when available (never bare species name).
+      speciesId = dexId or entity.enhancedDexId or entity.species,
+      game = game,
+      style = style,
+      variant = variant,
+      voxelActive = voxelActive,
+      spriteId = def.id,
+      presentation = presentation,
+      packId = packId,
+    })
+    if geoInfo then
+      entity.variableSizeApplied = geoInfo.applied == true
+      entity.variableSizeReason = geoInfo.reason
+      entity._wildsEffectiveSize = geoInfo.effectiveMode
+        or VariableSize.effectiveMode(self.mod, { voxelActive = voxelActive })
+      if geoInfo.applied and result.meta then
+        result.meta.variableSize = true
+        result.meta.frameWidth = geoInfo.frameWidth
+        result.meta.frameHeight = geoInfo.frameHeight
+        result.meta.relativePath = geoInfo.relativePath or result.meta.relativePath
+        result.meta.loadPath = geoInfo.loadPath or result.meta.loadPath
+      end
+    end
   end
 
   local ok, sprite = pcall(SpriteRenderer.new, def, entity.spawnId or entity.id)
   if not ok or not sprite then
     return false
   end
+  -- Gen1Recomp copies def → instance at new(). Catch def/instance drift early.
+  if tonumber(def.frameWidth) and sprite.frameWidth ~= math.floor(tonumber(def.frameWidth)) then
+    DebugLog.error(self.mod,
+      "True Size INSTANCE mismatch after SpriteRenderer.new def=%sx%s instance=%sx%s img=%s",
+      tostring(def.frameWidth), tostring(def.frameHeight),
+      tostring(sprite.frameWidth), tostring(sprite.frameHeight),
+      tostring(def.image))
+  end
   self._spriteRendererNews = (self._spriteRendererNews or 0) + 1
   entity._wildsSpriteRendererNews = (entity._wildsSpriteRendererNews or 0) + 1
+  entity._wildsSpriteRendererId = tostring(sprite)
+  entity._wildsLastBindReason = "applyProviderSprite"
 
   local nativeSheet = (def.walker == true and (def.frames or 1) >= 6)
+    or (entity.variableSizeApplied and tonumber(def.frameWidth)
+        and tonumber(def.frameHeight))
   entity.sprite = sprite
   entity.legacySprite = sprite
   entity.spriteId = def.id
@@ -2133,15 +2292,33 @@ function SpawnRender:applyProviderSprite(entity, game)
     entity.spriteSource2D = entity.spriteSource
     entity.voxelSource = entity.spriteSource
     entity.pokemonRenderer = SpawnRender.RENDERER.NATIVE_SPRITE_RENDERER
-    entity.scaleInfo = {
-      scale = 1, final2DScale = 1, contentW = CELL, contentH = CELL,
-      renderedW = CELL, renderedH = CELL, originalW = CELL,
-      originalH = RuntimeSheets.SHEET_H, logicalFootprintTiles = 1,
-      grassOcclusionHeight = entity.grassOcclusionHeight or 6,
-    }
+    local fw = tonumber(def.frameWidth)
+    local fh = tonumber(def.frameHeight)
+    if entity.variableSizeApplied and fw and fh and fw > 0 and fh > 0 then
+      local grassH = GrassOcclusion.computeTrueSizeCover(fh)
+      local frames = tonumber(def.frames) or RuntimeSheets.FRAMES or 6
+      entity.scaleInfo = {
+        scale = 1, final2DScale = 1,
+        contentW = fw, contentH = fh,
+        renderedW = fw, renderedH = fh,
+        originalW = fw, originalH = fh * frames,
+        logicalFootprintTiles = 1,
+        grassOcclusionHeight = grassH,
+        frameWidth = fw, frameHeight = fh,
+        anchorX = def.anchorX, anchorY = def.anchorY,
+      }
+      entity.grassOcclusionHeight = grassH
+    else
+      entity.scaleInfo = {
+        scale = 1, final2DScale = 1, contentW = CELL, contentH = CELL,
+        renderedW = CELL, renderedH = CELL, originalW = CELL,
+        originalH = RuntimeSheets.SHEET_H, logicalFootprintTiles = 1,
+        grassOcclusionHeight = entity.grassOcclusionHeight or 6,
+      }
+      entity.grassOcclusionHeight = entity.grassOcclusionHeight or 6
+    end
     entity.visualScale = 1
     entity.final2DScale = 1
-    entity.grassOcclusionHeight = entity.grassOcclusionHeight or 6
     -- Optional HUD/diagnostic animation metadata only. Must not claim the
     -- enhanced atlas owns the body, and must not reset Movement phase.
     if entity.animation then
@@ -2385,7 +2562,18 @@ function SpawnRender:refreshEnhancedScale(entity)
   if entity.nativeSpriteRenderer then
     entity.visualScale = 1
     entity.final2DScale = 1
-    entity.grassOcclusionHeight = entity.grassOcclusionHeight or 6
+    local def = entity.sprite and entity.sprite.def
+    local fh = def and tonumber(def.frameHeight) or nil
+    if entity.variableSizeApplied and fh and fh > 0 then
+      entity.grassOcclusionHeight = GrassOcclusion.computeTrueSizeCover(fh)
+      if entity.scaleInfo then
+        entity.scaleInfo.renderedH = fh
+        entity.scaleInfo.contentH = fh
+        entity.scaleInfo.grassOcclusionHeight = entity.grassOcclusionHeight
+      end
+    else
+      entity.grassOcclusionHeight = entity.grassOcclusionHeight or 6
+    end
     entity.grassRenderMode = GrassOcclusion.mode(entity.mod)
     return
   end

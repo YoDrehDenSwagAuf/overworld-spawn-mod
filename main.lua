@@ -242,6 +242,9 @@ return function(mod)
         end
       end
     end
+    pcall(function()
+      (V.require("grass_occlusion")).installTileRendererWrap(mod)
+    end)
     if Config.debug(mod) then
       DebugLog.info(mod, "game.ready; feature=%s overlay=%s fallback=%s style=%s",
                     tostring(Config.isEnabled(mod)),
@@ -257,6 +260,10 @@ return function(mod)
     local game = mod.world and mod.world.game
     render:finalizeSpriteProviders(game)
     pcall(function() follower:reassertAfterModsLoaded(game) end)
+    -- True Size Flat grass: clip drawCellBottom to a feet band (Classic unchanged).
+    pcall(function()
+      (V.require("grass_occlusion")).installTileRendererWrap(mod)
+    end)
   end)
 
   -- ------- hooks (installed while enabled; suppress is fail-safe gated)
@@ -357,7 +364,7 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "1.12.2"
+  mod.exports.version = "1.14.0"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated

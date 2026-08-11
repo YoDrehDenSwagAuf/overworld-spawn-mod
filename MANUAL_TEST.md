@@ -10,8 +10,13 @@
 
 1. Open Mod Settings → Wilds of Kanto.
 2. Confirm core options:
-   Sprite Style / Spawn Amount / Random Enc / Water Mons / OW Catch / Dev Overlay
+   Sprite Style / Pokémon Size / Spawn Amount / Random Enc / Water Mons / OW Catch / Dev Overlay
    (plus Show Wild Mons, Grass View, Idle/Roam/Chase/Hidden Mons).
+2b. **Pokémon Size** defaults to **Classic**. With Gen1Recomp (≥ #1020) in Flat:
+    set **True Size**, Sprite Style **HGSS / PokeMMO**, spawn/test Charizard —
+    expect ~32px tall art, feet on the cell, collision still 1 tile.
+    With Dramatic Shape 1.7.9 Voxel + True Size: expect Classic geometry fallback
+    (no crop/stretch corruption); DEV log explains DS gap.
 3. Confirm **OW Catch** is ON/OFF (default **ON**) and toggles live.
 4. Confirm **Water Mons** is a five-way choice:
    Swim Sprites / Hid Silhouette / Silhouettes / Classic Enc / Disabled
