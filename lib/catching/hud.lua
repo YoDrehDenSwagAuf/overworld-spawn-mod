@@ -9,10 +9,10 @@ local BallHud = {}
 BallHud.__index = BallHud
 
 BallHud.PIPELINE_ID = "owwild_ball_hud"
--- Default icon px when setting is 5 (~1.08× of 12). Thrown Balls stay ~6px.
-BallHud.ICON_PX = 13
+-- Default icon px when setting is 5 (~1.08× of 14). Thrown Balls stay ~6px.
+BallHud.ICON_PX = 15
 BallHud.ICON_PX_MIN = 8
-BallHud.ICON_PX_MAX = 20
+BallHud.ICON_PX_MAX = 24
 
 local BALL_ORDER = { "POKE_BALL", "GREAT_BALL", "ULTRA_BALL", "MASTER_BALL" }
 local BALL_SHORT = {
@@ -48,7 +48,7 @@ function BallHud.layout(mod, canvasW)
   if iconW >= 16 then
     gap = math.min(gap, 2)
   end
-  if iconW >= 18 then
+  if iconW >= 20 then
     gap = 1
   end
   local rowW = #BALL_ORDER * iconW + (#BALL_ORDER - 1) * gap
@@ -58,7 +58,12 @@ function BallHud.layout(mod, canvasW)
     rowW = #BALL_ORDER * iconW + (#BALL_ORDER - 1) * gap
     startX = math.max(2, canvasW - 4 - rowW)
   end
-  -- If size 10 still overflows, nudge left edge; never clip the right side.
+  -- If size 10 still overflows, shrink icon slightly so four balls fit.
+  while startX < 2 and iconW > BallHud.ICON_PX_MIN do
+    iconW = iconW - 1
+    rowW = #BALL_ORDER * iconW + (#BALL_ORDER - 1) * gap
+    startX = canvasW - 4 - rowW
+  end
   if startX + rowW > canvasW - 2 then
     startX = math.max(2, canvasW - 2 - rowW)
   end
@@ -172,12 +177,14 @@ function BallHud:draw(canvas, ctx)
       alpha = 0.42
     end
 
-    local img = catching:ballImage(ballType)
+    -- HUD-only image path (full Ball art). World projectile uses ballImage().
+    local img = (catching.ballHudImage and catching:ballHudImage(ballType))
+      or catching:ballImage(ballType)
     if img then
       if img.setFilter then img:setFilter("nearest", "nearest") end
       lg.setColor(1, 1, 1, alpha)
       local iw, ih = img:getDimensions()
-      local s = iconW / math.max(iw, ih)
+      local s = iconW / math.max(1, math.max(iw, ih))
       lg.draw(img, bx, y, 0, s, s)
     else
       if selectedHere then

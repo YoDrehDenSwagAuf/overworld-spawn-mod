@@ -68,6 +68,11 @@ WATER_WIDTH_RATIO_WARN = 1.35
 WATER_AREA_RATIO_WARN = 1.35
 WATER_AREA_RATIO_FAIL = 1.50
 WATER_HEIGHT_FAIL_PX = 1  # runtime opaque height may exceed land by at most this
+# Tiny final art-direction bias after land-authority normalization.
+# Keeps mathematical matching, then pulls water/levitate a few percent smaller
+# so in-game perceived size matches land (never larger).
+WATER_PRESENTATION_SCALE = 0.95
+LEVITATE_PRESENTATION_SCALE = 0.95
 
 # Prototype species for native-HGSS validation before regenerating all 151.
 PROTOTYPE_SPECIES = (19, 9, 95)  # Rattata, Blastoise, Onix
@@ -158,12 +163,14 @@ def compute_land_authority_scale(
     width_ratio_limit: float = WATER_WIDTH_RATIO_LIMIT,
     area_ratio_limit: float = WATER_AREA_RATIO_LIMIT,
     multiplier: float = 1.0,
+    presentation_bias: float = 1.0,
 ) -> dict:
     """Uniform NN scale so water/levitate never exceed HGSS land authority.
 
     Primary: height (never upscale above land).
     Secondary: width cap (pose may be wider, not absurd).
     Tertiary: opaque-area soft cap.
+    Final: optional tiny presentation bias (<1) after safety rules.
     """
     land_w = max(1, int(land["visibleWidth"]))
     land_h = max(1, int(land["visibleHeight"]))
@@ -195,9 +202,14 @@ def compute_land_authority_scale(
         final_scale = min(final_scale, area_limit_scale)
 
     mult = float(multiplier or 1.0)
-    # Declarative multiplier may only shrink further — never grow past land.
+    # Declarative per-species multiplier may only shrink further.
     if 0 < mult < 1.0:
         final_scale *= mult
+
+    # Global presentation bias after normalization (art-direction polish).
+    bias = float(presentation_bias or 1.0)
+    if 0 < bias < 1.0:
+        final_scale *= bias
 
     if final_scale <= 0:
         final_scale = min(1.0, height_scale)
@@ -245,6 +257,7 @@ def compute_land_authority_scale(
         "widthRatioLimit": float(width_ratio_limit),
         "areaRatioLimit": float(area_ratio_limit),
         "multiplier": mult,
+        "presentationBias": bias,
     }
 
 
@@ -890,8 +903,9 @@ def generate_matched_pack_for_dex(
             src_bounds = {"visibleWidth": 16, "visibleHeight": 16}
         src_bounds["visibleArea"] = src_bounds["visibleWidth"] * src_bounds["visibleHeight"]
         mult = float(ov.get("waterVisualScaleMultiplier", 1.0) or 1.0)
+        bias = WATER_PRESENTATION_SCALE if pack == "swimming" else LEVITATE_PRESENTATION_SCALE
         scale_info = compute_land_authority_scale(
-            land_reference, src_bounds, multiplier=mult)
+            land_reference, src_bounds, multiplier=mult, presentation_bias=bias)
         visual_scale = float(scale_info["finalVisualScale"])
         target_h = None
         ref_source = "hgss_land_opaque_bounds"
@@ -995,6 +1009,7 @@ def generate_matched_pack_for_dex(
             "heightScale": scale_info["heightScale"],
             "widthLimitScale": scale_info["widthLimitScale"],
             "areaLimitScale": scale_info["areaLimitScale"],
+            "presentationBias": scale_info.get("presentationBias"),
             "finalVisualScale": scale_info["finalVisualScale"],
             "widthRatio": round(runtime_w / float(max(1, land_w)), 4) if runtime_w else None,
             "heightRatio": round(runtime_h / float(max(1, land_h)), 4) if runtime_h else None,

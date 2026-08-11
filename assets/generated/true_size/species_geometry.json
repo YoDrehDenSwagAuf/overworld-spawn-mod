@@ -33,10 +33,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 19,
-        "anchorX": 14.0,
-        "anchorY": 17.0,
+        "frameWidth": 27,
+        "frameHeight": 18,
+        "anchorX": 13.5,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -89,10 +89,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 22,
-        "anchorX": 16.0,
-        "anchorY": 20.0,
+        "frameWidth": 31,
+        "frameHeight": 21,
+        "anchorX": 15.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -145,10 +145,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 40,
-        "frameHeight": 26,
-        "anchorX": 20.0,
-        "anchorY": 24.0,
+        "frameWidth": 38,
+        "frameHeight": 25,
+        "anchorX": 19.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -201,10 +201,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 21,
-        "anchorX": 14.0,
-        "anchorY": 19.0,
+        "frameWidth": 26,
+        "frameHeight": 20,
+        "anchorX": 13.0,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -257,10 +257,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 23,
-        "anchorX": 15.5,
-        "anchorY": 21.0,
+        "frameWidth": 30,
+        "frameHeight": 22,
+        "anchorX": 15.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -322,10 +322,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 41,
-        "frameHeight": 27,
-        "anchorX": 20.5,
-        "anchorY": 25.0,
+        "frameWidth": 39,
+        "frameHeight": 26,
+        "anchorX": 19.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -369,10 +369,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 19,
-        "anchorX": 11.5,
-        "anchorY": 17.0,
+        "frameWidth": 22,
+        "frameHeight": 18,
+        "anchorX": 11.0,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -425,10 +425,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 23,
-        "anchorX": 14.5,
-        "anchorY": 21.0,
+        "frameWidth": 28,
+        "frameHeight": 22,
+        "anchorX": 14.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -489,10 +489,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 39,
-        "frameHeight": 28,
-        "anchorX": 19.5,
-        "anchorY": 26.0,
+        "frameWidth": 37,
+        "frameHeight": 27,
+        "anchorX": 18.5,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -545,10 +545,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 24,
-        "frameHeight": 16,
-        "anchorX": 12.0,
-        "anchorY": 14.0,
+        "frameWidth": 23,
+        "frameHeight": 15,
+        "anchorX": 11.5,
+        "anchorY": 13.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -601,10 +601,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 26,
-        "frameHeight": 20,
-        "anchorX": 13.0,
-        "anchorY": 18.0,
+        "frameWidth": 25,
+        "frameHeight": 19,
+        "anchorX": 12.5,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -666,10 +666,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 38,
-        "frameHeight": 23,
-        "anchorX": 19.0,
-        "anchorY": 21.0,
+        "frameWidth": 36,
+        "frameHeight": 22,
+        "anchorX": 18.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -713,10 +713,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 19,
-        "anchorX": 11.5,
-        "anchorY": 17.0,
+        "frameWidth": 22,
+        "frameHeight": 18,
+        "anchorX": 11.0,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -769,10 +769,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 22,
-        "frameHeight": 20,
-        "anchorX": 11.0,
-        "anchorY": 18.0,
+        "frameWidth": 21,
+        "frameHeight": 19,
+        "anchorX": 10.5,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -834,10 +834,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 37,
-        "frameHeight": 26,
-        "anchorX": 18.5,
-        "anchorY": 24.0,
+        "frameWidth": 35,
+        "frameHeight": 25,
+        "anchorX": 17.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -881,9 +881,9 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
+        "frameWidth": 22,
         "frameHeight": 16,
-        "anchorX": 11.5,
+        "anchorX": 11.0,
         "anchorY": 14.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
@@ -946,10 +946,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 39,
-        "frameHeight": 26,
-        "anchorX": 19.5,
-        "anchorY": 24.0,
+        "frameWidth": 37,
+        "frameHeight": 25,
+        "anchorX": 18.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -1002,10 +1002,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 41,
-        "frameHeight": 30,
-        "anchorX": 20.5,
-        "anchorY": 28.0,
+        "frameWidth": 39,
+        "frameHeight": 29,
+        "anchorX": 19.5,
+        "anchorY": 27.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -1057,10 +1057,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 23,
-        "anchorX": 14.0,
-        "anchorY": 21.0,
+        "frameWidth": 27,
+        "frameHeight": 22,
+        "anchorX": 13.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1113,10 +1113,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 33,
-        "frameHeight": 23,
-        "anchorX": 16.5,
-        "anchorY": 21.0,
+        "frameWidth": 32,
+        "frameHeight": 22,
+        "anchorX": 16.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1169,10 +1169,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 16,
-        "anchorX": 15.0,
-        "anchorY": 14.0,
+        "frameWidth": 29,
+        "frameHeight": 15,
+        "anchorX": 14.5,
+        "anchorY": 13.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1234,10 +1234,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 39,
-        "frameHeight": 29,
-        "anchorX": 19.5,
-        "anchorY": 27.0,
+        "frameWidth": 37,
+        "frameHeight": 28,
+        "anchorX": 18.5,
+        "anchorY": 26.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -1281,10 +1281,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 35,
-        "frameHeight": 21,
-        "anchorX": 17.5,
-        "anchorY": 19.0,
+        "frameWidth": 33,
+        "frameHeight": 20,
+        "anchorX": 16.5,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1337,10 +1337,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 27,
-        "anchorX": 15.0,
-        "anchorY": 25.0,
+        "frameWidth": 28,
+        "frameHeight": 26,
+        "anchorX": 14.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1393,9 +1393,9 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 24,
+        "frameWidth": 23,
         "frameHeight": 17,
-        "anchorX": 12.0,
+        "anchorX": 11.5,
         "anchorY": 15.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
@@ -1449,10 +1449,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 36,
-        "frameHeight": 22,
-        "anchorX": 18.0,
-        "anchorY": 20.0,
+        "frameWidth": 34,
+        "frameHeight": 21,
+        "anchorX": 17.0,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1505,10 +1505,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 25,
-        "frameHeight": 20,
-        "anchorX": 12.5,
-        "anchorY": 18.0,
+        "frameWidth": 24,
+        "frameHeight": 19,
+        "anchorX": 12.0,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1561,10 +1561,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 24,
-        "anchorX": 15.5,
-        "anchorY": 22.0,
+        "frameWidth": 29,
+        "frameHeight": 23,
+        "anchorX": 14.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1670,10 +1670,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 22,
-        "anchorX": 16.0,
-        "anchorY": 20.0,
+        "frameWidth": 31,
+        "frameHeight": 21,
+        "anchorX": 15.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1726,10 +1726,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 26,
-        "anchorX": 16.0,
-        "anchorY": 24.0,
+        "frameWidth": 30,
+        "frameHeight": 25,
+        "anchorX": 15.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1835,10 +1835,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 24,
-        "anchorX": 16.0,
-        "anchorY": 22.0,
+        "frameWidth": 31,
+        "frameHeight": 23,
+        "anchorX": 15.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1891,10 +1891,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 25,
-        "anchorX": 16.0,
-        "anchorY": 23.0,
+        "frameWidth": 30,
+        "frameHeight": 24,
+        "anchorX": 15.0,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1947,10 +1947,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 25,
-        "frameHeight": 20,
-        "anchorX": 12.5,
-        "anchorY": 18.0,
+        "frameWidth": 24,
+        "frameHeight": 19,
+        "anchorX": 12.0,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2003,10 +2003,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 23,
-        "anchorX": 15.5,
-        "anchorY": 21.0,
+        "frameWidth": 29,
+        "frameHeight": 22,
+        "anchorX": 14.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2059,10 +2059,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 33,
-        "frameHeight": 22,
-        "anchorX": 16.5,
-        "anchorY": 20.0,
+        "frameWidth": 31,
+        "frameHeight": 21,
+        "anchorX": 15.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2115,10 +2115,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 40,
-        "frameHeight": 26,
-        "anchorX": 20.0,
-        "anchorY": 24.0,
+        "frameWidth": 38,
+        "frameHeight": 25,
+        "anchorX": 19.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2171,10 +2171,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 19,
-        "anchorX": 11.5,
-        "anchorY": 17.0,
+        "frameWidth": 22,
+        "frameHeight": 18,
+        "anchorX": 11.0,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2227,10 +2227,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 23,
-        "anchorX": 15.0,
-        "anchorY": 21.0,
+        "frameWidth": 29,
+        "frameHeight": 22,
+        "anchorX": 14.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2292,10 +2292,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 33,
-        "frameHeight": 23,
-        "anchorX": 16.5,
-        "anchorY": 21.0,
+        "frameWidth": 32,
+        "frameHeight": 22,
+        "anchorX": 16.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -2348,10 +2348,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 41,
-        "frameHeight": 26,
-        "anchorX": 20.5,
-        "anchorY": 24.0,
+        "frameWidth": 39,
+        "frameHeight": 25,
+        "anchorX": 19.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -2395,10 +2395,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 22,
-        "frameHeight": 17,
-        "anchorX": 11.0,
-        "anchorY": 15.0,
+        "frameWidth": 21,
+        "frameHeight": 16,
+        "anchorX": 10.5,
+        "anchorY": 14.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2451,9 +2451,9 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
+        "frameWidth": 27,
         "frameHeight": 20,
-        "anchorX": 14.0,
+        "anchorX": 13.5,
         "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
@@ -2507,10 +2507,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 22,
-        "anchorX": 15.5,
-        "anchorY": 20.0,
+        "frameWidth": 30,
+        "frameHeight": 21,
+        "anchorX": 15.0,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2563,10 +2563,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 18,
-        "anchorX": 14.0,
-        "anchorY": 16.0,
+        "frameWidth": 27,
+        "frameHeight": 17,
+        "anchorX": 13.5,
+        "anchorY": 15.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2619,10 +2619,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 35,
-        "frameHeight": 26,
-        "anchorX": 17.5,
-        "anchorY": 24.0,
+        "frameWidth": 33,
+        "frameHeight": 25,
+        "anchorX": 16.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2675,10 +2675,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 22,
-        "anchorX": 14.0,
-        "anchorY": 20.0,
+        "frameWidth": 27,
+        "frameHeight": 21,
+        "anchorX": 13.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2740,10 +2740,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 41,
-        "frameHeight": 27,
-        "anchorX": 20.5,
-        "anchorY": 25.0,
+        "frameWidth": 39,
+        "frameHeight": 26,
+        "anchorX": 19.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -2796,9 +2796,9 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 24,
+        "frameWidth": 23,
         "frameHeight": 13,
-        "anchorX": 12.0,
+        "anchorX": 11.5,
         "anchorY": 11.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
@@ -2852,10 +2852,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 24,
-        "frameHeight": 18,
-        "anchorX": 12.0,
-        "anchorY": 16.0,
+        "frameWidth": 23,
+        "frameHeight": 17,
+        "anchorX": 11.5,
+        "anchorY": 15.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -2899,10 +2899,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 22,
-        "anchorX": 15.0,
-        "anchorY": 20.0,
+        "frameWidth": 29,
+        "frameHeight": 21,
+        "anchorX": 14.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2955,10 +2955,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 37,
-        "frameHeight": 28,
-        "anchorX": 18.5,
-        "anchorY": 26.0,
+        "frameWidth": 35,
+        "frameHeight": 27,
+        "anchorX": 17.5,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3011,10 +3011,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 24,
-        "frameHeight": 22,
-        "anchorX": 12.0,
-        "anchorY": 20.0,
+        "frameWidth": 23,
+        "frameHeight": 21,
+        "anchorX": 11.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3067,10 +3067,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 26,
-        "frameHeight": 26,
-        "anchorX": 13.0,
-        "anchorY": 24.0,
+        "frameWidth": 25,
+        "frameHeight": 25,
+        "anchorX": 12.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3123,10 +3123,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 18,
-        "anchorX": 15.5,
-        "anchorY": 16.0,
+        "frameWidth": 30,
+        "frameHeight": 17,
+        "anchorX": 15.0,
+        "anchorY": 15.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3179,10 +3179,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 39,
-        "frameHeight": 25,
-        "anchorX": 19.5,
-        "anchorY": 23.0,
+        "frameWidth": 37,
+        "frameHeight": 24,
+        "anchorX": 18.5,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3235,10 +3235,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 22,
-        "anchorX": 14.0,
-        "anchorY": 20.0,
+        "frameWidth": 27,
+        "frameHeight": 21,
+        "anchorX": 13.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3291,10 +3291,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 40,
-        "frameHeight": 31,
-        "anchorX": 20.0,
-        "anchorY": 29.0,
+        "frameWidth": 38,
+        "frameHeight": 30,
+        "anchorX": 19.0,
+        "anchorY": 28.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3347,10 +3347,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 19,
-        "anchorX": 14.0,
-        "anchorY": 17.0,
+        "frameWidth": 27,
+        "frameHeight": 18,
+        "anchorX": 13.5,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3403,10 +3403,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 21,
-        "anchorX": 16.0,
-        "anchorY": 19.0,
+        "frameWidth": 31,
+        "frameHeight": 20,
+        "anchorX": 15.5,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3459,10 +3459,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 39,
-        "frameHeight": 23,
-        "anchorX": 19.5,
-        "anchorY": 21.0,
+        "frameWidth": 37,
+        "frameHeight": 22,
+        "anchorX": 18.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3524,10 +3524,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 28,
-        "frameHeight": 21,
-        "anchorX": 14.0,
-        "anchorY": 19.0,
+        "frameWidth": 27,
+        "frameHeight": 20,
+        "anchorX": 13.5,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -3571,10 +3571,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 21,
-        "anchorX": 16.0,
-        "anchorY": 19.0,
+        "frameWidth": 31,
+        "frameHeight": 20,
+        "anchorX": 15.5,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3627,10 +3627,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 35,
-        "frameHeight": 24,
-        "anchorX": 17.5,
-        "anchorY": 22.0,
+        "frameWidth": 33,
+        "frameHeight": 23,
+        "anchorX": 16.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3683,10 +3683,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 20,
-        "frameHeight": 19,
-        "anchorX": 10.0,
-        "anchorY": 17.0,
+        "frameWidth": 19,
+        "frameHeight": 18,
+        "anchorX": 9.5,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3739,10 +3739,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 33,
-        "frameHeight": 24,
-        "anchorX": 16.5,
-        "anchorY": 22.0,
+        "frameWidth": 32,
+        "frameHeight": 23,
+        "anchorX": 16.0,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3795,10 +3795,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 39,
-        "frameHeight": 27,
-        "anchorX": 19.5,
-        "anchorY": 25.0,
+        "frameWidth": 37,
+        "frameHeight": 26,
+        "anchorX": 18.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3851,10 +3851,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 22,
-        "frameHeight": 23,
-        "anchorX": 11.0,
-        "anchorY": 21.0,
+        "frameWidth": 21,
+        "frameHeight": 22,
+        "anchorX": 10.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3907,10 +3907,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 23,
-        "anchorX": 15.5,
-        "anchorY": 21.0,
+        "frameWidth": 30,
+        "frameHeight": 22,
+        "anchorX": 15.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3963,10 +3963,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 41,
-        "frameHeight": 25,
-        "anchorX": 20.5,
-        "anchorY": 23.0,
+        "frameWidth": 39,
+        "frameHeight": 24,
+        "anchorX": 19.5,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4019,10 +4019,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 24,
-        "frameHeight": 22,
-        "anchorX": 12.0,
-        "anchorY": 20.0,
+        "frameWidth": 23,
+        "frameHeight": 21,
+        "anchorX": 11.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4075,10 +4075,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 33,
-        "frameHeight": 24,
-        "anchorX": 16.5,
-        "anchorY": 22.0,
+        "frameWidth": 32,
+        "frameHeight": 23,
+        "anchorX": 16.0,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4131,10 +4131,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 16,
-        "anchorX": 14.5,
-        "anchorY": 14.0,
+        "frameWidth": 28,
+        "frameHeight": 15,
+        "anchorX": 14.0,
+        "anchorY": 13.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4187,10 +4187,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 36,
-        "frameHeight": 23,
-        "anchorX": 18.0,
-        "anchorY": 21.0,
+        "frameWidth": 34,
+        "frameHeight": 22,
+        "anchorX": 17.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4243,9 +4243,9 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 37,
+        "frameWidth": 35,
         "frameHeight": 20,
-        "anchorX": 18.5,
+        "anchorX": 17.5,
         "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
@@ -4299,10 +4299,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 33,
-        "frameHeight": 25,
-        "anchorX": 16.5,
-        "anchorY": 23.0,
+        "frameWidth": 32,
+        "frameHeight": 24,
+        "anchorX": 16.0,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4355,10 +4355,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 39,
-        "frameHeight": 30,
-        "anchorX": 19.5,
-        "anchorY": 28.0,
+        "frameWidth": 37,
+        "frameHeight": 29,
+        "anchorX": 18.5,
+        "anchorY": 27.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4411,10 +4411,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 35,
-        "frameHeight": 21,
-        "anchorX": 17.5,
-        "anchorY": 19.0,
+        "frameWidth": 33,
+        "frameHeight": 20,
+        "anchorX": 16.5,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4467,10 +4467,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 35,
-        "frameHeight": 24,
-        "anchorX": 17.5,
-        "anchorY": 22.0,
+        "frameWidth": 33,
+        "frameHeight": 23,
+        "anchorX": 16.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4523,10 +4523,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 17,
-        "anchorX": 14.0,
-        "anchorY": 15.0,
+        "frameWidth": 27,
+        "frameHeight": 16,
+        "anchorX": 13.5,
+        "anchorY": 14.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4579,10 +4579,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 39,
-        "frameHeight": 24,
-        "anchorX": 19.5,
-        "anchorY": 22.0,
+        "frameWidth": 37,
+        "frameHeight": 23,
+        "anchorX": 18.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4635,10 +4635,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 24,
-        "frameHeight": 20,
-        "anchorX": 12.0,
-        "anchorY": 18.0,
+        "frameWidth": 23,
+        "frameHeight": 19,
+        "anchorX": 11.5,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4691,10 +4691,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 27,
-        "anchorX": 15.0,
-        "anchorY": 25.0,
+        "frameWidth": 28,
+        "frameHeight": 26,
+        "anchorX": 14.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4747,10 +4747,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 41,
-        "frameHeight": 28,
-        "anchorX": 20.5,
-        "anchorY": 26.0,
+        "frameWidth": 39,
+        "frameHeight": 27,
+        "anchorX": 19.5,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4803,9 +4803,9 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 33,
+        "frameWidth": 32,
         "frameHeight": 21,
-        "anchorX": 16.5,
+        "anchorX": 16.0,
         "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
@@ -4859,10 +4859,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 40,
-        "frameHeight": 28,
-        "anchorX": 20.0,
-        "anchorY": 26.0,
+        "frameWidth": 38,
+        "frameHeight": 27,
+        "anchorX": 19.0,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4915,10 +4915,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 18,
-        "anchorX": 15.0,
-        "anchorY": 16.0,
+        "frameWidth": 29,
+        "frameHeight": 17,
+        "anchorX": 14.5,
+        "anchorY": 15.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4971,10 +4971,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 37,
-        "frameHeight": 23,
-        "anchorX": 18.5,
-        "anchorY": 21.0,
+        "frameWidth": 35,
+        "frameHeight": 22,
+        "anchorX": 17.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5027,10 +5027,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 17,
-        "anchorX": 11.5,
-        "anchorY": 15.0,
+        "frameWidth": 22,
+        "frameHeight": 16,
+        "anchorX": 11.0,
+        "anchorY": 14.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5083,10 +5083,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 43,
-        "frameHeight": 31,
-        "anchorX": 21.5,
-        "anchorY": 29.0,
+        "frameWidth": 41,
+        "frameHeight": 30,
+        "anchorX": 20.5,
+        "anchorY": 28.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5148,10 +5148,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 30,
-        "frameHeight": 23,
-        "anchorX": 15.0,
-        "anchorY": 21.0,
+        "frameWidth": 29,
+        "frameHeight": 22,
+        "anchorX": 14.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -5204,10 +5204,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 34,
-        "frameHeight": 24,
-        "anchorX": 17.0,
-        "anchorY": 22.0,
+        "frameWidth": 32,
+        "frameHeight": 23,
+        "anchorX": 16.0,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -5251,10 +5251,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 22,
-        "anchorX": 15.5,
-        "anchorY": 20.0,
+        "frameWidth": 30,
+        "frameHeight": 21,
+        "anchorX": 15.0,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5318,10 +5318,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 42,
-        "frameHeight": 37,
-        "anchorX": 21.0,
-        "anchorY": 35.0,
+        "frameWidth": 40,
+        "frameHeight": 35,
+        "anchorX": 20.0,
+        "anchorY": 33.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5374,10 +5374,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 21,
-        "anchorX": 13.5,
-        "anchorY": 19.0,
+        "frameWidth": 26,
+        "frameHeight": 20,
+        "anchorX": 13.0,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5430,10 +5430,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 26,
-        "anchorX": 16.0,
-        "anchorY": 24.0,
+        "frameWidth": 31,
+        "frameHeight": 25,
+        "anchorX": 15.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5486,10 +5486,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 18,
-        "anchorX": 15.0,
-        "anchorY": 16.0,
+        "frameWidth": 28,
+        "frameHeight": 17,
+        "anchorX": 14.0,
+        "anchorY": 15.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5542,10 +5542,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 41,
-        "frameHeight": 27,
-        "anchorX": 20.5,
-        "anchorY": 25.0,
+        "frameWidth": 39,
+        "frameHeight": 26,
+        "anchorX": 19.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5598,10 +5598,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 19,
-        "anchorX": 11.5,
-        "anchorY": 17.0,
+        "frameWidth": 22,
+        "frameHeight": 18,
+        "anchorX": 11.0,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5654,10 +5654,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 24,
-        "anchorX": 16.0,
-        "anchorY": 22.0,
+        "frameWidth": 31,
+        "frameHeight": 23,
+        "anchorX": 15.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5710,10 +5710,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 18,
-        "anchorX": 13.5,
-        "anchorY": 16.0,
+        "frameWidth": 26,
+        "frameHeight": 17,
+        "anchorX": 13.0,
+        "anchorY": 15.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5766,10 +5766,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 36,
-        "frameHeight": 31,
-        "anchorX": 18.0,
-        "anchorY": 29.0,
+        "frameWidth": 34,
+        "frameHeight": 30,
+        "anchorX": 17.0,
+        "anchorY": 28.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5822,10 +5822,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 26,
-        "frameHeight": 23,
-        "anchorX": 13.0,
-        "anchorY": 21.0,
+        "frameWidth": 24,
+        "frameHeight": 22,
+        "anchorX": 12.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5878,10 +5878,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 26,
-        "anchorX": 15.5,
-        "anchorY": 24.0,
+        "frameWidth": 30,
+        "frameHeight": 25,
+        "anchorX": 15.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5934,10 +5934,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 20,
-        "anchorX": 15.5,
-        "anchorY": 18.0,
+        "frameWidth": 30,
+        "frameHeight": 19,
+        "anchorX": 15.0,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5990,10 +5990,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 21,
-        "anchorX": 13.5,
-        "anchorY": 19.0,
+        "frameWidth": 26,
+        "frameHeight": 20,
+        "anchorX": 13.0,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6046,10 +6046,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 34,
-        "frameHeight": 23,
-        "anchorX": 17.0,
-        "anchorY": 21.0,
+        "frameWidth": 33,
+        "frameHeight": 22,
+        "anchorX": 16.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6111,10 +6111,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 32,
-        "frameHeight": 25,
-        "anchorX": 16.0,
-        "anchorY": 23.0,
+        "frameWidth": 31,
+        "frameHeight": 24,
+        "anchorX": 15.5,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -6167,10 +6167,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 37,
-        "frameHeight": 29,
-        "anchorX": 18.5,
-        "anchorY": 27.0,
+        "frameWidth": 35,
+        "frameHeight": 28,
+        "anchorX": 17.5,
+        "anchorY": 26.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -6214,10 +6214,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 35,
-        "frameHeight": 23,
-        "anchorX": 17.5,
-        "anchorY": 21.0,
+        "frameWidth": 33,
+        "frameHeight": 22,
+        "anchorX": 16.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6270,10 +6270,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 40,
-        "frameHeight": 25,
-        "anchorX": 20.0,
-        "anchorY": 23.0,
+        "frameWidth": 38,
+        "frameHeight": 24,
+        "anchorX": 19.0,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6326,10 +6326,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 20,
-        "anchorX": 15.0,
-        "anchorY": 18.0,
+        "frameWidth": 29,
+        "frameHeight": 19,
+        "anchorX": 14.5,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6382,10 +6382,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 22,
-        "anchorX": 13.5,
-        "anchorY": 20.0,
+        "frameWidth": 26,
+        "frameHeight": 21,
+        "anchorX": 13.0,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6438,10 +6438,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 26,
-        "anchorX": 16.0,
-        "anchorY": 24.0,
+        "frameWidth": 31,
+        "frameHeight": 25,
+        "anchorX": 15.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6494,10 +6494,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 22,
-        "frameHeight": 20,
-        "anchorX": 11.0,
-        "anchorY": 18.0,
+        "frameWidth": 21,
+        "frameHeight": 19,
+        "anchorX": 10.5,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6550,10 +6550,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 33,
-        "frameHeight": 26,
-        "anchorX": 16.5,
-        "anchorY": 24.0,
+        "frameWidth": 32,
+        "frameHeight": 25,
+        "anchorX": 16.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6606,10 +6606,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 33,
-        "frameHeight": 22,
-        "anchorX": 16.5,
-        "anchorY": 20.0,
+        "frameWidth": 32,
+        "frameHeight": 21,
+        "anchorX": 16.0,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6662,10 +6662,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 40,
-        "frameHeight": 27,
-        "anchorX": 20.0,
-        "anchorY": 25.0,
+        "frameWidth": 38,
+        "frameHeight": 26,
+        "anchorX": 19.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6718,10 +6718,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 22,
-        "anchorX": 15.0,
-        "anchorY": 20.0,
+        "frameWidth": 28,
+        "frameHeight": 21,
+        "anchorX": 14.0,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6774,10 +6774,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 35,
-        "frameHeight": 26,
-        "anchorX": 17.5,
-        "anchorY": 24.0,
+        "frameWidth": 33,
+        "frameHeight": 25,
+        "anchorX": 16.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6830,10 +6830,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 35,
-        "frameHeight": 22,
-        "anchorX": 17.5,
-        "anchorY": 20.0,
+        "frameWidth": 33,
+        "frameHeight": 21,
+        "anchorX": 16.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6886,10 +6886,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 33,
-        "frameHeight": 27,
-        "anchorX": 16.5,
-        "anchorY": 25.0,
+        "frameWidth": 32,
+        "frameHeight": 26,
+        "anchorX": 16.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6942,10 +6942,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 36,
-        "frameHeight": 27,
-        "anchorX": 18.0,
-        "anchorY": 25.0,
+        "frameWidth": 34,
+        "frameHeight": 26,
+        "anchorX": 17.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6998,10 +6998,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 35,
-        "frameHeight": 27,
-        "anchorX": 17.5,
-        "anchorY": 25.0,
+        "frameWidth": 34,
+        "frameHeight": 26,
+        "anchorX": 17.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7054,10 +7054,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 35,
-        "frameHeight": 25,
-        "anchorX": 17.5,
-        "anchorY": 23.0,
+        "frameWidth": 33,
+        "frameHeight": 24,
+        "anchorX": 16.5,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7110,10 +7110,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 36,
-        "frameHeight": 26,
-        "anchorX": 18.0,
-        "anchorY": 24.0,
+        "frameWidth": 34,
+        "frameHeight": 25,
+        "anchorX": 17.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7166,10 +7166,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 40,
-        "frameHeight": 26,
-        "anchorX": 20.0,
-        "anchorY": 24.0,
+        "frameWidth": 38,
+        "frameHeight": 25,
+        "anchorX": 19.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7222,10 +7222,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 26,
-        "frameHeight": 20,
-        "anchorX": 13.0,
-        "anchorY": 18.0,
+        "frameWidth": 25,
+        "frameHeight": 19,
+        "anchorX": 12.5,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7278,10 +7278,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 43,
-        "frameHeight": 30,
-        "anchorX": 21.5,
-        "anchorY": 28.0,
+        "frameWidth": 41,
+        "frameHeight": 29,
+        "anchorX": 20.5,
+        "anchorY": 27.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7334,10 +7334,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 37,
-        "frameHeight": 27,
-        "anchorX": 18.5,
-        "anchorY": 25.0,
+        "frameWidth": 35,
+        "frameHeight": 26,
+        "anchorX": 17.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7390,9 +7390,9 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 24,
+        "frameWidth": 23,
         "frameHeight": 16,
-        "anchorX": 12.0,
+        "anchorX": 11.5,
         "anchorY": 14.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
@@ -7446,10 +7446,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 20,
-        "anchorX": 14.5,
-        "anchorY": 18.0,
+        "frameWidth": 27,
+        "frameHeight": 19,
+        "anchorX": 13.5,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7502,10 +7502,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 37,
-        "frameHeight": 26,
-        "anchorX": 18.5,
-        "anchorY": 24.0,
+        "frameWidth": 35,
+        "frameHeight": 25,
+        "anchorX": 17.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7558,10 +7558,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 36,
-        "frameHeight": 26,
-        "anchorX": 18.0,
-        "anchorY": 24.0,
+        "frameWidth": 34,
+        "frameHeight": 25,
+        "anchorX": 17.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7614,10 +7614,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 36,
-        "frameHeight": 26,
-        "anchorX": 18.0,
-        "anchorY": 24.0,
+        "frameWidth": 34,
+        "frameHeight": 25,
+        "anchorX": 17.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7670,10 +7670,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 21,
-        "anchorX": 15.5,
-        "anchorY": 19.0,
+        "frameWidth": 30,
+        "frameHeight": 20,
+        "anchorX": 15.0,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7726,10 +7726,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 26,
-        "frameHeight": 22,
-        "anchorX": 13.0,
-        "anchorY": 20.0,
+        "frameWidth": 25,
+        "frameHeight": 21,
+        "anchorX": 12.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7782,10 +7782,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 35,
-        "frameHeight": 25,
-        "anchorX": 17.5,
-        "anchorY": 23.0,
+        "frameWidth": 33,
+        "frameHeight": 24,
+        "anchorX": 16.5,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7838,10 +7838,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 18,
-        "anchorX": 11.5,
-        "anchorY": 16.0,
+        "frameWidth": 22,
+        "frameHeight": 17,
+        "anchorX": 11.0,
+        "anchorY": 15.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7894,10 +7894,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 37,
-        "frameHeight": 22,
-        "anchorX": 18.5,
-        "anchorY": 20.0,
+        "frameWidth": 35,
+        "frameHeight": 21,
+        "anchorX": 17.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7959,10 +7959,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 43,
-        "frameHeight": 29,
-        "anchorX": 21.5,
-        "anchorY": 27.0,
+        "frameWidth": 41,
+        "frameHeight": 27,
+        "anchorX": 20.5,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -8006,10 +8006,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 39,
-        "frameHeight": 29,
-        "anchorX": 19.5,
-        "anchorY": 27.0,
+        "frameWidth": 37,
+        "frameHeight": 28,
+        "anchorX": 18.5,
+        "anchorY": 26.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -8071,10 +8071,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 43,
-        "frameHeight": 31,
-        "anchorX": 21.5,
-        "anchorY": 29.0,
+        "frameWidth": 41,
+        "frameHeight": 30,
+        "anchorX": 20.5,
+        "anchorY": 28.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -8127,10 +8127,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 43,
-        "frameHeight": 27,
-        "anchorX": 21.5,
-        "anchorY": 25.0,
+        "frameWidth": 41,
+        "frameHeight": 26,
+        "anchorX": 20.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -8183,10 +8183,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 43,
-        "frameHeight": 30,
-        "anchorX": 21.5,
-        "anchorY": 28.0,
+        "frameWidth": 41,
+        "frameHeight": 29,
+        "anchorX": 20.5,
+        "anchorY": 27.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -8230,10 +8230,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 25,
-        "anchorX": 15.0,
-        "anchorY": 23.0,
+        "frameWidth": 29,
+        "frameHeight": 24,
+        "anchorX": 14.5,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -8286,10 +8286,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 41,
-        "frameHeight": 30,
-        "anchorX": 20.5,
-        "anchorY": 28.0,
+        "frameWidth": 39,
+        "frameHeight": 28,
+        "anchorX": 19.5,
+        "anchorY": 26.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -8351,10 +8351,10 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 41,
-        "frameHeight": 31,
-        "anchorX": 20.5,
-        "anchorY": 29.0,
+        "frameWidth": 39,
+        "frameHeight": 30,
+        "anchorX": 19.5,
+        "anchorY": 28.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
@@ -8398,10 +8398,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 37,
-        "frameHeight": 28,
-        "anchorX": 18.5,
-        "anchorY": 26.0,
+        "frameWidth": 35,
+        "frameHeight": 26,
+        "anchorX": 17.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -8454,10 +8454,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 26,
-        "frameHeight": 24,
-        "anchorX": 13.0,
-        "anchorY": 22.0,
+        "frameWidth": 25,
+        "frameHeight": 23,
+        "anchorX": 12.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true

@@ -87,12 +87,12 @@ local px10 = Config.catchHudIconPx(V.mod)
 check(math.abs(s1 - 0.75) < 1e-6, "size 1 scale 0.75")
 check(math.abs(s5 - (0.75 + 4 * 0.75 / 9)) < 1e-6, "size 5 scale ~1.083")
 check(math.abs(s10 - 1.5) < 1e-6, "size 10 scale 1.50")
-eq(px1, 9, "size 1 -> 9px")
-eq(px5, 13, "size 5 -> 13px")
-eq(px10, 18, "size 10 -> 18px")
+eq(px1, 11, "size 1 -> 11px")
+eq(px5, 15, "size 5 -> 15px")
+eq(px10, 21, "size 10 -> 21px")
 check(px1 < px5 and px5 < px10, "1 < 5 < 10 pixel mapping")
-check(px10 - px5 >= 4, "size 10 clearly larger than size 5")
-eq(BallHud.iconPx(V.mod), 18, "BallHud.iconPx follows setting")
+check(px10 - px5 >= 5, "size 10 clearly larger than size 5")
+eq(BallHud.iconPx(V.mod), 21, "BallHud.iconPx follows setting")
 
 -- ---- Layout adapts as a component; four icons fit; meter below quantity ----
 optionStore.catch_hud_size = 1
@@ -119,9 +119,32 @@ eq(L10.selectedBorder, L10.iconW + 2, "selected border follows icon size (10)")
 
 -- Live: changing option updates layout without re-register
 optionStore.catch_hud_size = 3
-eq(BallHud.iconPx(V.mod), 11, "live size 3 -> 11px")
+eq(BallHud.iconPx(V.mod), 13, "live size 3 -> 13px")
 optionStore.catch_hud_size = 9
-eq(BallHud.iconPx(V.mod), 17, "live size 9 -> 17px")
+eq(BallHud.iconPx(V.mod), 20, "live size 9 -> 20px")
+
+-- Saved-bucket preference (menus write loader/save buckets, not always options:get)
+do
+  local bucket = {}
+  local modBucket = {
+    id = "overworld_wild_spawns",
+    world = {
+      game = {
+        mods = { loader = { modOptions = { overworld_wild_spawns = bucket } } },
+      },
+    },
+    options = {
+      get = function(_, k)
+        -- Stale options:get still says 5 while bucket says 10.
+        if k == "catch_hud_size" then return 5 end
+        return nil
+      end,
+    },
+  }
+  bucket.catch_hud_size = 10
+  eq(Config.catchHudSize(modBucket), 10, "peekSavedOption wins over stale options:get")
+  eq(Config.catchHudIconPx(modBucket), 21, "bucket size 10 -> 21px icons")
+end
 
 -- Schema
 local schema = assert(loadfile("options.lua"))()
@@ -189,9 +212,22 @@ check(not projSrc:find("catch_hud_size", 1, true), "projectile.lua ignores catch
 check(not projSrc:find("catchHudIconPx", 1, true), "projectile.lua ignores catchHudIconPx")
 check(not projSrc:find("BallHud", 1, true), "projectile.lua ignores BallHud")
 local hudSrc = assert(io.open("lib/catching/hud.lua", "r")):read("*a")
+check(hudSrc:find("ballHudImage", 1, true) ~= nil, "HUD uses ballHudImage path")
 check(hudSrc:find("Thrown Balls stay", 1, true) ~= nil
    or hudSrc:find("thrown Balls stay", 1, true) ~= nil,
   "HUD documents world Ball separation")
+local catchSrc = assert(io.open("lib/catching/init.lua", "r")):read("*a")
+check(catchSrc:find("function OverworldCatching:ballHudImage", 1, true) ~= nil,
+  "ballHudImage helper exists")
+check(catchSrc:find("BALL_ASSET_SM", 1, true) ~= nil, "projectile still has sm assets")
+-- Full HUD assets are larger-opaque than *_sm (root cause of invisible scaling).
+local function fileBytes(path)
+  local f = assert(io.open(path, "rb")); local d = f:read("*a"); f:close(); return d
+end
+check(#fileBytes("assets/balls/poke_ball.png") > 0, "full poke_ball asset present")
+check(#fileBytes("assets/balls/poke_ball_sm.png") > 0, "sm poke_ball asset present")
+check(fileBytes("assets/balls/poke_ball.png") ~= fileBytes("assets/balls/poke_ball_sm.png"),
+  "HUD full asset differs from world sm asset")
 
 -- Settings menu lists CATCH HUD near OW CATCH
 local SettingsMenus = V.require("settings_menus")

@@ -152,7 +152,7 @@ function OverworldCatching:ballImage(ballType)
     self._ballImages[ballType] = false
     return nil
   end
-  -- Prefer compact nearest-neighbor assets for projectile + HUD.
+  -- Compact *_sm assets (~5px opaque in 16×16) for world projectile only.
   local rel = BALL_ASSET_SM[ballType] or BALL_ASSET[ballType]
   local path = self.mod.assets and self.mod.assets.path and self.mod.assets:path(rel) or rel
   local ok, img = pcall(love.graphics.newImage, path)
@@ -165,6 +165,32 @@ function OverworldCatching:ballImage(ballType)
     pcall(img.setFilter, img, "nearest", "nearest")
   end
   self._ballImages[ballType] = ok and img or false
+  return ok and img or nil
+end
+
+--- HUD-only Ball image. Uses full-res assets (~13px opaque) so Catch HUD Size
+--- scaling is visible. Independent cache from world projectile images.
+function OverworldCatching:ballHudImage(ballType)
+  self._ballHudImages = self._ballHudImages or {}
+  if self._ballHudImages[ballType] ~= nil then
+    return self._ballHudImages[ballType] or nil
+  end
+  if not (love and love.graphics and love.graphics.newImage) then
+    self._ballHudImages[ballType] = false
+    return nil
+  end
+  local rel = BALL_ASSET[ballType] or BALL_ASSET_SM[ballType]
+  local path = self.mod.assets and self.mod.assets.path and self.mod.assets:path(rel) or rel
+  local ok, img = pcall(love.graphics.newImage, path)
+  if (not ok or not img) and BALL_ASSET_SM[ballType] then
+    local sm = self.mod.assets and self.mod.assets.path
+      and self.mod.assets:path(BALL_ASSET_SM[ballType]) or BALL_ASSET_SM[ballType]
+    ok, img = pcall(love.graphics.newImage, sm)
+  end
+  if ok and img and img.setFilter then
+    pcall(img.setFilter, img, "nearest", "nearest")
+  end
+  self._ballHudImages[ballType] = ok and img or false
   return ok and img or nil
 end
 

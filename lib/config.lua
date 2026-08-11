@@ -195,8 +195,17 @@ function Config.overworldCatchingEnabled(mod)
 end
 
 --- Catch HUD size setting (1–10). Clamped; falls back to 5.
+--- Prefer the saved/loader option bucket (same path menus write) so live
+--- Catch HUD Size changes are visible immediately without restart.
 function Config.catchHudSize(mod)
-  local n = tonumber(Config.get(mod, "catch_hud_size"))
+  local n = nil
+  local raw, present = Config.peekSavedOption(mod, "catch_hud_size")
+  if present then
+    n = tonumber(raw)
+  end
+  if n == nil then
+    n = tonumber(Config.get(mod, "catch_hud_size"))
+  end
   if n == nil then n = 5 end
   if n < 1 then n = 1 end
   if n > 10 then n = 10 end
@@ -211,11 +220,12 @@ function Config.catchHudScale(mod)
 end
 
 --- Pixel size for top-screen Ball HUD icons. Does not affect projectiles.
---- Base 12px at scale 1.0 → roughly 9 / 13 / 18 px at sizes 1 / 5 / 10.
+--- Base 14px at scale 1.0 → roughly 11 / 15 / 21 px at sizes 1 / 5 / 10.
+--- Mapping is intentionally bold so size changes are obvious on 160×144.
 function Config.catchHudIconPx(mod)
-  local px = math.floor(12 * Config.catchHudScale(mod) + 0.5)
+  local px = math.floor(14 * Config.catchHudScale(mod) + 0.5)
   if px < 8 then px = 8 end
-  if px > 20 then px = 20 end
+  if px > 24 then px = 24 end
   return px
 end
 

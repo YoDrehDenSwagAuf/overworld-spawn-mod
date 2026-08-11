@@ -57,6 +57,9 @@ local function assertLandAuthority(sheet, label)
     string.format("%s area %d <= floor(landA*%.2f)", label, runA, AREA_LIMIT))
   check(tonumber(sheet.finalVisualScale) ~= nil and tonumber(sheet.finalVisualScale) <= 1.0 + 1e-9,
     label .. " finalVisualScale <= 1 (no upscale past land)")
+  local bias = tonumber(sheet.presentationBias)
+  check(bias ~= nil and bias > 0.92 and bias <= 1.0,
+    label .. " presentationBias in (0.92,1.0]")
 end
 
 -- Broad coverage: every normal swimming sheet honors the contract.
@@ -96,7 +99,10 @@ if blast then
   -- Wide swimming pose may remain wider than land, but within the ratio cap.
   check(tonumber(blast.runtimeOpaqueWidth) > tonumber(blast.landReferenceVisibleWidth),
     "Blastoise may stay wider than land")
-  eq(tonumber(blast.runtimeOpaqueHeight), 24, "Blastoise height matches land")
+  -- With presentation bias, height may be equal or a tick under land — never over.
+  check(tonumber(blast.runtimeOpaqueHeight) <= tonumber(blast.landReferenceVisibleHeight),
+    "Blastoise height <= land")
+  check(tonumber(blast.presentationBias) == 0.95, "Blastoise uses 0.95 presentation bias")
 end
 
 -- Large / special cases

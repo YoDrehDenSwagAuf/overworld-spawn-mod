@@ -20,15 +20,17 @@ water/follower polish — with two final scale fixes below.
 - Optional OW Catch throws at visible wilds (desktop C/Q plus mobile B-modifier).
 - Compact ~6px world Poké Ball projectiles (unchanged by HUD size).
 - Catch HUD Size now visibly scales the top-screen Ball inventory HUD as one
-  component (icons, selection border, quantity, meter spacing). Thrown Ball /
-  projectile size stays fixed at ~6px.
+  component (icons, selection border, quantity, meter spacing). HUD uses
+  full Ball art (not the tiny world `*_sm` sprites). Thrown Ball / projectile
+  size stays fixed at ~6px.
 
 ### Water / levitate True Size scale consistency
 
 - Swimming and levitate True Size presentations treat the species' **HGSS land
   opaque footprint** as absolute size authority (nearest-neighbor, uniform
   scale). Height is primary; width/area caps stop wide poses from looking
-  larger than land. Water/levitate art never upscales past land.
+  larger than land. A final **0.95** presentation bias keeps water/levitate
+  equal or slightly smaller than land — never larger.
 - Regenerated for every species with HGSS land + swimming/levitate source art
   (not a 3-species prototype). Classic / GSC water runtime and Voxel unchanged.
 
