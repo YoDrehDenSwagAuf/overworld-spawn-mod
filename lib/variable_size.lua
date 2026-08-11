@@ -181,6 +181,14 @@ function VariableSize.canApplyTrueSize(mod, opts)
   return mode == VariableSize.MODE_TRUE_SIZE, why
 end
 
+--- Visual follower trail gap in cells when True Size is effective; else 1.
+function VariableSize.visualFollowGap(mod, speciesId, opts)
+  if not VariableSize.canApplyTrueSize(mod, opts) then
+    return 1
+  end
+  return SpeciesGeometry.followGap(speciesId, mod)
+end
+
 function VariableSize.logVoxelFallback(mod, reason)
   if _loggedFallback then return end
   _loggedFallback = true

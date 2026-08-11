@@ -209,8 +209,25 @@ function GrassOcclusion.refreshEntity(entity, mod, map)
   if not entity then return end
   GrassOcclusion.updateInGrassFlag(entity, mod, map)
   local scale = entity.scaleInfo or {}
-  local renderedH = scale.renderedH
-    or ((scale.contentH or Tile.CELL) * (entity.final2DScale or 1))
+  -- Prefer True Size / SpriteRenderer frame geometry (feet-anchored height).
+  -- Stale 16×16 scaleInfo must not drive occlusion for variable sprites.
+  local renderedH = nil
+  local def = entity.sprite and entity.sprite.def
+  if def and tonumber(def.frameHeight) and tonumber(def.frameHeight) > 0 then
+    renderedH = tonumber(def.frameHeight) * (entity.final2DScale or 1)
+  elseif entity.sprite and type(entity.sprite.getPoseGeometry) == "function" then
+    local ok, geo = pcall(entity.sprite.getPoseGeometry, entity.sprite,
+      entity.facing or "down", entity.phase or 0, entity.flip == true)
+    if ok and type(geo) == "table" and tonumber(geo.height) then
+      renderedH = tonumber(geo.height) * (entity.final2DScale or 1)
+    elseif ok and type(geo) == "table" and tonumber(geo.frameHeight) then
+      renderedH = tonumber(geo.frameHeight) * (entity.final2DScale or 1)
+    end
+  end
+  if not renderedH then
+    renderedH = scale.renderedH
+      or ((scale.contentH or Tile.CELL) * (entity.final2DScale or 1))
+  end
   if entity.animation and entity.animation._lastFrameSize then
     local fh = entity.animation._lastFrameSize[2] or renderedH
     renderedH = fh * (entity.final2DScale or 1)

@@ -2660,12 +2660,12 @@
       "source": "assets/enhanced_overworld/poke_followers/follower_103_normal.png",
       "frameWidth": 29,
       "frameHeight": 32,
-      "method": "shared_bbox_nearest_scale",
-      "scale": 2.0,
-      "resized": true,
+      "method": "shared_bbox_nearest_pad",
+      "scale": 1.0,
+      "resized": false,
       "contentWidth": 14,
       "contentHeight": 16,
-      "resampling": "nearest"
+      "resampling": "none"
     },
     "103:shiny": {
       "path": "assets/generated/true_size/followers/103-shiny.png",
@@ -2673,12 +2673,12 @@
       "source": "assets/enhanced_overworld/poke_followers/follower_103_shiny.png",
       "frameWidth": 29,
       "frameHeight": 32,
-      "method": "shared_bbox_nearest_scale",
-      "scale": 2.0,
-      "resized": true,
+      "method": "shared_bbox_nearest_pad",
+      "scale": 1.0,
+      "resized": false,
       "contentWidth": 14,
       "contentHeight": 16,
-      "resampling": "nearest"
+      "resampling": "none"
     },
     "104:normal": {
       "path": "assets/generated/true_size/followers/104-normal.png",

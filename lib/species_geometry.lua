@@ -15,6 +15,25 @@ SpeciesGeometry.SIZE_CLASSES = {
   XXL = { minH = 36, maxH = 42, label = "XXL" },
 }
 
+-- Visual follower convoy trail gaps (cells). Collision footprint stays 1 cell.
+-- Art-direction spacing only — used when True Size effective mode is active.
+SpeciesGeometry.FOLLOW_GAP_BY_CLASS = {
+  XS = 1,
+  S = 1,
+  M = 1,
+  L = 1,
+  XL = 2,
+  XXL = 2,
+}
+
+-- Manual trail-gap overrides (dex → cells). Prefer readability over literal width.
+SpeciesGeometry.FOLLOW_GAP_OVERRIDES = {
+  [95] = 3,  -- Onix
+  [130] = 3, -- Gyarados
+  [131] = 2, -- Lapras
+  [143] = 2, -- Snorlax
+}
+
 SpeciesGeometry.TABLE_REL = "assets/generated/true_size/species_table.lua"
 SpeciesGeometry.JSON_REL = "assets/generated/true_size/species_geometry.json"
 
@@ -92,6 +111,33 @@ function SpeciesGeometry.entryFor(speciesId, mod)
   if not dex then return nil, nil end
   local t = SpeciesGeometry.load(mod)
   return t[dex], dex
+end
+
+--- Desired follower trail distance in cells for a species (visual only).
+-- Returns 1 when geometry is missing (Classic-equivalent spacing).
+function SpeciesGeometry.followGap(speciesId, mod)
+  local dex = SpeciesGeometry.normalizeDex(speciesId)
+  if not dex then return 1 end
+  local override = SpeciesGeometry.FOLLOW_GAP_OVERRIDES[dex]
+  if type(override) == "number" and override >= 1 then
+    return math.floor(override)
+  end
+  local entry = select(1, SpeciesGeometry.entryFor(dex, mod))
+  local class = entry and entry.class or "M"
+  local gap = SpeciesGeometry.FOLLOW_GAP_BY_CLASS[class] or 1
+  if type(gap) ~= "number" or gap < 1 then gap = 1 end
+  return math.floor(gap)
+end
+
+--- Spacing between two convoy members: max(gap(previous), gap(current)).
+-- previousSpeciesId may be nil (trainer) → uses max(1, gap(current)).
+function SpeciesGeometry.followGapBetween(previousSpeciesId, currentSpeciesId, mod)
+  local cur = SpeciesGeometry.followGap(currentSpeciesId, mod)
+  if previousSpeciesId == nil then
+    return math.max(1, cur)
+  end
+  local prev = SpeciesGeometry.followGap(previousSpeciesId, mod)
+  return math.max(prev, cur)
 end
 
 -- packId: followers | pokemmo | pokedex | swimming | levitate

@@ -600,6 +600,93 @@ function ControlEngine:_trailAnchor(game, ow, player)
   return player
 end
 
+--- True Size Flat only: visual trail spacing. Classic / Voxel-effective-Classic
+-- keep the historic 1-cell snake. Never mutates pokemon_size / collision.
+function ControlEngine:_visualTrailSpacingActive()
+  local ok, VariableSize = pcall(function() return V.require("variable_size") end)
+  if not ok or not VariableSize or not VariableSize.canApplyTrueSize then
+    return false
+  end
+  return VariableSize.canApplyTrueSize(self.mod) == true
+end
+
+function ControlEngine:_speciesIdForTrailSource(source)
+  if not source then return nil end
+  if type(source) == "number" then return source end
+  if type(source) == "table" then
+    if source.kind == "trainer" then return nil end
+    local mon = source.mon or source.pokepcMon
+    local species = source._wildsFollowerSpecies
+      or source._pokepcFollowerSpecies
+      or (mon and mon.species)
+      or source.species
+    local dex = source._wildsFollowerDex or source.enhancedDexId
+      or (mon and (mon.dex or mon.speciesId))
+    if type(dex) == "number" then return dex end
+    if type(species) == "string" then
+      local ok, AS = pcall(function() return V.require("animated_sprites") end)
+      if ok and AS and AS.resolveSpeciesId then
+        local resolved = AS.resolveSpeciesId(species, nil, self.mod)
+        if type(resolved) == "number" then return resolved end
+      end
+      return species
+    end
+    return dex or species
+  end
+  return nil
+end
+
+function ControlEngine:_followGapForSource(source)
+  if not self:_visualTrailSpacingActive() then return 1 end
+  local ok, SpeciesGeometry = pcall(function() return V.require("species_geometry") end)
+  if not ok or not SpeciesGeometry or not SpeciesGeometry.followGap then
+    return 1
+  end
+  return SpeciesGeometry.followGap(self:_speciesIdForTrailSource(source), self.mod)
+end
+
+function ControlEngine:_pushTrailHistory(ow, x, y)
+  if not ow then return end
+  local history = ow.pokepcTrailHistory
+  if type(history) ~= "table" then
+    history = {}
+    ow.pokepcTrailHistory = history
+  end
+  table.insert(history, 1, { x = x, y = y })
+  -- Max convoy ~6 × max gap 3, plus slack for ledge double-steps.
+  while #history > 24 do
+    table.remove(history)
+  end
+end
+
+function ControlEngine:_clearTrailHistory(ow)
+  if ow then ow.pokepcTrailHistory = {} end
+end
+
+--- Assign trailer goals from vacated-cell history using size-aware lag.
+-- gap_i = max(gap(previous), gap(current)); lag accumulates through the convoy.
+function ControlEngine:_goalsFromTrailHistory(ow, trailers, fallbackX, fallbackY)
+  local history = (ow and ow.pokepcTrailHistory) or {}
+  local goals = {}
+  local lag = 0
+  local prevGap = 1
+  for i, npc in ipairs(trailers or {}) do
+    local gap = self:_followGapForSource(npc)
+    local stepGap = (i == 1) and math.max(1, gap) or math.max(prevGap, gap)
+    lag = lag + stepGap
+    local cell = history[lag]
+    if cell then
+      goals[i] = { x = cell.x, y = cell.y }
+    else
+      local last = history[#history]
+      goals[i] = last and { x = last.x, y = last.y }
+        or { x = fallbackX, y = fallbackY }
+    end
+    prevGap = gap
+  end
+  return goals
+end
+
 --- Stock PikachuFollower spawn gate (may be false while surfing).
 -- Must NOT gate Wilds trailer updates.
 function ControlEngine:shouldSpawnStockFollower(game, ow)
@@ -1445,10 +1532,21 @@ function ControlEngine:_seedTrailBehind(ow, anchor, facing, n, game, role)
     if surface == "water" then
       local occupied = {}
       occupied[px .. "," .. py] = true
+      local lag = 0
+      local prevGap = 1
+      local gapSources = ow and ow.pokepcTrailers
       for i = 1, n do
-        local bx, by = self:_walkableBehind(ow, px, py, facing, i, nil, game, role, occupied)
+        local gap = 1
+        if gapSources and gapSources[i] then
+          gap = self:_followGapForSource(gapSources[i])
+        end
+        local stepGap = (i == 1) and math.max(1, gap) or math.max(prevGap, gap)
+        lag = lag + stepGap
+        local bx, by = self:_walkableBehind(
+          ow, px, py, facing, lag, nil, game, role, occupied)
         goals[i] = { x = bx, y = by }
         occupied[bx .. "," .. by] = true
+        prevGap = gap
       end
       return goals
     end
@@ -1681,6 +1779,9 @@ function ControlEngine:syncTrailers(game, ow, opts)
       self.diag.lastSeed = "parked_at_player"
       self.diag.entryParks = (self.diag.entryParks or 0) + 1
     end
+    if opts.spawnAtPlayer then
+      self:_clearTrailHistory(ow)
+    end
     local goals = opts.spawnAtPlayer
       and self:_seedTrailAtPlayer(ow, anchor, #want)
       or self:_seedTrailBehind(ow, anchor, facing, #want, game, surface)
@@ -1816,16 +1917,29 @@ function ControlEngine:syncTrailers(game, ow, opts)
       else
         head.ledgeHop = nil
       end
-      local goals = ow.pokepcTrailCells or {}
-      for i = #trailers, 2, -1 do
-        local prev = goals[i - 1]
-        goals[i] = prev and { x = prev.x, y = prev.y }
-          or { x = head.x, y = head.y }
+      local vacatedX, vacatedY = head.x, head.y
+      if self:_visualTrailSpacingActive() then
+        -- Visual-only: consume older trail-history points for large sprites.
+        -- Logical footprint / collision remain one cell per trailer.
+        self:_pushTrailHistory(ow, vacatedX, vacatedY)
+        ow.pokepcTrailCells = self:_goalsFromTrailHistory(
+          ow, trailers, vacatedX, vacatedY)
+      else
+        -- Classic / Voxel-effective-Classic: exact historic 1-cell snake.
+        if ow.pokepcTrailHistory and #ow.pokepcTrailHistory > 0 then
+          self:_clearTrailHistory(ow)
+        end
+        local goals = ow.pokepcTrailCells or {}
+        for i = #trailers, 2, -1 do
+          local prev = goals[i - 1]
+          goals[i] = prev and { x = prev.x, y = prev.y }
+            or { x = vacatedX, y = vacatedY }
+        end
+        if #trailers >= 1 then
+          goals[1] = { x = vacatedX, y = vacatedY }
+        end
+        ow.pokepcTrailCells = goals
       end
-      if #trailers >= 1 then
-        goals[1] = { x = head.x, y = head.y }
-      end
-      ow.pokepcTrailCells = goals
       head.x, head.y = destX, destY
     end
   end

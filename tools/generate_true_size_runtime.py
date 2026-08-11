@@ -145,16 +145,20 @@ def fit_to_canvas(tiles: list[Image.Image], frame_w: int, frame_h: int):
     ch = max(1, uy1 - uy0)
 
     # Prefer pad-only when content fits; else NN downscale OR upscale to fill height.
-    scale = min(frame_w / cw, frame_h / ch)
+    # Reserve 1px top breathing room when bottom-aligning (avoids flush-to-top
+    # ear tips that look clipped under grass / neighboring tile overdraw).
+    usable_h = (frame_h - 1) if frame_h >= 16 else frame_h
+    usable_h = max(1, usable_h)
+    scale = min(frame_w / cw, usable_h / ch)
     # Prefer integer scales when close.
     for candidate in (2.0, 1.5, 1.0, 0.5):
-        if abs(scale - candidate) <= 0.08 and cw * candidate <= frame_w and ch * candidate <= frame_h:
+        if abs(scale - candidate) <= 0.08 and cw * candidate <= frame_w and ch * candidate <= usable_h:
             scale = candidate
             break
     if scale > 1.0:
         # Prefer integer upscale for pixel art.
         iscale = max(1, int(math.floor(scale + 1e-6)))
-        if cw * iscale <= frame_w and ch * iscale <= frame_h:
+        if cw * iscale <= frame_w and ch * iscale <= usable_h:
             scale = float(iscale)
 
     resized = abs(scale - 1.0) > 1e-6

@@ -43,6 +43,24 @@ follower sprite_service / control_engine / water_compat · ambient_pokemon
 
 All call `VariableSize.applyToDef` / preserve geometry fields.
 
+## Follower visual trail spacing
+
+Logical footprint stays **one cell**. When `effectiveMode == true_size`,
+`ControlEngine` consumes older points from `pokepcTrailHistory` using
+
+`gap = max(gap(previous), gap(current))` from `SpeciesGeometry.followGap`.
+
+Classic / Voxel-effective-Classic keep the historic 1-cell snake.
+
+## Grass / scaleInfo
+
+Native True Size entities mirror `frameWidth`/`frameHeight` into `scaleInfo`.
+`GrassOcclusion.refreshEntity` prefers SpriteDef frame height over a stale
+16×16 `scaleInfo`, so feet-band immersion does not assume a Classic tile.
+
+Generator reserves 1px top pad when bottom-aligning (nearest-neighbor) so
+flush ear tips are not lost under neighboring overdraw.
+
 ## Dramatic Shape
 
 1.7.9 still fixed 16×16. No monkey-patch. Future

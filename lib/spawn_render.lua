@@ -1354,16 +1354,35 @@ function Entity.new(game, mod, render, record)
   -- Instrument resolveImage so diagnostics see Dramatic Shape texture fetches.
   render:_instrumentResolveImage(self, self.sprite)
 
-  -- Native 16×16 sheets need no extra 2D scale. Legacy battle fronts still do.
+  -- Native sheets: Classic stays 16×16 scaleInfo. True Size mirrors SpriteDef
+  -- frame geometry so grass occlusion / diagnostics use the feet-anchored size.
   if self.nativeSpriteRenderer then
-    self.scaleInfo = {
-      scale = 1, final2DScale = 1, contentW = CELL, contentH = CELL,
-      renderedW = CELL, renderedH = CELL, originalW = CELL, originalH = RuntimeSheets.SHEET_H,
-      logicalFootprintTiles = 1, grassOcclusionHeight = 6,
-    }
+    local fw = drawDef and tonumber(drawDef.frameWidth) or nil
+    local fh = drawDef and tonumber(drawDef.frameHeight) or nil
+    if self.variableSizeApplied and fw and fh and fw > 0 and fh > 0 then
+      local grassH = GrassOcclusion.computeOcclusionHeight(fh)
+      local frames = tonumber(drawDef.frames) or RuntimeSheets.FRAMES or 6
+      self.scaleInfo = {
+        scale = 1, final2DScale = 1,
+        contentW = fw, contentH = fh,
+        renderedW = fw, renderedH = fh,
+        originalW = fw, originalH = fh * frames,
+        logicalFootprintTiles = 1,
+        grassOcclusionHeight = grassH,
+        frameWidth = fw, frameHeight = fh,
+        anchorX = drawDef.anchorX, anchorY = drawDef.anchorY,
+      }
+      self.grassOcclusionHeight = grassH
+    else
+      self.scaleInfo = {
+        scale = 1, final2DScale = 1, contentW = CELL, contentH = CELL,
+        renderedW = CELL, renderedH = CELL, originalW = CELL, originalH = RuntimeSheets.SHEET_H,
+        logicalFootprintTiles = 1, grassOcclusionHeight = 6,
+      }
+      self.grassOcclusionHeight = 6
+    end
     self.visualScale = 1
     self.final2DScale = 1
-    self.grassOcclusionHeight = 6
     self.voxelScale = 1
   else
     local minSize = Config.get(mod, "min_sprite_size") or Config.DEFAULTS.min_sprite_size
@@ -2195,15 +2214,33 @@ function SpawnRender:applyProviderSprite(entity, game)
     entity.spriteSource2D = entity.spriteSource
     entity.voxelSource = entity.spriteSource
     entity.pokemonRenderer = SpawnRender.RENDERER.NATIVE_SPRITE_RENDERER
-    entity.scaleInfo = {
-      scale = 1, final2DScale = 1, contentW = CELL, contentH = CELL,
-      renderedW = CELL, renderedH = CELL, originalW = CELL,
-      originalH = RuntimeSheets.SHEET_H, logicalFootprintTiles = 1,
-      grassOcclusionHeight = entity.grassOcclusionHeight or 6,
-    }
+    local fw = tonumber(def.frameWidth)
+    local fh = tonumber(def.frameHeight)
+    if entity.variableSizeApplied and fw and fh and fw > 0 and fh > 0 then
+      local grassH = GrassOcclusion.computeOcclusionHeight(fh)
+      local frames = tonumber(def.frames) or RuntimeSheets.FRAMES or 6
+      entity.scaleInfo = {
+        scale = 1, final2DScale = 1,
+        contentW = fw, contentH = fh,
+        renderedW = fw, renderedH = fh,
+        originalW = fw, originalH = fh * frames,
+        logicalFootprintTiles = 1,
+        grassOcclusionHeight = grassH,
+        frameWidth = fw, frameHeight = fh,
+        anchorX = def.anchorX, anchorY = def.anchorY,
+      }
+      entity.grassOcclusionHeight = grassH
+    else
+      entity.scaleInfo = {
+        scale = 1, final2DScale = 1, contentW = CELL, contentH = CELL,
+        renderedW = CELL, renderedH = CELL, originalW = CELL,
+        originalH = RuntimeSheets.SHEET_H, logicalFootprintTiles = 1,
+        grassOcclusionHeight = entity.grassOcclusionHeight or 6,
+      }
+      entity.grassOcclusionHeight = entity.grassOcclusionHeight or 6
+    end
     entity.visualScale = 1
     entity.final2DScale = 1
-    entity.grassOcclusionHeight = entity.grassOcclusionHeight or 6
     -- Optional HUD/diagnostic animation metadata only. Must not claim the
     -- enhanced atlas owns the body, and must not reset Movement phase.
     if entity.animation then
@@ -2447,7 +2484,18 @@ function SpawnRender:refreshEnhancedScale(entity)
   if entity.nativeSpriteRenderer then
     entity.visualScale = 1
     entity.final2DScale = 1
-    entity.grassOcclusionHeight = entity.grassOcclusionHeight or 6
+    local def = entity.sprite and entity.sprite.def
+    local fh = def and tonumber(def.frameHeight) or nil
+    if entity.variableSizeApplied and fh and fh > 0 then
+      entity.grassOcclusionHeight = GrassOcclusion.computeOcclusionHeight(fh)
+      if entity.scaleInfo then
+        entity.scaleInfo.renderedH = fh
+        entity.scaleInfo.contentH = fh
+        entity.scaleInfo.grassOcclusionHeight = entity.grassOcclusionHeight
+      end
+    else
+      entity.grassOcclusionHeight = entity.grassOcclusionHeight or 6
+    end
     entity.grassRenderMode = GrassOcclusion.mode(entity.mod)
     return
   end
