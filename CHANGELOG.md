@@ -25,10 +25,12 @@ water/follower polish — with two final scale fixes below.
 
 ### Water / levitate True Size scale consistency
 
-- Swimming and levitate True Size presentations match the species' **HGSS land
-  opaque body height** (nearest-neighbor). Wider swimming canvases remain
-  allowed; Pokémon must not grow just because they enter water.
-- Classic / GSC water runtime and Voxel paths are unchanged.
+- Swimming and levitate True Size presentations treat the species' **HGSS land
+  opaque footprint** as absolute size authority (nearest-neighbor, uniform
+  scale). Height is primary; width/area caps stop wide poses from looking
+  larger than land. Water/levitate art never upscales past land.
+- Regenerated for every species with HGSS land + swimming/levitate source art
+  (not a 3-species prototype). Classic / GSC water runtime and Voxel unchanged.
 
 ### Followers & world presentation
 

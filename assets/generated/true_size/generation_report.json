@@ -1,11 +1,159 @@
 {
   "philosophy": "native_hgss",
   "padding": 2,
-  "prototype": true,
+  "prototype": false,
   "species": [
-    19,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
     9,
-    95
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    147,
+    148,
+    149,
+    150,
+    151
   ],
   "stats": {
     "hgss_written": 0,
@@ -20,12 +168,17 @@
     "pokedex_written": 0,
     "pokedex_cached": 0,
     "pokedex_missing": 0,
-    "swimming_written": 6,
+    "swimming_written": 0,
     "swimming_cached": 0,
     "swimming_missing": 0,
-    "levitate_written": 0,
+    "levitate_written": 42,
     "levitate_cached": 0,
-    "levitate_missing": 0
+    "levitate_missing": 130,
+    "levitate_audit": {
+      "speciesCount": 21,
+      "warningCount": 0,
+      "failCount": 0
+    }
   },
   "manualOverrides": [
     95
@@ -34,7 +187,49 @@
   "hgssResizedExplicit": 0,
   "analyses": [
     {
-      "speciesId": 19,
+      "speciesId": 1,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 2,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 3,
+      "nativeVisualWidth": 28,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 4,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 5,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 6,
+      "nativeVisualWidth": 29,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 7,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 8,
       "nativeVisualWidth": 21,
       "nativeVisualHeight": 24,
       "visualScale": 1.0
@@ -46,10 +241,856 @@
       "visualScale": 1.0
     },
     {
+      "speciesId": 10,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 11,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 12,
+      "nativeVisualWidth": 27,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 13,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 14,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 15,
+      "nativeVisualWidth": 27,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 16,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 17,
+      "nativeVisualWidth": 27,
+      "nativeVisualHeight": 25,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 18,
+      "nativeVisualWidth": 30,
+      "nativeVisualHeight": 30,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 19,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 20,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 21,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 22,
+      "nativeVisualWidth": 29,
+      "nativeVisualHeight": 29,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 23,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 24,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 25,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 25,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 26,
+      "nativeVisualWidth": 30,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 27,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 28,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 29,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 30,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 31,
+      "nativeVisualWidth": 23,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 32,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 33,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 34,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 35,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 36,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 37,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 38,
+      "nativeVisualWidth": 29,
+      "nativeVisualHeight": 27,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 39,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 40,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 41,
+      "nativeVisualWidth": 23,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 42,
+      "nativeVisualWidth": 29,
+      "nativeVisualHeight": 25,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 43,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 44,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 45,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 46,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 47,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 25,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 48,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 49,
+      "nativeVisualWidth": 29,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 50,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 51,
+      "nativeVisualWidth": 26,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 52,
+      "nativeVisualWidth": 23,
+      "nativeVisualHeight": 25,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 53,
+      "nativeVisualWidth": 26,
+      "nativeVisualHeight": 28,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 54,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 55,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 56,
+      "nativeVisualWidth": 25,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 57,
+      "nativeVisualWidth": 27,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 58,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 59,
+      "nativeVisualWidth": 28,
+      "nativeVisualHeight": 30,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 60,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 61,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 62,
+      "nativeVisualWidth": 27,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 63,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 64,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 65,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 25,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 66,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 67,
+      "nativeVisualWidth": 23,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 68,
+      "nativeVisualWidth": 27,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 69,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 70,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 71,
+      "nativeVisualWidth": 29,
+      "nativeVisualHeight": 27,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 72,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 73,
+      "nativeVisualWidth": 23,
+      "nativeVisualHeight": 25,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 74,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 75,
+      "nativeVisualWidth": 25,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 76,
+      "nativeVisualWidth": 26,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 77,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 78,
+      "nativeVisualWidth": 27,
+      "nativeVisualHeight": 29,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 79,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 80,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 81,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 82,
+      "nativeVisualWidth": 27,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 83,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 84,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 85,
+      "nativeVisualWidth": 29,
+      "nativeVisualHeight": 30,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 86,
+      "nativeVisualWidth": 23,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 87,
+      "nativeVisualWidth": 28,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 88,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 89,
+      "nativeVisualWidth": 26,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 90,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 91,
+      "nativeVisualWidth": 30,
+      "nativeVisualHeight": 29,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 92,
+      "nativeVisualWidth": 25,
+      "nativeVisualHeight": 27,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 93,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 94,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
       "speciesId": 95,
       "nativeVisualWidth": 27,
       "nativeVisualHeight": 30,
       "visualScale": 1.15
+    },
+    {
+      "speciesId": 96,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 97,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 98,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 99,
+      "nativeVisualWidth": 29,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 100,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 101,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 102,
+      "nativeVisualWidth": 27,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 103,
+      "nativeVisualWidth": 25,
+      "nativeVisualHeight": 30,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 104,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 105,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 106,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 107,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 108,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 109,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 110,
+      "nativeVisualWidth": 29,
+      "nativeVisualHeight": 30,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 111,
+      "nativeVisualWidth": 25,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 112,
+      "nativeVisualWidth": 28,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 113,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 114,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 115,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 25,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 116,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 117,
+      "nativeVisualWidth": 23,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 118,
+      "nativeVisualWidth": 27,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 119,
+      "nativeVisualWidth": 28,
+      "nativeVisualHeight": 28,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 120,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 121,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 25,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 122,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 123,
+      "nativeVisualWidth": 23,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 124,
+      "nativeVisualWidth": 25,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 125,
+      "nativeVisualWidth": 25,
+      "nativeVisualHeight": 25,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 126,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 127,
+      "nativeVisualWidth": 25,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 128,
+      "nativeVisualWidth": 29,
+      "nativeVisualHeight": 29,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 129,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 130,
+      "nativeVisualWidth": 30,
+      "nativeVisualHeight": 31,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 131,
+      "nativeVisualWidth": 26,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 132,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 133,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 134,
+      "nativeVisualWidth": 27,
+      "nativeVisualHeight": 29,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 135,
+      "nativeVisualWidth": 25,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 136,
+      "nativeVisualWidth": 25,
+      "nativeVisualHeight": 25,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 137,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 138,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 139,
+      "nativeVisualWidth": 24,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 140,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 141,
+      "nativeVisualWidth": 26,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 142,
+      "nativeVisualWidth": 30,
+      "nativeVisualHeight": 28,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 143,
+      "nativeVisualWidth": 27,
+      "nativeVisualHeight": 29,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 144,
+      "nativeVisualWidth": 30,
+      "nativeVisualHeight": 31,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 145,
+      "nativeVisualWidth": 30,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 146,
+      "nativeVisualWidth": 30,
+      "nativeVisualHeight": 30,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 147,
+      "nativeVisualWidth": 21,
+      "nativeVisualHeight": 24,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 148,
+      "nativeVisualWidth": 29,
+      "nativeVisualHeight": 30,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 149,
+      "nativeVisualWidth": 29,
+      "nativeVisualHeight": 29,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 150,
+      "nativeVisualWidth": 26,
+      "nativeVisualHeight": 29,
+      "visualScale": 1.0
+    },
+    {
+      "speciesId": 151,
+      "nativeVisualWidth": 22,
+      "nativeVisualHeight": 26,
+      "visualScale": 1.0
     }
   ]
 }

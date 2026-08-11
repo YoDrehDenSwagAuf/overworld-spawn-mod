@@ -33,10 +33,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 24,
-        "frameHeight": 24,
-        "anchorX": 12.0,
-        "anchorY": 24,
+        "frameWidth": 28,
+        "frameHeight": 19,
+        "anchorX": 14.0,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -50,7 +50,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 304
   },
   "2": {
     "class": "L",
@@ -86,10 +89,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 32,
+        "frameHeight": 22,
+        "anchorX": 16.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -103,7 +106,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 418
   },
   "3": {
     "class": "XL",
@@ -139,10 +145,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 32,
-        "anchorX": 16.0,
-        "anchorY": 32,
+        "frameWidth": 40,
+        "frameHeight": 26,
+        "anchorX": 20.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -156,7 +162,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 28,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 672
   },
   "4": {
     "class": "M",
@@ -192,10 +201,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 23,
-        "anchorX": 11.5,
-        "anchorY": 23,
+        "frameWidth": 28,
+        "frameHeight": 21,
+        "anchorX": 14.0,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -209,7 +218,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 323
   },
   "5": {
     "class": "L",
@@ -245,10 +257,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 31,
+        "frameHeight": 23,
+        "anchorX": 15.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -262,7 +274,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 441
   },
   "6": {
     "class": "XL",
@@ -307,15 +322,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 32,
-        "frameHeight": 32,
-        "anchorX": 16.0,
-        "anchorY": 32,
+        "frameWidth": 41,
+        "frameHeight": 27,
+        "anchorX": 20.5,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 29,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 696
   },
   "7": {
     "class": "M",
@@ -351,10 +369,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 22,
-        "frameHeight": 22,
-        "anchorX": 11.0,
-        "anchorY": 22,
+        "frameWidth": 23,
+        "frameHeight": 19,
+        "anchorX": 11.5,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -368,7 +386,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 15,
+    "landReferenceVisibleArea": 225
   },
   "8": {
     "class": "L",
@@ -404,10 +425,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 29,
+        "frameHeight": 23,
+        "anchorX": 14.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -421,7 +442,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 380
   },
   "9": {
     "sizing": "native",
@@ -483,7 +507,9 @@
         "walker": true
       }
     },
-    "landReferenceVisibleHeight": 24
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleArea": 648
   },
   "10": {
     "class": "XS",
@@ -519,10 +545,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 16,
-        "frameHeight": 15,
-        "anchorX": 8.0,
-        "anchorY": 15,
+        "frameWidth": 24,
+        "frameHeight": 16,
+        "anchorX": 12.0,
+        "anchorY": 14.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -536,7 +562,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 14,
+    "landReferenceVisibleArea": 224
   },
   "11": {
     "class": "M",
@@ -572,10 +601,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 24,
-        "frameHeight": 24,
-        "anchorX": 12.0,
-        "anchorY": 24,
+        "frameWidth": 26,
+        "frameHeight": 20,
+        "anchorX": 13.0,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -589,7 +618,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 340
   },
   "12": {
     "class": "L",
@@ -634,15 +666,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 38,
+        "frameHeight": 23,
+        "anchorX": 19.0,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 513
   },
   "13": {
     "class": "XS",
@@ -678,10 +713,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 16,
-        "frameHeight": 15,
-        "anchorX": 8.0,
-        "anchorY": 15,
+        "frameWidth": 23,
+        "frameHeight": 19,
+        "anchorX": 11.5,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -695,7 +730,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 15,
+    "landReferenceVisibleArea": 225
   },
   "14": {
     "class": "M",
@@ -731,10 +769,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 23,
-        "anchorX": 11.5,
-        "anchorY": 23,
+        "frameWidth": 22,
+        "frameHeight": 20,
+        "anchorX": 11.0,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -748,7 +786,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 14,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 266
   },
   "15": {
     "class": "L",
@@ -793,15 +834,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 37,
+        "frameHeight": 26,
+        "anchorX": 18.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 594
   },
   "16": {
     "class": "S",
@@ -837,10 +881,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 20,
-        "frameHeight": 20,
-        "anchorX": 10.0,
-        "anchorY": 20,
+        "frameWidth": 23,
+        "frameHeight": 16,
+        "anchorX": 11.5,
+        "anchorY": 14.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -854,7 +898,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 14,
+    "landReferenceVisibleArea": 210
   },
   "17": {
     "class": "L",
@@ -899,15 +946,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 39,
+        "frameHeight": 26,
+        "anchorX": 19.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 648
   },
   "18": {
     "class": "XL",
@@ -952,15 +1002,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 30,
+        "frameWidth": 41,
         "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "anchorX": 20.5,
+        "anchorY": 28.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 29,
+    "landReferenceVisibleHeight": 29,
+    "landReferenceVisibleArea": 841
   },
   "19": {
     "sizing": "native",
@@ -1004,10 +1057,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 24,
-        "anchorX": 14.5,
-        "anchorY": 22.0,
+        "frameWidth": 28,
+        "frameHeight": 23,
+        "anchorX": 14.0,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1022,7 +1075,9 @@
         "walker": true
       }
     },
-    "landReferenceVisibleHeight": 20
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleArea": 380
   },
   "20": {
     "class": "M",
@@ -1058,10 +1113,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 24,
-        "frameHeight": 24,
-        "anchorX": 12.0,
-        "anchorY": 24,
+        "frameWidth": 33,
+        "frameHeight": 23,
+        "anchorX": 16.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1075,7 +1130,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 483
   },
   "21": {
     "class": "S",
@@ -1111,10 +1169,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 20,
-        "frameHeight": 20,
-        "anchorX": 10.0,
-        "anchorY": 20,
+        "frameWidth": 30,
+        "frameHeight": 16,
+        "anchorX": 15.0,
+        "anchorY": 14.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1128,7 +1186,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 14,
+    "landReferenceVisibleArea": 280
   },
   "22": {
     "class": "L",
@@ -1173,15 +1234,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 39,
+        "frameHeight": 29,
+        "anchorX": 19.5,
+        "anchorY": 27.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 27,
+    "landReferenceVisibleArea": 729
   },
   "23": {
     "class": "L",
@@ -1217,10 +1281,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 35,
+        "frameHeight": 21,
+        "anchorX": 17.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1234,7 +1298,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 456
   },
   "24": {
     "class": "XL",
@@ -1270,10 +1337,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 32,
-        "anchorX": 16.0,
-        "anchorY": 32,
+        "frameWidth": 30,
+        "frameHeight": 27,
+        "anchorX": 15.0,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1287,7 +1354,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 552
   },
   "25": {
     "class": "S",
@@ -1323,10 +1393,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 18,
-        "frameHeight": 18,
-        "anchorX": 9.0,
-        "anchorY": 18,
+        "frameWidth": 24,
+        "frameHeight": 17,
+        "anchorX": 12.0,
+        "anchorY": 15.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1340,7 +1410,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 272
   },
   "26": {
     "class": "L",
@@ -1376,10 +1449,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 25,
-        "frameHeight": 25,
-        "anchorX": 12.5,
-        "anchorY": 25,
+        "frameWidth": 36,
+        "frameHeight": 22,
+        "anchorX": 18.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1393,7 +1466,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 25,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 450
   },
   "27": {
     "class": "M",
@@ -1429,10 +1505,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 23,
-        "anchorX": 11.5,
-        "anchorY": 23,
+        "frameWidth": 25,
+        "frameHeight": 20,
+        "anchorX": 12.5,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1446,7 +1522,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 288
   },
   "28": {
     "class": "L",
@@ -1482,10 +1561,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 31,
+        "frameHeight": 24,
+        "anchorX": 15.5,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1499,7 +1578,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 420
   },
   "29": {
     "class": "M",
@@ -1588,10 +1670,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 25,
-        "frameHeight": 25,
-        "anchorX": 12.5,
-        "anchorY": 25,
+        "frameWidth": 32,
+        "frameHeight": 22,
+        "anchorX": 16.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1605,7 +1687,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 396
   },
   "31": {
     "class": "L",
@@ -1641,10 +1726,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 32,
+        "frameHeight": 26,
+        "anchorX": 16.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1658,7 +1743,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 506
   },
   "32": {
     "class": "M",
@@ -1747,10 +1835,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 26,
-        "frameHeight": 26,
-        "anchorX": 13.0,
-        "anchorY": 26,
+        "frameWidth": 32,
+        "frameHeight": 24,
+        "anchorX": 16.0,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1764,7 +1852,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 440
   },
   "34": {
     "class": "L",
@@ -1800,10 +1891,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 32,
+        "frameHeight": 25,
+        "anchorX": 16.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1817,7 +1908,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 504
   },
   "35": {
     "class": "M",
@@ -1853,10 +1947,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 23,
-        "anchorX": 11.5,
-        "anchorY": 23,
+        "frameWidth": 25,
+        "frameHeight": 20,
+        "anchorX": 12.5,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1870,7 +1964,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 272
   },
   "36": {
     "class": "L",
@@ -1906,10 +2003,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 31,
+        "frameHeight": 23,
+        "anchorX": 15.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1923,7 +2020,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 399
   },
   "37": {
     "class": "M",
@@ -1959,10 +2059,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 23,
-        "anchorX": 11.5,
-        "anchorY": 23,
+        "frameWidth": 33,
+        "frameHeight": 22,
+        "anchorX": 16.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -1976,7 +2076,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 414
   },
   "38": {
     "class": "L",
@@ -2012,10 +2115,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 40,
+        "frameHeight": 26,
+        "anchorX": 20.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2029,7 +2132,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 28,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 672
   },
   "39": {
     "class": "M",
@@ -2065,10 +2171,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 22,
-        "frameHeight": 22,
-        "anchorX": 11.0,
-        "anchorY": 22,
+        "frameWidth": 23,
+        "frameHeight": 19,
+        "anchorX": 11.5,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2082,7 +2188,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 15,
+    "landReferenceVisibleArea": 225
   },
   "40": {
     "class": "L",
@@ -2118,10 +2227,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 30,
+        "frameHeight": 23,
+        "anchorX": 15.0,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2135,7 +2244,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 400
   },
   "41": {
     "class": "L",
@@ -2180,15 +2292,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 25,
-        "frameHeight": 25,
-        "anchorX": 12.5,
-        "anchorY": 25,
+        "frameWidth": 33,
+        "frameHeight": 23,
+        "anchorX": 16.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 460
   },
   "42": {
     "class": "XL",
@@ -2233,15 +2348,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 41,
+        "frameHeight": 26,
+        "anchorX": 20.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 29,
+    "landReferenceVisibleHeight": 25,
+    "landReferenceVisibleArea": 725
   },
   "43": {
     "class": "M",
@@ -2278,9 +2396,9 @@
       },
       "swimming": {
         "frameWidth": 22,
-        "frameHeight": 22,
+        "frameHeight": 17,
         "anchorX": 11.0,
-        "anchorY": 22,
+        "anchorY": 15.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2294,7 +2412,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 13,
+    "landReferenceVisibleArea": 195
   },
   "44": {
     "class": "L",
@@ -2330,10 +2451,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 25,
-        "frameHeight": 25,
-        "anchorX": 12.5,
-        "anchorY": 25,
+        "frameWidth": 28,
+        "frameHeight": 20,
+        "anchorX": 14.0,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2347,7 +2468,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 361
   },
   "45": {
     "class": "L",
@@ -2383,10 +2507,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 31,
+        "frameHeight": 22,
+        "anchorX": 15.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2400,7 +2524,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 378
   },
   "46": {
     "class": "S",
@@ -2436,10 +2563,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 20,
-        "frameHeight": 20,
-        "anchorX": 10.0,
-        "anchorY": 20,
+        "frameWidth": 28,
+        "frameHeight": 18,
+        "anchorX": 14.0,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2453,7 +2580,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 304
   },
   "47": {
     "class": "L",
@@ -2489,10 +2619,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 35,
+        "frameHeight": 26,
+        "anchorX": 17.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2506,7 +2636,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 552
   },
   "48": {
     "class": "L",
@@ -2542,10 +2675,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 28,
+        "frameHeight": 22,
+        "anchorX": 14.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2559,7 +2692,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 342
   },
   "49": {
     "class": "XL",
@@ -2604,15 +2740,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 41,
+        "frameHeight": 27,
+        "anchorX": 20.5,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 29,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 696
   },
   "50": {
     "class": "XS",
@@ -2657,15 +2796,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 16,
-        "frameHeight": 14,
-        "anchorX": 8.0,
-        "anchorY": 14,
+        "frameWidth": 24,
+        "frameHeight": 13,
+        "anchorX": 12.0,
+        "anchorY": 11.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 12,
+    "landReferenceVisibleArea": 192
   },
   "51": {
     "class": "S",
@@ -2710,15 +2852,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 18,
+        "frameWidth": 24,
         "frameHeight": 18,
-        "anchorX": 9.0,
-        "anchorY": 18,
+        "anchorX": 12.0,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 14,
+    "landReferenceVisibleArea": 252
   },
   "52": {
     "class": "M",
@@ -2754,10 +2899,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 21,
-        "frameHeight": 21,
-        "anchorX": 10.5,
-        "anchorY": 21,
+        "frameWidth": 30,
+        "frameHeight": 22,
+        "anchorX": 15.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2771,7 +2916,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 400
   },
   "53": {
     "class": "L",
@@ -2807,10 +2955,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 37,
+        "frameHeight": 28,
+        "anchorX": 18.5,
+        "anchorY": 26.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2824,7 +2972,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 26,
+    "landReferenceVisibleHeight": 26,
+    "landReferenceVisibleArea": 676
   },
   "54": {
     "class": "L",
@@ -2860,10 +3011,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 25,
-        "frameHeight": 25,
-        "anchorX": 12.5,
-        "anchorY": 25,
+        "frameWidth": 24,
+        "frameHeight": 22,
+        "anchorX": 12.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2877,7 +3028,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 288
   },
   "55": {
     "class": "XL",
@@ -2913,10 +3067,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 31,
-        "anchorX": 15.5,
-        "anchorY": 31,
+        "frameWidth": 26,
+        "frameHeight": 26,
+        "anchorX": 13.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2930,7 +3084,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 374
   },
   "56": {
     "class": "M",
@@ -2966,10 +3123,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 22,
-        "frameHeight": 22,
-        "anchorX": 11.0,
-        "anchorY": 22,
+        "frameWidth": 31,
+        "frameHeight": 18,
+        "anchorX": 15.5,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -2983,7 +3140,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 14,
+    "landReferenceVisibleArea": 308
   },
   "57": {
     "class": "L",
@@ -3019,10 +3179,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 39,
+        "frameHeight": 25,
+        "anchorX": 19.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3036,7 +3196,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 567
   },
   "58": {
     "class": "M",
@@ -3072,10 +3235,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 24,
-        "frameHeight": 24,
-        "anchorX": 12.0,
-        "anchorY": 24,
+        "frameWidth": 28,
+        "frameHeight": 22,
+        "anchorX": 14.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3089,7 +3252,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 399
   },
   "59": {
     "class": "XL",
@@ -3125,10 +3291,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
+        "frameWidth": 40,
         "frameHeight": 31,
-        "anchorX": 15.5,
-        "anchorY": 31,
+        "anchorX": 20.0,
+        "anchorY": 29.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3142,7 +3308,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 28,
+    "landReferenceVisibleHeight": 29,
+    "landReferenceVisibleArea": 812
   },
   "60": {
     "class": "M",
@@ -3178,10 +3347,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 23,
-        "anchorX": 11.5,
-        "anchorY": 23,
+        "frameWidth": 28,
+        "frameHeight": 19,
+        "anchorX": 14.0,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3195,7 +3364,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 15,
+    "landReferenceVisibleArea": 285
   },
   "61": {
     "class": "L",
@@ -3231,10 +3403,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 32,
+        "frameHeight": 21,
+        "anchorX": 16.0,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3248,7 +3420,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 374
   },
   "62": {
     "class": "L",
@@ -3284,10 +3459,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 39,
+        "frameHeight": 23,
+        "anchorX": 19.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3301,7 +3476,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 540
   },
   "63": {
     "class": "L",
@@ -3346,15 +3524,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 26,
-        "frameHeight": 26,
-        "anchorX": 13.0,
-        "anchorY": 26,
+        "frameWidth": 28,
+        "frameHeight": 21,
+        "anchorX": 14.0,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 342
   },
   "64": {
     "class": "L",
@@ -3390,10 +3571,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 32,
+        "frameHeight": 21,
+        "anchorX": 16.0,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3407,7 +3588,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 440
   },
   "65": {
     "class": "XL",
@@ -3443,10 +3627,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 35,
+        "frameHeight": 24,
+        "anchorX": 17.5,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3460,7 +3644,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 552
   },
   "66": {
     "class": "L",
@@ -3496,10 +3683,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 25,
-        "frameHeight": 25,
-        "anchorX": 12.5,
-        "anchorY": 25,
+        "frameWidth": 20,
+        "frameHeight": 19,
+        "anchorX": 10.0,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3513,7 +3700,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 13,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 221
   },
   "67": {
     "class": "XL",
@@ -3549,10 +3739,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 33,
+        "frameHeight": 24,
+        "anchorX": 16.5,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3566,7 +3756,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 483
   },
   "68": {
     "class": "XL",
@@ -3602,10 +3795,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 39,
+        "frameHeight": 27,
+        "anchorX": 19.5,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3619,7 +3812,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 648
   },
   "69": {
     "class": "M",
@@ -3655,10 +3851,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 24,
-        "frameHeight": 24,
-        "anchorX": 12.0,
-        "anchorY": 24,
+        "frameWidth": 22,
+        "frameHeight": 23,
+        "anchorX": 11.0,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3672,7 +3868,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 14,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 266
   },
   "70": {
     "class": "L",
@@ -3708,10 +3907,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 31,
+        "frameHeight": 23,
+        "anchorX": 15.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3725,7 +3924,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 420
   },
   "71": {
     "class": "XL",
@@ -3761,10 +3963,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 31,
-        "anchorX": 15.5,
-        "anchorY": 31,
+        "frameWidth": 41,
+        "frameHeight": 25,
+        "anchorX": 20.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3778,7 +3980,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 29,
+    "landReferenceVisibleHeight": 26,
+    "landReferenceVisibleArea": 754
   },
   "72": {
     "class": "L",
@@ -3814,10 +4019,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 26,
-        "frameHeight": 26,
-        "anchorX": 13.0,
-        "anchorY": 26,
+        "frameWidth": 24,
+        "frameHeight": 22,
+        "anchorX": 12.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3831,7 +4036,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 306
   },
   "73": {
     "class": "XL",
@@ -3867,10 +4075,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 33,
+        "frameHeight": 24,
+        "anchorX": 16.5,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3884,7 +4092,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 529
   },
   "74": {
     "class": "M",
@@ -3920,10 +4131,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 21,
-        "frameHeight": 21,
-        "anchorX": 10.5,
-        "anchorY": 21,
+        "frameWidth": 29,
+        "frameHeight": 16,
+        "anchorX": 14.5,
+        "anchorY": 14.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3937,7 +4148,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 12,
+    "landReferenceVisibleArea": 252
   },
   "75": {
     "class": "L",
@@ -3973,10 +4187,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 36,
+        "frameHeight": 23,
+        "anchorX": 18.0,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -3990,7 +4204,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 25,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 475
   },
   "76": {
     "class": "L",
@@ -4026,10 +4243,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 37,
+        "frameHeight": 20,
+        "anchorX": 18.5,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4043,7 +4260,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 26,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 520
   },
   "77": {
     "class": "L",
@@ -4079,10 +4299,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 33,
+        "frameHeight": 25,
+        "anchorX": 16.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4096,7 +4316,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 506
   },
   "78": {
     "class": "XL",
@@ -4132,10 +4355,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 31,
-        "anchorX": 15.5,
-        "anchorY": 31,
+        "frameWidth": 39,
+        "frameHeight": 30,
+        "anchorX": 19.5,
+        "anchorY": 28.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4149,7 +4372,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 27,
+    "landReferenceVisibleArea": 729
   },
   "79": {
     "class": "L",
@@ -4185,10 +4411,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 35,
+        "frameHeight": 21,
+        "anchorX": 17.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4202,7 +4428,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 480
   },
   "80": {
     "class": "XL",
@@ -4238,10 +4467,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 35,
+        "frameHeight": 24,
+        "anchorX": 17.5,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4255,7 +4484,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 528
   },
   "81": {
     "class": "S",
@@ -4291,10 +4523,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 20,
-        "frameHeight": 20,
-        "anchorX": 10.0,
-        "anchorY": 20,
+        "frameWidth": 28,
+        "frameHeight": 17,
+        "anchorX": 14.0,
+        "anchorY": 15.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4308,7 +4540,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 13,
+    "landReferenceVisibleArea": 247
   },
   "82": {
     "class": "L",
@@ -4344,10 +4579,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 39,
+        "frameHeight": 24,
+        "anchorX": 19.5,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4361,7 +4596,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 594
   },
   "83": {
     "class": "L",
@@ -4397,10 +4635,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 25,
-        "frameHeight": 25,
-        "anchorX": 12.5,
-        "anchorY": 25,
+        "frameWidth": 24,
+        "frameHeight": 20,
+        "anchorX": 12.0,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4414,7 +4652,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 320
   },
   "84": {
     "class": "L",
@@ -4450,10 +4691,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 30,
+        "frameHeight": 27,
+        "anchorX": 15.0,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4467,7 +4708,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 483
   },
   "85": {
     "class": "XL",
@@ -4503,10 +4747,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 31,
-        "anchorX": 15.5,
-        "anchorY": 31,
+        "frameWidth": 41,
+        "frameHeight": 28,
+        "anchorX": 20.5,
+        "anchorY": 26.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4520,7 +4764,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 29,
+    "landReferenceVisibleHeight": 29,
+    "landReferenceVisibleArea": 841
   },
   "86": {
     "class": "L",
@@ -4556,10 +4803,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 33,
+        "frameHeight": 21,
+        "anchorX": 16.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4573,7 +4820,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 460
   },
   "87": {
     "class": "XL",
@@ -4609,10 +4859,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 31,
-        "anchorX": 15.5,
-        "anchorY": 31,
+        "frameWidth": 40,
+        "frameHeight": 28,
+        "anchorX": 20.0,
+        "anchorY": 26.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4626,7 +4876,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 28,
+    "landReferenceVisibleHeight": 25,
+    "landReferenceVisibleArea": 700
   },
   "88": {
     "class": "L",
@@ -4662,10 +4915,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 26,
-        "frameHeight": 26,
-        "anchorX": 13.0,
-        "anchorY": 26,
+        "frameWidth": 30,
+        "frameHeight": 18,
+        "anchorX": 15.0,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4679,7 +4932,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 340
   },
   "89": {
     "class": "L",
@@ -4715,10 +4971,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 37,
+        "frameHeight": 23,
+        "anchorX": 18.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4732,7 +4988,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 26,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 546
   },
   "90": {
     "class": "S",
@@ -4768,10 +5027,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 20,
-        "frameHeight": 20,
-        "anchorX": 10.0,
-        "anchorY": 20,
+        "frameWidth": 23,
+        "frameHeight": 17,
+        "anchorX": 11.5,
+        "anchorY": 15.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4785,7 +5044,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 255
   },
   "91": {
     "class": "XL",
@@ -4821,10 +5083,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 43,
+        "frameHeight": 31,
+        "anchorX": 21.5,
+        "anchorY": 29.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4838,7 +5100,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 30,
+    "landReferenceVisibleHeight": 28,
+    "landReferenceVisibleArea": 840
   },
   "92": {
     "class": "M",
@@ -4883,15 +5148,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 22,
-        "frameHeight": 22,
-        "anchorX": 11.0,
-        "anchorY": 22,
+        "frameWidth": 30,
+        "frameHeight": 23,
+        "anchorX": 15.0,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 418
   },
   "93": {
     "class": "L",
@@ -4936,15 +5204,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 26,
-        "frameHeight": 26,
-        "anchorX": 13.0,
-        "anchorY": 26,
+        "frameWidth": 34,
+        "frameHeight": 24,
+        "anchorX": 17.0,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 480
   },
   "94": {
     "class": "XL",
@@ -4980,10 +5251,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 31,
+        "frameHeight": 22,
+        "anchorX": 15.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -4997,7 +5268,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 420
   },
   "95": {
     "sizing": "native",
@@ -5062,7 +5336,9 @@
         "walker": true
       }
     },
-    "landReferenceVisibleHeight": 33
+    "landReferenceVisibleHeight": 33,
+    "landReferenceVisibleWidth": 31,
+    "landReferenceVisibleArea": 1023
   },
   "96": {
     "class": "L",
@@ -5099,9 +5375,9 @@
       },
       "swimming": {
         "frameWidth": 27,
-        "frameHeight": 27,
+        "frameHeight": 21,
         "anchorX": 13.5,
-        "anchorY": 27,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5115,7 +5391,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 342
   },
   "97": {
     "class": "XL",
@@ -5151,10 +5430,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 32,
+        "frameHeight": 26,
+        "anchorX": 16.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5168,7 +5447,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 484
   },
   "98": {
     "class": "M",
@@ -5204,10 +5486,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 21,
-        "frameHeight": 21,
-        "anchorX": 10.5,
-        "anchorY": 21,
+        "frameWidth": 30,
+        "frameHeight": 18,
+        "anchorX": 15.0,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5221,7 +5503,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 14,
+    "landReferenceVisibleArea": 294
   },
   "99": {
     "class": "L",
@@ -5257,10 +5542,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 41,
+        "frameHeight": 27,
+        "anchorX": 20.5,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5274,7 +5559,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 29,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 696
   },
   "100": {
     "class": "M",
@@ -5310,10 +5598,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 22,
-        "frameHeight": 22,
-        "anchorX": 11.0,
-        "anchorY": 22,
+        "frameWidth": 23,
+        "frameHeight": 19,
+        "anchorX": 11.5,
+        "anchorY": 17.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5327,7 +5615,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 15,
+    "landReferenceVisibleArea": 225
   },
   "101": {
     "class": "L",
@@ -5363,10 +5654,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 32,
+        "frameHeight": 24,
+        "anchorX": 16.0,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5380,7 +5671,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 462
   },
   "102": {
     "class": "S",
@@ -5416,10 +5710,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 18,
+        "frameWidth": 27,
         "frameHeight": 18,
-        "anchorX": 9.0,
-        "anchorY": 18,
+        "anchorX": 13.5,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5433,7 +5727,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 288
   },
   "103": {
     "class": "XL",
@@ -5469,10 +5766,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 32,
-        "frameHeight": 32,
-        "anchorX": 16.0,
-        "anchorY": 32,
+        "frameWidth": 36,
+        "frameHeight": 31,
+        "anchorX": 18.0,
+        "anchorY": 29.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5486,7 +5783,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 25,
+    "landReferenceVisibleHeight": 28,
+    "landReferenceVisibleArea": 700
   },
   "104": {
     "class": "M",
@@ -5522,10 +5822,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 21,
-        "frameHeight": 21,
-        "anchorX": 10.5,
-        "anchorY": 21,
+        "frameWidth": 26,
+        "frameHeight": 23,
+        "anchorX": 13.0,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5539,7 +5839,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 361
   },
   "105": {
     "class": "L",
@@ -5575,10 +5878,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 31,
+        "frameHeight": 26,
+        "anchorX": 15.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5592,7 +5895,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 462
   },
   "106": {
     "class": "XL",
@@ -5628,10 +5934,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 31,
+        "frameHeight": 20,
+        "anchorX": 15.5,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5645,7 +5951,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 420
   },
   "107": {
     "class": "L",
@@ -5681,10 +5990,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 27,
+        "frameHeight": 21,
+        "anchorX": 13.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5698,7 +6007,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 378
   },
   "108": {
     "class": "L",
@@ -5734,10 +6046,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 34,
+        "frameHeight": 23,
+        "anchorX": 17.0,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5751,7 +6063,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 456
   },
   "109": {
     "class": "M",
@@ -5796,15 +6111,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 23,
-        "frameHeight": 23,
-        "anchorX": 11.5,
-        "anchorY": 23,
+        "frameWidth": 32,
+        "frameHeight": 25,
+        "anchorX": 16.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 483
   },
   "110": {
     "class": "L",
@@ -5849,15 +6167,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 37,
+        "frameHeight": 29,
+        "anchorX": 18.5,
+        "anchorY": 27.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 26,
+    "landReferenceVisibleHeight": 27,
+    "landReferenceVisibleArea": 702
   },
   "111": {
     "class": "L",
@@ -5893,10 +6214,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 35,
+        "frameHeight": 23,
+        "anchorX": 17.5,
+        "anchorY": 21.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5910,7 +6231,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 504
   },
   "112": {
     "class": "XL",
@@ -5946,10 +6270,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 31,
-        "anchorX": 15.5,
-        "anchorY": 31,
+        "frameWidth": 40,
+        "frameHeight": 25,
+        "anchorX": 20.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -5963,7 +6287,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 28,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 588
   },
   "113": {
     "class": "L",
@@ -5999,10 +6326,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 30,
+        "frameHeight": 20,
+        "anchorX": 15.0,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6016,7 +6343,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 360
   },
   "114": {
     "class": "L",
@@ -6053,9 +6383,9 @@
       },
       "swimming": {
         "frameWidth": 27,
-        "frameHeight": 27,
+        "frameHeight": 22,
         "anchorX": 13.5,
-        "anchorY": 27,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6069,7 +6399,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 342
   },
   "115": {
     "class": "XL",
@@ -6105,10 +6438,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 34,
-        "frameHeight": 34,
-        "anchorX": 17.0,
-        "anchorY": 34,
+        "frameWidth": 32,
+        "frameHeight": 26,
+        "anchorX": 16.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6122,7 +6455,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 528
   },
   "116": {
     "class": "M",
@@ -6158,10 +6494,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 21,
-        "frameHeight": 21,
-        "anchorX": 10.5,
-        "anchorY": 21,
+        "frameWidth": 22,
+        "frameHeight": 20,
+        "anchorX": 11.0,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6175,7 +6511,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 256
   },
   "117": {
     "class": "L",
@@ -6211,10 +6550,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 33,
+        "frameHeight": 26,
+        "anchorX": 16.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6228,7 +6567,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 529
   },
   "118": {
     "class": "M",
@@ -6264,10 +6606,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 23,
-        "frameHeight": 23,
-        "anchorX": 11.5,
-        "anchorY": 23,
+        "frameWidth": 33,
+        "frameHeight": 22,
+        "anchorX": 16.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6281,7 +6623,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 414
   },
   "119": {
     "class": "L",
@@ -6317,10 +6662,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 40,
+        "frameHeight": 27,
+        "anchorX": 20.0,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6334,7 +6679,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 28,
+    "landReferenceVisibleHeight": 25,
+    "landReferenceVisibleArea": 700
   },
   "120": {
     "class": "L",
@@ -6370,10 +6718,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 25,
-        "frameHeight": 25,
-        "anchorX": 12.5,
-        "anchorY": 25,
+        "frameWidth": 30,
+        "frameHeight": 22,
+        "anchorX": 15.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6387,7 +6735,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 360
   },
   "121": {
     "class": "L",
@@ -6423,10 +6774,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 35,
+        "frameHeight": 26,
+        "anchorX": 17.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6440,7 +6791,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 552
   },
   "122": {
     "class": "L",
@@ -6476,10 +6830,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 35,
+        "frameHeight": 22,
+        "anchorX": 17.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6493,7 +6847,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 504
   },
   "123": {
     "class": "XL",
@@ -6529,10 +6886,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 33,
+        "frameHeight": 27,
+        "anchorX": 16.5,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6546,7 +6903,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 552
   },
   "124": {
     "class": "L",
@@ -6582,10 +6942,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 36,
+        "frameHeight": 27,
+        "anchorX": 18.0,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6599,7 +6959,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 25,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 600
   },
   "125": {
     "class": "L",
@@ -6635,10 +6998,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 35,
+        "frameHeight": 27,
+        "anchorX": 17.5,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6652,7 +7015,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 25,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 575
   },
   "126": {
     "class": "L",
@@ -6688,10 +7054,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 35,
+        "frameHeight": 25,
+        "anchorX": 17.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6705,7 +7071,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 576
   },
   "127": {
     "class": "XL",
@@ -6741,10 +7110,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 36,
+        "frameHeight": 26,
+        "anchorX": 18.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6758,7 +7127,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 25,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 600
   },
   "128": {
     "class": "L",
@@ -6794,10 +7166,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 28,
-        "frameHeight": 28,
-        "anchorX": 14.0,
-        "anchorY": 28,
+        "frameWidth": 40,
+        "frameHeight": 26,
+        "anchorX": 20.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6811,7 +7183,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 28,
+    "landReferenceVisibleHeight": 26,
+    "landReferenceVisibleArea": 728
   },
   "129": {
     "class": "S",
@@ -6847,10 +7222,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 18,
-        "frameHeight": 18,
-        "anchorX": 9.0,
-        "anchorY": 18,
+        "frameWidth": 26,
+        "frameHeight": 20,
+        "anchorX": 13.0,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6864,7 +7239,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 288
   },
   "130": {
     "class": "XXL",
@@ -6900,10 +7278,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 40,
-        "frameHeight": 40,
-        "anchorX": 20.0,
-        "anchorY": 40,
+        "frameWidth": 43,
+        "frameHeight": 30,
+        "anchorX": 21.5,
+        "anchorY": 28.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6917,7 +7295,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 30,
+    "landReferenceVisibleHeight": 31,
+    "landReferenceVisibleArea": 930
   },
   "131": {
     "class": "XL",
@@ -6953,10 +7334,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 34,
-        "frameHeight": 34,
-        "anchorX": 17.0,
-        "anchorY": 34,
+        "frameWidth": 37,
+        "frameHeight": 27,
+        "anchorX": 18.5,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -6970,7 +7351,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 26,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 624
   },
   "132": {
     "class": "S",
@@ -7006,10 +7390,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 20,
-        "frameHeight": 20,
-        "anchorX": 10.0,
-        "anchorY": 20,
+        "frameWidth": 24,
+        "frameHeight": 16,
+        "anchorX": 12.0,
+        "anchorY": 14.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7023,7 +7407,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 13,
+    "landReferenceVisibleArea": 208
   },
   "133": {
     "class": "S",
@@ -7059,10 +7446,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 20,
+        "frameWidth": 29,
         "frameHeight": 20,
-        "anchorX": 10.0,
-        "anchorY": 20,
+        "anchorX": 14.5,
+        "anchorY": 18.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7076,7 +7463,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 320
   },
   "134": {
     "class": "L",
@@ -7112,10 +7502,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 37,
+        "frameHeight": 26,
+        "anchorX": 18.5,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7129,7 +7519,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 26,
+    "landReferenceVisibleHeight": 26,
+    "landReferenceVisibleArea": 676
   },
   "135": {
     "class": "L",
@@ -7165,10 +7558,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 25,
-        "frameHeight": 25,
-        "anchorX": 12.5,
-        "anchorY": 25,
+        "frameWidth": 36,
+        "frameHeight": 26,
+        "anchorX": 18.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7182,7 +7575,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 25,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 550
   },
   "136": {
     "class": "L",
@@ -7218,10 +7614,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 26,
+        "frameWidth": 36,
         "frameHeight": 26,
-        "anchorX": 13.0,
-        "anchorY": 26,
+        "anchorX": 18.0,
+        "anchorY": 24.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7235,7 +7631,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 25,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 600
   },
   "137": {
     "class": "L",
@@ -7271,10 +7670,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 25,
-        "frameHeight": 25,
-        "anchorX": 12.5,
-        "anchorY": 25,
+        "frameWidth": 31,
+        "frameHeight": 21,
+        "anchorX": 15.5,
+        "anchorY": 19.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7288,7 +7687,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 374
   },
   "138": {
     "class": "M",
@@ -7324,10 +7726,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 21,
-        "frameHeight": 21,
-        "anchorX": 10.5,
-        "anchorY": 21,
+        "frameWidth": 26,
+        "frameHeight": 22,
+        "anchorX": 13.0,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7341,7 +7743,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 306
   },
   "139": {
     "class": "L",
@@ -7377,10 +7782,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 27,
-        "frameHeight": 27,
-        "anchorX": 13.5,
-        "anchorY": 27,
+        "frameWidth": 35,
+        "frameHeight": 25,
+        "anchorX": 17.5,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7394,7 +7799,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 528
   },
   "140": {
     "class": "M",
@@ -7430,10 +7838,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 22,
-        "frameHeight": 22,
-        "anchorX": 11.0,
-        "anchorY": 22,
+        "frameWidth": 23,
+        "frameHeight": 18,
+        "anchorX": 11.5,
+        "anchorY": 16.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7447,7 +7855,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 14,
+    "landReferenceVisibleArea": 224
   },
   "141": {
     "class": "L",
@@ -7483,10 +7894,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 29,
-        "frameHeight": 29,
-        "anchorX": 14.5,
-        "anchorY": 29,
+        "frameWidth": 37,
+        "frameHeight": 22,
+        "anchorX": 18.5,
+        "anchorY": 20.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7500,7 +7911,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 26,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 546
   },
   "142": {
     "class": "XL",
@@ -7545,15 +7959,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 32,
-        "frameHeight": 32,
-        "anchorX": 16.0,
-        "anchorY": 32,
+        "frameWidth": 43,
+        "frameHeight": 29,
+        "anchorX": 21.5,
+        "anchorY": 27.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 30,
+    "landReferenceVisibleHeight": 26,
+    "landReferenceVisibleArea": 780
   },
   "143": {
     "class": "XXL",
@@ -7589,10 +8006,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 38,
-        "frameHeight": 38,
-        "anchorX": 19.0,
-        "anchorY": 38,
+        "frameWidth": 39,
+        "frameHeight": 29,
+        "anchorX": 19.5,
+        "anchorY": 27.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7606,7 +8023,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 27,
+    "landReferenceVisibleArea": 729
   },
   "144": {
     "class": "XL",
@@ -7651,15 +8071,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 31,
+        "frameWidth": 43,
         "frameHeight": 31,
-        "anchorX": 15.5,
-        "anchorY": 31,
+        "anchorX": 21.5,
+        "anchorY": 29.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 30,
+    "landReferenceVisibleHeight": 30,
+    "landReferenceVisibleArea": 900
   },
   "145": {
     "class": "XL",
@@ -7704,15 +8127,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 30,
-        "frameHeight": 30,
-        "anchorX": 15.0,
-        "anchorY": 30,
+        "frameWidth": 43,
+        "frameHeight": 27,
+        "anchorX": 21.5,
+        "anchorY": 25.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 30,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 720
   },
   "146": {
     "class": "XL",
@@ -7757,15 +8183,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 32,
-        "frameHeight": 32,
-        "anchorX": 16.0,
-        "anchorY": 32,
+        "frameWidth": 43,
+        "frameHeight": 30,
+        "anchorX": 21.5,
+        "anchorY": 28.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 30,
+    "landReferenceVisibleHeight": 30,
+    "landReferenceVisibleArea": 900
   },
   "147": {
     "class": "XL",
@@ -7801,10 +8230,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 31,
-        "frameHeight": 31,
-        "anchorX": 15.5,
-        "anchorY": 31,
+        "frameWidth": 30,
+        "frameHeight": 25,
+        "anchorX": 15.0,
+        "anchorY": 23.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7818,7 +8247,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 441
   },
   "148": {
     "class": "XXL",
@@ -7854,10 +8286,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 36,
-        "frameHeight": 36,
-        "anchorX": 18.0,
-        "anchorY": 36,
+        "frameWidth": 41,
+        "frameHeight": 30,
+        "anchorX": 20.5,
+        "anchorY": 28.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7871,7 +8303,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 29,
+    "landReferenceVisibleHeight": 28,
+    "landReferenceVisibleArea": 812
   },
   "149": {
     "class": "XL",
@@ -7916,15 +8351,18 @@
         "walker": true
       },
       "levitate": {
-        "frameWidth": 34,
-        "frameHeight": 34,
-        "anchorX": 17.0,
-        "anchorY": 34,
+        "frameWidth": 41,
+        "frameHeight": 31,
+        "anchorX": 20.5,
+        "anchorY": 29.0,
         "relativeDir": "assets/generated/true_size/levitate",
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 29,
+    "landReferenceVisibleHeight": 28,
+    "landReferenceVisibleArea": 812
   },
   "150": {
     "class": "XL",
@@ -7960,10 +8398,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 34,
-        "frameHeight": 34,
-        "anchorX": 17.0,
-        "anchorY": 34,
+        "frameWidth": 37,
+        "frameHeight": 28,
+        "anchorX": 18.5,
+        "anchorY": 26.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -7977,7 +8415,10 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 26,
+    "landReferenceVisibleHeight": 27,
+    "landReferenceVisibleArea": 702
   },
   "151": {
     "class": "M",
@@ -8013,10 +8454,10 @@
         "walker": false
       },
       "swimming": {
-        "frameWidth": 21,
-        "frameHeight": 21,
-        "anchorX": 10.5,
-        "anchorY": 21,
+        "frameWidth": 26,
+        "frameHeight": 24,
+        "anchorX": 13.0,
+        "anchorY": 22.0,
         "relativeDir": "assets/generated/true_size/swimming",
         "frames": 6,
         "walker": true
@@ -8030,6 +8471,9 @@
         "frames": 6,
         "walker": true
       }
-    }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 360
   }
 }
