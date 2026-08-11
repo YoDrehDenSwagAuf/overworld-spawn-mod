@@ -505,6 +505,17 @@ function SpriteResolver:cacheKey(entity, context, state)
   -- picked up even by paths that do not invalidate the whole resolver cache.
   local silo = (type(Config.wildSilhouettes) == "function"
     and Config.wildSilhouettes(self.mod) == true) and "silo" or "color"
+  -- True Size effective mode participates so Classic↔True Size / Flat↔Voxel
+  -- never reuse a stale SpriteDef even if a caller forgets invalidateCache.
+  local sizeMode = "classic"
+  do
+    local ok, VariableSize = pcall(V.require, "variable_size")
+    if ok and VariableSize and VariableSize.effectiveMode then
+      sizeMode = tostring(VariableSize.effectiveMode(self.mod, {
+        voxelActive = context.voxelActive == true,
+      }) or "classic")
+    end
+  end
   if state == "water" then
     if type(Config.waterDisplayMode) == "function" then
       waterMode = tostring(Config.waterDisplayMode(self.mod) or "swimming_sprites")
@@ -523,9 +534,9 @@ function SpriteResolver:cacheKey(entity, context, state)
       end
     end
   end
-  return string.format("%s:%s:%s:%s:%s:%s:%s:%s:%s:%s",
+  return string.format("%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s",
     tostring(speciesId), variant, form, state, style, waterMode, voxel,
-    shadowMode, imagePath, silo)
+    shadowMode, imagePath, silo, sizeMode)
 end
 
 function SpriteResolver:invalidateCache()

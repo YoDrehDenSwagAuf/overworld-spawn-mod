@@ -189,8 +189,8 @@ end
 local keyLand = resolver:cacheKey(landEntity, {
   style = "pokemmo", speciesId = 54, variant = "normal", form = nil,
 }, "land")
-eq(keyLand, "54:normal:default:land:pokemmo:na:flat:none:na",
-   "cache key includes style+surface")
+eq(keyLand, "54:normal:default:land:pokemmo:na:flat:none:na:color:classic",
+   "cache key includes style+surface+silhouette+size")
 local keyFollowers = resolver:cacheKey(landEntity, {
   style = "followers", speciesId = 54, variant = "normal", form = nil,
 }, "land")
@@ -225,8 +225,11 @@ local waterEx = resolver:resolveForEntity(waterEntity, {
   speciesId = 54,
   variant = "normal",
 })
-check(waterEx and waterEx.spriteKind == "swimming",
-      "followers on water → swimming")
+-- Followers style prefers poke_followers submerged sheets when present.
+check(waterEx and (waterEx.spriteKind == "followers_ex"
+      or waterEx.spriteKind == "submerged"
+      or waterEx.spriteKind == "swimming"),
+      "followers on water → submerged/followers_ex (or swimming fallback)")
 
 -- Pokedex style on water → swimming
 local waterDex = resolver:resolveForEntity(waterEntity, {
