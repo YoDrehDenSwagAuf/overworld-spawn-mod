@@ -61,6 +61,8 @@ Config.DEFAULTS = {
   wild_silhouettes = false,
   -- Optional overworld Poké Ball throws at visible wilds (default ON).
   overworld_catching = true,
+  -- Top-screen Ball inventory HUD icon size (1–10 → 6–15 px). Live.
+  catch_hud_size = 5,
   enable_idle = true,
   enable_wander = true,
   enable_aggressive = true,
@@ -179,6 +181,20 @@ end
 --- Optional overworld Poké Ball catching (live-toggleable).
 function Config.overworldCatchingEnabled(mod)
   return Config.get(mod, "overworld_catching") ~= false
+end
+
+--- Catch HUD size setting (1–10). Clamped; falls back to 5.
+function Config.catchHudSize(mod)
+  local n = tonumber(Config.get(mod, "catch_hud_size"))
+  if n == nil then n = 5 end
+  if n < 1 then n = 1 end
+  if n > 10 then n = 10 end
+  return math.floor(n)
+end
+
+--- Pixel size for top-screen Ball HUD icons (6–15). Does not affect projectiles.
+function Config.catchHudIconPx(mod)
+  return 5 + Config.catchHudSize(mod)
 end
 
 -- Public Dev Overlay toggle. Migrates legacy debug / Dev Mode when unset.

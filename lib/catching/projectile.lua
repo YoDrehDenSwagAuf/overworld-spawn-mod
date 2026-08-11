@@ -12,6 +12,7 @@
 local V = ...
 local Tile = V.require("tile")
 local CatchMath = V.require("catching/catch_math")
+local CatchSfx = V.require("catching/catch_sfx")
 
 local Projectile = {}
 Projectile.__index = Projectile
@@ -31,12 +32,8 @@ local function tryRequire(name)
   return nil
 end
 
-local function playSfx(game, name)
-  pcall(function()
-    if game and game.audio and game.audio.playSfx then
-      game.audio:playSfx(name)
-    end
-  end)
+local function playCatch(game, role)
+  CatchSfx.playNativeCatchSfx(game, role)
 end
 
 local function removeEntityFromOw(ow, entity)
@@ -248,7 +245,7 @@ function Projectile:startFlight(game, ow, opts)
     onImpact = opts.onImpact,
     meta = opts.meta,
   }
-  playSfx(game, "SFX_BALL_TOSS")
+  playCatch(game, "throw")
   return true, endX, endY, travel
 end
 
@@ -420,25 +417,26 @@ function Projectile:update(game, ow, dt, voxel)
         if wob.caught then
           wob.phase = "SUCCESS_CLICK"
           wob.timer = 0
-          playSfx(wob.game or game, "SFX_CAUGHT_MON")
+          -- Gen1 has no separate lock-click SFX; play Caught_Mon fanfare only.
+          playCatch(wob.game or game, "caught")
         else
           wob.phase = "FAIL_BREAK"
           wob.timer = 0
-          playSfx(wob.game or game, "SFX_BALL_POOF")
+          playCatch(wob.game or game, "break")
         end
       elseif wob.timer >= WOBBLE_INTERVAL then
         wob.timer = 0
         wob.currentShake = wob.currentShake + 1
-        playSfx(wob.game or game, "SFX_BALL_POOF")
+        playCatch(wob.game or game, "wobble")
         if wob.currentShake >= wob.totalShakes then
           if wob.caught then
             wob.phase = "SUCCESS_CLICK"
             wob.timer = 0
-            playSfx(wob.game or game, "SFX_CAUGHT_MON")
+            playCatch(wob.game or game, "caught")
           else
             wob.phase = "FAIL_BREAK"
             wob.timer = 0
-            playSfx(wob.game or game, "SFX_BALL_POOF")
+            playCatch(wob.game or game, "break")
           end
         end
       else

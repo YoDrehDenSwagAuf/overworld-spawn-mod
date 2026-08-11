@@ -611,7 +611,14 @@ eq(Config.overworldCatchingEnabled(V.mod), true, "Config helper ON")
 -- Ball presentation size contract
 eq(catching.projectile.BALL_VISUAL_PX, 6, "projectile visual ~6px (unchanged)")
 local BallHudMod = V.require("catching/hud")
-eq(BallHudMod.ICON_PX, 9, "HUD icon ~9px")
+eq(BallHudMod.ICON_PX, 10, "HUD default icon 10px (setting 5)")
+eq(Config.catchHudSize(V.mod), 5, "catch_hud_size default 5")
+eq(Config.catchHudIconPx(V.mod), 10, "default maps to 10px")
+local CatchSfx = V.require("catching/catch_sfx")
+eq(CatchSfx.keyFor("throw"), "Ball_Toss", "native throw SFX key")
+eq(CatchSfx.keyFor("caught"), "Caught_Mon", "native caught fanfare key")
+check(byKey.catch_hud_size ~= nil, "catch_hud_size in schema")
+eq(byKey.catch_hud_size.default, 5, "catch_hud_size default")
 
 -- Ball entity must keep a valid pose() contract (never nil for Voxel / DS).
 logic.entities = {}

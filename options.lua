@@ -19,8 +19,9 @@
 --   Wilds of Kanto    → enabled, spawn_density, random_encounters,
 --                       water_spawns, cave_spawns, sprite_style, sprite_fade,
 --                       town_pokemon, pokemon_grass_render_mode,
---                       overworld_catching, enable_idle, enable_wander,
---                       enable_aggressive, enable_hidden, dev_overlay
+--                       overworld_catching, catch_hud_size, enable_idle,
+--                       enable_wander, enable_aggressive, enable_hidden,
+--                       dev_overlay
 
 return {
   -- ------- Core gameplay
@@ -164,6 +165,15 @@ return {
     type = "toggle",
     default = true,
     description = "Enables direct Poké Ball throws at visible wild Pokémon.",
+  },
+  {
+    key = "catch_hud_size",
+    label = "Catch HUD Size",
+    type = "number",
+    default = 5,
+    min = 1,
+    max = 10,
+    description = "Size of the top-screen Poké Ball inventory HUD icons (1 = small, 10 = large). Does not change thrown Ball size.",
   },
   {
     key = "enable_idle",

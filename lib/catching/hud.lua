@@ -8,8 +8,10 @@ local BallHud = {}
 BallHud.__index = BallHud
 
 BallHud.PIPELINE_ID = "owwild_ball_hud"
--- Compact icons on the 160×144 canvas (thrown Balls stay ~6px; HUD slightly larger).
-BallHud.ICON_PX = 9
+-- Default icon px when setting is 5 (5 + catch_hud_size). Thrown Balls stay ~6px.
+BallHud.ICON_PX = 10
+BallHud.ICON_PX_MIN = 6
+BallHud.ICON_PX_MAX = 15
 
 local BALL_ORDER = { "POKE_BALL", "GREAT_BALL", "ULTRA_BALL", "MASTER_BALL" }
 local BALL_SHORT = {
@@ -24,6 +26,48 @@ local function now()
     return love.timer.getTime()
   end
   return os.clock()
+end
+
+function BallHud.iconPx(mod)
+  local px = Config.catchHudIconPx(mod)
+  if px < BallHud.ICON_PX_MIN then return BallHud.ICON_PX_MIN end
+  if px > BallHud.ICON_PX_MAX then return BallHud.ICON_PX_MAX end
+  return px
+end
+
+--- Layout metrics for the current Catch HUD Size (nearest-neighbor icons).
+function BallHud.layout(mod, canvasW)
+  canvasW = canvasW or 160
+  if canvasW > 200 then canvasW = 160 end
+  local iconW = BallHud.iconPx(mod)
+  -- Keep four icons + gaps inside the 160px canvas; shrink gap at large sizes.
+  local gap = 3
+  if iconW >= 13 then
+    gap = 2
+  end
+  if iconW >= 15 then
+    gap = 1
+  end
+  local rowW = #BALL_ORDER * iconW + (#BALL_ORDER - 1) * gap
+  local startX = canvasW - 4 - rowW
+  if startX < 2 then
+    gap = math.max(1, gap - 1)
+    rowW = #BALL_ORDER * iconW + (#BALL_ORDER - 1) * gap
+    startX = math.max(2, canvasW - 4 - rowW)
+  end
+  local iconY = 2
+  local qtyY = iconY + iconW + 1
+  -- Power meter sits below icons + quantity line; tighten slightly at large icons.
+  local meterY = iconY + iconW + ((iconW >= 13) and 10 or 12)
+  return {
+    canvasW = canvasW,
+    iconW = iconW,
+    gap = gap,
+    startX = startX,
+    iconY = iconY,
+    qtyY = qtyY,
+    meterY = meterY,
+  }
 end
 
 function BallHud.new(mod, catching)
@@ -98,13 +142,13 @@ function BallHud:draw(canvas, ctx)
   lg.origin()
   lg.setColor(1, 1, 1, 1)
 
-  -- Top-right of the 160×144 Game Boy canvas.
+  -- Top-right of the 160×144 Game Boy canvas. Size reads catch_hud_size live.
   local canvasW = (ctx and ctx.width) or 160
-  if canvasW > 200 then canvasW = 160 end
-  local y = 2
-  local iconW = BallHud.ICON_PX
-  local gap = 3
-  local startX = canvasW - 4 - (#BALL_ORDER * (iconW + gap))
+  local layout = BallHud.layout(self.mod, canvasW)
+  local y = layout.iconY
+  local iconW = layout.iconW
+  local gap = layout.gap
+  local startX = layout.startX
 
   for i, ballType in ipairs(BALL_ORDER) do
     local count = ballCount(game, ballType)
@@ -136,7 +180,7 @@ function BallHud:draw(canvas, ctx)
     if selectedHere then
       lg.setColor(0, 0, 0, 1)
       lg.rectangle("line", bx - 1, y - 1, iconW + 2, iconW + 2)
-      drawText(Font, lg, "x" .. tostring(count), bx - 1, y + iconW + 1)
+      drawText(Font, lg, "x" .. tostring(count), bx - 1, layout.qtyY)
     end
   end
 
@@ -144,8 +188,7 @@ function BallHud:draw(canvas, ctx)
   local meter = catching:meterState()
   if meter and meter.active then
     local mx = canvasW - 22
-    -- Sit below the larger HUD icons + quantity line.
-    local my = 2 + iconW + 12
+    local my = layout.meterY
     local rowH = 9
     local power = meter.power or 1
     local marked = CatchMath.roundedPower(power)

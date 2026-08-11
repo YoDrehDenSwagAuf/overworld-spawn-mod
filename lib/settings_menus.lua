@@ -570,6 +570,29 @@ function SettingsMenus:_openWildsRoot(game)
         menus:_notifyLogic("overworld_catching", v == true)
       end,
     },
+    (function()
+      local hudSize = Config.catchHudSize(mod)
+      local hudChoices = {}
+      for i = 1, 10 do
+        hudChoices[#hudChoices + 1] = { label = tostring(i), value = i }
+      end
+      return {
+        label = "CATCH HUD",
+        stepper = true,
+        wrap = true,
+        choices = hudChoices,
+        current = hudSize,
+        right = tostring(hudSize),
+        apply = function(v)
+          local n = tonumber(v) or 5
+          if n < 1 then n = 1 end
+          if n > 10 then n = 10 end
+          n = math.floor(n)
+          optSet(mod, "catch_hud_size", n)
+          menus:_notifyLogic("catch_hud_size", n)
+        end,
+      }
+    end)(),
     {
       label = "IDLE MONS",
       stepper = true,
@@ -714,6 +737,21 @@ function SettingsMenus:register()
       }, optGet(mod, "overworld_catching", true) ~= false, function(v)
         menus:_setOption("overworld_catching", v == true, game)
       end)
+    end,
+  })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":catch_hud", {
+    new = function(game)
+      local choices = {}
+      for i = 1, 10 do
+        choices[#choices + 1] = { label = tostring(i), value = i }
+      end
+      return menus:_openChoice(game, "CATCH HUD", choices,
+        Config.catchHudSize(mod), function(v)
+          local n = tonumber(v) or 5
+          if n < 1 then n = 1 end
+          if n > 10 then n = 10 end
+          menus:_setOption("catch_hud_size", math.floor(n), game)
+        end)
     end,
   })
   mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":spawn", {
@@ -916,8 +954,9 @@ SettingsMenus.FOLLOWERS_OPTION_KEYS = {
 SettingsMenus.WILDS_OPTION_KEYS = {
   "enabled", "spawn_density", "random_encounters", "water_spawns",
   "cave_spawns", "sprite_style", "sprite_fade", "town_pokemon",
-  "pokemon_grass_render_mode", "overworld_catching", "enable_idle",
-  "enable_wander", "enable_aggressive", "enable_hidden", "dev_overlay",
+  "pokemon_grass_render_mode", "overworld_catching", "catch_hud_size",
+  "enable_idle", "enable_wander", "enable_aggressive", "enable_hidden",
+  "dev_overlay",
 }
 
 return SettingsMenus

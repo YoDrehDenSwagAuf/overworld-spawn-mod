@@ -17,8 +17,11 @@
   distance along facing (synced with the meter). Flat uses camera-native
   canvas space; Voxel uses Dramatic Shape `project()` from drawFx so zoom
   no longer drifts the markers.
-- Compact ~6px Ball projectiles / ~9px HUD icons; success click + fail break
-  presentation before cleanup.
+- Compact ~6px Ball projectiles; top-screen Ball HUD icons scale with
+  **Catch HUD Size** (`catch_hud_size`, 1–10 → 6–15 px, default 5 / 10 px);
+  success click + fail break presentation before cleanup.
+- Catch sequence uses native Gen1Recomp SFX via `Sound.play`: `Ball_Toss`,
+  `Ball_Poof`, `Tink`, `Caught_Mon` (no bundled audio files).
 - Easter eggs: Ball hit on a human NPC → `"Ouch, yo, WTF"`; Town/Ambient
   Pokémon → `"Grrrr..."` (no catch/battle; Ball cleaned).
 - Failed catches use `!` → AGGRESSIVE/chase (no forced instant battle); the

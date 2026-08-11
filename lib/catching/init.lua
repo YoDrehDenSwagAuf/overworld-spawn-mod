@@ -12,6 +12,7 @@ local Projectile = V.require("catching/projectile")
 local RangePreview = V.require("catching/range_preview")
 local BallHud = V.require("catching/hud")
 local CatchInput = V.require("catching/input")
+local CatchSfx = V.require("catching/catch_sfx")
 local DebugLog = V.require("debug_log")
 
 local OverworldCatching = {}
@@ -52,12 +53,8 @@ local function now()
   return os.clock()
 end
 
-local function playSfx(game, name)
-  pcall(function()
-    if game and game.audio and game.audio.playSfx then
-      game.audio:playSfx(name)
-    end
-  end)
+local function playCatch(game, role)
+  CatchSfx.playNativeCatchSfx(game, role)
 end
 
 local function pushText(game, mod, msg, onDone)
@@ -511,7 +508,8 @@ function OverworldCatching:_revealEscapingPokemon(entity)
 end
 
 function OverworldCatching:_onEasterEggImpact(game, ow, kind, entity)
-  playSfx(game, "SFX_BALL_POOF")
+  -- Impact/poof only — no wobble / Caught_Mon fanfare for NPC or Town mons.
+  playCatch(game, "impact")
   self.projectile:cleanup(ow, self.logic and self.logic.voxel)
   self.phase = "idle"
   self.activeCapture = nil
@@ -570,6 +568,8 @@ function OverworldCatching:_releaseThrow(game, ow)
       miss = true,
       hitKind = Hit.NONE,
       onImpact = function()
+        -- Native clean miss ends after the ball poof (no wobble/fanfare).
+        playCatch(game, "impact")
         self.projectile:cleanup(ow, self.logic and self.logic.voxel)
         self.phase = "idle"
         self:_catchLog("miss complete / projectile cleaned")
@@ -692,6 +692,8 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
 
   self:_catchLog("impact")
   local entity = cap.entity
+  -- Native POOF_ANIM / Ball_Poof when the mon enters the Ball.
+  playCatch(game, "impact")
   -- Hide / lock only now (Pokémon stays visible for the whole flight).
   self:_lockTarget(entity)
   self:_catchLog("target locked")

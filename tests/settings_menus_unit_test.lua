@@ -244,6 +244,7 @@ local wjoin = table.concat(wlabels, ",")
 check(wjoin:find("SPRITE FADE", 1, true), "wilds menu has Sprite Fade")
 check(wjoin:find("TOWN POKEMON", 1, true), "wilds menu has Town Pokémon")
 check(wjoin:find("OW CATCH", 1, true), "wilds menu has OW Catch")
+check(wjoin:find("CATCH HUD", 1, true), "wilds menu has Catch HUD")
 check(not wjoin:find("CONTROL", 1, true) or wjoin:find("OW CATCH", 1, true), "wilds menu intact")
 check(not fjoin:find("SHOW WILD MONS", 1, true), "no wilds rows in followers menu")
 
