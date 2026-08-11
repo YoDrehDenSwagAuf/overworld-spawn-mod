@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.14.0
+
+### True Size for all Gen1 species (Classic fallback sacred)
+
+- Generalizes the Charizard prototype into a data-driven True Size system for
+  all 151 land species plus swimming / levitate presentations where assets exist.
+- **requestedMode** vs **effectiveMode**: Voxel with incompatible Dramatic Shape
+  uses Classic geometry automatically; the saved `pokemon_size` preference is
+  never rewritten, and Flat restores True Size on live rebind.
+- New runtime assets under `assets/generated/true_size/` (HGSS from original
+  followsprites, Followers/GSC, Pokédex 1-frame stand-ins, swimming, levitate).
+- Wilds, followers, and Town Pokémon share `lib/species_geometry.lua`.
+- Classic 16×16 pipelines and Voxel stability remain unchanged.
+
 ## 1.13.0
 
 ### Variable-size / True Size prototype (experimental)

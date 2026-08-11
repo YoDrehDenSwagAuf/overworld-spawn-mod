@@ -37,6 +37,7 @@ tools/generate_followsprites_mapping.ps1
 tools/generate_runtime_sprite_sheets.ps1
 tools/generate_runtime_sprite_sheets.py
 tools/generate_variable_size_prototype.py
+tools/generate_true_size_runtime.py
 tools/generate_water_runtime_sheets.ps1
 tools/generate_water_runtime_sheets.py
 tools/validate_water_sprites.ps1

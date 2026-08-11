@@ -96,6 +96,26 @@ local function normalizeVariant(variant)
   return AnimatedSprites.normalizeVariant(variant)
 end
 
+local function applyTrueSizeToProvider(mod, def, meta, opts)
+  if type(def) ~= "table" then return def, meta end
+  local VariableSize = V.require("variable_size")
+  local info
+  def, info = VariableSize.applyToDef(mod, def, opts or {})
+  if info and meta then
+    meta.variableSize = info.applied == true
+    meta.variableSizeReason = info.reason
+    if info.applied then
+      meta.relativePath = info.relativePath or meta.relativePath
+      meta.loadPath = info.loadPath or meta.loadPath
+      meta.frameWidth = info.frameWidth
+      meta.frameHeight = info.frameHeight
+      meta.anchorX = info.anchorX
+      meta.anchorY = info.anchorY
+    end
+  end
+  return def, meta
+end
+
 local function copyDef(def, spriteId, mod)
   if type(def) ~= "table" or type(def.image) ~= "string" or def.image == "" then
     return nil
@@ -300,22 +320,12 @@ function SpriteProviders:_makePokemmoProvider()
         walker = def.walker == true,
         bodyRenderer = "NATIVE_SPRITE_RENDERER",
       }
-      local VariableSize = V.require("variable_size")
-      local _, geoInfo = VariableSize.applyToDef(mod, def, {
+      def, meta = applyTrueSizeToProvider(mod, def, meta, {
         speciesId = dex,
         style = "pokemmo",
         variant = usedVariant or want,
-        spriteId = VariableSize.SPRITE_TEST_CHARIZARD,
+        packId = "pokemmo",
       })
-      if geoInfo and geoInfo.applied then
-        meta.relativePath = geoInfo.relativePath or meta.relativePath
-        meta.loadPath = geoInfo.loadPath or meta.loadPath
-        meta.variableSize = true
-        meta.frameWidth = geoInfo.frameWidth
-        meta.frameHeight = geoInfo.frameHeight
-        meta.anchorX = geoInfo.anchorX
-        meta.anchorY = geoInfo.anchorY
-      end
       return def, meta, nil
     end,
   }
@@ -393,6 +403,13 @@ function SpriteProviders:_makePokedexProvider()
         bodyRenderer = "NATIVE_SPRITE_RENDERER",
         requestedVariant = normalizeVariant(variant),
       }
+      local dex = resolveDexId(speciesId, game, mod) or resolveDexId(speciesKey, game, mod)
+      def, meta = applyTrueSizeToProvider(mod, def, meta, {
+        speciesId = dex or speciesKey,
+        style = "pokedex",
+        variant = "normal",
+        packId = "pokedex",
+      })
       return def, meta, nil
     end,
   }
@@ -880,7 +897,7 @@ function SpriteProviders:_makeFollowersExProvider()
         trueColor = not lumaServed,
         id = "SPRITE_OW_WILD_" .. tostring(dex),
       }
-      return def, {
+      local meta = {
         providerId = SpriteProviders.ID.FOLLOWERS_EX,
         usedVariant = usedVariant,
         loadPath = imagePath,
@@ -890,7 +907,14 @@ function SpriteProviders:_makeFollowersExProvider()
         bodyRenderer = "NATIVE_SPRITE_RENDERER",
         providerMod = "overworld_wild_spawns",
         pack = "poke_followers",
-      }, nil
+      }
+      def, meta = applyTrueSizeToProvider(mod, def, meta, {
+        speciesId = dex,
+        style = "followers",
+        variant = usedVariant,
+        packId = "followers",
+      })
+      return def, meta, nil
     end
 
     -- Optional external PokePC / export API (legacy companion mods).

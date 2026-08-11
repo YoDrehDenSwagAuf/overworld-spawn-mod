@@ -19,6 +19,9 @@ by party Pokémon — without replacing the classic Gen 1 feel.
 - Cave spawn filtering
 - Safari compatibility
 - Multiple sprite styles
+- Optional **Pokémon Size** (Classic / True Size) — relative species scale in Flat;
+  automatically uses Classic geometry while an incompatible Dramatic Shape Voxel
+  renderer is active (saved preference is unchanged)
 - Town / Ambient Pokémon
 - Red / Blue / Yellow
 - Dramatic Shape Voxel compatibility

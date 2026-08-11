@@ -1,11 +1,10 @@
 -- Variable-size / True Size support for Gen1Recomp SpriteRenderer (#1016 / PR #1020).
 --
--- Uses the ACTUAL engine fields: frameWidth, frameHeight, anchorX, anchorY plus
--- SpriteRenderer:getFrameGeometry / :getPoseGeometry / :getScreenOrigin.
+-- requestedMode  = user option (pokemon_size) — NEVER rewritten when Voxel toggles
+-- effectiveMode  = what rendering actually uses (Classic while Voxel + incompatible DS)
 --
--- Dramatic Shape 1.7.9 still builds fixed 16×16 billboards and does NOT call the
--- geometry API. When Voxel is active without DS support, True Size falls back to
--- Classic (16×16) geometry — no renderer monkey-patches.
+-- Dramatic Shape without variableSpriteGeometry → effective Classic.
+-- No renderer monkey-patches. Visual only; logical footprint stays one cell.
 local V = ...
 local Config = V.require("config")
 local SpeciesGeometry = V.require("species_geometry")
@@ -16,11 +15,10 @@ local VariableSize = {}
 VariableSize.MODE_CLASSIC = "classic"
 VariableSize.MODE_TRUE_SIZE = "true_size"
 
-VariableSize.SPRITE_TEST_CHARIZARD = "SPRITE_TEST_CHARIZARD"
-
 local _loggedFallback = false
 local _cachedEngine = nil
 local _cachedDs = nil
+local _lastEffective = nil
 
 local DS_FIND_IDS = {
   "DRAMATIC_SHAPE",
@@ -36,7 +34,6 @@ local function findDramaticShape(mod)
   return nil, nil
 end
 
--- Probe Gen1Recomp SpriteRenderer for the merged #1020 contract.
 function VariableSize.probeEngineApi()
   if _cachedEngine ~= nil then return _cachedEngine end
   local report = {
@@ -56,16 +53,13 @@ function VariableSize.probeEngineApi()
   report.hasGetFrameGeometry = type(SR.getFrameGeometry) == "function"
   report.hasGetPoseGeometry = type(SR.getPoseGeometry) == "function"
   report.hasGetScreenOrigin = type(SR.getScreenOrigin) == "function"
-  -- Schema / constructor fields: present when DEFAULT_FRAME_* exist and
-  -- getFrameGeometry is exported (issue proposal names were kept in the merge).
   report.hasFrameWidthField = SR.DEFAULT_FRAME_WIDTH == 16
     and SR.DEFAULT_FRAME_HEIGHT == 16
   report.available = report.hasGetFrameGeometry
     and report.hasGetPoseGeometry
     and report.hasGetScreenOrigin
     and report.hasFrameWidthField
-  report.defaultsBottomCenter = (SR.DEFAULT_ANCHOR_X == 8 and SR.DEFAULT_ANCHOR_Y == 16)
-    or true
+  report.defaultsBottomCenter = true
   _cachedEngine = report
   return report
 end
@@ -74,10 +68,9 @@ function VariableSize.clearCaches()
   _cachedEngine = nil
   _cachedDs = nil
   _loggedFallback = false
+  SpeciesGeometry.clearCache()
 end
 
--- Does Dramatic Shape's SpriteBillboards consume variable geometry?
--- 1.7.9: NO — buildCard hardcodes 16×16 verts/UVs and never calls getPoseGeometry.
 function VariableSize.probeDramaticShape(mod)
   if _cachedDs ~= nil then return _cachedDs end
   local report = {
@@ -89,7 +82,7 @@ function VariableSize.probeDramaticShape(mod)
     files = {
       "lib/SpriteBillboards.lua (buildCard)",
       "lib/VoxelScene.lua (drawEntity / frameFor / billboardMatrix)",
-      "lib/Mat4.lua (billboard / caster hard-coded ±8 for 16-wide cards)",
+      "lib/Mat4.lua (billboard / caster)",
     },
   }
   local ds, id = findDramaticShape(mod)
@@ -100,7 +93,6 @@ function VariableSize.probeDramaticShape(mod)
   report.present = true
   report.modId = id
   report.version = ds.exports and ds.exports.version or (ds.manifest and ds.manifest.version)
-  -- Future official opt-in marker (not present in 1.7.9).
   if ds.exports and (ds.exports.variableSpriteGeometry == true
       or ds.exports.supportsVariableSizeSprites == true) then
     report.supportsVariableGeometry = true
@@ -108,7 +100,6 @@ function VariableSize.probeDramaticShape(mod)
     _cachedDs = report
     return report
   end
-  -- Source sniff: if SpriteBillboards still hardcodes "frame * 16" / verts 16, no.
   local src = nil
   if type(ds.read) == "function" then
     local ok, data = pcall(ds.read, ds, "lib/SpriteBillboards.lua")
@@ -128,7 +119,6 @@ function VariableSize.probeDramaticShape(mod)
       report.reason = "sprite_billboards_fixed_16x16"
     end
   else
-    -- Conservative: unknown DS without flag → treat as incompatible.
     report.supportsVariableGeometry = false
     report.reason = "unable_to_inspect_sprite_billboards"
   end
@@ -162,19 +152,16 @@ function VariableSize.requestedMode(mod)
   return VariableSize.MODE_CLASSIC
 end
 
--- True Size may apply only when:
---   * user selected true_size
---   * Gen1Recomp geometry API is present
---   * either Voxel is off, OR Dramatic Shape consumes the geometry contract
-function VariableSize.canApplyTrueSize(mod, opts)
+--- Effective presentation mode. Never writes pokemon_size.
+function VariableSize.effectiveMode(mod, opts)
   opts = opts or {}
-  local mode = opts.mode or VariableSize.requestedMode(mod)
-  if mode ~= VariableSize.MODE_TRUE_SIZE then
-    return false, "classic_mode"
+  local requested = opts.mode or VariableSize.requestedMode(mod)
+  if requested ~= VariableSize.MODE_TRUE_SIZE then
+    return VariableSize.MODE_CLASSIC, "classic_requested"
   end
   local engine = VariableSize.probeEngineApi()
   if not engine.available then
-    return false, "engine_api_missing"
+    return VariableSize.MODE_CLASSIC, "engine_api_missing"
   end
   local voxel = opts.voxelActive
   if voxel == nil then
@@ -183,19 +170,23 @@ function VariableSize.canApplyTrueSize(mod, opts)
   if voxel then
     local ds = VariableSize.probeDramaticShape(mod)
     if not ds.supportsVariableGeometry then
-      return false, "voxel_ds_incompatible:" .. tostring(ds.reason)
+      return VariableSize.MODE_CLASSIC, "voxel_ds_incompatible:" .. tostring(ds.reason)
     end
   end
-  return true, "ok"
+  return VariableSize.MODE_TRUE_SIZE, "ok"
+end
+
+function VariableSize.canApplyTrueSize(mod, opts)
+  local mode, why = VariableSize.effectiveMode(mod, opts)
+  return mode == VariableSize.MODE_TRUE_SIZE, why
 end
 
 function VariableSize.logVoxelFallback(mod, reason)
   if _loggedFallback then return end
   _loggedFallback = true
   local msg = string.format(
-    "[WildsOfKanto][DEV] True Size → Classic fallback (%s). "
-      .. "Dramatic Shape 1.7.9 SpriteBillboards.buildCard is fixed 16×16 and "
-      .. "does not call SpriteRenderer:getPoseGeometry. No renderer monkey-patch applied.",
+    "[WildsOfKanto][DEV] True Size suspended while Voxel renderer is active (%s). "
+      .. "Saved pokemon_size option is unchanged; Flat restores True Size automatically.",
     tostring(reason))
   if DebugLog and DebugLog.warn then
     DebugLog.warn(mod, "%s", msg)
@@ -228,8 +219,13 @@ local function assetPresent(mod, rel)
   return false
 end
 
--- Map public sprite_style → species_geometry pack key.
-function VariableSize.packIdForStyle(style)
+function VariableSize.packIdForStyle(style, presentation)
+  if presentation == "swimming" or presentation == "swim" then
+    return "swimming"
+  end
+  if presentation == "levitate" or presentation == "levitates" or presentation == "hover" then
+    return "levitate"
+  end
   if Config and type(Config.normalizeSpriteStyle) == "function" then
     style = Config.normalizeSpriteStyle(style)
   end
@@ -239,60 +235,94 @@ function VariableSize.packIdForStyle(style)
   return style
 end
 
--- If True Size is active and a prototype sheet exists for this species/pack,
--- rewrite def.image + geometry fields. Otherwise leave Classic untouched.
--- Never mutates collision / cell fields (those live on the entity, not the def).
+local function stripGeometry(def)
+  def.frameWidth = nil
+  def.frameHeight = nil
+  def.anchorX = nil
+  def.anchorY = nil
+  return def
+end
+
+local function geometryValid(pack)
+  local fw = tonumber(pack.frameWidth)
+  local fh = tonumber(pack.frameHeight)
+  return fw and fw > 0 and fh and fh > 0
+end
+
+--- Apply True Size geometry when effective; otherwise strip to Classic defaults.
+--- Never mutates saved pokemon_size. Never changes collision fields.
 function VariableSize.applyToDef(mod, def, opts)
   opts = opts or {}
   if type(def) ~= "table" or type(def.image) ~= "string" then
     return def, { applied = false, reason = "bad_def" }
   end
 
-  local okApply, why = VariableSize.canApplyTrueSize(mod, opts)
-  if not okApply then
+  local effective, why = VariableSize.effectiveMode(mod, opts)
+  if effective ~= VariableSize.MODE_TRUE_SIZE then
     if type(why) == "string" and why:find("voxel_ds_incompatible", 1, true) == 1 then
       VariableSize.logVoxelFallback(mod, why)
     end
-    -- Strip any leftover geometry so Classic stays 16×16 defaults.
-    def.frameWidth = nil
-    def.frameHeight = nil
-    def.anchorX = nil
-    def.anchorY = nil
-    return def, { applied = false, reason = why }
+    stripGeometry(def)
+    return def, {
+      applied = false,
+      reason = why,
+      requestedMode = VariableSize.requestedMode(mod),
+      effectiveMode = effective,
+    }
   end
 
   local speciesId = opts.speciesId or opts.dex
-  local style = opts.style or Config.spriteStyle(mod)
-  local packId = VariableSize.packIdForStyle(style)
-  local pack, dex = SpeciesGeometry.packGeometry(speciesId, packId)
-  if not pack or not pack.prototype then
-    return def, { applied = false, reason = "no_prototype_for_species_pack" }
+  local style = opts.style or (Config.spriteStyle and Config.spriteStyle(mod)) or "followers"
+  local packId = opts.packId or VariableSize.packIdForStyle(style, opts.presentation)
+  local pack, dex = SpeciesGeometry.packGeometry(speciesId, packId, mod)
+  if not pack or not geometryValid(pack) then
+    stripGeometry(def)
+    return def, {
+      applied = false,
+      reason = "no_geometry",
+      requestedMode = VariableSize.MODE_TRUE_SIZE,
+      effectiveMode = VariableSize.MODE_TRUE_SIZE,
+    }
   end
 
   local variant = opts.variant
-  local rel, pack2 = SpeciesGeometry.prototypeRelativePath(speciesId, packId, variant)
-  pack = pack2 or pack
+  local rel = select(1, SpeciesGeometry.relativePath(speciesId, packId, variant, mod))
   if not rel or not assetPresent(mod, rel) then
-    -- Shiny missing → try normal.
     if variant == "shiny" or variant == "s" or variant == true then
-      rel = select(1, SpeciesGeometry.prototypeRelativePath(speciesId, packId, "normal"))
+      rel = select(1, SpeciesGeometry.relativePath(speciesId, packId, "normal", mod))
     end
   end
   if not rel or not assetPresent(mod, rel) then
-    return def, { applied = false, reason = "prototype_asset_missing" }
+    stripGeometry(def)
+    if DebugLog and DebugLog.debug then
+      DebugLog.debug(mod, "True Size asset missing for dex=%s pack=%s — Classic fallback",
+        tostring(dex), tostring(packId))
+    end
+    return def, {
+      applied = false,
+      reason = "true_size_asset_missing",
+      packId = packId,
+      dex = dex,
+      requestedMode = VariableSize.MODE_TRUE_SIZE,
+      effectiveMode = VariableSize.MODE_TRUE_SIZE,
+    }
   end
 
   local loadPath = modAssetPath(mod, rel)
   def.image = loadPath
   def.frames = tonumber(pack.frames) or def.frames or 6
-  if pack.walker ~= false then def.walker = true end
-  def.frameWidth = tonumber(pack.frameWidth) or 32
-  def.frameHeight = tonumber(pack.frameHeight) or 32
+  if pack.walker == false then
+    def.walker = nil
+  else
+    def.walker = true
+  end
+  def.frameWidth = tonumber(pack.frameWidth)
+  def.frameHeight = tonumber(pack.frameHeight)
   def.anchorX = tonumber(pack.anchorX)
   if def.anchorX == nil then def.anchorX = def.frameWidth / 2 end
   def.anchorY = tonumber(pack.anchorY)
   if def.anchorY == nil then def.anchorY = def.frameHeight end
-  def.id = opts.spriteId or VariableSize.SPRITE_TEST_CHARIZARD
+  if opts.spriteId then def.id = opts.spriteId end
   def.trueColor = def.trueColor ~= false
 
   return def, {
@@ -307,22 +337,43 @@ function VariableSize.applyToDef(mod, def, opts)
     anchorX = def.anchorX,
     anchorY = def.anchorY,
     logicalFootprint = "16x16_cell",
+    requestedMode = VariableSize.MODE_TRUE_SIZE,
+    effectiveMode = VariableSize.MODE_TRUE_SIZE,
   }
 end
 
+--- Preserve geometry fields when copying defs between systems.
+function VariableSize.copyGeometryFields(from, to)
+  if type(from) ~= "table" or type(to) ~= "table" then return to end
+  for _, k in ipairs({ "frameWidth", "frameHeight", "anchorX", "anchorY" }) do
+    if from[k] ~= nil then to[k] = from[k] end
+  end
+  return to
+end
+
+--- Detect Flat↔Voxel effective-mode flips; returns true when consumers should rebind.
+function VariableSize.pollEffectiveModeChange(mod, opts)
+  local effective = VariableSize.effectiveMode(mod, opts)
+  local changed = (_lastEffective ~= nil and _lastEffective ~= effective)
+  _lastEffective = effective
+  return changed, effective
+end
+
+function VariableSize.resetEffectiveModePoll()
+  _lastEffective = nil
+end
+
 function VariableSize.summary(mod)
-  local engine = VariableSize.probeEngineApi()
-  local ds = VariableSize.probeDramaticShape(mod)
-  local mode = VariableSize.requestedMode(mod)
-  local can, why = VariableSize.canApplyTrueSize(mod)
+  local requested = VariableSize.requestedMode(mod)
+  local effective, why = VariableSize.effectiveMode(mod)
   return {
-    mode = mode,
-    canApply = can,
+    requestedMode = requested,
+    effectiveMode = effective,
     reason = why,
-    engine = engine,
-    dramaticShape = ds,
+    engine = VariableSize.probeEngineApi(),
+    dramaticShape = VariableSize.probeDramaticShape(mod),
     voxelActive = VariableSize.isVoxelActive(mod),
-    prototypeSpecies = { 6 },
+    geometry = SpeciesGeometry.summary(mod),
   }
 end
 

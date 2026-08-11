@@ -53,7 +53,7 @@ return {
       { "Classic", "classic" },
       { "True Size", "true_size" },
     },
-    description = "Classic keeps current 16×16 runtime geometry. True Size uses Gen1Recomp variable-size SpriteRenderer geometry when available (Flat). Falls back to Classic under incompatible Dramatic Shape Voxel versions. Default Classic until fully validated.",
+    description = "Classic keeps the original one-tile (16×16) sprite presentation. True Size uses larger relative species sizes in normal 2D (Flat) gameplay and automatically falls back to Classic while an incompatible Voxel renderer is active. Your True Size preference is preserved across Voxel toggles.",
   },
   {
     key = "sprite_fade",

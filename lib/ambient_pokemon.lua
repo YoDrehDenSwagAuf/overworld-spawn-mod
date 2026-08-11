@@ -276,7 +276,8 @@ function AmbientPokemon:_resolveSprite(species, game)
   -- a mid-session COLORS toggle must not keep serving stale art.
   local redpp = Config.paletteFxRedpp and Config.paletteFxRedpp() or false
   local cacheKey = tostring(species) .. "|" .. tostring(style) .. "|"
-    .. (redpp and "c" or "g")
+    .. (redpp and "c" or "g") .. "|"
+    .. tostring((V.require("variable_size")).effectiveMode(self.mod))
   self._spriteCache = self._spriteCache or {}
   local cached = self._spriteCache[cacheKey]
   if cached then return cached end
@@ -294,6 +295,10 @@ function AmbientPokemon:_resolveSprite(species, game)
         frames = result.def.frames or 6,
         walker = result.def.walker ~= false,
         trueColor = result.def.trueColor ~= false,
+        frameWidth = result.def.frameWidth,
+        frameHeight = result.def.frameHeight,
+        anchorX = result.def.anchorX,
+        anchorY = result.def.anchorY,
         providerId = result.providerId,
         style = style,
         species = species,
@@ -354,6 +359,10 @@ function AmbientPokemon:_bindSprite(npc, species, game)
     frames = def.frames or 6,
     walker = def.walker ~= false,
     trueColor = def.trueColor ~= false,
+    frameWidth = def.frameWidth,
+    frameHeight = def.frameHeight,
+    anchorX = def.anchorX,
+    anchorY = def.anchorY,
   }, npc.id)
   if ok and sprite then
     npc.sprite = sprite
@@ -647,7 +656,8 @@ function AmbientPokemon:onOptionsChanged(payload)
   if key == "town_pokemon" then
     self:onTownPokemonToggled(Config.townPokemonEnabled(self.mod))
   elseif key == "sprite_style"
-      or key == "use_animated_overworld_sprites" then
+      or key == "use_animated_overworld_sprites"
+      or key == "pokemon_size" then
     local game = self.mod.world and self.mod.world.game
     self:refreshSprites(game)
   end

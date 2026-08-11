@@ -435,7 +435,7 @@ function WaterSpriteRegistry:_resolveKindVariant(speciesId, kind, variant, form,
   end
   -- Colored sheets render raw; the engine's trueColor contract handles
   -- every COLORS mode.  Pre-rendered silhouettes are already shaded.
-  return {
+  local def = {
     kind = kind,
     speciesId = speciesId,
     variant = variant,
@@ -453,6 +453,25 @@ function WaterSpriteRegistry:_resolveKindVariant(speciesId, kind, variant, form,
     id = string.format("SPRITE_OW_WATER_%s_%d_%s",
       string.upper(idKind), speciesId, variant),
   }
+  -- True Size water presentation (Flat only via VariableSize.effectiveMode).
+  -- Silhouette sheets stay Classic geometry — they are already pre-shaded 16×96.
+  if not def.silhouette then
+    local VariableSize = V.require("variable_size")
+    local packId = (kind == "levitates") and "levitate" or "swimming"
+    local info
+    def, info = VariableSize.applyToDef(self.mod, def, {
+      speciesId = speciesId,
+      variant = variant,
+      packId = packId,
+      presentation = packId,
+      style = Config.spriteStyle(self.mod),
+    })
+    if info and info.applied then
+      def.relativePath = info.relativePath or def.relativePath
+      def.variableSize = true
+    end
+  end
+  return def
 end
 
 -- Public resolve: speciesId, variant, preferredKind, form [, opts]
@@ -470,8 +489,9 @@ function WaterSpriteRegistry:resolve(speciesId, variant, preferredKind, form, op
   preferredKind = preferredKind or self:preferredKindFor(sid)
   local silKey = opts.silhouette and "sil" or "color"
 
-  local cacheKey = string.format("%d:%s:water:%s:%s:%s",
-    sid, want, tostring(preferredKind or "auto"), formKey(form), silKey)
+  local cacheKey = string.format("%d:%s:water:%s:%s:%s:%s",
+    sid, want, tostring(preferredKind or "auto"), formKey(form), silKey,
+    tostring((V.require("variable_size")).effectiveMode(self.mod)))
   local cached = self.cache[cacheKey]
   if cached ~= nil then
     if cached.ok then return cached.def end

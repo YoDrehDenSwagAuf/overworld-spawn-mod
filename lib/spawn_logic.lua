@@ -2648,15 +2648,26 @@ function SpawnLogic:onOptionsChanged(payload)
       if self.overlay then self.overlay:clear() end
     end
   elseif key == "sprite_style"
-      or key == "use_animated_overworld_sprites" then
+      or key == "use_animated_overworld_sprites"
+      or key == "pokemon_size" then
     -- Legacy Mon Sprites toggles map onto sprite_style via Config.spriteStyle.
+    -- pokemon_size never mutates when Voxel toggles — only this option handler
+    -- or Flat↔Voxel effective-mode rebind refreshes presentation.
     local world = self.mod.world
     local game = world and world.game
     self.render:invalidateAssetCache()
+    if self.render.waterSpriteRegistry and self.render.waterSpriteRegistry.invalidateCache then
+      pcall(self.render.waterSpriteRegistry.invalidateCache, self.render.waterSpriteRegistry)
+    end
+    if self.render.spriteResolver and self.render.spriteResolver.invalidateCache then
+      pcall(self.render.spriteResolver.invalidateCache, self.render.spriteResolver)
+    end
     local n = self.render:refreshAllEntitySprites(self, game)
-    self:_log("sprite_style -> %s; refreshed %d entities (no respawn)",
-              tostring(Config.spriteStyle(self.mod)), n)
-    -- Refresh active follower land/water sprite to the new style.
+    self:_log("%s -> refreshed %d entities (no respawn); size requested=%s effective=%s",
+              tostring(key), n,
+              tostring(Config.pokemonSizeMode(self.mod)),
+              tostring((V.require("variable_size")).effectiveMode(self.mod)))
+    -- Refresh active follower land/water sprite to the new style / size.
     if self.followersWater and self.followersWater.invalidateStyle then
       pcall(function()
         self.followersWater:invalidateStyle()
@@ -2665,6 +2676,12 @@ function SpawnLogic:onOptionsChanged(payload)
           return self:resolveWaterSprite(speciesId, shiny, form, opts)
         end)
       end)
+    end
+    if self.follower and self.follower.refreshSprites then
+      pcall(self.follower.refreshSprites, self.follower, game)
+    elseif self.follower and self.follower.lifecycle
+        and self.follower.lifecycle._spriteRefreshHandler then
+      pcall(self.follower.lifecycle._spriteRefreshHandler, game)
     end
   elseif key == "sprite_fade" or key == "sprite_opacity" then
     self:_log("sprite_fade -> %s (opacity=%s)",
@@ -2866,9 +2883,53 @@ function SpawnLogic:_wander(ow)
   return
 end
 
+--- When Voxel toggles, effectiveMode may flip Classic↔True Size while the
+--- saved pokemon_size option stays unchanged. Rebind all visual consumers.
+function SpawnLogic:_pollTrueSizeEffectiveMode()
+  local VariableSize = V.require("variable_size")
+  local changed, effective = VariableSize.pollEffectiveModeChange(self.mod)
+  if not changed then return end
+  local world = self.mod.world
+  local game = world and world.game
+  if self.render then
+    if self.render.invalidateAssetCache then
+      pcall(self.render.invalidateAssetCache, self.render)
+    end
+    if self.render.waterSpriteRegistry and self.render.waterSpriteRegistry.invalidateCache then
+      pcall(self.render.waterSpriteRegistry.invalidateCache, self.render.waterSpriteRegistry)
+    end
+    if self.render.spriteResolver and self.render.spriteResolver.invalidateCache then
+      pcall(self.render.spriteResolver.invalidateCache, self.render.spriteResolver)
+    end
+    pcall(self.render.refreshAllEntitySprites, self.render, self, game)
+  end
+  if self.followersWater and self.followersWater.invalidateStyle then
+    pcall(function()
+      self.followersWater:invalidateStyle()
+      local ow = world and world.overworld and world:overworld()
+      self.followersWater:tick(game, ow, function(speciesId, shiny, form, opts)
+        return self:resolveWaterSprite(speciesId, shiny, form, opts)
+      end)
+    end)
+  end
+  if self.follower and self.follower.lifecycle
+      and type(self.follower.lifecycle._spriteRefreshHandler) == "function" then
+    pcall(self.follower.lifecycle._spriteRefreshHandler, game)
+  end
+  local ambient = self.mod.exports and self.mod.exports.ambient
+  if ambient and ambient.refreshSprites then
+    pcall(ambient.refreshSprites, ambient, game)
+  end
+  self:_log("True Size effectiveMode -> %s (requested=%s; option unchanged)",
+            tostring(effective), tostring(VariableSize.requestedMode(self.mod)))
+end
+
 function SpawnLogic:onStepped(ev)
   self.state.updateCallbackCount = self.state.updateCallbackCount + 1
   self.state.updateCallbackActive = true
+
+  -- Flat↔Voxel: rebind True Size ↔ Classic without touching saved pokemon_size.
+  self:_pollTrueSizeEffectiveMode()
 
   if Config.debug(self.mod) and self.state.updateCallbackCount == 1 then
     self:_log("update callback world.stepped is active")

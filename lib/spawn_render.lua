@@ -2034,10 +2034,14 @@ function SpawnRender:applyProviderSprite(entity, game)
     or (result.meta and result.meta.shadowRendererMode)
     or shadowMode
   -- Skip rebuild when the same provider image / surface / water mode is bound.
+  local VariableSize = V.require("variable_size")
+  local effectiveSize = VariableSize.effectiveMode(self.mod, { voxelActive = voxelActive })
   local cur = entity.sprite and entity.sprite.def
   if cur and cur.image == result.def.image
      and (cur.frames or 1) == (result.def.frames or 1)
      and (cur.walker == true) == (result.def.walker == true)
+     and (cur.frameWidth or 16) == (result.def.frameWidth or 16)
+     and (cur.frameHeight or 16) == (result.def.frameHeight or 16)
      and entity.spriteProviderId == result.providerId
      and entity.spriteState == result.spriteState
      and entity.requestedSpriteStyle == style
@@ -2047,7 +2051,8 @@ function SpawnRender:applyProviderSprite(entity, game)
      and entity.waterFlatShadow == wantFlatShadow
      and entity.shadowRendererMode == resultShadowMode
      and entity.waterVoxelActive == voxelActive
-     and entity.paletteRedpp == redpp then
+     and entity.paletteRedpp == redpp
+     and entity._wildsEffectiveSize == effectiveSize then
     entity.requestedSpriteStyle = style
     entity.spriteFallbackStep = result.fallbackStep
     entity.spriteProviderMeta = result.meta
@@ -2057,6 +2062,7 @@ function SpawnRender:applyProviderSprite(entity, game)
     entity.waterFlatShadow = wantFlatShadow
     entity.shadowRendererMode = resultShadowMode
     entity.waterVoxelActive = voxelActive
+    entity._wildsEffectiveSize = effectiveSize
     entity.paletteRedpp = redpp
     if self.spriteResolver then
       self.spriteResolver:applyEntityMeta(entity, result)
@@ -2121,6 +2127,8 @@ function SpawnRender:applyProviderSprite(entity, game)
     if geoInfo then
       entity.variableSizeApplied = geoInfo.applied == true
       entity.variableSizeReason = geoInfo.reason
+      entity._wildsEffectiveSize = geoInfo.effectiveMode
+        or VariableSize.effectiveMode(self.mod, { voxelActive = voxelActive })
       if geoInfo.applied and result.meta then
         result.meta.variableSize = true
         result.meta.frameWidth = geoInfo.frameWidth

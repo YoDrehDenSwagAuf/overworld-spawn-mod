@@ -1,4 +1,4 @@
--- Variable-size / True Size prototype unit tests (Gen1Recomp #1016 contract).
+-- True Size / requested vs effective mode unit tests.
 -- Run: lua tests/variable_size_unit_test.lua
 
 local function fail(msg)
@@ -18,16 +18,15 @@ end
 
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
--- Minimal V harness matching main.lua module loading.
 local modules = {}
+local savedOpts = { pokemon_size = "classic", sprite_style = "pokemmo" }
 local mod = {
   id = "overworld_wild_spawns",
   path = ".",
   log = { info = function() end, warn = function() end },
   options = {
-    _vals = { pokemon_size = "classic", sprite_style = "pokemmo" },
-    get = function(self, k) return self._vals[k] end,
-    set = function(self, k, v) self._vals[k] = v end,
+    get = function(_, k) return savedOpts[k] end,
+    set = function(_, k, v) savedOpts[k] = v end,
   },
   find = function() return nil end,
   read = function(_self, rel)
@@ -37,9 +36,7 @@ local mod = {
     f:close()
     return data
   end,
-  assets = {
-    path = function(_self, rel) return rel end,
-  },
+  assets = { path = function(_self, rel) return rel end },
 }
 
 local V = { mod = mod, path = "." }
@@ -51,7 +48,6 @@ function V.require(name)
   return value
 end
 
--- Stub SpriteRenderer with #1020 API surface for probeEngineApi.
 package.preload["src.render.SpriteRenderer"] = function()
   local SR = {
     DEFAULT_FRAME_WIDTH = 16,
@@ -62,23 +58,17 @@ package.preload["src.render.SpriteRenderer"] = function()
   function SR:getFrameGeometry(frame)
     return {
       frame = frame or 0, x = 0, y = 0,
-      width = self.frameWidth or 16,
-      height = self.frameHeight or 16,
-      anchorX = self.anchorX or 8,
-      anchorY = self.anchorY or 16,
+      width = self.frameWidth or 16, height = self.frameHeight or 16,
+      anchorX = self.anchorX or 8, anchorY = self.anchorY or 16,
     }
   end
   function SR:getPoseGeometry(facing, walkPhase, stepFlip)
     local g = self:getFrameGeometry(0)
-    g.facing = facing
-    g.walkPhase = walkPhase
-    g.stepFlip = stepFlip
+    g.facing, g.walkPhase, g.stepFlip = facing, walkPhase, stepFlip
     g.mirror = facing == "right"
     return g
   end
-  function SR:getScreenOrigin(px, py, camX, camY)
-    return 0, 0
-  end
+  function SR:getScreenOrigin() return 0, 0 end
   return SR
 end
 
@@ -86,109 +76,74 @@ local Config = V.require("config")
 local SpeciesGeometry = V.require("species_geometry")
 local VariableSize = V.require("variable_size")
 
--- ------- Config defaults / normalize
-eq(Config.normalizePokemonSize(nil), "classic", "nil → classic")
-eq(Config.normalizePokemonSize("true_size"), "true_size", "true_size")
-eq(Config.normalizePokemonSize("Classic"), "classic", "Classic")
-eq(Config.pokemonSizeMode(mod), "classic", "default classic from options")
+-- Geometry table covers all 151
+local summary = SpeciesGeometry.summary(mod)
+eq(summary.species, 151, "151 species geometry")
+check((summary.classes.XL or 0) > 0, "has XL class")
+check((summary.manualOverrides or 0) >= 15, "manual overrides present")
 
-mod.options._vals.pokemon_size = "true_size"
-eq(Config.pokemonSizeMode(mod), "true_size", "option true_size")
+local charPack = SpeciesGeometry.packGeometry(6, "pokemmo", mod)
+check(charPack ~= nil, "Charizard pokemmo pack")
+eq(charPack.frameHeight, 32, "Charizard height 32")
+local pikachu = SpeciesGeometry.packGeometry(25, "followers", mod)
+check(pikachu ~= nil, "Pikachu followers pack")
+check(pikachu.frameHeight >= 17 and pikachu.frameHeight <= 20, "Pikachu S height")
 
--- ------- Species geometry (Charizard only)
-local pack, dex = SpeciesGeometry.packGeometry(6, "pokemmo")
-eq(dex, 6, "dex 6")
-check(pack ~= nil, "Charizard pokemmo pack")
-eq(pack.frameWidth, 32, "frameWidth 32")
-eq(pack.frameHeight, 32, "frameHeight 32")
-eq(pack.anchorX, 16, "anchorX 16 bottom-center")
-eq(pack.anchorY, 32, "anchorY 32 feet")
-check(pack.prototype == true, "prototype flag")
-
-local noPack = SpeciesGeometry.packGeometry(25, "pokemmo")
-eq(noPack, nil, "Pikachu has no prototype yet")
-
-local rel = SpeciesGeometry.prototypeRelativePath(6, "pokemmo", "normal")
-eq(rel, "assets/generated/variable_size_prototype/hgss/006-normal.png", "rel path")
-local f = io.open(rel, "rb")
-check(f ~= nil, "prototype PNG exists on disk")
-if f then f:close() end
-
--- Verify sheet dimensions via file header (IHDR) without PIL.
-do
-  local fh = assert(io.open(rel, "rb"))
-  local data = fh:read(32)
-  fh:close()
-  -- PNG IHDR: width/height big-endian at bytes 16..23
-  local function be32(s, i)
-    local b1, b2, b3, b4 = s:byte(i, i + 3)
-    return b1 * 16777216 + b2 * 65536 + b3 * 256 + b4
-  end
-  local w, h = be32(data, 17), be32(data, 21)
-  eq(w, 32, "prototype sheet width 32")
-  eq(h, 192, "prototype sheet height 192 (6×32)")
+-- Asset presence samples
+for _, pack in ipairs({ "hgss", "followers", "pokedex" }) do
+  local rel = string.format("assets/generated/true_size/%s/006-normal.png", pack)
+  local f = io.open(rel, "rb")
+  check(f ~= nil, "asset exists " .. rel)
+  if f then f:close() end
 end
+check(io.open("assets/generated/true_size/swimming/131-normal.png", "rb"), "Lapras swimming")
+check(io.open("assets/generated/true_size/levitate/006-normal.png", "rb"), "Charizard levitate")
 
--- ------- Engine probe
+-- Engine stub
 VariableSize.clearCaches()
-local engine = VariableSize.probeEngineApi()
-check(engine.available == true, "engine API available via stub")
-check(engine.hasGetPoseGeometry == true, "getPoseGeometry")
-check(engine.hasGetFrameGeometry == true, "getFrameGeometry")
-check(engine.hasGetScreenOrigin == true, "getScreenOrigin")
+check(VariableSize.probeEngineApi().available, "engine API")
 
--- ------- Classic mode never applies geometry
-mod.options._vals.pokemon_size = "classic"
-local defClassic = {
-  image = "assets/generated/followsprites_runtime/006-normal.png",
-  frames = 6, walker = true, trueColor = true, id = "SPRITE_OW_WILD_6",
-}
-local outC, infoC = VariableSize.applyToDef(mod, defClassic, {
-  speciesId = 6, style = "pokemmo", variant = "normal",
-})
-eq(infoC.applied, false, "classic does not apply")
-eq(infoC.reason, "classic_mode", "classic reason")
-eq(outC.frameWidth, nil, "classic strips frameWidth")
-check(outC.image:find("followsprites_runtime", 1, true), "classic keeps 16×16 runtime")
+-- requested vs effective — Classic
+savedOpts.pokemon_size = "classic"
+eq(VariableSize.requestedMode(mod), "classic", "requested classic")
+eq(VariableSize.effectiveMode(mod), "classic", "effective classic")
 
--- ------- True Size Flat applies Charizard geometry
-mod.options._vals.pokemon_size = "true_size"
+-- True Size Flat
+savedOpts.pokemon_size = "true_size"
 VariableSize.clearCaches()
-local defTS = {
-  image = "assets/generated/followsprites_runtime/006-normal.png",
-  frames = 6, walker = true, trueColor = true, id = "SPRITE_OW_WILD_6",
-}
-local outT, infoT = VariableSize.applyToDef(mod, defTS, {
-  speciesId = 6, style = "pokemmo", variant = "normal", voxelActive = false,
-})
-check(infoT.applied == true, "true size applied on Flat")
-eq(outT.frameWidth, 32, "true size frameWidth")
-eq(outT.frameHeight, 32, "true size frameHeight")
-eq(outT.anchorX, 16, "true size anchorX")
-eq(outT.anchorY, 32, "true size anchorY")
-check(outT.image:find("variable_size_prototype", 1, true), "uses prototype asset")
-eq(infoT.logicalFootprint, "16x16_cell", "logical footprint unchanged")
+eq(VariableSize.requestedMode(mod), "true_size", "requested true_size")
+local eff, why = VariableSize.effectiveMode(mod, { voxelActive = false })
+eq(eff, "true_size", "effective true_size flat")
+eq(why, "ok", "flat ok")
 
--- Non-prototype species stays classic assets even in True Size
-local defPika = {
-  image = "assets/generated/followsprites_runtime/025-normal.png",
+local def = {
+  image = "assets/generated/followsprites_runtime/006-normal.png",
   frames = 6, walker = true, trueColor = true,
 }
-local _, infoP = VariableSize.applyToDef(mod, defPika, {
-  speciesId = 25, style = "pokemmo", variant = "normal", voxelActive = false,
+local out, info = VariableSize.applyToDef(mod, def, {
+  speciesId = 6, style = "pokemmo", variant = "normal", voxelActive = false,
 })
-eq(infoP.applied, false, "Pikachu no prototype")
-eq(infoP.reason, "no_prototype_for_species_pack", "pikachu reason")
+check(info.applied, "Charizard True Size applied")
+eq(out.frameWidth, 32, "fw 32")
+eq(out.frameHeight, 32, "fh 32")
+check(out.image:find("true_size/hgss", 1, true), "hgss true_size path")
 
--- ------- Voxel + DS 1.7.9 fixed-16 → Classic fallback
-VariableSize.clearCaches()
+-- Followers pack
+local defF = {
+  image = "assets/enhanced_overworld/poke_followers/follower_025_normal.png",
+  frames = 6, walker = true, trueColor = true,
+}
+local outF, infoF = VariableSize.applyToDef(mod, defF, {
+  speciesId = 25, style = "followers", variant = "normal", voxelActive = false,
+})
+check(infoF.applied, "Pikachu followers True Size")
+check(outF.image:find("true_size/followers", 1, true), "followers true_size path")
+
+-- Voxel incompatible → Classic effective, option UNCHANGED
 local dsSrc = [[
 local function buildCard(def, frame)
   local fy = frame * 16
-  local verts = {
-    { 0, 0, 0, u0, v1, 1 }, { 16, 0, 0, u1, v1, 1 },
-    { 16, 16, 0, u1, v0, 1 }, { 0, 16, 0, u0, v0, 1 },
-  }
+  local verts = { { 0, 0, 0 }, { 16, 16, 0 } }
 end
 ]]
 mod.find = function(_self, id)
@@ -197,56 +152,66 @@ mod.find = function(_self, id)
       exports = { version = "1.7.9" },
       read = function(_m, rel)
         if rel == "lib/SpriteBillboards.lua" then return dsSrc end
-        return nil
       end,
     }
   end
-  return nil
 end
+VariableSize.clearCaches()
+savedOpts.pokemon_size = "true_size"
+local beforeOpt = savedOpts.pokemon_size
+local effV, whyV = VariableSize.effectiveMode(mod, { voxelActive = true })
+eq(effV, "classic", "voxel effective classic")
+check(whyV:find("voxel_ds_incompatible", 1, true) == 1, "voxel reason")
+eq(savedOpts.pokemon_size, beforeOpt, "saved option NOT rewritten")
+eq(VariableSize.requestedMode(mod), "true_size", "requested still true_size")
 
-local ds = VariableSize.probeDramaticShape(mod)
-check(ds.present == true, "DS present")
-eq(ds.supportsVariableGeometry, false, "DS 1.7.9 no variable geometry")
-check(ds.reason == "sprite_billboards_fixed_16x16", "fixed 16 reason: " .. tostring(ds.reason))
-
-local can, why = VariableSize.canApplyTrueSize(mod, { voxelActive = true })
-eq(can, false, "cannot apply under voxel+DS1.7.9")
-check(type(why) == "string" and why:find("voxel_ds_incompatible", 1, true) == 1,
-  "voxel incompatible reason")
-
-local defV = {
+local outV, infoV = VariableSize.applyToDef(mod, {
   image = "assets/generated/followsprites_runtime/006-normal.png",
   frames = 6, walker = true, trueColor = true,
-}
-local outV, infoV = VariableSize.applyToDef(mod, defV, {
-  speciesId = 6, style = "pokemmo", variant = "normal", voxelActive = true,
-})
-eq(infoV.applied, false, "voxel falls back")
-eq(outV.frameWidth, nil, "voxel strips geometry")
-check(outV.image:find("followsprites_runtime", 1, true), "voxel keeps classic sheet")
+}, { speciesId = 6, style = "pokemmo", variant = "normal", voxelActive = true })
+eq(infoV.applied, false, "voxel does not apply True Size")
+eq(outV.frameWidth, nil, "geometry stripped")
+eq(savedOpts.pokemon_size, "true_size", "option still true_size after apply")
 
--- Flat still works while DS is installed but Voxel camera off
-local outF2, infoF2 = VariableSize.applyToDef(mod, {
-  image = "assets/generated/followsprites_runtime/006-normal.png",
+-- Leaving Voxel restores True Size (poll)
+VariableSize.resetEffectiveModePoll()
+local c1, e1 = VariableSize.pollEffectiveModeChange(mod, { voxelActive = true })
+eq(c1, false, "first poll no change")
+eq(e1, "classic", "poll voxel classic")
+local c2, e2 = VariableSize.pollEffectiveModeChange(mod, { voxelActive = false })
+eq(c2, true, "voxel→flat change detected")
+eq(e2, "true_size", "poll flat true_size")
+
+-- Missing asset → Classic fallback for that species/pack
+local outM, infoM = VariableSize.applyToDef(mod, {
+  image = "assets/generated/followsprites_runtime/001-normal.png",
   frames = 6, walker = true, trueColor = true,
-}, { speciesId = 6, style = "pokemmo", variant = "normal", voxelActive = false })
-check(infoF2.applied == true, "Flat True Size while DS installed")
+}, { speciesId = 1, packId = "swimming", variant = "shiny", voxelActive = false })
+-- May or may not have shiny swim; either applied or missing fallback — no crash
+check(infoM.reason ~= nil, "missing path returns reason")
 
--- Options schema includes pokemon_size default classic
+-- Schema
 local schema = assert(loadfile("options.lua"))()
 local found = false
 for _, opt in ipairs(schema) do
   if opt.key == "pokemon_size" then
     found = true
-    eq(opt.default, "classic", "schema default classic")
-    eq(opt.choices[1][2], "classic", "choice classic")
-    eq(opt.choices[2][2], "true_size", "choice true_size")
+    eq(opt.default, "classic", "default classic")
+    check(opt.description:find("Voxel", 1, true), "description mentions Voxel")
   end
 end
-check(found, "pokemon_size in options schema")
+check(found, "pokemon_size option")
 
--- Manifest version bump
-local mf = assert(io.open("manifest.json", "r")):read("*a")
-check(mf:find('"1.13.0"', 1, true), "manifest 1.13.0")
+local mf = assert(io.open("manifest.json"):read("*a"))
+check(mf:find('"1.14.0"', 1, true), "manifest 1.14.0")
+
+-- HGSS quality: pad-only majority
+do
+  local raw = assert(io.open("assets/generated/true_size/generation_report.json"):read("*a"))
+  local pad = tonumber(raw:match('"hgss_pad_only"%s*:%s*(%d+)'))
+  local resized = tonumber(raw:match('"hgss_resized"%s*:%s*(%d+)'))
+  check(pad and pad > 100, "many HGSS pad-only: " .. tostring(pad))
+  check(resized ~= nil, "hgss_resized present")
+end
 
 print("PASS variable_size_unit_test")

@@ -131,6 +131,10 @@ function SpriteService:resolveFollowerSprite(opts)
         frames = def.frames or 6,
         walker = def.walker ~= false,
         trueColor = def.trueColor ~= false,
+        frameWidth = def.frameWidth,
+        frameHeight = def.frameHeight,
+        anchorX = def.anchorX,
+        anchorY = def.anchorY,
         providerId = "water",
         role = role,
         surface = surface,
@@ -156,6 +160,10 @@ function SpriteService:resolveFollowerSprite(opts)
         frames = def.frames or 6,
         walker = def.walker ~= false,
         trueColor = trueColor,
+        frameWidth = def.frameWidth,
+        frameHeight = def.frameHeight,
+        anchorX = def.anchorX,
+        anchorY = def.anchorY,
         providerId = result.providerId,
         role = role,
         surface = "land",
@@ -170,15 +178,27 @@ function SpriteService:resolveFollowerSprite(opts)
     local dex = self:dexOf(species) or 4
     local def = sheets:spriteDef(dex, variant, "SPRITE_WILDS_FOLLOWER_MON")
     if def and def.image then
+      local VariableSize = V.require("variable_size")
+      local info
+      def, info = VariableSize.applyToDef(self.mod, def, {
+        speciesId = dex,
+        style = style,
+        variant = variant,
+      })
       return {
         id = def.id,
         image = def.image,
         frames = def.frames or 6,
         walker = def.walker ~= false,
         trueColor = def.trueColor ~= false,
+        frameWidth = def.frameWidth,
+        frameHeight = def.frameHeight,
+        anchorX = def.anchorX,
+        anchorY = def.anchorY,
         providerId = "pokemmo",
         role = role,
         surface = "land",
+        variableSize = info and info.applied or false,
       }
     end
   end

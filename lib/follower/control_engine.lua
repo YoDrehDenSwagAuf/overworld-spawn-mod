@@ -86,6 +86,24 @@ local function copySpriteDef(def)
   return out
 end
 
+local function spriteDefWithGeometry(resolved, extras)
+  local def = {
+    id = resolved.id or "SPRITE_WILDS_FOLLOWER_MON",
+    image = resolved.image,
+    frames = resolved.frames or 6,
+    walker = resolved.walker ~= false,
+    trueColor = resolved.trueColor ~= false,
+    frameWidth = resolved.frameWidth,
+    frameHeight = resolved.frameHeight,
+    anchorX = resolved.anchorX,
+    anchorY = resolved.anchorY,
+  }
+  if type(extras) == "table" then
+    for k, v in pairs(extras) do def[k] = v end
+  end
+  return def
+end
+
 --- Construct a control engine instance.
 -- @param mod Wilds mod handle
 -- @param deps table optional: spriteService, settings, selection, render, game
@@ -543,13 +561,12 @@ function ControlEngine:forceYellowStockPikachuArt(ow, game)
     goalX = npc.goalX,
     goalY = npc.goalY,
   }
-  local ok, sprite = pcall(SpriteRenderer.new, {
+  local ok, sprite = pcall(SpriteRenderer.new, spriteDefWithGeometry(resolved, {
     id = Constants.SPRITE_ID,
-    image = resolved.image,
     frames = resolvedFrames,
     walker = resolvedWalker,
     trueColor = resolvedTrueColor,
-  }, npc.id or Constants.ENTITY_ID)
+  }), npc.id or Constants.ENTITY_ID)
   if ok and sprite then
     npc.sprite = sprite
     npc.spriteId = Constants.SPRITE_ID
@@ -865,14 +882,9 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
       game = game,
     })
     if resolved and resolved.image and SpriteRenderer and SpriteRenderer.new then
-      local ok, sprite = pcall(SpriteRenderer.new, {
-        id = resolved.id or "SPRITE_WILDS_FOLLOWER_MON",
-        image = resolved.image,
-        frames = resolved.frames or 6,
-        walker = resolved.walker ~= false,
-        trueColor = resolved.trueColor ~= false,
+      local ok, sprite = pcall(SpriteRenderer.new, spriteDefWithGeometry(resolved, {
         pokepcShiny = npc.pokepcShiny,
-      }, npc.id)
+      }), npc.id)
       if ok and sprite then npc.sprite = sprite end
     end
     npc._wildsFollowerSpecies = species
@@ -2239,14 +2251,9 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
       end
 
       if resolved and resolved.image then
-        local ok, sprite = pcall(SpriteRenderer.new, {
-          id = resolved.id or "SPRITE_WILDS_FOLLOWER_MON",
-          image = resolved.image,
-          frames = resolved.frames or 6,
-          walker = resolved.walker ~= false,
-          trueColor = resolved.trueColor ~= false,
+        local ok, sprite = pcall(SpriteRenderer.new, spriteDefWithGeometry(resolved, {
           pokepcShiny = shiny and true or false,
-        }, npc.id)
+        }), npc.id)
         if ok and sprite then
           npc.sprite = sprite
           npc._wildsFollowerSpecies = species
