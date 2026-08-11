@@ -46,12 +46,18 @@ modules.spawn_fx = { bodyVisible = function() return true end }
 local GrassOcclusion = V.require("grass_occlusion")
 
 -- Rattata-like 20px True Size frame: occlusion from real height, not 16.
-local cover20 = GrassOcclusion.computeOcclusionHeight(20)
+local cover20 = GrassOcclusion.computeTrueSizeCover(20)
 local cover16 = GrassOcclusion.computeOcclusionHeight(16)
-local cover32 = GrassOcclusion.computeOcclusionHeight(32)
-check(cover20 >= 2 and cover20 <= 8, "20px cover in feet band (" .. tostring(cover20) .. ")")
-check(cover32 <= 8, "32px Charizard cover capped at engine band (" .. tostring(cover32) .. ")")
+local cover32 = GrassOcclusion.computeTrueSizeCover(32)
+check(cover20 >= 2 and cover20 <= 6, "20px True Size cover 2–6 (" .. tostring(cover20) .. ")")
+check(cover32 <= 6, "32px Charizard True Size cover capped at 6 (" .. tostring(cover32) .. ")")
 check(cover16 <= 8, "16px classic cover bounded")
+check(cover20 < GrassOcclusion.ENGINE_BOTTOM_COVER_PX,
+      "True Size cover thinner than native 8px drawCellBottom")
+
+modules["variable_size"] = {
+  canApplyTrueSize = function() return true end,
+}
 
 local entity = {
   mod = V.mod,
@@ -59,6 +65,7 @@ local entity = {
   cellX = 1, cellY = 1,
   visibleSprite = true,
   final2DScale = 1,
+  variableSizeApplied = true,
   -- Stale Classic scaleInfo (the bug): claims 16×16 while SpriteDef is 20×20.
   scaleInfo = { renderedH = 16, contentH = 16 },
   sprite = {
@@ -75,15 +82,19 @@ local fakeMap = {
 }
 GrassOcclusion.refreshEntity(entity, V.mod, fakeMap)
 eq(entity.grassOcclusionHeight, cover20,
-   "refreshEntity prefers SpriteDef frameHeight over stale 16 scaleInfo")
+   "refreshEntity True Size cover from SpriteDef frameHeight")
 
 -- Classic native (no frameHeight): falls back to scaleInfo/CELL path.
+modules["variable_size"] = {
+  canApplyTrueSize = function() return false end,
+}
 local classic = {
   mod = V.mod,
   surface = "GRASS",
   cellX = 1, cellY = 1,
   visibleSprite = true,
   final2DScale = 1,
+  variableSizeApplied = false,
   scaleInfo = { renderedH = 16, contentH = 16 },
   sprite = { def = { frames = 6, walker = true } },
 }

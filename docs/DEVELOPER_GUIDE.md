@@ -172,16 +172,17 @@ Records in `logic.spawns` / `logic.entities` / `logic.byMap`.
 Entities implement `pose()` / `draw()` on `ow.entities`.
 Scaled draw uses `love.graphics.draw` + nearest filter; feet-biased growth.
 Engine `TileRenderer:drawCellBottom` after every entity on grass provides
-the GB feet-overdraw (bottom 8px of the cell).
+the GB feet-overdraw (bottom 8px of the cell) in **Classic** mode.
+
+**True Size Flat** wraps that call: Immersed paints only a clipped feet band
+(`GrassOcclusion.computeTrueSizeCover`, ~4–6px); Above skips overdraw.
+Classic behavior is unchanged.
 
 Option `pokemon_grass_render_mode` (`immersed` default / `above`):
-- `immersed` — use overdraw; relative lift keeps small sprites readable
-- `above` — lift clears flat overdraw; voxel overlay skips overdraw
+- `immersed` — Classic: full `drawCellBottom`; True Size: clipped feet band
+- `above` — Classic: lift clears flat overdraw; True Size: skip overdraw
 
 `inGrassOverlay` tracks live grass tiles (source + step target).
-Relative occlusion: `GrassOcclusion.computeOcclusionHeight` (~25–32% of
-rendered height, min ~8px still visible). No custom black mask — real tile
-art from `drawCellBottom`.
 
 ## 15. Grass overlay
 

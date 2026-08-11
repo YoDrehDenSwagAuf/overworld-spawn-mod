@@ -1360,7 +1360,7 @@ function Entity.new(game, mod, render, record)
     local fw = drawDef and tonumber(drawDef.frameWidth) or nil
     local fh = drawDef and tonumber(drawDef.frameHeight) or nil
     if self.variableSizeApplied and fw and fh and fw > 0 and fh > 0 then
-      local grassH = GrassOcclusion.computeOcclusionHeight(fh)
+      local grassH = GrassOcclusion.computeTrueSizeCover(fh)
       local frames = tonumber(drawDef.frames) or RuntimeSheets.FRAMES or 6
       self.scaleInfo = {
         scale = 1, final2DScale = 1,
@@ -1433,6 +1433,13 @@ function Entity:_grassTuck()
     or pokemonRenderer == SpawnRender.RENDERER.WORLD_BILLBOARD_LEGACY
     or pokemonRenderer == SpawnRender.RENDERER.WORLD_BILLBOARD_BLACK_FALLBACK
 
+  -- True Size Flat: TileRenderer wrap draws a clipped feet-band (or skips in
+  -- Above). Never compensate with tuck — that fought the fixed 8px overdraw.
+  if not overlayEmergency
+     and GrassOcclusion.usesTrueSizeFeetBand(self, self.mod) then
+    return self.tuck or 0
+  end
+
   -- World billboards: immersed uses DS native grass (no tuck). Above uses a
   -- small visualY lift so feet clear the late grass mesh (object occlusion stays).
   if worldBillboard then
@@ -1445,7 +1452,7 @@ function Entity:_grassTuck()
     return self.tuck or 0
   end
 
-  -- Flat path and emergency overlay.
+  -- Classic Flat path and emergency overlay.
   return GrassOcclusion.tuckDelta(self, {
     mode = mode,
     engineOverdrawExpected = (mode == GrassOcclusion.MODE_ABOVE)
@@ -1815,6 +1822,16 @@ function Entity:draw(camX, camY)
       WaterDisplay.withSilhouetteTint(self, player, drawBody)
     else
       drawBody()
+    end
+
+    -- True Size Flat: queue clipped feet-band (or Above skip) so the engine's
+    -- immediately-following drawCellBottom does not paint a full 8px tile.
+    -- Classic entities leave the queue empty → vanilla drawCellBottom.
+    if not skipBody and GrassOcclusion.usesTrueSizeFeetBand(self, self.mod)
+       and self.inGrassOverlay then
+      local world = self.mod and self.mod.world
+      local ow = world and world.overworld and world:overworld()
+      GrassOcclusion.queueTrueSizeFeetBand(self, camX, camY, ow and ow.map)
     end
 
     -- Spatial emergency overlay only: world billboards get DS tall-grass.
@@ -2217,7 +2234,7 @@ function SpawnRender:applyProviderSprite(entity, game)
     local fw = tonumber(def.frameWidth)
     local fh = tonumber(def.frameHeight)
     if entity.variableSizeApplied and fw and fh and fw > 0 and fh > 0 then
-      local grassH = GrassOcclusion.computeOcclusionHeight(fh)
+      local grassH = GrassOcclusion.computeTrueSizeCover(fh)
       local frames = tonumber(def.frames) or RuntimeSheets.FRAMES or 6
       entity.scaleInfo = {
         scale = 1, final2DScale = 1,
@@ -2487,7 +2504,7 @@ function SpawnRender:refreshEnhancedScale(entity)
     local def = entity.sprite and entity.sprite.def
     local fh = def and tonumber(def.frameHeight) or nil
     if entity.variableSizeApplied and fh and fh > 0 then
-      entity.grassOcclusionHeight = GrassOcclusion.computeOcclusionHeight(fh)
+      entity.grassOcclusionHeight = GrassOcclusion.computeTrueSizeCover(fh)
       if entity.scaleInfo then
         entity.scaleInfo.renderedH = fh
         entity.scaleInfo.contentH = fh

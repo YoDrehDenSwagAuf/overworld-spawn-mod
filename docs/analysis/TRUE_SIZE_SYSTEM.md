@@ -55,11 +55,17 @@ Classic / Voxel-effective-Classic keep the historic 1-cell snake.
 ## Grass / scaleInfo
 
 Native True Size entities mirror `frameWidth`/`frameHeight` into `scaleInfo`.
-`GrassOcclusion.refreshEntity` prefers SpriteDef frame height over a stale
-16×16 `scaleInfo`, so feet-band immersion does not assume a Classic tile.
 
-Generator reserves 1px top pad when bottom-aligning (nearest-neighbor) so
-flush ear tips are not lost under neighboring overdraw.
+**Classic Flat:** engine `TileRenderer:drawCellBottom` (bottom **8px** of the
+16×16 cell) — unchanged.
+
+**True Size Flat:** `GrassOcclusion.installTileRendererWrap` intercepts
+`drawCellBottom` for entities that queued a feet-band during `Entity:draw`:
+
+- Immersed → `setScissor` to `computeTrueSizeCover()` (~4–6px at feet)
+- Above → skip overdraw entirely
+
+Never leaves scissor active across other draws. Voxel untouched.
 
 ## Dramatic Shape
 
