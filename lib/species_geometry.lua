@@ -113,8 +113,21 @@ function SpeciesGeometry.entryFor(speciesId, mod)
   return t[dex], dex
 end
 
+--- Derive a spacing class from native / scaled visual height when present.
+local function classFromNativeHeight(h)
+  h = tonumber(h) or 0
+  if h <= 16 then return "XS" end
+  if h <= 20 then return "S" end
+  if h <= 24 then return "M" end
+  if h <= 29 then return "L" end
+  if h <= 35 then return "XL" end
+  return "XXL"
+end
+
 --- Desired follower trail distance in cells for a species (visual only).
 -- Returns 1 when geometry is missing (Classic-equivalent spacing).
+-- Prefer explicit FOLLOW_GAP_OVERRIDES, then class from nativeVisualHeight,
+-- then legacy entry.class (XS–XXL documentation classes — not HGSS sizing authority).
 function SpeciesGeometry.followGap(speciesId, mod)
   local dex = SpeciesGeometry.normalizeDex(speciesId)
   if not dex then return 1 end
@@ -123,7 +136,14 @@ function SpeciesGeometry.followGap(speciesId, mod)
     return math.floor(override)
   end
   local entry = select(1, SpeciesGeometry.entryFor(dex, mod))
-  local class = entry and entry.class or "M"
+  local class = entry and entry.class or nil
+  if entry then
+    local nh = tonumber(entry.scaledVisualHeight) or tonumber(entry.nativeVisualHeight)
+    if nh and nh > 0 then
+      class = classFromNativeHeight(nh)
+    end
+  end
+  class = class or "M"
   local gap = SpeciesGeometry.FOLLOW_GAP_BY_CLASS[class] or 1
   if type(gap) ~= "number" or gap < 1 then gap = 1 end
   return math.floor(gap)

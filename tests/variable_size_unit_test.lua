@@ -205,13 +205,23 @@ check(found, "pokemon_size option")
 local mf = assert(io.open("manifest.json"):read("*a"))
 check(mf:find('"1.14.0"', 1, true), "manifest 1.14.0")
 
--- HGSS quality: pad-only majority
+-- HGSS quality: native philosophy prefers pad-only (no default resize).
+-- Full 151 runs have pad>100; --prototype runs only cover 3 species.
 do
   local raw = assert(io.open("assets/generated/true_size/generation_report.json"):read("*a"))
   local pad = tonumber(raw:match('"hgss_pad_only"%s*:%s*(%d+)'))
   local resized = tonumber(raw:match('"hgss_resized"%s*:%s*(%d+)'))
-  check(pad and pad > 100, "many HGSS pad-only: " .. tostring(pad))
-  check(resized ~= nil, "hgss_resized present")
+  local proto = raw:find('"prototype"%s*:%s*true', 1, false) ~= nil
+    or raw:find('"philosophy"%s*:%s*"native_hgss"', 1, false) ~= nil
+  if proto then
+    check(pad ~= nil and pad >= 1, "prototype HGSS pad-only present: " .. tostring(pad))
+    check(resized ~= nil, "hgss_resized present")
+    -- Prototype Rattata+Blastoise are pad-only; Onix may NN-scale via override.
+    check(pad >= resized, "prototype prefers pad-only over resize")
+  else
+    check(pad and pad > 100, "many HGSS pad-only: " .. tostring(pad))
+    check(resized ~= nil, "hgss_resized present")
+  end
 end
 
 print("PASS variable_size_unit_test")

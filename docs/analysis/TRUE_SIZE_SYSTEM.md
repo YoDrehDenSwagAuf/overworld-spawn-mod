@@ -1,5 +1,17 @@
 # True Size system (1.14.0)
 
+## Sizing philosophy (native HGSS)
+
+True Size means **preserve original HGSS / PokeMMO follower artwork scale**,
+not “Pokédex metres → XS–XXL targetHeight”.
+
+- **Authority:** shared alpha bounds of original `followsprites` (not runtime 16×16)
+- **Default:** no resampling (`TRUE_SIZE_PADDING = 2` only)
+- **Optional:** declarative `visualScale` / anchor offsets (nearest-neighbor)
+- **Other packs:** match HGSS *visible* body height, then their own padded canvas
+- **Prototype first:** Rattata / Blastoise / Onix — see `TRUE_SIZE_NATIVE_HGSS.md`
+- Logical footprint stays **one cell**. Classic + Voxel unchanged.
+
 ## Architecture
 
 ```

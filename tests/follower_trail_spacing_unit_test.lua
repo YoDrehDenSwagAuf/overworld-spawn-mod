@@ -77,15 +77,16 @@ local SpeciesGeometry = V.require("species_geometry")
 local VariableSize = V.require("variable_size")
 
 eq(SpeciesGeometry.followGap(25), 1, "Pikachu S gap=1")
-eq(SpeciesGeometry.followGap(19), 1, "Rattata S gap=1")
-eq(SpeciesGeometry.followGap(9), 2, "Blastoise XL gap=2")
+eq(SpeciesGeometry.followGap(19), 1, "Rattata native/S gap=1")
+-- Native HGSS Blastoise (~26px) is class L → gap 1 (no longer targetHeight XL).
+eq(SpeciesGeometry.followGap(9), 1, "Blastoise native/L gap=1")
 eq(SpeciesGeometry.followGap(6), 2, "Charizard XL gap=2")
 eq(SpeciesGeometry.followGap(143), 2, "Snorlax override/XXL gap=2")
 eq(SpeciesGeometry.followGap(95), 3, "Onix override gap=3")
 eq(SpeciesGeometry.followGap(130), 3, "Gyarados override gap=3")
-eq(SpeciesGeometry.followGapBetween(9, 25), 2, "Pikachu behind Blastoise uses max=2")
+eq(SpeciesGeometry.followGapBetween(9, 25), 1, "Pikachu behind Blastoise uses max=1")
 eq(SpeciesGeometry.followGapBetween(nil, 25), 1, "first follower Pikachu gap=1")
-eq(SpeciesGeometry.followGapBetween(nil, 9), 2, "first follower Blastoise gap=2")
+eq(SpeciesGeometry.followGapBetween(nil, 9), 1, "first follower Blastoise gap=1")
 
 -- Classic effective → visualFollowGap always 1
 savedOpts.pokemon_size = "classic"
@@ -115,9 +116,9 @@ end
 local blastoise = { _wildsFollowerDex = 9, _wildsFollowerSpecies = "BLASTOISE" }
 local pikachu = { _wildsFollowerDex = 25, _wildsFollowerSpecies = "PIKACHU" }
 local goals = engine:_goalsFromTrailHistory(ow, { blastoise, pikachu }, 0, 9)
--- Blastoise lag=2 → history[2]=(0,8); Pikachu stepGap=max(2,1)=2 → lag=4 → history[4]=(0,6)
-eq(goals[1].y, 8, "Blastoise follows lag=2")
-eq(goals[2].y, 6, "Pikachu follows lag=4 (accumulates behind Blastoise)")
+-- Native Blastoise gap=1 → history[1]=(0,9); Pikachu stepGap=max(1,1)=1 → lag=2 → history[2]=(0,8)
+eq(goals[1].y, 9, "Blastoise follows lag=1")
+eq(goals[2].y, 8, "Pikachu follows lag=2 (accumulates behind Blastoise)")
 
 local onix = { _wildsFollowerDex = 95 }
 local snorlax = { _wildsFollowerDex = 143 }
