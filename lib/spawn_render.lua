@@ -1249,6 +1249,35 @@ function Entity.new(game, mod, render, record)
     drawDef = buildDef(spriteId, drawPath, drawFrames, drawWalker)
   end
 
+  -- True Size prototype: apply Gen1Recomp geometry when eligible (Charizard/HGSS).
+  if drawDef then
+    local VariableSize = V.require("variable_size")
+    local voxelActive = false
+    if render.voxel and render.voxel.isVoxelCameraActive then
+      local okV, active = pcall(render.voxel.isVoxelCameraActive, render.voxel)
+      voxelActive = okV and active == true
+    end
+    local geoInfo
+    drawDef, geoInfo = VariableSize.applyToDef(mod, drawDef, {
+      speciesId = dexId or record.species,
+      style = style,
+      variant = self.spriteVariant or variant,
+      voxelActive = voxelActive,
+      spriteId = drawDef.id or spriteId,
+    })
+    if geoInfo and geoInfo.applied then
+      self.variableSizeApplied = true
+      self.variableSizeReason = geoInfo.reason
+      self.runtimeRelativePath = geoInfo.relativePath or self.runtimeRelativePath
+      self.runtimeLoadPath = geoInfo.loadPath or self.runtimeLoadPath
+      nativeSheet = (drawDef.walker == true and (drawDef.frames or 1) >= 6)
+      drawPath = drawDef.image
+    else
+      self.variableSizeApplied = false
+      self.variableSizeReason = geoInfo and geoInfo.reason or nil
+    end
+  end
+
   if isOsAbsolutePath(drawPath) then
     drawPath = (render.fallbackPath or render:_fallbackPath())
     self.usingFallback = true
@@ -2072,9 +2101,34 @@ function SpawnRender:applyProviderSprite(entity, game)
   }
   if result.def.walker == true then def.walker = true end
   if result.def.pokepcShiny then def.pokepcShiny = true end
-  -- Retain any extra SpriteRenderer fields the provider already published.
+  -- Retain any extra SpriteRenderer fields the provider already published
+  -- (including Gen1Recomp frameWidth/Height/anchorX/Y when True Size applies).
   for k, v in pairs(result.def) do
     if def[k] == nil then def[k] = v end
+  end
+
+  -- Re-evaluate True Size at bind time (Voxel may have toggled since resolve).
+  do
+    local VariableSize = V.require("variable_size")
+    local geoInfo
+    def, geoInfo = VariableSize.applyToDef(self.mod, def, {
+      speciesId = species or entity.enhancedDexId or entity.species,
+      style = style,
+      variant = variant,
+      voxelActive = voxelActive,
+      spriteId = def.id,
+    })
+    if geoInfo then
+      entity.variableSizeApplied = geoInfo.applied == true
+      entity.variableSizeReason = geoInfo.reason
+      if geoInfo.applied and result.meta then
+        result.meta.variableSize = true
+        result.meta.frameWidth = geoInfo.frameWidth
+        result.meta.frameHeight = geoInfo.frameHeight
+        result.meta.relativePath = geoInfo.relativePath or result.meta.relativePath
+        result.meta.loadPath = geoInfo.loadPath or result.meta.loadPath
+      end
+    end
   end
 
   local ok, sprite = pcall(SpriteRenderer.new, def, entity.spawnId or entity.id)

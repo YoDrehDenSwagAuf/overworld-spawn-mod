@@ -112,6 +112,11 @@ local function copyDef(def, spriteId, mod)
   }
   if def.walker then out.walker = true end
   if def.pokepcShiny then out.pokepcShiny = true end
+  -- Preserve Gen1Recomp variable-size geometry when a provider already set it.
+  if def.frameWidth ~= nil then out.frameWidth = def.frameWidth end
+  if def.frameHeight ~= nil then out.frameHeight = def.frameHeight end
+  if def.anchorX ~= nil then out.anchorX = def.anchorX end
+  if def.anchorY ~= nil then out.anchorY = def.anchorY end
   return out
 end
 
@@ -295,6 +300,22 @@ function SpriteProviders:_makePokemmoProvider()
         walker = def.walker == true,
         bodyRenderer = "NATIVE_SPRITE_RENDERER",
       }
+      local VariableSize = V.require("variable_size")
+      local _, geoInfo = VariableSize.applyToDef(mod, def, {
+        speciesId = dex,
+        style = "pokemmo",
+        variant = usedVariant or want,
+        spriteId = VariableSize.SPRITE_TEST_CHARIZARD,
+      })
+      if geoInfo and geoInfo.applied then
+        meta.relativePath = geoInfo.relativePath or meta.relativePath
+        meta.loadPath = geoInfo.loadPath or meta.loadPath
+        meta.variableSize = true
+        meta.frameWidth = geoInfo.frameWidth
+        meta.frameHeight = geoInfo.frameHeight
+        meta.anchorX = geoInfo.anchorX
+        meta.anchorY = geoInfo.anchorY
+      end
       return def, meta, nil
     end,
   }

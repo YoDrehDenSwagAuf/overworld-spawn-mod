@@ -491,6 +491,26 @@ function SettingsMenus:_openWildsRoot(game)
       end,
     },
     {
+      label = "POKEMON SIZE",
+      stepper = true,
+      wrap = true,
+      choices = {
+        { label = "CLASSIC", value = "classic" },
+        { label = "TRUE SIZE", value = "true_size" },
+      },
+      current = Config.pokemonSizeMode(mod),
+      right = ({ classic = "CLASSIC", true_size = "TRUE SIZE" })[tostring(Config.pokemonSizeMode(mod))] or "CLASSIC",
+      apply = function(v)
+        Config.setPokemonSize(mod, v, "options_menu", {
+          game = game, logic = menus.logic,
+          render = menus.logic and menus.logic.render, confirm = true,
+        })
+        if menus.ambient and menus.ambient.refreshSprites then
+          pcall(menus.ambient.refreshSprites, menus.ambient, game)
+        end
+      end,
+    },
+    {
       label = "SPRITE FADE",
       stepper = true,
       wrap = true,
@@ -826,6 +846,24 @@ function SettingsMenus:register()
       end)
     end,
   })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":size", {
+    new = function(game)
+      return menus:_openChoice(game, "POKEMON SIZE", {
+        { label = "CLASSIC", value = "classic" },
+        { label = "TRUE SIZE", value = "true_size" },
+      }, Config.pokemonSizeMode(mod), function(v)
+        Config.setPokemonSize(mod, v, "options_menu", {
+          game = game,
+          logic = menus.logic,
+          render = menus.logic and menus.logic.render,
+          confirm = true,
+        })
+        if menus.ambient and menus.ambient.refreshSprites then
+          pcall(menus.ambient.refreshSprites, menus.ambient, game)
+        end
+      end)
+    end,
+  })
   mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":fade", {
     new = function(game)
       return menus:_openChoice(game, "SPRITE FADE", {
@@ -953,7 +991,7 @@ SettingsMenus.FOLLOWERS_OPTION_KEYS = {
 }
 SettingsMenus.WILDS_OPTION_KEYS = {
   "enabled", "spawn_density", "random_encounters", "water_spawns",
-  "cave_spawns", "sprite_style", "sprite_fade", "town_pokemon",
+  "cave_spawns", "sprite_style", "pokemon_size", "sprite_fade", "town_pokemon",
   "pokemon_grass_render_mode", "overworld_catching", "catch_hud_size",
   "enable_idle", "enable_wander", "enable_aggressive", "enable_hidden",
   "dev_overlay",

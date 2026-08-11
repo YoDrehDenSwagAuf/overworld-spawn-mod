@@ -31,6 +31,10 @@ Config.DEFAULTS = {
   -- sprite_color removed: sheets always render true-color (24-bit PNG packs
   -- must never be force-baked to the 4-shade DMG ramp).
   sprite_style = "followers",
+  -- Pokémon visual size: classic = current 16×16 runtime geometry (safe default).
+  -- true_size = Gen1Recomp variable-size SpriteDef geometry when the engine API
+  -- is present and (if Voxel is on) Dramatic Shape consumes getPoseGeometry.
+  pokemon_size = "classic", -- classic | true_size
   -- Follower control (built-in; replaces FOLLOWERS_EX options).
   follow_control = "trainer", -- trainer | pokemon
   trainer_trail = false,
@@ -326,6 +330,16 @@ local SPRITE_STYLE_CONFIRM = {
   pokedex = "POKEDEX",
 }
 
+local VALID_POKEMON_SIZES = {
+  classic = true,
+  true_size = true,
+}
+
+local POKEMON_SIZE_CONFIRM = {
+  classic = "CLASSIC",
+  true_size = "TRUE SIZE",
+}
+
 -- Migrate legacy / unknown save values onto the public three-choice set.
 -- Internal provider ids (followers_ex / poke_followers) map to public "followers".
 function Config.normalizeSpriteStyle(value)
@@ -382,6 +396,40 @@ end
 --   false -> pokedex
 -- Legacy sprite_style strings (auto/gold/crystal/followers_ex) normalize onto
 -- the public three-choice set.
+function Config.normalizePokemonSize(value)
+  if value == true or value == "true" or value == "on" or value == "ON"
+     or value == "true_size" or value == "truesize" or value == "scaled"
+     or value == "True Size" or value == "TRUE SIZE" then
+    return "true_size"
+  end
+  if value == false or value == "false" or value == "off" or value == "OFF"
+     or value == "classic" or value == "Classic" or value == "CLASSIC"
+     or value == "original" then
+    return "classic"
+  end
+  if type(value) == "string" and VALID_POKEMON_SIZES[value] then
+    return value
+  end
+  return "classic"
+end
+
+function Config.pokemonSizeMode(mod)
+  local raw, present = Config.peekSavedOption(mod, "pokemon_size")
+  if present then
+    return Config.normalizePokemonSize(raw)
+  end
+  if mod and mod.options and type(mod.options.get) == "function" then
+    local v = mod.options:get("pokemon_size")
+    if v ~= nil then
+      return Config.normalizePokemonSize(v)
+    end
+  end
+  return Config.normalizePokemonSize(Config.DEFAULTS.pokemon_size)
+end
+
+Config.VALID_POKEMON_SIZES = VALID_POKEMON_SIZES
+Config.POKEMON_SIZE_CONFIRM = POKEMON_SIZE_CONFIRM
+
 function Config.spriteStyle(mod)
   local rawStyle, stylePresent = Config.peekSavedOption(mod, "sprite_style")
   if stylePresent and type(rawStyle) == "string" then
@@ -583,6 +631,44 @@ end
 
 Config.VALID_SPRITE_STYLES = VALID_SPRITE_STYLES
 Config.SPRITE_STYLE_CONFIRM = SPRITE_STYLE_CONFIRM
+
+function Config.setPokemonSize(mod, value, source, opts)
+  opts = opts or {}
+  value = Config.normalizePokemonSize(value)
+  if not VALID_POKEMON_SIZES[value] then
+    return false, "invalid pokemon_size: " .. tostring(value)
+  end
+  local game = resolveGame(mod, opts)
+  writeOptionBucket(mod, game, "pokemon_size", value)
+
+  local render = opts.render
+  local logic = opts.logic
+  if (not render or not logic) and mod and mod.exports then
+    render = render or mod.exports.render
+    logic = logic or mod.exports.logic
+  end
+  local refreshed = 0
+  if render and logic and type(render.refreshAllEntitySprites) == "function" then
+    if type(render.invalidateAssetCache) == "function" then
+      pcall(render.invalidateAssetCache, render)
+    end
+    local ok, n = pcall(render.refreshAllEntitySprites, render, logic, game)
+    if ok and type(n) == "number" then refreshed = n end
+  end
+
+  local confirmMsg = opts.message
+  if not confirmMsg and opts.confirm ~= false then
+    confirmMsg = "SIZE: " .. (POKEMON_SIZE_CONFIRM[value] or value:upper())
+  end
+  confirmText(game, mod, confirmMsg)
+
+  if source and mod and mod.log and type(mod.log.info) == "function" then
+    pcall(mod.log.info, mod.log,
+      "pokemon_size set to %s via %s (refreshed=%d)",
+      value, tostring(source), refreshed)
+  end
+  return true, refreshed
+end
 
 local VALID_SPAWN_AMOUNTS = {
   low = true,
