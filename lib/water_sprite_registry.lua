@@ -435,6 +435,13 @@ function WaterSpriteRegistry:_resolveKindVariant(speciesId, kind, variant, form,
   end
   -- Colored sheets render raw; the engine's trueColor contract handles
   -- every COLORS mode.  Pre-rendered silhouettes are already shaded.
+  local style = opts.style
+  if type(style) ~= "string" or style == "" then
+    style = Config.spriteStyle(self.mod)
+  end
+  if Config and type(Config.normalizeSpriteStyle) == "function" then
+    style = Config.normalizeSpriteStyle(style) or style
+  end
   local def = {
     kind = kind,
     speciesId = speciesId,
@@ -447,6 +454,10 @@ function WaterSpriteRegistry:_resolveKindVariant(speciesId, kind, variant, form,
     walker = true,
     trueColor = true,
     source = "mapping",
+    -- HGSS / PokeMMO water family (water_sprites → true_size/{swimming,levitate}).
+    -- Never poke_followers submerged art.
+    artFamily = "hgss_water",
+    spriteStyle = style,
     silhouette = usedSilhouette == true,
     silhouetteRequested = opts.silhouette == true,
     silhouetteFallback = opts.silhouette == true and usedSilhouette ~= true,
@@ -464,7 +475,7 @@ function WaterSpriteRegistry:_resolveKindVariant(speciesId, kind, variant, form,
       variant = variant,
       packId = packId,
       presentation = packId,
-      style = Config.spriteStyle(self.mod),
+      style = style,
     })
     if info and info.applied then
       def.relativePath = info.relativePath or def.relativePath
@@ -489,9 +500,17 @@ function WaterSpriteRegistry:resolve(speciesId, variant, preferredKind, form, op
   form = normalizeForm(form)
   preferredKind = preferredKind or self:preferredKindFor(sid)
   local silKey = opts.silhouette and "sil" or "color"
+  local style = opts.style or Config.spriteStyle(self.mod)
+  if Config and type(Config.normalizeSpriteStyle) == "function" then
+    style = Config.normalizeSpriteStyle(style) or style
+  end
+  style = tostring(style or "pokemmo")
+  opts.style = style
 
-  local cacheKey = string.format("%d:%s:water:%s:%s:%s:%s",
-    sid, want, tostring(preferredKind or "auto"), formKey(form), silKey,
+  -- Cache key MUST include sprite style so Followers→HGSS never returns a
+  -- stale water def from another art family / size mode combination.
+  local cacheKey = string.format("%d:%s:%s:water:%s:%s:%s:%s",
+    sid, want, style, tostring(preferredKind or "auto"), formKey(form), silKey,
     tostring((V.require("variable_size")).effectiveMode(self.mod)))
   local cached = self.cache[cacheKey]
   if cached ~= nil then
@@ -566,6 +585,10 @@ function WaterSpriteRegistry:diagnosticsFor(speciesId, variant, form)
     relativePath = def.relativePath,
     frames = def.frames,
     walker = def.walker == true,
+    artFamily = def.artFamily or "hgss_water",
+    spriteStyle = def.spriteStyle,
+    frameWidth = def.frameWidth,
+    frameHeight = def.frameHeight,
   }
 end
 

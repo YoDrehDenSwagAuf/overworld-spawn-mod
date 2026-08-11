@@ -72,7 +72,7 @@ Config.DEFAULTS = {
   wild_silhouettes = false,
   -- Optional overworld Poké Ball throws at visible wilds (default ON).
   overworld_catching = true,
-  -- Top-screen Ball inventory HUD icon size (1–10 → 6–15 px). Live.
+  -- Top-screen Ball inventory HUD size (1–10). Live; UI-only (not projectiles).
   catch_hud_size = 5,
   enable_idle = true,
   enable_wander = true,
@@ -195,17 +195,38 @@ function Config.overworldCatchingEnabled(mod)
 end
 
 --- Catch HUD size setting (1–10). Clamped; falls back to 5.
+--- Prefer the saved/loader option bucket (same path menus write) so live
+--- Catch HUD Size changes are visible immediately without restart.
 function Config.catchHudSize(mod)
-  local n = tonumber(Config.get(mod, "catch_hud_size"))
+  local n = nil
+  local raw, present = Config.peekSavedOption(mod, "catch_hud_size")
+  if present then
+    n = tonumber(raw)
+  end
+  if n == nil then
+    n = tonumber(Config.get(mod, "catch_hud_size"))
+  end
   if n == nil then n = 5 end
   if n < 1 then n = 1 end
   if n > 10 then n = 10 end
   return math.floor(n)
 end
 
---- Pixel size for top-screen Ball HUD icons (6–15). Does not affect projectiles.
+--- Normalized Catch HUD scale. Size 1≈0.75×, 5≈1.08×, 10=1.50×.
+--- UI-only — never used by thrown Ball / projectile code.
+function Config.catchHudScale(mod)
+  local size = Config.catchHudSize(mod)
+  return 0.75 + (size - 1) * (0.75 / 9)
+end
+
+--- Pixel size for top-screen Ball HUD icons. Does not affect projectiles.
+--- Base 14px at scale 1.0 → roughly 11 / 15 / 21 px at sizes 1 / 5 / 10.
+--- Mapping is intentionally bold so size changes are obvious on 160×144.
 function Config.catchHudIconPx(mod)
-  return 5 + Config.catchHudSize(mod)
+  local px = math.floor(14 * Config.catchHudScale(mod) + 0.5)
+  if px < 8 then px = 8 end
+  if px > 24 then px = 24 end
+  return px
 end
 
 -- Public Dev Overlay toggle. Migrates legacy debug / Dev Mode when unset.

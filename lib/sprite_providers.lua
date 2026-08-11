@@ -1073,25 +1073,38 @@ function SpriteProviders:resolveWater(style, speciesId, variant, game)
   style = self:normalizeStyle(style or Config.spriteStyle(self.mod) or "followers")
   local chain = self:chainForStyle(style)
 
-  -- Poke Followers submerged sheets are independent of the land sprite-style
-  -- preference.  Always try the followers_ex provider first so its submerged
-  -- art takes precedence over the swimming/levitates registry; then fall
-  -- through the selected style chain for providers that also support water.
-  local ordered = { SpriteProviders.ID.FOLLOWERS_EX }
+  -- Style owns water art family:
+  --   followers → poke_followers submerged (followers_ex)
+  --   pokemmo / pokedex → do NOT pull Followers water; leave swimming/
+  --   levitates registry / Classic fallback to SpriteResolver.
+  local ordered = {}
+  if style == "followers" then
+    ordered[#ordered + 1] = SpriteProviders.ID.FOLLOWERS_EX
+  end
   for _, pid in ipairs(chain) do
-    if pid ~= SpriteProviders.ID.FOLLOWERS_EX then
-      ordered[#ordered + 1] = pid
+    if pid ~= SpriteProviders.ID.FOLLOWERS_EX or style == "followers" then
+      local dup = false
+      for _, existing in ipairs(ordered) do
+        if existing == pid then dup = true; break end
+      end
+      if not dup then
+        ordered[#ordered + 1] = pid
+      end
     end
   end
 
   for _, providerId in ipairs(ordered) do
     local provider = self.providers[providerId]
-    if provider and type(provider.resolveWater) == "function" then
+    -- Never serve Followers submerged art under HGSS/Pokédex styles.
+    local allow = provider and type(provider.resolveWater) == "function"
+      and not (providerId == SpriteProviders.ID.FOLLOWERS_EX and style ~= "followers")
+    if allow then
       local def, meta, err = provider:resolveWater(speciesId, variant, game)
       if def then
         meta = meta or {}
         meta.providerId = providerId
         meta.kind = meta.kind or "submerged"
+        meta.artFamily = meta.artFamily or "poke_followers_submerged"
         meta.water = true
         -- trueColor travels with the art the provider served (luminance
         -- sheets in non-ADVANCED modes are false; colored art stays true).

@@ -178,7 +178,7 @@ return {
     default = 5,
     min = 1,
     max = 10,
-    description = "Size of the top-screen Poké Ball inventory HUD icons (1 = small, 10 = large). Does not change thrown Ball size.",
+    description = "Size of the top-screen Poké Ball inventory HUD (1 = compact, 5 = default, 10 = large). Scales HUD icons and layout only — does not change thrown Ball size.",
   },
   {
     key = "enable_idle",

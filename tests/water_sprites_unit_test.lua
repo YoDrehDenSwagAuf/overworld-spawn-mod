@@ -58,9 +58,15 @@ modules.config = {
     water_spawns = "swimming_sprites",
   },
   get = function(_, k) return modules.config.DEFAULTS[k] end,
-  spriteStyle = function() return "auto" end,
+  spriteStyle = function() return modules.config._style or "pokemmo" end,
+  normalizeSpriteStyle = function(v)
+    if v == "followers_ex" or v == "poke_followers" then return "followers" end
+    if v == "auto" or v == "gold" or v == "crystal" then return "pokemmo" end
+    return v
+  end,
   waterDisplayMode = function() return "swimming_sprites" end,
   debug = function() return false end,
+  _style = "pokemmo",
 }
 modules.tile = { CELL = 16, WIDTH = 16, HEIGHT = 16 }
 modules.debug_log = { warn = function() end, info = function() end, error = function() end }
@@ -144,6 +150,26 @@ check(type(missErr) == "string", "missing species error string")
 local a = reg:resolve(54, "normal")
 local b = reg:resolve(54, "normal")
 check(a and b and a.image == b.image, "registry cache stable")
+check(a and a.artFamily == "hgss_water", "registry tags artFamily=hgss_water")
+
+-- Style participates in WaterSpriteRegistry cache key.
+modules.config._style = "pokemmo"
+reg:invalidateCache()
+local hgssDef = reg:resolve(54, "normal", nil, nil, { style = "pokemmo" })
+modules.config._style = "followers"
+local followersStyleDef = reg:resolve(54, "normal", nil, nil, { style = "followers" })
+check(hgssDef ~= nil and followersStyleDef ~= nil, "style-tagged resolves succeed")
+-- Distinct cache entries (same asset family here, but keys must not collide).
+reg.cache["probe"] = { ok = true, def = { image = "STALE" } }
+local keyCount = 0
+for k in pairs(reg.cache) do
+  if type(k) == "string" and k:find(":pokemmo:", 1, true) then keyCount = keyCount + 1 end
+  if type(k) == "string" and k:find(":followers:", 1, true) then keyCount = keyCount + 1 end
+end
+check(keyCount >= 2, "cache keys include pokemmo and followers styles")
+reg:invalidateCache()
+check(next(reg.cache) == nil, "invalidateCache clears water registry cache")
+modules.config._style = "pokemmo"
 
 ------------------------------------------------------------------------
 -- SpriteResolver land vs water
@@ -259,7 +285,8 @@ if lev and not reg:hasKind(63, "swimming", "normal") then
   eq(lev.spriteKind, "levitates", "63 water uses levitates")
 end
 
--- Optional provider resolveWater wins when present (stub on pokemmo).
+-- HGSS/pokemmo: provider resolveWater must NOT steal water presentation.
+-- Style owns art family — HGSS uses the Wilds swimming/levitate registry.
 local customCalled = false
 local pokemmoProv = providers.providers.pokemmo
 check(pokemmoProv ~= nil, "pokemmo provider registered")
@@ -279,11 +306,14 @@ local custom = resolver2:resolveWaterSprite(waterEntity, {
   speciesId = 54,
   variant = "normal",
 })
-check(customCalled == true, "provider resolveWater consulted")
-check(custom and custom.providerId == "pokemmo", "provider water wins over Wilds")
-check(custom and custom.waterOverride == false, "provider water is not Wilds override")
+check(customCalled == false, "pokemmo skips provider resolveWater")
+check(custom and custom.spriteKind == "swimming", "pokemmo water uses Wilds swimming")
+check(custom and custom.meta and custom.meta.artFamily == "hgss_water",
+  "pokemmo water artFamily=hgss_water")
+local rel = custom and custom.meta and tostring(custom.meta.relativePath or "")
+check(rel == "" or not rel:find("poke_followers", 1, true),
+  "pokemmo water path is not poke_followers")
 
--- Missing resolveWater is not an error
 pokemmoProv.resolveWater = prevResolveWater
 local fallback = resolver2:resolveWaterSprite(waterEntity, {
   style = "pokemmo",
@@ -291,7 +321,32 @@ local fallback = resolver2:resolveWaterSprite(waterEntity, {
   variant = "normal",
 })
 check(fallback and fallback.spriteKind == "swimming",
-      "missing resolveWater falls back to Wilds swimming")
+      "pokemmo water stays on Wilds swimming registry")
+
+-- Followers style keeps poke_followers submerged art family when available.
+local followersWater = resolver2:resolveWaterSprite(waterEntity, {
+  style = "followers",
+  speciesId = 54,
+  variant = "normal",
+})
+check(followersWater ~= nil, "followers water resolves")
+if followersWater then
+  local fam = (followersWater.meta and followersWater.meta.artFamily)
+    or (followersWater.def and followersWater.def.artFamily)
+  check(followersWater.spriteKind == "submerged"
+      or followersWater.spriteKind == "followers_ex"
+      or followersWater.spriteKind == "swimming",
+    "followers water kind is submerged/followers or swim fallback")
+  if followersWater.spriteKind == "submerged"
+      or followersWater.providerId == "poke_followers_submerged" then
+    eq(fam, "poke_followers_submerged", "followers water artFamily")
+  end
+end
+
+-- Style switch invalidates resolver + registry caches (no stale family).
+resolver2:invalidateCache()
+check(next(resolver2.cache) == nil, "resolver invalidate clears cache")
+check(next(reg.cache) == nil, "resolver invalidate clears water registry cache")
 
 -- applyEntityMeta
 resolver:applyEntityMeta(waterEntity, water)

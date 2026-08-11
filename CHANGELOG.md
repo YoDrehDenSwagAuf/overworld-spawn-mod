@@ -1,32 +1,45 @@
 # Changelog
 
-## Unreleased
+## 2.0.0
 
-### Pokémon Size tied to Sprite Style (option removed)
+Major overworld presentation release: HGSS True Size, overworld catching, and
+water/follower polish — with two final scale fixes below.
 
-- Removed the **Pokémon Size** (Classic / True Size) option from Mod Settings
-  and the in-game OPTIONS menu. Sprite size now follows **Sprite Style**:
-  - GSC sprites (Poke Followers / GSC) → **Classic** (one-tile 16×16)
-  - HGSS sprites (HGSS / PokeMMO) → **True Size** (larger species-relative sizes)
-  - Pokédex sprites → **Classic**
-- Changing Sprite Style live-rebinds wilds, followers, Town Pokémon, and water
-  sprites to the matching size; the True Size Voxel fallback (Classic geometry
-  while an incompatible Dramatic Shape renderer is active) is unchanged.
-- Re-enabled overworld Poké Ball catching (OW Catch / Catch HUD options) that
-  had been locally disabled.
+### HGSS True Size / native variable-size overworld sprites
 
-### Swimming sprite luminance derivation (followers / trailers)
+- HGSS / PokeMMO Sprite Style uses native HGSS land artwork as the visual size
+  authority (True Size). GSC / Pokédex stay Classic 16×16.
+- Pokémon Size is no longer a separate option — size follows Sprite Style.
+- Wilds, followers, and Town Pokémon share generated geometry under
+  `assets/generated/true_size/`.
+- Voxel + incompatible Dramatic Shape still falls back to Classic geometry
+  without rewriting saved options.
 
-- The GSC / Poke Followers and party-trailer water paths now derive the
-  submerged look at load from the coloured poke_followers **LAND** sheets via
-  `LuminanceSheet.submergedFor` (waterline mask + foam/blue water line, cached
-  in the save dir) — the same runtime derivation the wild path already used —
-  instead of loading separate `follower_NNN_*_submerged.png` files. Non-ADVANCED
-  COLORS modes serve the derived 3-shade luminance ramp with `trueColor=false`
-  so the engine's zone pass colors it out of the mode palette; ADVANCED serves
-  the submerged coloured sheet raw. This restores luminance-correct swimming
-  sprites for followers and trailers now that the separate submerged asset
-  files are no longer shipped.
+### Overworld catching
+
+- Optional OW Catch throws at visible wilds (desktop C/Q plus mobile B-modifier).
+- Compact ~6px world Poké Ball projectiles (unchanged by HUD size).
+- Catch HUD Size now visibly scales the top-screen Ball inventory HUD as one
+  component (icons, selection border, quantity, meter spacing). HUD uses
+  full Ball art (not the tiny world `*_sm` sprites). Thrown Ball / projectile
+  size stays fixed at ~6px.
+
+### Water / levitate True Size scale consistency
+
+- Swimming and levitate True Size presentations treat the species' **HGSS land
+  opaque footprint** as absolute size authority (nearest-neighbor, uniform
+  scale). Height is primary; width/area caps stop wide poses from looking
+  larger than land. A final **0.95** presentation bias keeps water/levitate
+  equal or slightly smaller than land — never larger.
+- Regenerated for every species with HGSS land + swimming/levitate source art
+  (not a 3-species prototype). Classic / GSC water runtime and Voxel unchanged.
+
+### Followers & world presentation
+
+- Improved follower/world presentation and land→water switches without sudden
+  species-size jumps on True Size HGSS.
+- GSC / Poke Followers swimming luminance is derived from coloured land sheets
+  at load (no shipped `*_submerged.png` duplicates).
 
 ## 1.14.0
 
@@ -74,9 +87,9 @@
   distance along facing (synced with the meter). Flat uses camera-native
   canvas space; Voxel uses Dramatic Shape `project()` from drawFx so zoom
   no longer drifts the markers.
-- Compact ~6px Ball projectiles; top-screen Ball HUD icons scale with
-  **Catch HUD Size** (`catch_hud_size`, 1–10 → 6–15 px, default 5 / 10 px);
-  success click + fail break presentation before cleanup.
+-   Compact ~6px Ball projectiles; top-screen Ball HUD icons scale with
+  **Catch HUD Size** (`catch_hud_size`, 1–10); success click + fail break
+  presentation before cleanup.
 - Catch sequence uses native Gen1Recomp SFX via `Sound.play`: `Ball_Toss`,
   `Ball_Poof`, `Tink`, `Caught_Mon` (no bundled audio files).
 - Easter eggs: Ball hit on a human NPC → `"Ouch, yo, WTF"`; Town/Ambient

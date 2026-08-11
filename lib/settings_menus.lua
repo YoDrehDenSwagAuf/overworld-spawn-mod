@@ -601,8 +601,8 @@ function SettingsMenus:_openWildsRoot(game)
           if n < 1 then n = 1 end
           if n > 10 then n = 10 end
           n = math.floor(n)
-          optSet(mod, "catch_hud_size", n)
-          menus:_notifyLogic("catch_hud_size", n)
+          -- Canonical bucket write + shared options-changed handler (live).
+          menus:_setOption("catch_hud_size", n)
         end,
       }
     end)(),
