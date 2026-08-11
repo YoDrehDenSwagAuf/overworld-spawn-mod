@@ -390,7 +390,10 @@ function GrassOcclusion.refreshEntity(entity, mod, map)
   if not entity then return end
   GrassOcclusion.updateInGrassFlag(entity, mod, map)
   local renderedH = GrassOcclusion.frameHeightForEntity(entity)
-  if entity.animation and entity.animation._lastFrameSize then
+  -- True Size native SpriteRenderer: pose/def geometry is authoritative.
+  -- Never let stale Enhanced animation._lastFrameSize (often 16×16) win.
+  if not GrassOcclusion.usesTrueSizeFeetBand(entity, mod)
+     and entity.animation and entity.animation._lastFrameSize then
     local fh = entity.animation._lastFrameSize[2] or renderedH
     renderedH = fh * (entity.final2DScale or 1)
   end

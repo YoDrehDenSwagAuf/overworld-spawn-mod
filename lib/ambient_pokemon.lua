@@ -321,10 +321,26 @@ function AmbientPokemon:_resolveSprite(species, game)
           frames = sd.frames or 6,
           walker = true,
           trueColor = sd.trueColor ~= false,
+          frameWidth = sd.frameWidth,
+          frameHeight = sd.frameHeight,
+          anchorX = sd.anchorX,
+          anchorY = sd.anchorY,
           providerId = "runtime",
           style = style,
           species = species,
         }
+        -- Runtime fallback must still receive True Size geometry (Wild parity).
+        local VariableSize = V.require("variable_size")
+        local geoInfo
+        def, geoInfo = VariableSize.applyToDef(self.mod, def, {
+          speciesId = dex,
+          style = style,
+          variant = "normal",
+          spriteId = def.id,
+        })
+        if geoInfo and geoInfo.applied then
+          def.variableSize = true
+        end
       end
     end
   end

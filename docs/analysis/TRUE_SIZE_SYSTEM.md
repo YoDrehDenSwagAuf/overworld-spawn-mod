@@ -52,9 +52,32 @@ Logical footprint stays **one cell**. When `effectiveMode == true_size`,
 
 Classic / Voxel-effective-Classic keep the historic 1-cell snake.
 
+## Wild vs Follower geometry (root cause of Wild clipping)
+
+**Symptom:** True Size Wilds clipped on land, grass, **and** water; Followers
+of the same species rendered correctly. Grass alone was not the root cause.
+
+**Root cause:** Wild `SpriteDef` rebuilds dropped `frameWidth` / `frameHeight` /
+`anchorX` / `anchorY`, so Gen1Recomp `SpriteRenderer` fell back to **16×16**
+quads on taller True Size sheets. Water rebinds then called
+`VariableSize.applyToDef` without `presentation`/`packId`, swapping swimming
+sheets for land packs.
+
+**First divergence:** Follower `spriteDefWithGeometry` always copies geometry;
+Wild `Entity.new` / water resolver / `applyProviderSprite` did not.
+
+**Fix:** Preserve geometry on every Wild def copy; pass `presentation`/`packId`
+into `applyToDef` for water/levitate; treat missing geometry as unequal in
+skip-rebuild checks (`or 16` hid mismatches).
+
+Logical footprint stays 16×16. Visual geometry comes from `sprite.def` /
+`getPoseGeometry()`.
+
 ## Grass / scaleInfo
 
-Native True Size entities mirror `frameWidth`/`frameHeight` into `scaleInfo`.
+Native True Size entities mirror `frameWidth`/`frameHeight` into `scaleInfo`
+for diagnostics / feet-band cover only — SpriteScale one-tile clamp must not
+drive native True Size draws.
 
 **Classic Flat:** engine `TileRenderer:drawCellBottom` (bottom **8px** of the
 16×16 cell) — unchanged.
@@ -65,7 +88,8 @@ Native True Size entities mirror `frameWidth`/`frameHeight` into `scaleInfo`.
 - Immersed → `setScissor` to `computeTrueSizeCover()` (~4–6px at feet)
 - Above → skip overdraw entirely
 
-Never leaves scissor active across other draws. Voxel untouched.
+Scissor restore is guarded with `pcall`. Voxel untouched. Feet-band remains a
+separate native Tall Grass overdraw concern after the geometry fix.
 
 ## Dramatic Shape
 
