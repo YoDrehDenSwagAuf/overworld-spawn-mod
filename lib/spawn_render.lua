@@ -1284,6 +1284,12 @@ function Entity.new(game, mod, render, record)
       spriteId = drawDef.id or spriteId,
       presentation = presentation,
       packId = packId,
+      -- Wild Encounter Silhouettes: the resolver already blacked the def
+      -- out (same true_size dimensions as the source sheet).  Keep that
+      -- pre-shaded image + trueColor; only pack geometry is applied so the
+      -- tall sheet never bakes 16×16 quads.
+      keepImage = resolvedProvider.wildSilhouette == true,
+      skipLuminance = resolvedProvider.wildSilhouette == true,
     })
     if geoInfo and geoInfo.applied then
       self.variableSizeApplied = true
@@ -2208,6 +2214,11 @@ function SpawnRender:applyProviderSprite(entity, game)
       spriteId = def.id,
       presentation = presentation,
       packId = packId,
+      -- Wild Encounter Silhouettes: the resolver blacked this def out (same
+      -- true_size dimensions). Keep that pre-shaded image + trueColor; only
+      -- re-assert pack geometry so the tall sheet never bakes 16×16 quads.
+      keepImage = result.wildSilhouette == true,
+      skipLuminance = result.wildSilhouette == true,
     })
     if geoInfo then
       entity.variableSizeApplied = geoInfo.applied == true

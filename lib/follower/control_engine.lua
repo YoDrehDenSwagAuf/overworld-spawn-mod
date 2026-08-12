@@ -23,6 +23,27 @@ ControlEngine.__index = ControlEngine
 
 local TRAILER_BASE = 240
 
+-- Jam-recovery tuning (see the recovery block in syncTrailers).  A scrambled
+-- pack (slot order inverted after a reversal) is re-seeded quickly; non-inverted
+-- stalls wait a fraction of a second; a quiet cooldown stops a re-form from
+-- oscillating into repeated pops.  All in logic frames.
+--
+-- The inverted (scrambled) fast path is deliberately NOT instantaneous: during
+-- an ordinary reversal the tightly packed 1-cell train briefly folds and its
+-- slot-order probe can read as inverted for a frame or two before the swap
+-- allowance resolves the crossing.  An 8x/2-frame fast fire turned that
+-- momentary fold into a visible teleport-pop (the "slingshot" read on tall
+-- True Size sprites).  Since the fold fixes (live-goal swap, feasibility
+-- guard, in-flight abort) those momentary folds resolve by walking and never
+-- accumulate, the fast path only fires on genuine deadlocks — so it can run
+-- quicker: FAST_STEP = 4 re-seeds a scrambled pack after ~4 stalled frames
+-- (~0.07s) before the player has walked far enough for the re-seed to read as
+-- a big teleport.  Non-inverted stalls (wall-blocked pack) still wait
+-- THRESHOLD frames; COOLDOWN keeps a re-form from popping repeatedly.
+local TRAIL_JAM_THRESHOLD = 12
+local TRAIL_JAM_FAST_STEP = 4
+local TRAIL_JAM_COOLDOWN = 40
+
 local DIR_DELTA = {
   right = { 1, 0 }, left = { -1, 0 }, down = { 0, 1 }, up = { 0, -1 },
 }
@@ -686,37 +707,39 @@ end
 function ControlEngine:_goalsFromTrailHistory(ow, trailers, fallbackX, fallbackY)
   local history = (ow and ow.pokepcTrailHistory) or {}
   local goals = {}
-  local lag = 0
-  local prevGap = 1
   local head = ow and ow.pokepcTrailHead
   local hx, hy = head and head.x, head and head.y
   local function offHead(c)
     return c and (hx == nil or c.x ~= hx or c.y ~= hy)
   end
+  -- One-cell lag: follower i aims at the cell vacated i steps ago — the
+  -- exact classic snake.  Size-based whole-cell gaps made big (True Size)
+  -- sprites spread far behind the player AND let lag goals cross on a
+  -- doubled-back trail: the pack turned around at the trail's end one
+  -- follower at a time, physically swapped order, and then deadlocked —
+  -- the reversal "chain break".  Keeping every follower exactly one cell
+  -- behind the one ahead is order-preserving by construction (the Classic
+  -- snake that never breaks) and keeps the pack tight against the player.
   for i, npc in ipairs(trailers or {}) do
-    local gap = self:_followGapForSource(npc)
-    local stepGap = (i == 1) and math.max(1, gap) or math.max(prevGap, gap)
-    lag = lag + stepGap
     local cell
     if hx ~= nil then
-      -- Walk forward from the exact lag until a non-head cell is found
+      -- Walk forward from the exact lag until an off-head cell is found
       -- (the lag slot itself can be the head cell on a doubled-back path).
-      for scan = lag, #history do
+      for scan = i, #history do
         if offHead(history[scan]) then
           cell = history[scan]
           break
         end
       end
     else
-      cell = history[lag]
+      cell = history[i]
     end
     if not cell then
       local last = history[#history]
-      if offHead(last) then cell = last end
+      if last and offHead(last) then cell = last end
     end
     goals[i] = cell and { x = cell.x, y = cell.y }
       or { x = fallbackX, y = fallbackY }
-    prevGap = gap
   end
   return goals
 end
@@ -988,6 +1011,21 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
   npc.pokepcMon = mon
   npc.passable = true
   npc.facing = facing or "down"
+  -- Draw-order tiebreak: the engine y-sorts entities by py with a
+  -- tie-break that only special-cases pikachuFollower (which trailers
+  -- must NOT set — stock findFollower would remove them), so two
+  -- overlapping trailers (same cell: entry parking, folds, re-seeds)
+  -- get an arbitrary, frame-varying draw order — the flicker on tall
+  -- True Size sprites.  Bias each trailer's py by a sub-pixel slot
+  -- offset: the leader (slot 1) draws on top of the pack, and every
+  -- trailer stays just UNDER the player's own exact py.  py is purely
+  -- presentation for trailers (movement/collision use cellX/cellY), so
+  -- the bias is invisible and only makes the engine's sort deterministic.
+  npc._wildsDrawBias = -slot * 0.001
+  -- NPC.new parked this trailer at (x, y) without the offset — carry the
+  -- bias onto the spawn pose so a fresh stack sorts consistently with its
+  -- biased siblings on the first draw.
+  npc.py = (npc.py or y * 16) + (npc._wildsDrawBias or 0)
   -- NEVER set pikachuFollower on trailers (stock findFollower would remove them).
   npc.pikachuFollower = false
   npc.pokepcTalkablePikachu = (kind ~= "trainer"
@@ -1381,7 +1419,7 @@ end
 
 local function placeTrailerAt(npc, x, y, facing)
   npc.cellX, npc.cellY = x, y
-  npc.px, npc.py = x * 16, y * 16
+  npc.px, npc.py = x * 16, y * 16 + (npc._wildsDrawBias or 0)
   npc.targetX, npc.targetY = nil, nil
   npc.moving = false
   npc.progress = 0
@@ -1524,10 +1562,13 @@ function ControlEngine.advanceTrailerStep(npc, _map, _entities, diag)
   local t = npc.progress / frames
   if t > 1 then t = 1 end
   npc.px = (fromX + (toX - fromX) * t) * 16
-  npc.py = (fromY + (toY - fromY) * t) * 16
+  -- Draw-order tiebreak rides on py every frame — mid-step fold swaps
+  -- cross at equal pixel y, and without the bias that transient tie
+  -- flickers exactly like a standing stack.
+  npc.py = (fromY + (toY - fromY) * t) * 16 + (npc._wildsDrawBias or 0)
   if npc.progress >= frames then
     npc.cellX, npc.cellY = toX, toY
-    npc.px, npc.py = toX * 16, toY * 16
+    npc.px, npc.py = toX * 16, toY * 16 + (npc._wildsDrawBias or 0)
     npc.targetX, npc.targetY = nil, nil
     npc.moving = false
     npc.progress = 0
@@ -1611,16 +1652,38 @@ function ControlEngine:_seedTrailBehind(ow, anchor, facing, n, game, role)
     end
     return goals
   end
+  -- Dedupe the trail into distinct, in-order cells.  On a doubled-back path
+  -- (reversal / zigzag) the same physical cell can appear at several lags,
+  -- so the trail table can alias two followers onto one cell; re-seeding
+  -- them stacked re-creates the jam instantly (reform #2) instead of
+  -- fixing it.  Claim each cell once so the pack lands spread out in trail
+  -- order; stragglers fall back to walkable cells behind the anchor.
+  local distinct = {}
+  local claimed = {}
+  for _, t in ipairs(trail) do
+    if t and not claimed[t.x .. "," .. t.y]
+       and self:isFollowerCellAllowed(game, ow, nil, t.x, t.y, {
+         surface = surface, role = role,
+       }) then
+      claimed[t.x .. "," .. t.y] = true
+      distinct[#distinct + 1] = t
+    end
+  end
+  local occupied = {}
   for i = 1, n do
-    local t = trail[i]
-    if t and self:isFollowerCellAllowed(game, ow, nil, t.x, t.y, {
-      surface = surface, role = role,
-    }) then
+    local t = distinct[i]
+    if t then
       goals[i] = { x = t.x, y = t.y }
+      occupied[t.x .. "," .. t.y] = true
     else
-      -- Off the trail (short trail / collapsed tail): park on the anchor's
-      -- cell.  The trailer walks out as the trail re-opens.
-      goals[i] = { x = px, y = py }
+      -- Off the trail (short trail / collapsed tail / all distinct cells
+      -- exhausted): park the trailer at a walkable cell BEHIND the anchor
+      -- (distinct from every other re-seeded trailer), falling back to the
+      -- anchor's own cell only when nothing behind is available.  It walks
+      -- out as the trail re-opens.
+      local bx, by = self:_walkableBehind(ow, px, py, facing, i, nil, game, role, occupied)
+      occupied[bx .. "," .. by] = true
+      goals[i] = { x = bx, y = by }
     end
   end
   return goals
@@ -1705,6 +1768,54 @@ local function compositionDirty(trailers, want)
     end
   end
   return false
+end
+
+--- True when `owner` (a stationary trailer occupying the cell `npc` wants to
+-- step into) is itself trying to move to `npc`'s current cell — a mutual
+-- cell exchange.  A doubled-back path (reversal) re-spaces the pack at the
+-- fold: adjacent followers' goals can point at each other's cells, and with
+-- strict reservations NEITHER may move first (each is blocked by the other's
+-- occupied cell) — the pack deadlocks scrambled instead of re-forming
+-- behind the player.  Allowing the mutual exchange breaks the circular wait:
+-- the two followers shuffle past each other and the pack un-jams.
+local function trailerSwapIntended(npc, owner, trailers, goals, ow)
+  if owner == nil or owner == npc then return false end
+  if not (owner.pokepcTrailer == true) then return false end
+  if owner.moving then return false end
+  local ox, oy = owner.cellX, owner.cellY
+  local nx, ny = npc.cellX, npc.cellY
+  if ox == nil or oy == nil or nx == nil or ny == nil then return false end
+  if ox == nx and oy == ny then return false end
+  -- Live goal FIRST: _wildsGoalX/Y goes stale the moment a follower lands
+  -- (it holds the goal the follower STARTED a step toward, which after
+  -- landing equals the follower's own cell).  A fold-time swap must read
+  -- the CURRENT goal from the goals table, or adjacent followers crossing
+  -- at a reversal never register as an exchange, the pack deadlocks, and
+  -- the jam-recovery resolves it by teleporting (the True Size
+  -- "slingshot" pop).
+  local ogx, ogy = nil, nil
+  for idx, tr in ipairs(trailers or {}) do
+    if tr == owner then
+      local g = goals and goals[idx]
+      if g then ogx, ogy = g.x, g.y end
+      break
+    end
+  end
+  if ogx == nil then
+    ogx, ogy = owner._wildsGoalX, owner._wildsGoalY
+  end
+  -- Feasibility: the exchange only works if the occupant can actually step
+  -- to the stepper's cell THIS frame.  A goal on the head cell or the
+  -- player's current cell is unreachable (the player still stands there),
+  -- so treating it as an intended swap lets the stepper walk into an
+  -- occupant that cannot move — overlap (the True Size "slingshot").
+  if ogx ~= nil then
+    local head = ow and ow.pokepcTrailHead
+    if head and ogx == head.x and ogy == head.y then return false end
+    local p = ow and ow.player
+    if p and ogx == p.cellX and ogy == p.cellY then return false end
+  end
+  return ogx == nx and ogy == ny
 end
 
 function ControlEngine:syncTrailers(game, ow, opts)
@@ -2093,6 +2204,22 @@ function ControlEngine:syncTrailers(game, ow, opts)
     end
   end
 
+  -- The player just committed a step into a cell; any trailer mid-step into
+  -- that SAME cell must abort — they would land on the player (the zigzag
+  -- "steps onto head cell" read on True Size sprites, where the follower
+  -- walks through the player on the doubled-back).  The follower holds at
+  -- its origin cell and re-assigns next frame; the pause is one step.
+  if committed and p and p.moving and p.targetX ~= nil and p.targetY ~= nil then
+    for i, t in ipairs(trailers) do
+      if t.moving and t.targetX ~= nil and t.targetY ~= nil
+         and t.targetX == p.targetX and t.targetY == p.targetY then
+        t.moving = false
+        t.targetX, t.targetY = nil, nil
+        t.progress = 0
+      end
+    end
+  end
+
   -- Step assignment runs every frame: a trailer starts a step as soon as its
   -- goal differs, even on frames where the head did not commit (a trailer that
   -- landed mid-walk must re-step immediately instead of freezing until the
@@ -2129,7 +2256,10 @@ function ControlEngine:syncTrailers(game, ow, opts)
   local function seamCellFree(x, y, npc)
     if not seamReservations then return true end
     local owner = seamReservations[tostring(x) .. "," .. tostring(y)]
-    return owner == nil or owner == npc
+    if owner == nil or owner == npc then return true end
+    -- Mutual cell exchange (reversal re-spacing): the stationary occupant
+    -- wants the stepper's own cell — let them shuffle past each other.
+    return trailerSwapIntended(npc, owner, trailers, goals, ow)
   end
   local function reserveSeamCell(x, y, npc)
     if seamReservations then
@@ -2142,10 +2272,25 @@ function ControlEngine:syncTrailers(game, ow, opts)
       if seamReservations[key] == npc then seamReservations[key] = nil end
     end
   end
+  local anyStepStarted = false
+  local anyOffGoal = false
+  local anyOnHead = false
+  local inverted = false
+  local prevDist = math.huge
   for i, npc in ipairs(trailers) do
     if npc.moving then
       -- Trailer update owns px/py mid-step; do not overwrite.
+      anyStepStarted = true
     else
+      -- Scramble probe (stationary pack only): a packed train's slot order
+      -- is monotonic in head-distance (1,2,3...).  A later follower CLOSER
+      -- to the head than an earlier one means the pack swapped order (the
+      -- reversal fold) and is deadlocked — that arms the fast re-seed.
+      -- The entry drain is excluded separately via anyOnHead.
+      local d = math.abs((npc.cellX or 0) - head.x) + math.abs((npc.cellY or 0) - head.y)
+      if d < prevDist and prevDist ~= math.huge then inverted = true end
+      prevDist = d
+      if d == 0 then anyOnHead = true end
       local cell = goals[i] or { x = anchor.cellX, y = anchor.cellY }
       local gx, gy = cell.x, cell.y
       local role = npc.wildsFollowerRole or "party_trailer"
@@ -2160,10 +2305,12 @@ function ControlEngine:syncTrailers(game, ow, opts)
         goals[i] = { x = gx, y = gy }
       end
       if npc.cellX ~= gx or npc.cellY ~= gy then
+        anyOffGoal = true
         local originX, originY = npc.cellX, npc.cellY
         local ok = self:_assignTrailerStep(
-          game, ow, npc, gx, gy, surface, role, stepClock, facing, seamCellFree)
+          game, ow, npc, gx, gy, surface, role, stepClock, facing, seamCellFree, i)
         if ok then
+          anyStepStarted = true
           releaseSeamCell(originX, originY, npc)
           reserveSeamCell(npc.targetX, npc.targetY, npc)
           -- Keep the trail cell aligned with the trailer's actual aim
@@ -2175,6 +2322,60 @@ function ControlEngine:syncTrailers(game, ow, opts)
       end
     end
   end
+
+  -- Jam recovery: when the pack should be walking but NO trailer could start
+  -- a step while some trailer is off its goal, the trail goals have scrambled
+  -- (a reversal walked the pack back over its own trail — the fold) and
+  -- single-file stepping can never re-order the pack: the follower that
+  -- reached its goal first parks on the path and the rest deadlock behind
+  -- it.  Re-seed the pack along the player's actual walked trail instead:
+  -- the trail cells are ordered by construction (one cell per follower), so
+  -- a re-seed restores slot order and the pack follows cleanly.
+  --
+  -- Latency: a SCRAMBLED pack (slot order inverted) is re-seeded almost
+  -- immediately — the counter jumps by TRAIL_JAM_FAST_STEP per stalled
+  -- frame, so the freeze is imperceptible (~2 frames).  Non-inverted stalls
+  -- (e.g. a pack blocked against walls) wait TRAIL_JAM_THRESHOLD frames.
+  -- The entry drain is excluded by anyOnHead (parked followers sit on the
+  -- head cell and drain naturally when the player walks — never a jam) and
+  -- the entry cooldown; TRAIL_JAM_COOLDOWN frames of quiet must pass before
+  -- a re-seed can fire again, so a re-form can't oscillate into repeated
+  -- pops.
+  if ow._wildsJamCooldown and ow._wildsJamCooldown > 0 then
+    ow._wildsJamCooldown = ow._wildsJamCooldown - 1
+  end
+  if not anyStepStarted and anyOffGoal and not anyOnHead
+     and (ow._wildsEntryCooldown == nil or ow._wildsEntryCooldown <= 0)
+     and (ow._wildsJamCooldown == nil or ow._wildsJamCooldown <= 0) then
+    ow._wildsJamFrames = (ow._wildsJamFrames or 0)
+      + (inverted and TRAIL_JAM_FAST_STEP or 1)
+    if ow._wildsJamFrames >= TRAIL_JAM_THRESHOLD then
+      ow._wildsJamFrames = 0
+      ow._wildsJamCooldown = TRAIL_JAM_COOLDOWN
+      local seedGoals = self:_seedTrailBehind(ow, anchor, facing, #trailers, game, surface)
+      local reformed = 0
+      for i, npc in ipairs(trailers) do
+        local c = seedGoals and seedGoals[i]
+        if c and self:isFollowerCellAllowed(game, ow, npc, c.x, c.y, {
+          surface = surface, role = npc.wildsFollowerRole or "party_trailer",
+        }) then
+          placeTrailerAt(npc, c.x, c.y, npc.facing or facing)
+          npc.targetX, npc.targetY = nil, nil
+          npc.moving = false
+          npc.progress = 0
+          goals[i] = { x = c.x, y = c.y }
+          reformed = reformed + 1
+        end
+      end
+      if reformed > 0 then
+        ow.pokepcTrailCells = goals
+        self.diag.lastSeed = "jam_reform"
+        self.diag.jamReforms = (self.diag.jamReforms or 0) + 1
+      end
+    end
+  else
+    ow._wildsJamFrames = 0
+  end
   return true
 end
 
@@ -2184,7 +2385,7 @@ end
 -- consecutive steps without waiting for the next goal shift. Returns true
 -- when a step started; false when blocked (no adjacent follower cell).
 function ControlEngine:_assignTrailerStep(game, ow, npc, gx, gy, surface, role,
-                                           stepClock, facing, cellFree)
+                                           stepClock, facing, cellFree, slot)
   local Collision = tryRequire("src.world.Collision")
   -- A follower must never walk onto the cell the trail head currently
   -- occupies (the player's cell).  Path doubling (a reversal over walked
@@ -2252,7 +2453,19 @@ function ControlEngine:_assignTrailerStep(game, ow, npc, gx, gy, surface, role,
   -- the straggler moves continuously instead of bursting 8 frames then
   -- freezing 8 frames waiting for the next goal shift (the tick-tock drag).
   -- Ledge hops always use full-length frames for the arc animation.
-  if not npc.hopStep and far > 1 then
+  --
+  -- Double cadence is reserved for GENUINE stragglers — a trailer more than
+  -- one cell behind its convoy slot (head-distance > slot + 1).  On a
+  -- reversal the tightly packed train's trail-history goals can jump 2+ cells
+  -- (doubled-back lag indexing) while every member is still right behind the
+  -- head; treating that as "falling behind" makes the whole pack DASH through
+  -- the fold at double speed — the visible True Size "slingshot".  Folds
+  -- resolve by walking at normal cadence (the swap allowance lets the
+  -- crossing members shuffle past), which reads as a smooth turnaround.
+  local headDist = (hx ~= nil and hy ~= nil)
+    and (math.abs((npc.cellX or 0) - hx) + math.abs((npc.cellY or 0) - hy)) or 0
+  local lagging = headDist > (slot or 1) + 1
+  if not npc.hopStep and far > 1 and lagging then
     npc.stepFrames = math.max(1, math.floor(stepClock / 2))
   else
     npc.stepFrames = stepClock
@@ -2310,7 +2523,9 @@ function ControlEngine:_chainCatchUpSteps(game, ow, stepClock)
       if cx == x and cy == y then
         if npc == selfNpc then return true end  -- self
         if npc.moving then return true end     -- vacating
-        return false
+        -- Mutual cell exchange (reversal re-spacing): the stationary
+        -- occupant wants this stepper's own cell — let them shuffle past.
+        return trailerSwapIntended(selfNpc, npc, trailers, goals, ow)
       end
       if npc.moving and npc.targetX == x and npc.targetY == y then
         if npc == selfNpc then return true end  -- self
@@ -2332,7 +2547,7 @@ function ControlEngine:_chainCatchUpSteps(game, ow, stepClock)
           surface = surface, role = npc.wildsFollowerRole or "party_trailer",
         }) then
           local ok = self:_assignTrailerStep(game, ow, npc, gx, gy, surface,
-            npc.wildsFollowerRole or "party_trailer", stepClock, facing, cellFree)
+            npc.wildsFollowerRole or "party_trailer", stepClock, facing, cellFree, i)
           if ok then
             -- Mark the step target as occupied so later trailers don't
             -- step into it.
@@ -2341,8 +2556,20 @@ function ControlEngine:_chainCatchUpSteps(game, ow, stepClock)
             end
             -- Chain at catch-up cadence for normal steps; ledge hops keep
             -- full-length frames so the arc animation plays out properly.
+            -- Same straggler gate as the main assignment: mid-reversal-fold
+            -- trailers re-step immediately (no freeze) but at NORMAL cadence
+            -- so the pack turns smoothly instead of dashing through the fold.
             if not npc.hopStep then
-              npc.stepFrames = math.max(1, math.floor(stepClock / 2))
+              local head = ow and ow.pokepcTrailHead
+              local chx, chy = head and head.x, head and head.y
+              local headDist = (chx ~= nil and chy ~= nil)
+                and (math.abs((npc.cellX or 0) - chx)
+                     + math.abs((npc.cellY or 0) - chy)) or 0
+              if headDist > i + 1 then
+                npc.stepFrames = math.max(1, math.floor(stepClock / 2))
+              else
+                npc.stepFrames = stepClock
+              end
             end
             assigned = assigned + 1
           end
@@ -2495,10 +2722,19 @@ end
 -- so submerged sheets take effect the moment the player enters water and
 -- land sheets restore when they step out.
 --
--- Water path: loads poke_followers/follower_NNN_submerged.png directly via
--- fsExists instead of going through the resolution chain (whose mod:read
--- existence check can fail for binary assets).  Falls back to the standard
--- resolveFollowerSprite chain when no submerged sheet exists.
+-- The poke_followers submerged art is the **GSC / Poke Followers** water
+-- presentation (Classic 16×16, half-submerged behind a waterline).  It is
+-- only derived when that sprite style is active; HGSS / PokeMMO (True
+-- Size) and Pokédex trailers fall straight through to the standard
+-- resolveFollowerSprite chain, which serves the style's own water art
+-- (true_size swimming/levitate sheets / water registry) — never the GSC
+-- classic sheets, so True Size surf never drops back to GSC.
+--
+-- GSC water path: derives the submerged poke_followers art at load from the
+-- coloured LAND sheet (follower_NNN_{variant}.png) via
+-- LuminanceSheet.submergedFor — waterline mask + foam/blue water line,
+-- cached in the save dir, no separate _submerged.png files.  Falls back to
+-- the standard resolveFollowerSprite chain when no submerged sheet exists.
 function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
   if not (ow and ow.pokepcTrailers) then return end
   local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
@@ -2507,6 +2743,20 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
   local AnimatedSprites = nil
   pcall(function() AnimatedSprites = V.require("animated_sprites") end)
 
+  -- Only the GSC / Poke Followers style uses the derived submerged art.
+  local gscSubmerged = false
+  if surface == "water" then
+    local style = "followers"
+    local okCfg, Config = pcall(function() return V.require("config") end)
+    if okCfg and Config and type(Config.spriteStyle) == "function" then
+      style = Config.spriteStyle(self.mod)
+      if type(Config.normalizeSpriteStyle) == "function" then
+        style = Config.normalizeSpriteStyle(style)
+      end
+    end
+    gscSubmerged = style == "followers"
+  end
+
   for _, npc in ipairs(ow.pokepcTrailers) do
     if npc and npc.pokepcTrailerKind == "mon" and npc.pokepcMon then
       local mon = npc.pokepcMon
@@ -2514,7 +2764,7 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
       local shiny = isShinyMon(mon) or (npc.pokepcShiny == true)
       local resolved = nil
 
-      if surface == "water" then
+      if surface == "water" and gscSubmerged then
         -- Derive the submerged poke_followers art at load from the coloured
         -- LAND sheet (follower_NNN_{variant}.png) via LuminanceSheet.submergedFor
         -- — waterline mask + foam/blue water line, cached in the save dir, no
@@ -2578,8 +2828,8 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
       end
 
       if not resolved then
-        -- No submerged sheet (land surface, or species outside the set).
-        -- Fall back to the standard sprite resolution chain.
+        -- No submerged sheet (land surface, non-GSC style, or species outside
+        -- the set).  Fall back to the standard sprite resolution chain.
         resolved = self:resolveFollowerSprite({
           species = species,
           shiny = shiny,

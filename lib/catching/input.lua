@@ -36,6 +36,13 @@ local STATE_B_HELD = "b_held"       -- B down, waiting for combo (no delay)
 local STATE_MODIFIER = "modifier"   -- combo used; left/right suppressed while B held
 local STATE_CHARGING = "charging"   -- B+A meter active
 
+-- Movement re-arm window (logic frames, ~one step at default cadence):
+-- after the player is mid-step, held directions stay MOVEMENT (not catching
+-- combos) until the player has stood still for this long.  B doubles as the
+-- run button in many setups, so a combo fired mid-run would suppress
+-- steering for the whole B hold.
+local CATCH_COMBO_MOVE_WINDOW = 16
+
 function CatchInput.new(catching)
   local self = setmetatable({}, CatchInput)
   self.catching = catching
@@ -180,6 +187,25 @@ function CatchInput:onInputStep(game, _dt)
   local rightEdge = pendingEdge(input, CatchInput.BTN_RIGHT)
   local aEdge = pendingEdge(input, CatchInput.BTN_A)
 
+  -- Movement gate: while the player is mid-step — or was within the last
+  -- step — a held direction is MOVEMENT, not a catching combo.  B is also
+  -- the run button in many setups (running-shoes / Runner mods), so firing
+  -- the combo mid-run eats left/right and the player cannot steer while
+  -- running.  The combo re-arms once the player stands still.
+  local player = ow and ow.player
+  if player and player.moving == true then
+    self._moveCooldown = CATCH_COMBO_MOVE_WINDOW
+  else
+    self._moveCooldown = math.max(0, (self._moveCooldown or 0) - 1)
+  end
+  local stationary = (self._moveCooldown or 0) <= 0
+  -- Cycling with zero balls is pointless and the suppression is pure harm
+  -- (a ball-less player holding B to run would lose all steering for no
+  -- gain).  Only treat B+left/right as a combo when there is a ball to
+  -- cycle.  B+A keeps its own no-balls message below.
+  local hasBalls = catching:anyBalls(game)
+  local comboDir = stationary and hasBalls
+
   -- Soft-reset chord / Start-Select: never steal face buttons.
   if inputIsDown(input, "start") or inputIsDown(input, "select") then
     if self.state == STATE_CHARGING or catching.meterSource == "modifier" then
@@ -215,12 +241,18 @@ function CatchInput:onInputStep(game, _dt)
     self.suppressDirs = false
   end
 
-  if (leftEdge or rightEdge or aEdge) and self.state == STATE_B_HELD then
+  if (leftEdge or rightEdge) and self.state == STATE_B_HELD then
+    if comboDir then
+      self.state = STATE_MODIFIER
+      self.consumed = true
+    end
+  elseif aEdge and self.state == STATE_B_HELD then
     self.state = STATE_MODIFIER
     self.consumed = true
   end
 
-  local canCycle = catching.phase == "idle" or catching.phase == "metering"
+  local canCycle = (catching.phase == "idle" or catching.phase == "metering")
+    and comboDir
   if canCycle and (leftEdge or rightEdge)
      and (self.state == STATE_MODIFIER or self.state == STATE_CHARGING
           or self.state == STATE_B_HELD) then

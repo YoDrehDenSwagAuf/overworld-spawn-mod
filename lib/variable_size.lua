@@ -305,6 +305,10 @@ end
 
 --- Apply True Size geometry when effective; otherwise strip to Classic defaults.
 --- Never mutates saved pokemon_size. Never changes collision fields.
+--- opts.keepImage: caller already served pre-shaded art (e.g. a wild
+--- silhouette sheet derived from the true_size image). Geometry is still
+--- applied, but def.image and def.trueColor are left untouched and no
+--- luminance ramp is derived. Implies skipLuminance.
 function VariableSize.applyToDef(mod, def, opts)
   opts = opts or {}
   if type(def) ~= "table" or type(def.image) ~= "string" then
@@ -357,35 +361,39 @@ function VariableSize.applyToDef(mod, def, opts)
   end
 
   local variant = opts.variant
-  local rel = select(1, SpeciesGeometry.relativePath(dex or speciesId, packId, variant, mod))
-  if not rel or not assetPresent(mod, rel) then
-    if variant == "shiny" or variant == "s" or variant == true then
-      rel = select(1, SpeciesGeometry.relativePath(dex or speciesId, packId, "normal", mod))
+  local keepImage = opts.keepImage == true
+  local rel = nil
+  local loadPath = nil
+  if not keepImage then
+    rel = select(1, SpeciesGeometry.relativePath(dex or speciesId, packId, variant, mod))
+    if not rel or not assetPresent(mod, rel) then
+      if variant == "shiny" or variant == "s" or variant == true then
+        rel = select(1, SpeciesGeometry.relativePath(dex or speciesId, packId, "normal", mod))
+      end
     end
-  end
-  if not rel or not assetPresent(mod, rel) then
-    local keptDef, keptInfo = preserveExistingTrueSize(def, "preserve_existing_geometry_asset", {
-      packId = packId,
-      dex = dex,
-    })
-    if keptDef then return keptDef, keptInfo end
-    stripGeometry(def)
-    if DebugLog and DebugLog.debug then
-      DebugLog.debug(mod, "True Size asset missing for dex=%s pack=%s — Classic fallback",
-        tostring(dex), tostring(packId))
+    if not rel or not assetPresent(mod, rel) then
+      local keptDef, keptInfo = preserveExistingTrueSize(def, "preserve_existing_geometry_asset", {
+        packId = packId,
+        dex = dex,
+      })
+      if keptDef then return keptDef, keptInfo end
+      stripGeometry(def)
+      if DebugLog and DebugLog.debug then
+        DebugLog.debug(mod, "True Size asset missing for dex=%s pack=%s — Classic fallback",
+          tostring(dex), tostring(packId))
+      end
+      return def, {
+        applied = false,
+        reason = "true_size_asset_missing",
+        packId = packId,
+        dex = dex,
+        requestedMode = VariableSize.MODE_TRUE_SIZE,
+        effectiveMode = VariableSize.MODE_TRUE_SIZE,
+      }
     end
-    return def, {
-      applied = false,
-      reason = "true_size_asset_missing",
-      packId = packId,
-      dex = dex,
-      requestedMode = VariableSize.MODE_TRUE_SIZE,
-      effectiveMode = VariableSize.MODE_TRUE_SIZE,
-    }
+    loadPath = modAssetPath(mod, rel)
+    def.image = loadPath
   end
-
-  local loadPath = modAssetPath(mod, rel)
-  def.image = loadPath
   def.frames = tonumber(pack.frames) or def.frames or 6
   if pack.walker == false then
     def.walker = nil
@@ -399,7 +407,40 @@ function VariableSize.applyToDef(mod, def, opts)
   def.anchorY = tonumber(pack.anchorY)
   if def.anchorY == nil then def.anchorY = def.frameHeight end
   if opts.spriteId then def.id = opts.spriteId end
-  def.trueColor = def.trueColor ~= false
+  -- Luminance-based shading for the True Size sheets (parity with the
+  -- Classic/GSC art path): in every COLORS mode EXCEPT ADVANCED, derive the
+  -- 3-shade luminance ramp from the colored true_size sheet at load (cached
+  -- in the save dir — no separate -grayscale assets) and serve it with
+  -- trueColor = false so the engine's zone pass colors it out of the mode
+  -- palette; ADVANCED (redpp) keeps the colored sheet raw (trueColor = true).
+  -- Derivation is unavailable headless / without love → colored art stays
+  -- raw.  opts.skipLuminance lets callers serving pre-shaded art (silhouette
+  -- sheets, water runtime ramps) opt out.
+  local lumaServed = false
+  if not opts.skipLuminance and not keepImage then
+    local redpp = false
+    if Config and Config.paletteFxRedpp then
+      redpp = Config.paletteFxRedpp() == true
+    end
+    if not redpp then
+      local okLS, LuminanceSheet = pcall(function() return V.require("luminance_sheet") end)
+      if okLS and LuminanceSheet and LuminanceSheet.pathFor then
+        local luma = LuminanceSheet.pathFor(loadPath)
+        if luma then
+          def.image = luma
+          lumaServed = true
+        end
+      end
+    end
+  end
+  if lumaServed then
+    def.trueColor = false
+  elseif opts.skipLuminance or keepImage then
+    -- Caller owns the flag (pre-shaded art / silhouette sheets).
+  else
+    -- Colored true_size sheet served raw (ADVANCED or headless).
+    def.trueColor = true
+  end
 
   return def, {
     applied = true,

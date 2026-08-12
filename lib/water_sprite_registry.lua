@@ -477,6 +477,21 @@ function WaterSpriteRegistry:_resolveKindVariant(speciesId, kind, variant, form,
       presentation = packId,
       style = style,
     })
+    -- True Size requested but the swap failed (missing true_size sheet or no
+    -- pack geometry): the def still points at the classic 16×96 water_runtime
+    -- sheet.  Serving that during a True Size session is the "surf fell back
+    -- to the GSC classic sprites" regression (Nidoran♀/♂ are mapped for
+    -- swimming but have no generated true_size art).  Treat it as a miss so
+    -- resolve() falls through to the next kind (levitates) and finally the
+    -- land fallback — both of which ARE True Size.  Classic-effective sessions
+    -- (Voxel fallback / engine API missing) keep the classic sheet: applied
+    -- is false there too, but effectiveMode is classic.
+    if info and info.applied ~= true
+       and info.effectiveMode == VariableSize.MODE_TRUE_SIZE
+       and (info.reason == "true_size_asset_missing"
+            or info.reason == "no_geometry") then
+      return nil, tostring(info.reason or "true_size_apply_failed")
+    end
     if info and info.applied then
       def.relativePath = info.relativePath or def.relativePath
       def.variableSize = true

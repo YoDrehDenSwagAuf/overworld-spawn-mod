@@ -1,5 +1,149 @@
 # Changelog
 
+## 2.0.1
+
+### Follower convoy fixes (True Size / HGSS sprites)
+
+- **Tight 1-cell trail:** follower spacing is now a strict one-cell snake
+  regardless of species size. The old whole-cell size gaps (Onix 3, XL 2…)
+  spread big sprites far behind the player and made the pack look detached;
+  now every follower sits exactly one cell behind the one in front, so giants
+  stay close to the player.
+- **Reversal chain-break deadlock fixed:** doubling back over walked ground
+  scrambled the pack (lag goals on the folded trail pointed at each other's
+  cells and the strict cell reservations deadlocked it — the chain froze
+  inverted). Followers can now swap adjacent cells to un-jam, and a jam
+  recovery re-forms the pack along the player's actual walked trail if it
+  ever stalls. Scrambled packs recover quickly (8 stalled frames for an
+  inverted pack, ~0.13s; 16 for other stalls); the entry drain is never
+  treated as a jam. Long reversals, zigzags, and mid-drain reversals converge
+  back to ordered 1/2/3 spacing. The inverted fast path is deliberately not
+  instant: a tightly packed train momentarily reads as inverted mid-fold on
+  an ordinary reversal, and an instant teleport there read as a "slingshot"
+  pop on tall True Size sprites — the swap allowance resolves those folds by
+  walking instead.
+- **Reversal fold no longer dashes (the True Size "slingshot"):** on a
+  doubled-back trail the lag-indexed goals jump 2+ cells, which the
+  catch-up pass treated as "falling behind" and answered with double
+  cadence — every member then shot through the fold at 2× speed, the most
+  visible slingshot on the tall HGSS sheets.  Double cadence is now
+  reserved for genuine stragglers (head-distance more than one cell beyond
+  the trailer's convoy slot); the fold resolves by walking at normal
+  cadence with the swap allowance, reading as a smooth turnaround.
+
+### Luminance shading for True Size sheets
+
+- HGSS True Size land, water (swimming/levitate), and Pokédex sheets are now
+  luminance-shaded exactly like the Classic/GSC art: every COLORS mode except
+  ADVANCED serves a 3-shade luminance ramp (derived from the coloured sheet
+  at load, cached in the save dir) with `trueColor = false` so the engine's
+  zone pass colours them; ADVANCED keeps the coloured sheet raw. Previously
+  the big sheets drew raw colour in classic modes.
+- Voxel True Size remains gated on Dramatic Shape exposing
+  `variableSpriteGeometry` (1.7.9 does not); the fallback to Classic
+  geometry is unchanged and automatic.
+
+### Wild Encounter Silhouettes now black out under True Size (HGSS)
+
+- The Global Encounter Silhouettes toggle (blacked-out wilds in grass/cave
+  and water) now works with True Size HGSS sprites. The bind-time
+  `VariableSize.applyToDef` rebind used to swap the derived silhouette sheet
+  back to the coloured true_size image (and luminance ramp), so silhouettes
+  only applied to Classic/GSC art. Wilds' bind now passes `keepImage` (with
+  `skipLuminance`) for silhouette results: the pre-shaded sheet survives and
+  only the pack geometry is re-asserted, so tall sheets stay blacked out
+  without ever baking 16×16 quads.
+- The `wildSilhouette` flag now survives the SpriteResolver cache, so a
+  cached resolve (re-entry, palette flip, surface/style change) cannot
+  silently un-black a wild mon on rebind.
+
+### Reversal folds resolve by walking — the slingshot is really gone
+
+- The fold swap was reading the STALE `_wildsGoalX/Y` (the last goal a
+  follower STARTED toward, which equals its own cell once it lands) instead
+  of the live goal from the trail table, so adjacent followers crossing at a
+  reversal never registered as an exchange. The pack deadlocked, and the
+  jam-recovery then TELEPORTED it to re-seeded cells — the visible pop on
+  tall True Size sprites (an ordinary reversal re-seeded all three
+  followers). The swap now reads the live goal first.
+- The swap is also feasibility-checked: an exchange is only granted when the
+  occupant can actually reach the stepper's cell this frame (its goal is not
+  the head or the player's current cell). Without this, the stale-goal fix
+  made followers step INTO a packmate whose goal was unreachable — overlap.
+- A trailer mid-step into a cell the player is about to re-enter (zigzag /
+  doubled-back) now aborts that step instead of landing on the player.
+- Net result: straight walks, reversals, long reversals, zigzags, mid-drain
+  reversals, corners, and their horizontal (left/right) mirrors all resolve
+  by walking at normal cadence with zero jam-recovery teleports and zero
+  overlaps.
+
+### Jam-recovery re-seeds faster and lands the pack spread out
+
+- The scrambled-pack fast path is quicker: an inverted (genuinely scrambled)
+  pack now re-seeds after ~4 stalled frames instead of 8, and the cooldown
+  between re-forms dropped from 60 to 40 frames. Since the fold fixes above,
+  momentary folds resolve by walking and never accumulate on the jam
+  counter, so the fast path only ever fires on true deadlocks — firing it
+  sooner snaps the pack back before the player has walked far, so the
+  re-seed no longer reads as a big teleport.
+- Re-seed goals are now DEDUPED: on a doubled-back trail the same physical
+  cell can appear at several lags, and the old re-seed copied those aliases
+  verbatim — two followers landed on one cell, instantly re-jammed, and a
+  second reform fired ~40 frames later (the persistent "lost placement" on
+  True Size sprites). The re-seed now claims each cell once and walks
+  stragglers to distinct cells behind the player, so a single reform lands
+  the whole pack in order.
+
+### Overlapping followers no longer flicker (draw-order tiebreak)
+
+- The engine y-sorts overworld entities by `py` and only tie-breaks
+  `pikachuFollower` (which trailers must never set — stock findFollower
+  would remove them), so two followers sharing a cell — entry parking
+  stacks the whole pack under the player, reversals fold adjacent
+  followers across each other, re-seeds land on the same cells — sorted
+  with an arbitrary, frame-varying order. On tall True Size sprites that
+  is a visible shimmer/flicker between the two overlapped Pokémon, worst
+  while running, when the pack is perpetually mid-step and overlapping.
+- Every trailer now carries a deterministic sub-pixel `py` bias
+  (`-slot * 0.001`, re-applied on every py write: spawn, step
+  interpolation, landing, placement): the leader draws on top of the
+  pack, and the whole pack draws just under the player's exact py. The
+  bias is invisible (below a pixel) and only makes the engine's sort
+  stable — the same order every frame, regardless of input order, so
+  overlapped sprites hold still instead of swapping back and forth.
+
+### Running again works with left/right steering (B-modifier catch)
+
+- The mobile/controller B-modifier catching combo (B+left/right to cycle
+  balls) was eating left/right for the whole B hold — and B is also the run
+  button in common running-shoes setups, so players could not steer while
+  running. The combo now only engages when it is clearly catching intent:
+  the player must be standing still (past a one-step re-arm window) AND have
+  a ball to cycle. With no balls, or mid-step, B+left/right passes straight
+  through to movement. B+A charging and the desktop C/Q throw are unchanged.
+
+### Surf sprites stay True Size (no more GSC classic fallback)
+
+- In True Size mode the water registry silently served the classic 16×96
+  water_runtime sheet whenever the true_size swimming/levitate asset for a
+  species was missing — Nidoran♀/♂ (dex 29/32) are listed in the swimming
+  mapping as form entries but have no generated true_size art, so surfing
+  with them dropped straight back to the GSC classic sprite while every
+  other mon stayed giant. A failed True Size swap (missing asset / no pack
+  geometry) is now treated as a miss: the registry falls through to the next
+  water kind, and finally to the land fallback — which IS True Size — so a
+  True Size session never shows the classic 16×96 sheets. Classic-effective
+  sessions (Voxel fallback / engine API missing) are unchanged and still
+  serve the classic sheets.
+- The follower pack's own water rebind (ControlEngine trailer refresh) was
+  still forcing the GSC poke_followers submerged art onto water trailers in
+  **every** sprite style — in HGSS / True Size sessions it clobbered the
+  giant swimming/levitate sheet the resolver had just served, so surfers
+  still saw the small GSC sprite. The submerged art is now only derived for
+  the GSC / Poke Followers style; HGSS (True Size) and Pokédex trailers fall
+  through to the style's own water sheets (true_size swimming/levitate /
+  registry) exactly like the wild water path.
+
 ## 2.0.0
 
 Major overworld presentation release: HGSS True Size, overworld catching, and

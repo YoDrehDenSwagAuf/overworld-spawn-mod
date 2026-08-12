@@ -103,6 +103,11 @@ local function copyResult(result)
     spriteState = result.spriteState,
     spriteKind = result.spriteKind,
     waterOverride = result.waterOverride,
+    wildSilhouette = result.wildSilhouette,
+    waterSilhouetteSheet = result.waterSilhouetteSheet,
+    waterHiddenShadow = result.waterHiddenShadow,
+    waterFlatShadow = result.waterFlatShadow,
+    shadowRendererMode = result.shadowRendererMode,
     fallbackReason = result.fallbackReason,
     error = result.error,
   }
@@ -463,7 +468,11 @@ function SpriteResolver:resolveWaterSprite(entity, context)
         image = waterDef.image,
         frames = waterDef.frames,
         walker = true,
-        trueColor = true,
+        -- trueColor travels with the art the registry served (applyToDef
+        -- derives luminance sheets for non-ADVANCED modes → false; colored
+        -- true_size / ADVANCED → true).  Hard-coding true here undid the
+        -- luminance shading for True Size water.
+        trueColor = waterDef.trueColor ~= false,
         id = waterDef.id,
         frameWidth = waterDef.frameWidth,
         frameHeight = waterDef.frameHeight,

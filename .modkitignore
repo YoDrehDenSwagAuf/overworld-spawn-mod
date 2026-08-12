@@ -14,6 +14,7 @@ tests/voxel_overlay_unit_test.lua
 tests/sprite_providers_unit_test.lua
 tests/follower_slingshot_unit_test.lua
 tests/follower_submerged_luminance_unit_test.lua
+tests/true_size_luminance_unit_test.lua
 tests/water_sprites_unit_test.lua
 tests/random_enc_unit_test.lua
 tests/variable_size_unit_test.lua
