@@ -4,8 +4,10 @@
 --                   never rewritten when Voxel toggles
 -- effectiveMode  = what rendering actually uses (Classic while Voxel + incompatible DS)
 --
--- Dramatic Shape without variableSpriteGeometry → effective Classic.
--- No renderer monkey-patches. Visual only; logical footprint stays one cell.
+-- Dramatic Shape / Dramaless without variable geometry → effective Classic.
+-- Battle Art Voxel: a small in-memory SpriteBillboards.mesh wrap (see
+-- lib/compat/battle_art_variable_geometry.lua) may enable True Size.
+-- Visual only; logical footprint stays one cell.
 local V = ...
 local Config = V.require("config")
 local SpeciesGeometry = V.require("species_geometry")
@@ -21,18 +23,38 @@ local _cachedEngine = nil
 local _cachedDs = nil
 local _lastEffective = nil
 
-local DS_FIND_IDS = {
+VariableSize.VOXEL_RENDERER_IDS = {
   "DRAMATIC_SHAPE",
   "BATTLE_ART_VOXEL_FORK",
 }
 
 local function findDramaticShape(mod)
   if not mod or type(mod.find) ~= "function" then return nil, nil end
-  for _, id in ipairs(DS_FIND_IDS) do
+  for _, id in ipairs(VariableSize.VOXEL_RENDERER_IDS) do
     local hit = mod:find(id)
     if hit then return hit, id end
   end
   return nil, nil
+end
+
+--- Shared finder for Dramatic Shape / Battle Art Voxel (not Dramaless).
+function VariableSize.findVoxelRenderer(mod)
+  return findDramaticShape(mod)
+end
+
+local function battleArtAdapter()
+  local ok, Adapter = pcall(V.require, "compat/battle_art_variable_geometry")
+  if ok then return Adapter end
+  return nil
+end
+
+local function tryInstallBattleArtAdapter(mod)
+  local Adapter = battleArtAdapter()
+  if not Adapter or type(Adapter.install) ~= "function" then
+    return false
+  end
+  local ok, installed = pcall(Adapter.install, mod)
+  return ok and installed == true
 end
 
 function VariableSize.probeEngineApi()
@@ -73,7 +95,21 @@ function VariableSize.clearCaches()
 end
 
 function VariableSize.probeDramaticShape(mod)
-  if _cachedDs ~= nil then return _cachedDs end
+  tryInstallBattleArtAdapter(mod)
+  local Adapter = battleArtAdapter()
+  local adapterOn = Adapter and Adapter.supportsVariableGeometry
+    and Adapter.supportsVariableGeometry()
+  -- Adapter may install after an earlier "absent" / 16×16 probe; rebuild.
+  if adapterOn and _cachedDs and not _cachedDs.supportsVariableGeometry then
+    _cachedDs = nil
+  end
+  if _cachedDs ~= nil then
+    if adapterOn then
+      _cachedDs.supportsVariableGeometry = true
+      _cachedDs.reason = (Adapter.supportReason and Adapter.supportReason()) or "wilds_adapter"
+    end
+    return _cachedDs
+  end
   local report = {
     present = false,
     modId = nil,
@@ -94,8 +130,15 @@ function VariableSize.probeDramaticShape(mod)
   report.present = true
   report.modId = id
   report.version = ds.exports and ds.exports.version or (ds.manifest and ds.manifest.version)
+  if Adapter and Adapter.supportsVariableGeometry and Adapter.supportsVariableGeometry() then
+    report.supportsVariableGeometry = true
+    report.reason = (Adapter.supportReason and Adapter.supportReason()) or "wilds_adapter"
+    _cachedDs = report
+    return report
+  end
   if ds.exports and (ds.exports.variableSpriteGeometry == true
-      or ds.exports.supportsVariableSizeSprites == true) then
+      or ds.exports.supportsVariableSizeSprites == true
+      or ds.exports.supportsVariableSpriteGeometry == true) then
     report.supportsVariableGeometry = true
     report.reason = "exports_flag"
     _cachedDs = report
@@ -169,12 +212,25 @@ function VariableSize.effectiveMode(mod, opts)
     voxel = VariableSize.isVoxelActive(mod)
   end
   if voxel then
+    tryInstallBattleArtAdapter(mod)
     local ds = VariableSize.probeDramaticShape(mod)
     if not ds.supportsVariableGeometry then
       return VariableSize.MODE_CLASSIC, "voxel_ds_incompatible:" .. tostring(ds.reason)
     end
   end
   return VariableSize.MODE_TRUE_SIZE, "ok"
+end
+
+--- True when Voxel is active AND the live renderer can consume variable SpriteDefs.
+function VariableSize.canUseTrueSizeInVoxel(mod, opts)
+  opts = opts or {}
+  local voxel = opts.voxelActive
+  if voxel == nil then
+    voxel = VariableSize.isVoxelActive(mod)
+  end
+  if not voxel then return false, "voxel_inactive" end
+  local ds = VariableSize.probeDramaticShape(mod)
+  return ds.supportsVariableGeometry == true, ds.reason
 end
 
 function VariableSize.canApplyTrueSize(mod, opts)

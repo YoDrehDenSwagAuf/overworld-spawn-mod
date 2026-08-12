@@ -248,6 +248,9 @@ return function(mod)
     pcall(function()
       (V.require("grass_occlusion")).installTileRendererWrap(mod)
     end)
+    pcall(function()
+      (V.require("compat/battle_art_variable_geometry")).install(mod)
+    end)
     if Config.debug(mod) then
       DebugLog.info(mod, "game.ready; feature=%s overlay=%s fallback=%s style=%s",
                     tostring(Config.isEnabled(mod)),
@@ -266,6 +269,9 @@ return function(mod)
     -- True Size Flat grass: clip drawCellBottom to a feet band (Classic unchanged).
     pcall(function()
       (V.require("grass_occlusion")).installTileRendererWrap(mod)
+    end)
+    pcall(function()
+      (V.require("compat/battle_art_variable_geometry")).install(mod)
     end)
   end)
 

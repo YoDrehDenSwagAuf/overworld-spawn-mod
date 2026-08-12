@@ -830,9 +830,11 @@ function SpawnRender:checkAvailable(game)
     return false, self.lastError
   end
   self.rendererMode = "base"
-  local dramatic = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
+  local VariableSize = V.require("variable_size")
+  local dramatic, dramaticId = VariableSize.findVoxelRenderer(self.mod)
   if dramatic then
-    self:_log("DRAMATIC_SHAPE present; wild Pokemon use WORLD_BILLBOARD depth path")
+    self:_log("%s present; wild Pokemon use WORLD_BILLBOARD depth path",
+      tostring(dramaticId or "VOXEL"))
   else
     self:_log("base Gen1Recomp 2D renderer path active")
   end
@@ -961,9 +963,10 @@ function SpawnRender:assetStatusFor(species, game)
     info.phase = "REAL_ASSET_MISSING"
   end
 
-  local dramatic = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
+  local VariableSize = V.require("variable_size")
+  local dramatic, dramaticId = VariableSize.findVoxelRenderer(self.mod)
   if dramatic then
-    info.voxel = "DRAMATIC_SHAPE WORLD_BILLBOARD"
+    info.voxel = tostring(dramaticId or "VOXEL") .. " WORLD_BILLBOARD"
   end
 
   if self.rendererMode == "base" then

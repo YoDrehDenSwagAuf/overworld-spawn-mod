@@ -109,10 +109,13 @@ function RenderDiagnostics.probeMesh(def, frame)
     return false, "def.image missing", nil
   end
   local key = def.image .. "#" .. tostring(frame)
-  -- Prefer Dramatic Shape SpriteBillboards when the mod is loaded.
+  -- Prefer Dramatic Shape / Battle Art SpriteBillboards when loaded.
   local ds = nil
-  if V.mod and type(V.mod.find) == "function" then
-    ds = V.mod.find("DRAMATIC_SHAPE")
+  local okVS, VariableSize = pcall(V.require, "variable_size")
+  if okVS and VariableSize and type(VariableSize.findVoxelRenderer) == "function" then
+    ds = select(1, VariableSize.findVoxelRenderer(V.mod))
+  elseif V.mod and type(V.mod.find) == "function" then
+    ds = V.mod.find("DRAMATIC_SHAPE") or V.mod.find("BATTLE_ART_VOXEL_FORK")
   end
   local lib = ds and ds.exports and ds.exports.lib
   if lib and type(lib.require) == "function" then

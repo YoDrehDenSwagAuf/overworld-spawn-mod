@@ -2,6 +2,19 @@
 
 ## 2.0.1
 
+### Battle Art Voxel — True Size billboards
+
+- HGSS True Size no longer falls back to Classic 16×16 when **Battle Art Voxel
+  Fork** (`BATTLE_ART_VOXEL_FORK`) is the active Voxel renderer. Wilds installs
+  a small in-memory adapter (`lib/compat/battle_art_variable_geometry.lua`) that
+  wraps public `SpriteBillboards.mesh` / `shadowQuad` so billboards, shadows,
+  and occlusion silhouettes use `frameWidth` / `frameHeight` / `anchorX` /
+  `anchorY`. Vanilla 16×16 characters are unchanged. Dramaless / unsupported
+  Dramatic Shape still use Classic. No Battle Art source files are copied or
+  patched on disk.
+- `VariableSize.canUseTrueSizeInVoxel()` reports live capability (adapter or
+  upstream export), not a version number.
+
 ### Follower convoy fixes (True Size / HGSS sprites)
 
 - **Tight 1-cell trail:** follower spacing is now a strict one-cell snake
@@ -39,9 +52,9 @@
   at load, cached in the save dir) with `trueColor = false` so the engine's
   zone pass colours them; ADVANCED keeps the coloured sheet raw. Previously
   the big sheets drew raw colour in classic modes.
-- Voxel True Size remains gated on Dramatic Shape exposing
-  `variableSpriteGeometry` (1.7.9 does not); the fallback to Classic
-  geometry is unchanged and automatic.
+- Voxel True Size is enabled for Battle Art Voxel Fork when the in-memory
+  SpriteBillboards adapter installs; Dramaless / unsupported Dramatic Shape
+  still fall back to Classic geometry automatically.
 
 ### Wild Encounter Silhouettes now black out under True Size (HGSS)
 
