@@ -37,7 +37,7 @@ No game restart is required; options apply live.
 
 - Gen1Recomp with a legal Gen 1 ROM decoded
 - No other mods required
-- Dramatic Shape Voxel Mod is optional
+- Dramatic Shape Voxel Mod is optional (Battle Art / Potato / Dramaless too)
 
 ## 5. Pokédex is not required
 
@@ -174,9 +174,11 @@ Gen1 wild spawns currently always use the normal variant.
 - Aggressive AI uses tile steps (not full NPC pixel tweening)
 - Water Pokemon are a best-effort swim presentation; vanilla Surf rolls stay on
 - Fishing Pokemon never free-roam
-- With Dramatic Shape, wild Pokemon use the same world billboards as trainers
-  (depth + native grass). Large follow-sprite frames are fitted into 16x16 cards for
-  Voxel only; flat 2D keeps native frame size.
+- With a Voxel overworld renderer, wild Pokemon use the same world billboards
+  as trainers (depth + native grass). HGSS True Size stays on when the **active**
+  renderer can consume variable SpriteDef geometry (Battle Art; Potato / Dramaless
+  via public `exports.lib.require`). Original Dramatic Shape and any renderer
+  without that public module stay Classic 16×16. Flat 2D keeps True Size.
 - Aggressive chase keeps a stable entity id and uses the engine `!` emote
 
 ## 18. Troubleshooting

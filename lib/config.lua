@@ -35,8 +35,8 @@ Config.DEFAULTS = {
   --   GSC sprites (followers) → Classic (one-tile 16×16 presentation)
   --   HGSS sprites (pokemmo)  → True Size (variable-size SpriteDef geometry
   --                             when the engine API is present and, if Voxel
-  --                             is on, the renderer consumes variable geometry
-  --                             natively or via the Battle Art adapter)
+  --                             is on, the ACTIVE renderer consumes variable
+  --                             geometry natively or via a public-module adapter)
   --   Pokédex sprites         → Classic
   -- pokemon_size is kept only as a migration fallback default; the option was
   -- removed and saved values are ignored.

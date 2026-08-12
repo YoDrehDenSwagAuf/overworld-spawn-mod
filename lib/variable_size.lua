@@ -4,9 +4,11 @@
 --                   never rewritten when Voxel toggles
 -- effectiveMode  = what rendering actually uses (Classic while Voxel + incompatible DS)
 --
--- Dramatic Shape / Dramaless without variable geometry → effective Classic.
--- Battle Art Voxel: a small in-memory SpriteBillboards.mesh wrap (see
--- lib/compat/battle_art_variable_geometry.lua) may enable True Size.
+-- Dramatic Shape without variable geometry → effective Classic.
+-- Battle Art / Potato / Dramaless: a small in-memory SpriteBillboards.mesh
+-- wrap may enable True Size when that provider is the ACTIVE Voxel renderer
+-- and exposes exports.lib.require("SpriteBillboards"). Capability is never
+-- borrowed from a Voxel mod that is installed but not rendering.
 -- Visual only; logical footprint stays one cell.
 local V = ...
 local Config = V.require("config")
@@ -18,43 +20,119 @@ local VariableSize = {}
 VariableSize.MODE_CLASSIC = "classic"
 VariableSize.MODE_TRUE_SIZE = "true_size"
 
+VariableSize.PROVIDER_DRAMATIC_SHAPE = "DRAMATIC_SHAPE"
+VariableSize.PROVIDER_BATTLE_ART = "BATTLE_ART_VOXEL_FORK"
+VariableSize.PROVIDER_POTATO = "potato_voxel"
+VariableSize.PROVIDER_DRAMALESS = "DRAMALESS_SHAPE"
+
 local _loggedFallback = false
 local _cachedEngine = nil
 local _cachedDs = nil
+local _cachedProviderId = nil
 local _lastEffective = nil
+local _lastProviderId = nil
 
+-- Detection order is not priority. Active VoxelState wins when unique.
 VariableSize.VOXEL_RENDERER_IDS = {
   "DRAMATIC_SHAPE",
   "BATTLE_ART_VOXEL_FORK",
+  "potato_voxel",
+  "DRAMALESS_SHAPE",
 }
 
-local function findDramaticShape(mod)
-  if not mod or type(mod.find) ~= "function" then return nil, nil end
-  for _, id in ipairs(VariableSize.VOXEL_RENDERER_IDS) do
-    local hit = mod:find(id)
-    if hit then return hit, id end
-  end
-  return nil, nil
-end
+local ADAPTER_MODULE = {
+  BATTLE_ART_VOXEL_FORK = "compat/battle_art_variable_geometry",
+  potato_voxel = "compat/potato_voxel_variable_geometry",
+  DRAMALESS_SHAPE = "compat/dramaless_variable_geometry",
+}
 
---- Shared finder for Dramatic Shape / Battle Art Voxel (not Dramaless).
-function VariableSize.findVoxelRenderer(mod)
-  return findDramaticShape(mod)
-end
-
-local function battleArtAdapter()
-  local ok, Adapter = pcall(V.require, "compat/battle_art_variable_geometry")
+local function adapterFor(id)
+  local name = ADAPTER_MODULE[id]
+  if not name then return nil end
+  local ok, Adapter = pcall(V.require, name)
   if ok then return Adapter end
   return nil
 end
 
-local function tryInstallBattleArtAdapter(mod)
-  local Adapter = battleArtAdapter()
+local function tryInstallAdapter(mod, id)
+  local Adapter = adapterFor(id)
   if not Adapter or type(Adapter.install) ~= "function" then
     return false
   end
   local ok, installed = pcall(Adapter.install, mod)
   return ok and installed == true
+end
+
+local function voxelStateActive(ds)
+  local lib = ds and ds.exports and ds.exports.lib
+  if not lib or type(lib.require) ~= "function" then return false end
+  local ok, Voxel = pcall(lib.require, "VoxelState")
+  if not ok or type(Voxel) ~= "table" or type(Voxel.active) ~= "function" then
+    return false
+  end
+  local okA, active = pcall(Voxel.active)
+  return okA and active == true
+end
+
+local function collectInstalledVoxelRenderers(mod)
+  local installed = {}
+  if not mod or type(mod.find) ~= "function" then return installed end
+  for _, id in ipairs(VariableSize.VOXEL_RENDERER_IDS) do
+    local ok, hit = pcall(mod.find, mod, id)
+    if ok and hit then
+      installed[#installed + 1] = { ds = hit, id = id }
+    end
+  end
+  return installed
+end
+
+--- Installed Voxel mods Wilds knows how to name. Does not guess activity.
+function VariableSize.findInstalledVoxelRenderers(mod)
+  return collectInstalledVoxelRenderers(mod)
+end
+
+--- The Voxel renderer Wilds should talk to for capability.
+--- Unique VoxelState.active() wins. If none report active and exactly one
+--- known Voxel mod is installed, that mod is used (hooks / unit tests).
+--- Multiple installed with no unique active provider → nil (Classic).
+function VariableSize.activeVoxelProvider(mod)
+  local installed = collectInstalledVoxelRenderers(mod)
+  if #installed == 0 then
+    return nil, nil, "none_installed"
+  end
+  local active = {}
+  for _, entry in ipairs(installed) do
+    if voxelStateActive(entry.ds) then
+      active[#active + 1] = entry
+    end
+  end
+  if #active == 1 then
+    return active[1].ds, active[1].id, "voxel_state_active"
+  end
+  if #active > 1 then
+    return nil, nil, "ambiguous_active_provider"
+  end
+  if #installed == 1 then
+    return installed[1].ds, installed[1].id, "single_installed"
+  end
+  return nil, nil, "multiple_installed_none_active"
+end
+
+--- Shared finder for VoxelScene / VoxelState hooks.
+--- Prefers the unique active provider; otherwise the unique installed mod;
+--- otherwise the first installed (hook install while Voxel is off).
+function VariableSize.findVoxelRenderer(mod)
+  local ds, id, why = VariableSize.activeVoxelProvider(mod)
+  if ds then return ds, id, why end
+  local installed = collectInstalledVoxelRenderers(mod)
+  if #installed == 0 then return nil, nil, why end
+  return installed[1].ds, installed[1].id, why or "first_installed"
+end
+
+function VariableSize.installVariableGeometryAdapters(mod)
+  for _, id in ipairs(VariableSize.VOXEL_RENDERER_IDS) do
+    tryInstallAdapter(mod, id)
+  end
 end
 
 function VariableSize.probeEngineApi()
@@ -90,15 +168,30 @@ end
 function VariableSize.clearCaches()
   _cachedEngine = nil
   _cachedDs = nil
+  _cachedProviderId = nil
   _loggedFallback = false
   SpeciesGeometry.clearCache()
 end
 
+local function adapterSupports(id)
+  local Adapter = adapterFor(id)
+  return Adapter
+    and Adapter.supportsVariableGeometry
+    and Adapter.supportsVariableGeometry() == true,
+    Adapter
+end
+
 function VariableSize.probeDramaticShape(mod)
-  tryInstallBattleArtAdapter(mod)
-  local Adapter = battleArtAdapter()
-  local adapterOn = Adapter and Adapter.supportsVariableGeometry
-    and Adapter.supportsVariableGeometry()
+  local ds, id, providerWhy = VariableSize.activeVoxelProvider(mod)
+  if _cachedProviderId ~= id then
+    _cachedDs = nil
+    _cachedProviderId = id
+  end
+
+  if id then
+    tryInstallAdapter(mod, id)
+  end
+  local adapterOn, Adapter = adapterSupports(id)
   -- Adapter may install after an earlier "absent" / 16×16 probe; rebuild.
   if adapterOn and _cachedDs and not _cachedDs.supportsVariableGeometry then
     _cachedDs = nil
@@ -107,6 +200,7 @@ function VariableSize.probeDramaticShape(mod)
     if adapterOn then
       _cachedDs.supportsVariableGeometry = true
       _cachedDs.reason = (Adapter.supportReason and Adapter.supportReason()) or "wilds_adapter"
+      _cachedDs.modId = id
     end
     return _cachedDs
   end
@@ -115,22 +209,27 @@ function VariableSize.probeDramaticShape(mod)
     modId = nil,
     version = nil,
     supportsVariableGeometry = false,
-    reason = "dramatic_shape_absent",
+    reason = providerWhy or "dramatic_shape_absent",
     files = {
       "lib/SpriteBillboards.lua (buildCard)",
       "lib/VoxelScene.lua (drawEntity / frameFor / billboardMatrix)",
       "lib/Mat4.lua (billboard / caster)",
     },
   }
-  local ds, id = findDramaticShape(mod)
   if not ds then
+    if providerWhy == "multiple_installed_none_active"
+        or providerWhy == "ambiguous_active_provider" then
+      report.reason = providerWhy
+    else
+      report.reason = "dramatic_shape_absent"
+    end
     _cachedDs = report
     return report
   end
   report.present = true
   report.modId = id
   report.version = ds.exports and ds.exports.version or (ds.manifest and ds.manifest.version)
-  if Adapter and Adapter.supportsVariableGeometry and Adapter.supportsVariableGeometry() then
+  if adapterOn then
     report.supportsVariableGeometry = true
     report.reason = (Adapter.supportReason and Adapter.supportReason()) or "wilds_adapter"
     _cachedDs = report
@@ -212,7 +311,6 @@ function VariableSize.effectiveMode(mod, opts)
     voxel = VariableSize.isVoxelActive(mod)
   end
   if voxel then
-    tryInstallBattleArtAdapter(mod)
     local ds = VariableSize.probeDramaticShape(mod)
     if not ds.supportsVariableGeometry then
       return VariableSize.MODE_CLASSIC, "voxel_ds_incompatible:" .. tostring(ds.reason)
@@ -524,16 +622,20 @@ function VariableSize.copyGeometryFields(from, to)
   return to
 end
 
---- Detect Flat↔Voxel effective-mode flips; returns true when consumers should rebind.
+--- Detect Flat↔Voxel effective-mode or active-provider flips; rebind when either changes.
 function VariableSize.pollEffectiveModeChange(mod, opts)
   local effective = VariableSize.effectiveMode(mod, opts)
+  local _, providerId = VariableSize.activeVoxelProvider(mod)
   local changed = (_lastEffective ~= nil and _lastEffective ~= effective)
+    or (_lastProviderId ~= nil and _lastProviderId ~= providerId)
   _lastEffective = effective
+  _lastProviderId = providerId
   return changed, effective
 end
 
 function VariableSize.resetEffectiveModePoll()
   _lastEffective = nil
+  _lastProviderId = nil
 end
 
 function VariableSize.summary(mod)

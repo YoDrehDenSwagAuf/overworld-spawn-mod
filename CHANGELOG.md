@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.0.2
+
+### Voxel True Size — provider-scoped adapters
+
+- HGSS True Size in Voxel is gated on the **active** Voxel renderer, not on
+  “some Voxel mod is installed”. Battle Art, Potato Voxel (`potato_voxel`),
+  Dramaless (`DRAMALESS_SHAPE`), and original Dramatic Shape are distinguished.
+  If more than one Voxel mod is installed and Wilds cannot tell which
+  `VoxelState` is active, HGSS stays Classic 16×16 rather than guessing.
+- **Battle Art Voxel** (`BATTLE_ART_VOXEL_FORK`): existing in-memory
+  `SpriteBillboards` adapter is unchanged.
+- **Potato Voxel** (`potato_voxel` 1.4.0): current main exposes
+  `exports.lib.require`. Wilds installs
+  `lib/compat/potato_voxel_variable_geometry.lua` (wrap `mesh` / re-point
+  `shadowQuad`). Potato’s dedicated `shadowBlob()` contact shadow is left
+  unchanged. If that public accessor is missing, HGSS uses Classic.
+- **DRAMALESS_SHAPE** (1.6.4): current main also exposes `exports.lib.require`.
+  Wilds installs `lib/compat/dramaless_variable_geometry.lua` the same way
+  (body, occlusion silhouette, and sprite-mesh shadows). If the public
+  accessor is missing, HGSS uses Classic.
+- **Original Dramatic Shape**: Classic 16×16 unless the mod already exports
+  native variable-geometry support. Wilds does not wrap it.
+- No Voxel renderer source is copied into Wilds. No installed Voxel files are
+  patched on disk.
+
 ## 2.0.1
 
 ### Battle Art Voxel — True Size billboards

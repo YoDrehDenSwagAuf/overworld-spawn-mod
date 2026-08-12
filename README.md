@@ -21,8 +21,10 @@ by party Pokémon — without replacing the classic Gen 1 feel.
 - Multiple sprite styles
 - Sprite size tied to Sprite Style — GSC sprites use **Classic** (one-tile 16×16)
   presentation, HGSS sprites use **True Size** (larger relative species sizes).
-  In Voxel, True Size stays on when Battle Art Voxel can consume variable
-  SpriteDef geometry (small Wilds adapter); other Voxel mods keep Classic.
+  In Voxel, True Size stays on when the **active** Voxel renderer can consume
+  variable SpriteDef geometry: Battle Art Voxel (existing adapter), Potato Voxel
+  and Dramaless Shape when they expose `exports.lib.require("SpriteBillboards")`.
+  Original Dramatic Shape stays Classic unless it ships native variable geometry.
 - Town / Indoor / Ambient Pokémon
 - Red / Blue / Yellow
 - Dramatic Shape Voxel compatibility
