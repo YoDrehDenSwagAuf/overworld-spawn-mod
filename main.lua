@@ -385,7 +385,7 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "2.0.0"
+  mod.exports.version = "2.0.1"
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated
