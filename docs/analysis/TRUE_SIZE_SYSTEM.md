@@ -106,18 +106,21 @@ drive native True Size draws.
 Scissor restore is guarded with `pcall`. Voxel untouched. Feet-band remains a
 separate native Tall Grass overdraw concern after the geometry fix.
 
-## Dramatic Shape / Battle Art Voxel
+## Dramatic Shape / Battle Art / Potato / Dramaless Voxel
 
-Original Dramatic Shape 1.7.9 and Dramaless remain fixed 16×16. Wilds does
-**not** copy their renderer.
+Capability is tied to the **active** Voxel renderer
+(`VariableSize.activeVoxelProvider()`). Installing Battle Art while Potato
+or Dramaless is the live pipeline does not enable True Size.
 
-Battle Art Voxel Fork (`BATTLE_ART_VOXEL_FORK`, inspected 1.8.3) exposes
-`exports.lib.require`. When that public `SpriteBillboards.mesh` entry point
-can be wrapped in-memory, Wilds installs
-`lib/compat/battle_art_variable_geometry.lua` so True Size geometry
-(`frameWidth` / `frameHeight` / `anchorX` / `anchorY`) is consumed by the
-existing billboard / shadow / silhouette path.
+| Provider | Mod ID | Public `exports.lib.require` | HGSS in Voxel |
+| --- | --- | --- | --- |
+| Battle Art Voxel Fork | `BATTLE_ART_VOXEL_FORK` | yes (1.8.3) | True Size via existing adapter |
+| Potato Voxel | `potato_voxel` | yes (1.4.0) | True Size via adapter; `shadowBlob()` unchanged |
+| Dramaless Shape | `DRAMALESS_SHAPE` | yes (1.6.4) | True Size via adapter |
+| Original Dramatic Shape | `DRAMATIC_SHAPE` | n/a for Wilds wrap | Classic unless native `variableSpriteGeometry` |
 
-`VariableSize.canUseTrueSizeInVoxel()` is true only after that adapter
-installs (or Battle Art already exports `variableSpriteGeometry`). Failure
-keeps Classic 16×16 and logs once. No disk patch of the other mod.
+Wilds does **not** copy VoxelScene / SpriteBillboards / shaders. Failure or
+a missing public accessor keeps Classic 16×16 and logs once (DEV).
+
+`VariableSize.canUseTrueSizeInVoxel()` reports live capability of the active
+provider (adapter or upstream export), not a version number.

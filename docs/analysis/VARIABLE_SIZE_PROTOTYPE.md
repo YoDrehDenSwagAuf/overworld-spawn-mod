@@ -1,9 +1,15 @@
 # Variable-size / True Size prototype findings
 
 Status: **Flat True Size shipped for all 151.** Voxel True Size is enabled
-when Battle Art Voxel Fork exposes `exports.lib.require("SpriteBillboards")`
-and Wilds can wrap `mesh()` in-memory (`lib/compat/battle_art_variable_geometry.lua`).
-Original Dramatic Shape 1.7.9 / Dramaless remain Classic in Voxel.
+when the **active** Voxel renderer exposes `exports.lib.require("SpriteBillboards")`
+and Wilds can wrap `mesh()` in-memory:
+
+- Battle Art: `lib/compat/battle_art_variable_geometry.lua` (unchanged)
+- Potato Voxel: `lib/compat/potato_voxel_variable_geometry.lua`
+- Dramaless: `lib/compat/dramaless_variable_geometry.lua`
+
+Original Dramatic Shape 1.7.9 remains Classic in Voxel unless it ships native
+variable geometry. Potato’s `shadowBlob()` contact shadow is not scaled.
 
 ## 1. Gen1Recomp API (actual, not issue-only)
 
