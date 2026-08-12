@@ -9,6 +9,9 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `main.lua` | Load-phase wiring, hooks, exports |
 | `options.lua` | Mod Manager schema |
 | `lib/config.lua` | Defaults + option helpers |
+| `lib/game_compat.lua` | Generation detection + small Gen1 adapter facade |
+| `lib/game_compat/gen1.lua` | Thin Red/Blue/Yellow wrappers (species, surf, party, map) |
+| `lib/game_compat/gen2.lua` | Unsupported stub (no Johto implementation) |
 | `lib/json_decode.lua` | Minimal JSON decoder for mappings |
 | `lib/animated_sprites.lua` | Follow-sprite mapping / source atlas helpers |
 | `lib/runtime_sheets.lua` | Resolve build-time 16×96 SpriteRenderer sheets |
@@ -39,6 +42,26 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `lib/debug_hud.lua` | Present-only debug HUD |
 | `lib/debug_overlay.lua` | Spawn-tile markers |
 | `lib/preview_browser.lua` | Dev species browser + anim preview |
+
+## Game compatibility (internal)
+
+`GameCompat` is a small facade so shared Wilds systems do not own Gen1-only
+assumptions. It is **not** playable Gen2 support.
+
+```text
+GameCompat.current(mod, game)      → Gen1 adapter or nil
+GameCompat.generation(mod, game)   → 1 or nil
+GameCompat.isSupported(mod, game)  → true for Red/Blue/Yellow
+GameCompat.gameVersion(game)       → "red"|"blue"|"yellow"|other|nil
+GameCompat.speciesId(species, game, mod)
+GameCompat.isSurfing(game, ow)
+GameCompat.isWaterCell(map, x, y)
+GameCompat.party(game)             → same save.party table
+GameCompat.currentMapId(game, ow)
+```
+
+Detection uses Gen1Recomp `src.core.GameVersion.get()` / `isYellow()`.
+Unknown explicit versions are unsupported (no crash, no Gen1 world hooks).
 
 ## Verified contracts
 

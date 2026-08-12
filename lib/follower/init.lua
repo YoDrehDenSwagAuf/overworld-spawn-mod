@@ -23,18 +23,10 @@ local Config = V.require("config")
 local Follower = {}
 Follower.__index = Follower
 
-local function tryRequire(path)
-  local ok, mod = pcall(require, path)
-  if ok then return mod end
-  return nil
-end
-
-local function supportedVersion()
-  local GV = tryRequire("src.core.GameVersion")
-  if not (GV and GV.get) then return true end
-  local ok, v = pcall(GV.get)
-  if not ok or v == nil then return true end
-  return v == "red" or v == "blue" or v == "yellow"
+local function supportedVersion(mod)
+  local GameCompat = V.require("game_compat")
+  local game = mod and mod.world and mod.world.game
+  return GameCompat.isSupported(mod, game) == true
 end
 
 function Follower.new(mod, opts)
@@ -59,7 +51,7 @@ function Follower.new(mod, opts)
     render = opts.render,
   })
   self._installed = false
-  self._supported = supportedVersion()
+  self._supported = supportedVersion(mod)
   -- Wilds is always the runtime owner after this follow-up.
   self.state.ownerMode = Constants.OWNER.wilds
   return self

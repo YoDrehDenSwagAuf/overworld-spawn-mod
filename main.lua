@@ -49,6 +49,7 @@ return function(mod)
   end
 
   local Config = V.require("config")
+  local GameCompat = V.require("game_compat")
   local SpawnRender = V.require("spawn_render")
   local SpawnLogic = V.require("spawn_logic")
   local DebugHud = V.require("debug_hud")
@@ -59,6 +60,19 @@ return function(mod)
   local BehaviorTick = V.require("behavior_tick")
   local DebugLog = V.require("debug_log")
   local Diagnostics = V.require("diagnostics")
+
+  local function gen1GameplayEnabled()
+    return GameCompat.isSupported(mod, mod.world and mod.world.game) == true
+  end
+
+  local unsupportedLogged = false
+  local function noteUnsupportedGeneration()
+    if unsupportedLogged then return end
+    unsupportedLogged = true
+    pcall(function()
+      mod.log:info("[Wilds] Unsupported game generation; Gen1 gameplay hooks disabled.")
+    end)
+  end
 
   Config.defineOptions(mod)
   Config.migrateSpriteStyleOption(mod)
@@ -97,13 +111,19 @@ return function(mod)
   if not sprOk then
     DebugLog.warn(mod, "follower SPRITE_PIKACHU registration: %s", tostring(sprErr))
   end
-  follower:install({ game = mod.world and mod.world.game })
+  if gen1GameplayEnabled() then
+    follower:install({ game = mod.world and mod.world.game })
+  else
+    noteUnsupportedGeneration()
+  end
 
   local AmbientPokemon = V.require("ambient_pokemon")
   local ambient = AmbientPokemon.new(mod, {
     render = render, logic = logic, follower = follower,
   })
-  ambient:install()
+  if gen1GameplayEnabled() then
+    ambient:install()
+  end
 
   local OverworldCatching = V.require("catching/init")
   local catching = OverworldCatching.new(mod, logic)
@@ -122,8 +142,12 @@ return function(mod)
   browser:register()
   spriteStyleMenu:register()
   -- settingsMenus:register() after handleOptionsChanged is wired below
-  behaviorTick:register()
-  catching:register()
+  if gen1GameplayEnabled() then
+    behaviorTick:register()
+    catching:register()
+  else
+    noteUnsupportedGeneration()
+  end
   devOverlay:register()
 
   mod.log:info("overworld_wild_spawns loaded (enabled=%s overlay=%s debug=%s sprites=%d missing=%d)",
@@ -133,9 +157,14 @@ return function(mod)
                tonumber(render.registeredCount) or 0,
                tonumber(render.missingCount) or 0)
 
-  -- ------- events (always registered; logic no-ops when feature is off)
+  -- ------- events (always registered; logic no-ops when feature is off
+  -- or when the running game generation is unsupported)
 
   mod.events:on("map.entered", function(ev)
+    if not gen1GameplayEnabled() then
+      noteUnsupportedGeneration()
+      return
+    end
     local ok, err = pcall(logic.onMapEntered, logic, ev)
     if not ok then
       DebugLog.error(mod, "map.entered error: %s", tostring(err))
@@ -150,6 +179,7 @@ return function(mod)
   end)
 
   mod.events:on("map.exited", function(ev)
+    if not gen1GameplayEnabled() then return end
     local ok, err = pcall(logic.onMapExited, logic, ev)
     if not ok then
       DebugLog.error(mod, "map.exited error: %s", tostring(err))
@@ -160,6 +190,7 @@ return function(mod)
   end)
 
   mod.events:on("map.reloaded", function(ev)
+    if not gen1GameplayEnabled() then return end
     local ok, err = pcall(logic.onMapReloaded, logic, ev)
     if not ok then
       DebugLog.error(mod, "map.reloaded error: %s", tostring(err))
@@ -172,6 +203,7 @@ return function(mod)
   end)
 
   mod.events:on("world.stepped", function(ev)
+    if not gen1GameplayEnabled() then return end
     local ok, err = pcall(logic.onStepped, logic, ev)
     if not ok then
       DebugLog.error(mod, "world.stepped error: %s", tostring(err))
@@ -192,10 +224,12 @@ return function(mod)
   end)
 
   mod.events:on("battle.ended", function()
+    if not gen1GameplayEnabled() then return end
     logic:onBattleEnded()
   end)
 
   mod.events:on("save.loaded", function()
+    if not gen1GameplayEnabled() then return end
     local ok, err = pcall(logic.onSaveLoaded, logic)
     if not ok then
       DebugLog.error(mod, "save.loaded error: %s", tostring(err))
@@ -206,6 +240,7 @@ return function(mod)
   end)
 
   mod.events:on("save.created", function()
+    if not gen1GameplayEnabled() then return end
     logic:clearAll()
     logic.activeMapId = nil
     logic.stepsOnMap = 0
@@ -228,14 +263,18 @@ return function(mod)
     Config.migrateSpriteFadeOption(mod)
     Config.migrateSpriteColorOption(mod)
     render:finalizeSpriteProviders(mod.world and mod.world.game)
-    pcall(function()
-      local game = mod.world and mod.world.game
-      follower:reassertAfterModsLoaded(game)
-      if not follower.lifecycle._installed
-         and follower.state.ownerMode ~= "external" then
-        follower.lifecycle:installHooks()
-      end
-    end)
+    if gen1GameplayEnabled() then
+      pcall(function()
+        local game = mod.world and mod.world.game
+        follower:reassertAfterModsLoaded(game)
+        if not follower.lifecycle._installed
+           and follower.state.ownerMode ~= "external" then
+          follower.lifecycle:installHooks()
+        end
+      end)
+    else
+      noteUnsupportedGeneration()
+    end
     if Config.devOverlay(mod) then
       local game = mod.world and mod.world.game
       if game then
@@ -271,7 +310,9 @@ return function(mod)
     Config.migrateSpriteStyleOption(mod)
     local game = mod.world and mod.world.game
     render:finalizeSpriteProviders(game)
-    pcall(function() follower:reassertAfterModsLoaded(game) end)
+    if gen1GameplayEnabled() then
+      pcall(function() follower:reassertAfterModsLoaded(game) end)
+    end
     -- True Size Flat grass: clip drawCellBottom to a feet band (Classic unchanged).
     pcall(function()
       (V.require("grass_occlusion")).installTileRendererWrap(mod)
@@ -309,6 +350,10 @@ return function(mod)
   logic:setRestoreVanilla(restoreVanillaEncounters)
 
   local function installHooks()
+    if not gen1GameplayEnabled() then
+      noteUnsupportedGeneration()
+      return
+    end
     if unwraps.encounter or unwraps.collision then return end
 
     unwraps.encounter = mod.hooks:wrap("encounter.roll", function(next, encDef, ctx)
@@ -351,6 +396,10 @@ return function(mod)
   -- mods cannot forge that event, so OPTIONS menus call this handler directly
   -- after Config.setOption writes the same option buckets.
   local function handleOptionsChanged(payload)
+    if not gen1GameplayEnabled() then
+      noteUnsupportedGeneration()
+      return
+    end
     local ok, err = pcall(logic.onOptionsChanged, logic, payload)
     if not ok then
       DebugLog.error(mod, "options_changed error: %s", tostring(err))
@@ -386,6 +435,7 @@ return function(mod)
   -- ------- exports (companion / debug / test surface)
 
   mod.exports.version = "2.0.1"
+  mod.exports.gameCompat = GameCompat
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated

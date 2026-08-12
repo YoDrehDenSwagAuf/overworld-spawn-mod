@@ -12,6 +12,8 @@ local AnimatedSprites = {}
 AnimatedSprites.__index = AnimatedSprites
 
 local CELL = Tile.CELL
+-- Gameplay Gen1 National Dex cap for diagnostic slot materialization.
+-- Do not raise this to 251 in shared code; Gen2 range belongs on a Gen2 adapter.
 local MAX_SPECIES_GAME = 151
 
 AnimatedSprites.MAPPING_REL =

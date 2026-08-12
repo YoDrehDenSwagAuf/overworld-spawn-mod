@@ -101,6 +101,8 @@ function SpeciesGeometry.clearCache()
 end
 
 function SpeciesGeometry.normalizeDex(speciesId)
+  -- Gen1 National Dex only (1..151). Do not widen to 251 here; a future
+  -- Gen2 adapter will own its own geometry range.
   local n = tonumber(speciesId)
   if n and n >= 1 and n <= 151 then return math.floor(n) end
   return nil

@@ -60,10 +60,8 @@ Selection.healthy = healthy
 Selection.monFingerprint = monFingerprint
 
 function Selection:getParty(game)
-  if not (game and game.save and type(game.save.party) == "table") then
-    return nil
-  end
-  return game.save.party
+  local GameCompat = V.require("game_compat")
+  return GameCompat.party(game)
 end
 
 --- Resolve the active follower mon.

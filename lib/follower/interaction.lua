@@ -12,13 +12,9 @@ local function tryRequire(path)
   return nil
 end
 
-local function gameVersion()
-  local GV = tryRequire("src.core.GameVersion")
-  if GV and GV.get then
-    local ok, v = pcall(GV.get)
-    if ok then return v end
-  end
-  return nil
+local function gameVersion(game)
+  local GameCompat = V.require("game_compat")
+  return GameCompat.gameVersion(game)
 end
 
 function Interaction.new(mod, selection)
@@ -112,7 +108,7 @@ function Interaction:makeTalkWrapper(originalTalk)
     end
 
     -- Yellow Pikachu keeps vanilla talk (PokéPC behaviour).
-    local ver = gameVersion()
+    local ver = gameVersion(game)
     if ver == "yellow" and mon.species == "PIKACHU" and originalTalk then
       return originalTalk(a, b, c, d)
     end

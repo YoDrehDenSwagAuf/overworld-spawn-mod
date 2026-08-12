@@ -181,17 +181,9 @@ function ControlEngine:_game()
 end
 
 function ControlEngine:_isYellow()
-  local GV = tryRequire("src.core.GameVersion")
-  if not GV then return false end
-  if type(GV.isYellow) == "function" then
-    local ok, yellow = pcall(GV.isYellow)
-    if ok then return yellow == true end
-  end
-  if type(GV.get) == "function" then
-    local ok, version = pcall(GV.get)
-    return ok and version == "yellow"
-  end
-  return false
+  local GameCompat = V.require("game_compat")
+  local game = self.mod and self.mod.world and self.mod.world.game
+  return GameCompat.gameVersion(game) == "yellow"
 end
 
 function ControlEngine:_opt(key, default)
@@ -1125,20 +1117,8 @@ local function behindOffset(facing, steps)
 end
 
 function ControlEngine:_playerSurfing(ow, game)
-  local player = ow and ow.player
-  if not player then return false end
-  if player.surfing == true or player.isSurfing == true then return true end
-  if player.surface == "water" or player.surface == "WATER" then return true end
-  if game and game.player and game.player.surfing == true then return true end
-  -- Last resort: the player's own cell is water (surf field flags vary across
-  -- engine builds). Trailers must get water surface semantics or they can
-  -- never step onto water cells and get dragged along via teleports.
-  if ow and ow.map and player.cellX ~= nil and player.cellY ~= nil
-     and type(ow.map.isWaterCell) == "function" then
-    local ok, water = pcall(ow.map.isWaterCell, ow.map, player.cellX, player.cellY)
-    if ok and water == true then return true end
-  end
-  return false
+  local GameCompat = V.require("game_compat")
+  return GameCompat.isSurfing(game, ow) == true
 end
 
 function ControlEngine:_trailSurface(ow, game)

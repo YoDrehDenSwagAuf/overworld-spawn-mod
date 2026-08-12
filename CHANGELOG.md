@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Internal multi-generation preparation
+
+- Added a small `lib/game_compat.lua` facade with a Gen1 adapter and an
+  unsupported Gen2 stub. Shared Wilds code can ask which generation is running
+  and resolve species / party / surf / map id through that layer.
+- Follower species lookup (`SpriteService:dexOf`) now uses GameCompat instead
+  of a private Gen1 `SPECIES_TO_DEX` table. Engine resolution and the existing
+  Gen1 name mapping remain as fallbacks.
+- Unknown game generations skip Gen1 gameplay hooks without crashing and log
+  once: `[Wilds] Unsupported game generation; Gen1 gameplay hooks disabled.`
+- No Gen2 gameplay, maps, encounters, catching, followers, or settings. Public
+  options and manifest support claims are unchanged.
+
 ## 2.0.2
 
 ### Voxel True Size — provider-scoped adapters
