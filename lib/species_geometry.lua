@@ -100,11 +100,25 @@ function SpeciesGeometry.clearCache()
   _loadError = nil
 end
 
+local _gen1MaxSpecies
+local function gen1MaxSpecies()
+  if _gen1MaxSpecies then return _gen1MaxSpecies end
+  local ok, Gen1 = pcall(function() return V.require("game_compat/gen1") end)
+  if ok and Gen1 and type(Gen1.MAX_SPECIES) == "number" then
+    _gen1MaxSpecies = Gen1.MAX_SPECIES
+  else
+    _gen1MaxSpecies = 151
+  end
+  return _gen1MaxSpecies
+end
+
 function SpeciesGeometry.normalizeDex(speciesId)
-  -- Gen1 National Dex only (1..151). Do not widen to 251 here; a future
-  -- Gen2 adapter will own its own geometry range.
+  -- Gen1 National Dex only. The numeric cap lives on the Gen1 adapter
+  -- (currently 151). Do not widen to 251 here; a future Gen2 adapter owns
+  -- its own geometry range.
   local n = tonumber(speciesId)
-  if n and n >= 1 and n <= 151 then return math.floor(n) end
+  local maxDex = gen1MaxSpecies()
+  if n and n >= 1 and n <= maxDex then return math.floor(n) end
   return nil
 end
 

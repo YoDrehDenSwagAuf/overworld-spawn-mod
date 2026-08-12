@@ -94,6 +94,18 @@ else
   eq(ModTargets.label(gen2), "Gen 2",
      'games: ["gen2"] → Gen 2')
 
+  eq(ModTargets.chip(both), "GEN 1+2",
+     'games: ["gen1", "gen2"] chip → GEN 1+2')
+
+  -- Canonical engine generation API (do not duplicate in Wilds).
+  package.loaded["src.core.GameVersion"] = nil
+  local GameVersion = require("src.core.GameVersion")
+  eq(GameVersion.generation("red"), 1, "engine generation(red) == 1")
+  eq(GameVersion.generation("blue"), 1, "engine generation(blue) == 1")
+  eq(GameVersion.generation("yellow"), 1, "engine generation(yellow) == 1")
+  eq(GameVersion.generation("gold"), 2, "engine generation(gold) == 2")
+  eq(GameVersion.VERSIONS.silver, nil, "engine has no silver version id yet")
+
   print("ok  ModTargets sourced from " .. root)
 end
 

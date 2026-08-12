@@ -61,7 +61,17 @@ See `docs/ANIMATED_SPRITE_FORMAT.md`.
 6. Hook `encounter.roll` + `movement.collision` when enabled
 7. Subscribe to map/world/battle/save/options events
 
+Generation gate: `GameCompat.isSupported` must be true before Gen1
+gameplay hooks, follower install, ambient, catching, or WILDS AI
+pipelines are installed. Unsupported generations log once and skip
+those hooks without crashing. Content registration still runs.
+
 Gen1Recomp freezes content registries after all mods load.
+`GameVersion.set()` runs in `bootGame` before `Loader:load`, so
+generation detection is reliable at mod entry.
+
+See `docs/analysis/GEN2_PREPARATION.md`. Production manifest stays
+Gen1-only until a boot-safe Gen2 adapter exists.
 
 ## 3. Content registration
 

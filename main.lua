@@ -255,9 +255,12 @@ return function(mod)
     if devOverlay then devOverlay:syncPipelineLevel() end
     -- The engine's Pipelines.applyOptions restores pipeline levels from the
     -- save right after mods load, wiping our registered level back to OFF.
-    -- Re-assert the WILDS AI pipeline now that the world is live.
-    if behaviorTick then behaviorTick:syncPipelineLevel() end
-    if catching then catching:syncPipelineLevel() end
+    -- Re-assert Gen1 gameplay pipelines only when that generation is supported.
+    -- Catching / WILDS AI are not registered on unsupported generations.
+    if gen1GameplayEnabled() then
+      if behaviorTick then behaviorTick:syncPipelineLevel() end
+      if catching then catching:syncPipelineLevel() end
+    end
     Config.migrateSpriteStyleOption(mod)
     Config.migrateRandomEncountersOption(mod)
     Config.migrateWaterDisplayMode(mod)

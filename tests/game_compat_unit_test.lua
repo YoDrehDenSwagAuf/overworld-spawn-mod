@@ -317,6 +317,20 @@ do
 end
 
 ----------------------------------------------------------------
+-- Gen1 adapter owns the 151 cap (True Size / diagnostic slots)
+----------------------------------------------------------------
+do
+  setEngineVersion("red")
+  eq(GameCompat.Gen1.MAX_SPECIES, 151, "Gen1.MAX_SPECIES == 151")
+  local SpeciesGeometry = V.require("species_geometry")
+  eq(SpeciesGeometry.normalizeDex(1), 1, "normalizeDex 1")
+  eq(SpeciesGeometry.normalizeDex(151), 151, "normalizeDex MEW 151")
+  eq(SpeciesGeometry.normalizeDex(152), nil, "normalizeDex 152 is not Gen1")
+  eq(SpeciesGeometry.normalizeDex(251), nil, "normalizeDex 251 is not Gen1")
+  eq(SpeciesGeometry.normalizeDex(0), nil, "normalizeDex 0 invalid")
+end
+
+----------------------------------------------------------------
 -- Production manifest stays Gen1-only (STATE A)
 ----------------------------------------------------------------
 do
@@ -329,6 +343,48 @@ do
         "production manifest has no gen2compat key")
   check(raw:find(">=0.0.0-0 <2.0.0", 1, true) ~= nil,
         "game_version range unchanged")
+end
+
+----------------------------------------------------------------
+-- main.lua boot gate: unsupported generations skip Gen1 hooks
+----------------------------------------------------------------
+do
+  local f = assert(io.open("main.lua", "rb"))
+  local raw = f:read("*a")
+  f:close()
+  check(raw:find("GameCompat.isSupported", 1, true) ~= nil,
+        "main.lua uses GameCompat.isSupported")
+  check(raw:find("if not gen1GameplayEnabled()", 1, true) ~= nil,
+        "main.lua gates map/world handlers on gen1GameplayEnabled")
+  check(raw:find("if gen1GameplayEnabled() then", 1, true) ~= nil,
+        "main.lua gates install / pipeline sync on gen1GameplayEnabled")
+  local ready = raw:find('mod.events:on("game.ready"', 1, true)
+  check(ready ~= nil, "main.lua has game.ready handler")
+  if ready then
+    local afterReady = raw:sub(ready, ready + 2500)
+    check(afterReady:find("if gen1GameplayEnabled() then", 1, true) ~= nil,
+          "game.ready re-asserts catching/AI pipelines only when supported")
+  end
+end
+
+----------------------------------------------------------------
+-- Example future manifest is not the production file
+----------------------------------------------------------------
+do
+  local example = io.open("docs/analysis/future-manifest-games.example.json", "rb")
+  check(example ~= nil, "future games example exists")
+  if example then
+    local raw = example:read("*a")
+    example:close()
+    check(raw:find('"games"', 1, true) ~= nil, "example contains games")
+    check(raw:find('"gen1"', 1, true) ~= nil and raw:find('"gen2"', 1, true) ~= nil,
+          'example games tokens are gen1 and gen2')
+  end
+  local prod = assert(io.open("manifest.json", "rb"))
+  local prodRaw = prod:read("*a")
+  prod:close()
+  check(not prodRaw:find('"games"', 1, true),
+        "example was not copied into production manifest")
 end
 
 if failures > 0 then

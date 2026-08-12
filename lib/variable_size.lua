@@ -418,7 +418,8 @@ local function looksLikeTrueSizePath(path)
 end
 
 --- Resolve speciesId to a Gen1 dex number. Wild entities often store
---- entity.species as a name ("ONIX"); packGeometry only accepts 1..151.
+--- entity.species as a name ("ONIX"); packGeometry only accepts the Gen1
+--- adapter cap (currently 1..151 via SpeciesGeometry.normalizeDex).
 local function resolveDex(mod, speciesId, opts)
   local dex = SpeciesGeometry.normalizeDex(speciesId)
   if dex then return dex end

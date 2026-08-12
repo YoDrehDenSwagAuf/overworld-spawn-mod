@@ -69,6 +69,7 @@ stays `supported = false`, so no Gen1 gameplay hooks install there.
 Production `manifest.json` omits `games` / `gen2compat` (Mod Manager: **Gen 1**).
 Do not add `"games": ["gen1", "gen2"]` until the Gen2 adapter is boot-safe.
 That future claim is what produces the engine label **Gen 1+2**.
+Example (not production): `docs/analysis/future-manifest-games.example.json`.
 See `docs/analysis/GEN2_PREPARATION.md`.
 
 ## Verified contracts

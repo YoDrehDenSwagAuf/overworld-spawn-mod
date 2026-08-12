@@ -11,6 +11,13 @@
 --   party(game)                   → table|nil  (same object as the live party)
 --   currentMapId(game, ow)        → map id | nil
 --
+-- Engine pointers for the next PR (current Gen1Recomp Gold, do not call yet):
+--   party:        Gold World still uses game.save.party
+--   isSurfing:    src.world.gen2.FieldMoves.isSurfing(playerState)
+--                 (PLAYER_SURF / PLAYER_SURF_PIKA — not Gen1 player.surfing)
+--   currentMapId: ow.map.id once Gold World is live
+--   speciesId:    engine pokemon data; do not copy Gen1 SPECIES_TO_DEX
+--
 -- Do not add placeholder functions that return guessed Gold/Silver values.
 -- GameCompat.current() will keep returning nil until supported == true.
 local Gen2 = {}
