@@ -62,6 +62,9 @@ return function(mod)
   local Diagnostics = V.require("diagnostics")
 
   local function gen1GameplayEnabled()
+    -- GameVersion.set() runs in Gen1Recomp bootGame() before Loader:load,
+    -- so this is reliable at mod entry. Unsupported generations skip Gen1
+    -- encounter/follower/catching hooks without crashing the engine.
     return GameCompat.isSupported(mod, mod.world and mod.world.game) == true
   end
 

@@ -12,6 +12,12 @@
   Gen1 name mapping remain as fallbacks.
 - Unknown game generations skip Gen1 gameplay hooks without crashing and log
   once: `[Wilds] Unsupported game generation; Gen1 gameplay hooks disabled.`
+- Generation detection uses Gen1Recomp `GameVersion.get()` +
+  `GameVersion.generation(id)` when the engine module is present, so Gold is
+  generation 2 and cannot be classified as Gen 1 at mod entry.
+- Manifest stays Gen1-only (no `games` / `gen2compat`). Future claim is
+  `"games": ["gen1", "gen2"]` → Mod Manager label **Gen 1+2**, only after a
+  boot-safe Gen2 adapter exists. See `docs/analysis/GEN2_PREPARATION.md`.
 - No Gen2 gameplay, maps, encounters, catching, followers, or settings. Public
   options and manifest support claims are unchanged.
 

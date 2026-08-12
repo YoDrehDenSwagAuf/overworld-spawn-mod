@@ -333,6 +333,7 @@ lua mods/overworld_wild_spawns/tests/voxel_provider_variable_geometry_unit_test.
 # Follower core (host lua; no engine required)
 lua mods/overworld_wild_spawns/tests/follower_core_unit_test.lua
 lua mods/overworld_wild_spawns/tests/game_compat_unit_test.lua
+lua mods/overworld_wild_spawns/tests/manifest_targets_unit_test.lua
 ```
 
 ## 25. Release build

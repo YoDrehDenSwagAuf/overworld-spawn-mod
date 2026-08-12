@@ -50,9 +50,11 @@ assumptions. It is **not** playable Gen2 support.
 
 ```text
 GameCompat.current(mod, game)      → Gen1 adapter or nil
-GameCompat.generation(mod, game)   → 1 or nil
-GameCompat.isSupported(mod, game)  → true for Red/Blue/Yellow
-GameCompat.gameVersion(game)       → "red"|"blue"|"yellow"|other|nil
+GameCompat.generation(mod, game)   → 1, 2, or nil
+GameCompat.isSupported(mod, game)  → true only when an adapter is supported
+GameCompat.isGen1(mod, game)
+GameCompat.isGen2(mod, game)
+GameCompat.gameVersion(game)       → "red"|"blue"|"yellow"|"gold"|other|nil
 GameCompat.speciesId(species, game, mod)
 GameCompat.isSurfing(game, ow)
 GameCompat.isWaterCell(map, x, y)
@@ -60,8 +62,14 @@ GameCompat.party(game)             → same save.party table
 GameCompat.currentMapId(game, ow)
 ```
 
-Detection uses Gen1Recomp `src.core.GameVersion.get()` / `isYellow()`.
-Unknown explicit versions are unsupported (no crash, no Gen1 world hooks).
+Detection uses Gen1Recomp `GameVersion.get()` + `GameVersion.generation(id)`
+(set in `bootGame` before mod entry). Gold is generation 2; the Gen2 stub
+stays `supported = false`, so no Gen1 gameplay hooks install there.
+
+Production `manifest.json` omits `games` / `gen2compat` (Mod Manager: **Gen 1**).
+Do not add `"games": ["gen1", "gen2"]` until the Gen2 adapter is boot-safe.
+That future claim is what produces the engine label **Gen 1+2**.
+See `docs/analysis/GEN2_PREPARATION.md`.
 
 ## Verified contracts
 

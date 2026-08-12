@@ -52,14 +52,28 @@ modules.debug_log = {
 }
 modules.tile = { CELL = 16, WIDTH = 16, HEIGHT = 16, size = function() return 16, 16 end }
 
+-- Mirrors Gen1Recomp src/core/GameVersion.lua: get() + generation(id).
+-- Red/Blue/Yellow have no generation field (reads as 1). Gold is 2.
 local function setEngineVersion(v)
   if v == nil then
     package.loaded["src.core.GameVersion"] = nil
     return
   end
+  local id = string.lower(tostring(v))
   package.loaded["src.core.GameVersion"] = {
-    get = function() return v end,
-    isYellow = function() return v == "yellow" end,
+    get = function() return id end,
+    isYellow = function() return id == "yellow" end,
+    isGold = function() return id == "gold" end,
+    generation = function(which)
+      which = which or id
+      if which == "gold" or which == "silver" or which == "crystal" then
+        return 2
+      end
+      if which == "red" or which == "blue" or which == "yellow" then
+        return 1
+      end
+      error("unknown GameVersion id: " .. tostring(which))
+    end,
   }
 end
 
@@ -73,6 +87,8 @@ do
   setEngineVersion("red")
   eq(GameCompat.generation(nil, {}), 1, "Red generation == 1")
   eq(GameCompat.isSupported(nil, {}), true, "Red supported == true")
+  eq(GameCompat.isGen1(nil, {}), true, "Red isGen1")
+  eq(GameCompat.isGen2(nil, {}), false, "Red is not Gen2")
   eq(GameCompat.gameVersion({}), "red", "Red gameVersion")
   check(GameCompat.current(nil, {}) == GameCompat.Gen1, "Red uses Gen1 adapter")
 end
@@ -81,15 +97,19 @@ do
   setEngineVersion("blue")
   eq(GameCompat.generation(nil, {}), 1, "Blue generation == 1")
   eq(GameCompat.isSupported(nil, {}), true, "Blue supported == true")
+  eq(GameCompat.isGen1(nil, {}), true, "Blue isGen1")
   eq(GameCompat.gameVersion({}), "blue", "Blue gameVersion")
+  check(GameCompat.current(nil, {}) == GameCompat.Gen1, "Blue uses Gen1 adapter")
 end
 
 do
   setEngineVersion("yellow")
   eq(GameCompat.generation(nil, {}), 1, "Yellow generation == 1")
   eq(GameCompat.isSupported(nil, {}), true, "Yellow supported == true")
+  eq(GameCompat.isGen1(nil, {}), true, "Yellow isGen1")
   eq(GameCompat.gameVersion({}), "yellow", "Yellow gameVersion")
   eq(GameCompat.gameVersion({}), "yellow", "Yellow via isYellow/get")
+  check(GameCompat.current(nil, {}) == GameCompat.Gen1, "Yellow uses Gen1 adapter")
 end
 
 do
@@ -99,24 +119,41 @@ do
 end
 
 ----------------------------------------------------------------
--- Unknown / future games fail safely
+-- Mock Gen2 (Gold): generation 2, adapter still unsupported
 ----------------------------------------------------------------
 do
   setEngineVersion("gold")
   local ok, gen = pcall(GameCompat.generation, nil, {})
-  check(ok, "unknown generation does not crash")
-  eq(gen, nil, "gold generation == nil")
-  eq(GameCompat.isSupported(nil, {}), false, "gold supported == false")
-  eq(GameCompat.current(nil, {}), nil, "gold has no adapter")
+  check(ok, "gold generation does not crash")
+  eq(gen, 2, "gold generation == 2")
+  eq(GameCompat.isGen2(nil, {}), true, "gold isGen2")
+  eq(GameCompat.isGen1(nil, {}), false, "gold is not Gen1")
+  eq(GameCompat.isSupported(nil, {}), false, "gold supported == false (stub)")
+  eq(GameCompat.current(nil, {}), nil, "gold has no adapter while stub unsupported")
   eq(GameCompat.speciesId("RATTATA", {}, V.mod), nil,
      "gold does not use Gen1 species mapping")
   eq(GameCompat.party({ save = { party = { 1 } } }), nil,
      "gold does not expose Gen1 party")
+  eq(GameCompat.isSurfing({}, { player = { surfing = true } }), false,
+     "gold does not use Gen1 surf detection")
+end
+
+----------------------------------------------------------------
+-- Unknown explicit version: not classified as Gen1
+----------------------------------------------------------------
+do
+  setEngineVersion("unknown")
+  local ok, gen = pcall(GameCompat.generation, nil, {})
+  check(ok, "unknown generation does not crash")
+  eq(gen, nil, "unknown generation == nil")
+  eq(GameCompat.isSupported(nil, {}), false, "unknown supported == false")
+  eq(GameCompat.current(nil, {}), nil, "unknown has no adapter")
 end
 
 do
   setEngineVersion("silver")
-  eq(GameCompat.isSupported({ version = "silver" }), false, "silver unsupported")
+  eq(GameCompat.generation(nil, {}), 2, "silver mock generation == 2")
+  eq(GameCompat.isSupported(nil, {}), false, "silver unsupported (no adapter)")
 end
 
 do
@@ -133,12 +170,24 @@ do
 end
 
 ----------------------------------------------------------------
--- Missing GameVersion keeps historical Gen1 path (tests / load fallback)
+-- Early load: GameVersion present cannot classify Gen2 as Gen1
+----------------------------------------------------------------
+do
+  -- Engine module exists (Gold already selected) even if game object is nil.
+  setEngineVersion("gold")
+  eq(GameCompat.generation(nil, nil), 2, "early-load gold is Gen2, not Gen1")
+  eq(GameCompat.isSupported(nil, nil), false, "early-load gold not supported")
+  check(GameCompat.current(nil, nil) ~= GameCompat.Gen1,
+        "early-load gold does not select Gen1 adapter")
+end
+
+----------------------------------------------------------------
+-- Missing GameVersion module: standalone tests only (not a real engine boot)
 ----------------------------------------------------------------
 do
   setEngineVersion(nil)
-  eq(GameCompat.generation(nil, {}), 1, "missing API defaults to Gen1")
-  eq(GameCompat.isSupported(nil, nil), true, "missing API is supported")
+  eq(GameCompat.generation(nil, {}), 1, "missing module defaults to Gen1 for tests")
+  eq(GameCompat.isSupported(nil, nil), true, "missing module is supported")
 end
 
 ----------------------------------------------------------------
@@ -262,6 +311,24 @@ do
   eq(GameCompat.Gen2.supported, false, "Gen2 stub supported == false")
   check(GameCompat.Gen2.speciesId == nil, "Gen2 stub has no species API")
   check(GameCompat.Gen2.isSurfing == nil, "Gen2 stub has no surf API")
+  check(GameCompat.FUTURE_GAMES[1] == "gen1"
+        and GameCompat.FUTURE_GAMES[2] == "gen2",
+        "documented future games tokens")
+end
+
+----------------------------------------------------------------
+-- Production manifest stays Gen1-only (STATE A)
+----------------------------------------------------------------
+do
+  local f = assert(io.open("manifest.json", "rb"))
+  local raw = f:read("*a")
+  f:close()
+  check(not raw:find('"games"', 1, true),
+        "production manifest has no games key yet")
+  check(not raw:find("gen2compat", 1, true),
+        "production manifest has no gen2compat key")
+  check(raw:find(">=0.0.0-0 <2.0.0", 1, true) ~= nil,
+        "game_version range unchanged")
 end
 
 if failures > 0 then
