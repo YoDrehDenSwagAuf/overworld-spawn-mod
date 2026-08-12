@@ -991,7 +991,8 @@ function ControlEngine:ledgeStep(game, ow, cx, cy, dir)
   return false
 end
 
-function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
+function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts)
+  opts = opts or {}
   local NPC = tryRequire("src.world.NPC")
   local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
   if not (NPC and NPC.new) then return nil end
@@ -1050,11 +1051,12 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
     local species = mon and mon.species or "CHARMANDER"
     local shiny = isShinyMon(mon)
     npc.pokepcShiny = shiny and true or false
+    local surface = opts.surface or self:_trailSurface(ow, game) or "land"
     local resolved = self:resolveFollowerSprite({
       species = species,
       shiny = shiny,
       form = mon and mon.form,
-      surface = "land",
+      surface = surface,
       role = "party_trailer",
       game = game,
     })
@@ -1065,6 +1067,8 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot)
       if ok and sprite then npc.sprite = sprite end
     end
     npc._wildsFollowerSpecies = species
+    npc.wildsFollowerWater = (surface == "water" or surface == "surfing")
+    npc.spriteState = (surface == "water" or surface == "surfing") and "water" or "land"
   end
 
   -- Walk-cycle animation: mirror the player (continuous animClock, so leg
@@ -1880,8 +1884,11 @@ function ControlEngine:syncTrailers(game, ow, opts)
     or (anchor and (anchor.stepFramesCur or anchor.stepFrames)) or 16
 
   -- Surface transition: reseed once so trail goals leave the frozen shore cell.
+  -- Sprite presentation is rebound after composition (existing NPCs keep
+  -- identity; newly spawned trailers resolve the correct surface in makeTrailer).
   local prevSurface = ow._wildsFollowerTrailSurface
-  if prevSurface ~= surface then
+  local surfaceChanged = prevSurface ~= surface
+  if surfaceChanged then
     mapEnter = true
     ow._wildsFollowerTrailSurface = surface
   end
@@ -1935,10 +1942,10 @@ function ControlEngine:syncTrailers(game, ow, opts)
         end
       end
       -- Refresh sprites so each trailer shows its new mon's art.
-      self:_refreshTrailerMonSprites(game, ow)
+      self:_refreshTrailerMonSprites(game, ow, surface)
       -- Force water sprite refresh if applicable.
-      if self:_trailSurface(ow, game) == "water" then
-        ow._lastTrailSurface = nil
+      if surface == "water" then
+        self._lastTrailSurface = nil
       end
       self._lastSyncedCount = wantN
       self.diag.lastSeed = "species_swap"
@@ -1978,7 +1985,9 @@ function ControlEngine:syncTrailers(game, ow, opts)
       end
       local bx, by = cell.x, cell.y
       local okNpc, npc = pcall(function()
-        return self:makeTrailer(game, ow, bx, by, facing, spec.kind, spec.mon, i)
+        return self:makeTrailer(game, ow, bx, by, facing, spec.kind, spec.mon, i, {
+          surface = surface,
+        })
       end)
       if not okNpc or not npc then
         logWarn(self.mod, "trailer spawn failed slot %s: %s", tostring(i), tostring(npc))
@@ -2044,7 +2053,9 @@ function ControlEngine:syncTrailers(game, ow, opts)
         local bx = anchor.cellX or 0
         local by = anchor.cellY or 0
         local okNpc, npc = pcall(function()
-          return self:makeTrailer(game, ow, bx, by, facing, spec.kind, spec.mon, i)
+          return self:makeTrailer(game, ow, bx, by, facing, spec.kind, spec.mon, i, {
+            surface = surface,
+          })
         end)
         if okNpc and npc then
           placeTrailerAt(npc, bx, by, facing)
@@ -2057,10 +2068,10 @@ function ControlEngine:syncTrailers(game, ow, opts)
       ow.pokepcTrailers = kept
       ow.pokepcTrailCells = keptGoals
       -- Refresh sprites so each trailer shows its new mon's art.
-      self:_refreshTrailerMonSprites(game, ow)
+      self:_refreshTrailerMonSprites(game, ow, surface)
       -- Force water sprite refresh if applicable.
-      if self:_trailSurface(ow, game) == "water" then
-        ow._lastTrailSurface = nil
+      if surface == "water" then
+        self._lastTrailSurface = nil
       end
       self.diag.lastSeed = "count_changed"
     else
@@ -2082,7 +2093,9 @@ function ControlEngine:syncTrailers(game, ow, opts)
         end
         local bx, by = cell.x, cell.y
         local okNpc, npc = pcall(function()
-          return self:makeTrailer(game, ow, bx, by, facing, spec.kind, spec.mon, i)
+          return self:makeTrailer(game, ow, bx, by, facing, spec.kind, spec.mon, i, {
+            surface = surface,
+          })
         end)
         if not okNpc or not npc then
           logWarn(self.mod, "trailer spawn failed slot %s: %s", tostring(i), tostring(npc))
@@ -2105,6 +2118,17 @@ function ControlEngine:syncTrailers(game, ow, opts)
     }
     self._lastSyncedCount = wantN
     end  -- inner else (count changed or initial sync)
+  end
+
+  -- Land ↔ water: rebind Pokémon trailer sprites on the surviving NPCs
+  -- (or on newly spawned ones after a required rebuild). Movement fields
+  -- stay on the entity; only SpriteRenderer / sprite def change.
+  if surfaceChanged then
+    local rebound = self:_refreshTrailerMonSprites(game, ow, surface) or 0
+    if prevSurface == "land" or prevSurface == "water" then
+      logInfo(self.mod, "follower surface %s -> %s, rebound %d mon sprites",
+              tostring(prevSurface), tostring(surface), rebound)
+    end
   end
 
   local destX = anchor.targetX or anchor.cellX
@@ -2856,13 +2880,18 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
 end
 
 --- Resolve sprite art for every mon trailer from its current pokepcMon.
--- Call after species-swap or count-changed inline updates to refresh sprites
--- so a trailer doesn't keep showing the old mon's art after its mon ref changed.
+-- Call after species-swap, count-changed inline updates, or a land↔water
+-- surface transition. Rebinds SpriteRenderer only — movement / trail slot /
+-- pokepcMon stay on the same NPC. Swimming geometry (frameWidth/Height,
+-- anchorX/Y) travels through spriteDefWithGeometry.
+-- Returns the number of mon trailers whose sprite was rebound.
 function ControlEngine:_refreshTrailerMonSprites(game, ow, surface)
-  if not (ow and ow.pokepcTrailers) then return end
+  if not (ow and ow.pokepcTrailers) then return 0 end
   local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
-  if not (SpriteRenderer and SpriteRenderer.new) then return end
+  if not (SpriteRenderer and SpriteRenderer.new) then return 0 end
   surface = surface or self:_trailSurface(ow, game) or "land"
+  local water = (surface == "water" or surface == "surfing")
+  local rebound = 0
 
   for _, npc in ipairs(ow.pokepcTrailers) do
     if npc and npc.pokepcTrailerKind == "mon" and npc.pokepcMon then
@@ -2885,11 +2914,15 @@ function ControlEngine:_refreshTrailerMonSprites(game, ow, surface)
           if ok and sprite then
             npc.sprite = sprite
             npc._wildsFollowerSpecies = species
+            rebound = rebound + 1
           end
         end
       end
+      npc.wildsFollowerWater = water
+      npc.spriteState = water and "water" or "land"
     end
   end
+  return rebound
 end
 
 function ControlEngine:_removeStockPikachu(ow)
