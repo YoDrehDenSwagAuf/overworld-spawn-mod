@@ -37,7 +37,8 @@ Active collaborators on this project:
   systems
 - [TheRhysWyrill](https://github.com/TheRhysWyrill) (TRW) — PokéPC / follower
   selection / integration / Poke Followers / GSC - Sprites
-- [gamecorner-033](https://github.com/gamecorner-033) — Original PokéPC / overworld follower concepts and related work
+- **ShockSlayer / Crystal Clear team** — for the GSC-style Pokémon sprite work that the Poké Followers / GSC presentation is based on
+- [gamecorner-033](https://github.com/gamecorner-033) — Original PokéPC / Overworld Catching inspiration / overworld follower concepts and related work
 
 ## Encounter Behaviors
 
