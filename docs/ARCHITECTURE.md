@@ -67,6 +67,7 @@ lift = e.py - visualY
 ground = groundAt(map, e.cellX, e.cellY)
 sprite.def.image → static loadable sheet (Assets.image)
 SpriteBillboards builds 16×16 UVs into that sheet per frame index
+(Battle Art: Wilds may wrap mesh() for variable SpriteDef geometry)
 ```
 
 ## Flat vs Voxel presentation

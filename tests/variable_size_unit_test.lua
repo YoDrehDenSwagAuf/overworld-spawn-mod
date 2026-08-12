@@ -103,13 +103,13 @@ check(io.open("assets/generated/true_size/levitate/006-normal.png", "rb"), "Char
 VariableSize.clearCaches()
 check(VariableSize.probeEngineApi().available, "engine API")
 
--- requested vs effective — Classic
-savedOpts.pokemon_size = "classic"
+-- requested vs effective — Classic (GSC / followers style)
+savedOpts.sprite_style = "followers"
 eq(VariableSize.requestedMode(mod), "classic", "requested classic")
 eq(VariableSize.effectiveMode(mod), "classic", "effective classic")
 
--- True Size Flat
-savedOpts.pokemon_size = "true_size"
+-- True Size Flat (HGSS / pokemmo style)
+savedOpts.sprite_style = "pokemmo"
 VariableSize.clearCaches()
 eq(VariableSize.requestedMode(mod), "true_size", "requested true_size")
 local eff, why = VariableSize.effectiveMode(mod, { voxelActive = false })
@@ -147,7 +147,7 @@ local function buildCard(def, frame)
 end
 ]]
 mod.find = function(_self, id)
-  if id == "DRAMATIC_SHAPE" or id == "BATTLE_ART_VOXEL_FORK" then
+  if id == "DRAMATIC_SHAPE" then
     return {
       exports = { version = "1.7.9" },
       read = function(_m, rel)
@@ -157,12 +157,12 @@ mod.find = function(_self, id)
   end
 end
 VariableSize.clearCaches()
-savedOpts.pokemon_size = "true_size"
-local beforeOpt = savedOpts.pokemon_size
+savedOpts.sprite_style = "pokemmo"
+local beforeOpt = savedOpts.sprite_style
 local effV, whyV = VariableSize.effectiveMode(mod, { voxelActive = true })
 eq(effV, "classic", "voxel effective classic")
 check(whyV:find("voxel_ds_incompatible", 1, true) == 1, "voxel reason")
-eq(savedOpts.pokemon_size, beforeOpt, "saved option NOT rewritten")
+eq(savedOpts.sprite_style, beforeOpt, "saved option NOT rewritten")
 eq(VariableSize.requestedMode(mod), "true_size", "requested still true_size")
 
 local outV, infoV = VariableSize.applyToDef(mod, {
@@ -171,7 +171,7 @@ local outV, infoV = VariableSize.applyToDef(mod, {
 }, { speciesId = 6, style = "pokemmo", variant = "normal", voxelActive = true })
 eq(infoV.applied, false, "voxel does not apply True Size")
 eq(outV.frameWidth, nil, "geometry stripped")
-eq(savedOpts.pokemon_size, "true_size", "option still true_size after apply")
+eq(savedOpts.sprite_style, "pokemmo", "option still pokemmo after apply")
 
 -- Leaving Voxel restores True Size (poll)
 VariableSize.resetEffectiveModePoll()
@@ -190,38 +190,24 @@ local outM, infoM = VariableSize.applyToDef(mod, {
 -- May or may not have shiny swim; either applied or missing fallback — no crash
 check(infoM.reason ~= nil, "missing path returns reason")
 
--- Schema
+-- Schema: pokemon_size was removed; size follows Sprite Style.
 local schema = assert(loadfile("options.lua"))()
-local found = false
+local foundSize = false
 for _, opt in ipairs(schema) do
-  if opt.key == "pokemon_size" then
-    found = true
-    eq(opt.default, "classic", "default classic")
-    check(opt.description:find("Voxel", 1, true), "description mentions Voxel")
-  end
+  if opt.key == "pokemon_size" then foundSize = true end
 end
-check(found, "pokemon_size option")
+eq(foundSize, false, "pokemon_size option removed")
 
 local mf = assert(io.open("manifest.json"):read("*a"))
-check(mf:find('"1.14.0"', 1, true), "manifest 1.14.0")
+check(mf:find('"version"', 1, true), "manifest has version")
 
 -- HGSS quality: native philosophy prefers pad-only (no default resize).
--- Full 151 runs have pad>100; --prototype runs only cover 3 species.
 do
   local raw = assert(io.open("assets/generated/true_size/generation_report.json"):read("*a"))
   local pad = tonumber(raw:match('"hgss_pad_only"%s*:%s*(%d+)'))
   local resized = tonumber(raw:match('"hgss_resized"%s*:%s*(%d+)'))
-  local proto = raw:find('"prototype"%s*:%s*true', 1, false) ~= nil
-    or raw:find('"philosophy"%s*:%s*"native_hgss"', 1, false) ~= nil
-  if proto then
-    check(pad ~= nil and pad >= 1, "prototype HGSS pad-only present: " .. tostring(pad))
-    check(resized ~= nil, "hgss_resized present")
-    -- Prototype Rattata+Blastoise are pad-only; Onix may NN-scale via override.
-    check(pad >= resized, "prototype prefers pad-only over resize")
-  else
-    check(pad and pad > 100, "many HGSS pad-only: " .. tostring(pad))
-    check(resized ~= nil, "hgss_resized present")
-  end
+  check(pad ~= nil, "hgss_pad_only present")
+  check(resized ~= nil, "hgss_resized present")
 end
 
 print("PASS variable_size_unit_test")

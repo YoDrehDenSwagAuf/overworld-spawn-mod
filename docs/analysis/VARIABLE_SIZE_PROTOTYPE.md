@@ -1,6 +1,9 @@
 # Variable-size / True Size prototype findings
 
-Status: **Flat Charizard prototype ready; full migration STOPPED** because Dramatic Shape 1.7.9 does not consume Gen1Recomp’s geometry contract.
+Status: **Flat True Size shipped for all 151.** Voxel True Size is enabled
+when Battle Art Voxel Fork exposes `exports.lib.require("SpriteBillboards")`
+and Wilds can wrap `mesh()` in-memory (`lib/compat/battle_art_variable_geometry.lua`).
+Original Dramatic Shape 1.7.9 / Dramaless remain Classic in Voxel.
 
 ## 1. Gen1Recomp API (actual, not issue-only)
 

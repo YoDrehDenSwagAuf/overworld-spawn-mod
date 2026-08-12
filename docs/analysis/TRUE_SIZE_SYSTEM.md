@@ -106,7 +106,18 @@ drive native True Size draws.
 Scissor restore is guarded with `pcall`. Voxel untouched. Feet-band remains a
 separate native Tall Grass overdraw concern after the geometry fix.
 
-## Dramatic Shape
+## Dramatic Shape / Battle Art Voxel
 
-1.7.9 still fixed 16×16. No monkey-patch. Future
-`exports.variableSpriteGeometry = true` enables True Size under Voxel.
+Original Dramatic Shape 1.7.9 and Dramaless remain fixed 16×16. Wilds does
+**not** copy their renderer.
+
+Battle Art Voxel Fork (`BATTLE_ART_VOXEL_FORK`, inspected 1.8.3) exposes
+`exports.lib.require`. When that public `SpriteBillboards.mesh` entry point
+can be wrapped in-memory, Wilds installs
+`lib/compat/battle_art_variable_geometry.lua` so True Size geometry
+(`frameWidth` / `frameHeight` / `anchorX` / `anchorY`) is consumed by the
+existing billboard / shadow / silhouette path.
+
+`VariableSize.canUseTrueSizeInVoxel()` is true only after that adapter
+installs (or Battle Art already exports `variableSpriteGeometry`). Failure
+keeps Classic 16×16 and logs once. No disk patch of the other mod.

@@ -43,9 +43,14 @@ function VoxelAdapter:attachLogic(logic)
 end
 
 function VoxelAdapter:refreshPresence()
-  local dramatic = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
+  local VariableSize = V.require("variable_size")
+  local dramatic = select(1, VariableSize.findVoxelRenderer(self.mod))
   self.present = dramatic ~= nil
   if self.present then
+    pcall(function()
+      local Adapter = V.require("compat/battle_art_variable_geometry")
+      Adapter.install(self.mod)
+    end)
     self:ensureHooks()
     local WaterShadowRenderer = V.require("water_shadow_renderer")
     WaterShadowRenderer.installDrawHook(self)
@@ -60,7 +65,8 @@ function VoxelAdapter:isPresent()
 end
 
 function VoxelAdapter:_probeVoxelActive()
-  local ds = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
+  local VariableSize = V.require("variable_size")
+  local ds = select(1, VariableSize.findVoxelRenderer(self.mod))
   local lib = ds and ds.exports and ds.exports.lib
   if not lib or type(lib.require) ~= "function" then return false end
   local ok, Voxel = pcall(lib.require, "VoxelState")
@@ -352,7 +358,8 @@ end
 function VoxelAdapter:ensureHooks()
   if self.hooksInstalled then return true end
 
-  local ds = self.mod.find and self.mod.find("DRAMATIC_SHAPE")
+  local VariableSize = V.require("variable_size")
+  local ds = select(1, VariableSize.findVoxelRenderer(self.mod))
   local lib = ds and ds.exports and ds.exports.lib
   if lib and type(lib.require) == "function" then
     local okScene, VoxelScene = pcall(lib.require, "VoxelScene")

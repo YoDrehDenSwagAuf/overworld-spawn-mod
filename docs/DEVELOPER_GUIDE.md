@@ -328,6 +328,7 @@ python3 tools/validate_release_version.py
 cd .deps/gen1recomp
 luajit mods/overworld_wild_spawns/tests/overworld_wild_spawns_test.lua
 luajit mods/overworld_wild_spawns/tests/voxel_aggressive_compat_test.lua
+lua mods/overworld_wild_spawns/tests/battle_art_variable_geometry_unit_test.lua
 # Follower core (host lua; no engine required)
 lua mods/overworld_wild_spawns/tests/follower_core_unit_test.lua
 ```

@@ -204,7 +204,8 @@ function WaterShadowRenderer.installDrawHook(adapter)
   adapter._waterShadowDrawOk = false
   adapter._waterShadowMode = WaterShadowRenderer.MODE.UPRIGHT_FALLBACK
 
-  local ds = adapter.mod and adapter.mod.find and adapter.mod.find("DRAMATIC_SHAPE")
+  local VariableSize = V.require("variable_size")
+  local ds = adapter.mod and select(1, VariableSize.findVoxelRenderer(adapter.mod))
   local lib = ds and ds.exports and ds.exports.lib
   if not (lib and type(lib.require) == "function") then
     return false
