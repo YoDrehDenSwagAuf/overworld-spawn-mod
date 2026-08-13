@@ -13,6 +13,11 @@ end
 
 -- Fingerprint from stable engine fields. Species alone is insufficient when
 -- the party has duplicates; include species + OT + DVs + catchRate.
+-- Gold Mon.new (src/battle/gen2/Mon.lua) still stores otId (via stampOT) and
+-- dvs.attack/defense/speed/special. It does not set catchRate; that slot
+-- becomes "-1" for every Gold mon and does not collide two different DVs/OTs.
+-- Do not add Gold-only fields here: Gen1 selectedMonKey migration depends on
+-- this exact colon-separated shape.
 local function monFingerprint(mon)
   if type(mon) ~= "table" then return nil end
   local dvs = type(mon.dvs) == "table" and mon.dvs or {}

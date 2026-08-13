@@ -314,15 +314,19 @@ end
 
 function SettingsMenus:_applyFollowerCount(game, value)
   local n = tonumber(value) or 1
-  if self.mod.options and self.mod.options.set then
-    self.mod.options:set("follower_count", n)
-  end
+  -- Config.setOption is the canonical writer (Gen1Recomp has no
+  -- mod.options:set). Do not call control:setFollowerCount here — that would
+  -- bypass the shared handleOptionsChanged path. Cache/save mirrors below
+  -- are best-effort until onOptionsChanged runs.
   if self.follower and self.follower.control then
     local ctrl = self.follower.control
-    ctrl:setFollowerCount(game, n)
+    ctrl._optCache = ctrl._optCache or {}
     ctrl._optCache.follower_count = n
     if game and game.save then game.save.pokepcFollowerCount = n end
-    local ctrlGame = ctrl:_game()
+    local ctrlGame
+    if type(ctrl._game) == "function" then
+      ctrlGame = ctrl:_game()
+    end
     if ctrlGame and ctrlGame ~= game and ctrlGame.save then
       ctrlGame.save.pokepcFollowerCount = n
     end

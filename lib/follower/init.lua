@@ -23,9 +23,20 @@ local Config = V.require("config")
 local Follower = {}
 Follower.__index = Follower
 
-local function supportedVersion(mod)
+local function logGen2(mod, fmt, ...)
+  if DebugLog and DebugLog.followerGen2 then
+    DebugLog.followerGen2(mod, fmt, ...)
+  end
+end
+
+--- Live followers capability. Never cache this at Follower.new(): Gold's
+-- GameCompat adapter / game object may not be resolvable at construction,
+-- and a sticky false would skip install even after followers=true.
+function Follower:isSupported(game)
   local GameCompat = V.require("game_compat")
-  local game = mod and (mod.game or (mod.world and mod.world.game))
+  local mod = self.mod
+  game = game
+    or (mod and (mod.game or (mod.world and mod.world.game)))
   return GameCompat.supportsFeature("followers", mod, game) == true
 end
 
@@ -51,7 +62,8 @@ function Follower.new(mod, opts)
     render = opts.render,
   })
   self._installed = false
-  self._supported = supportedVersion(mod)
+  -- Evaluated in install() against the actual current game.
+  self._supported = nil
   -- Wilds is always the runtime owner after this follow-up.
   self.state.ownerMode = Constants.OWNER.wilds
   return self
@@ -108,12 +120,14 @@ end
 function Follower:install(opts)
   opts = opts or {}
   if self._installed then return true, "already" end
-  if not self._supported then
+  local game = opts.game
+  if not self:isSupported(game) then
+    self._supported = false
     DebugLog.info(self.mod, "follower core skipped (unsupported game version)")
     return false, "unsupported"
   end
+  self._supported = true
 
-  local game = opts.game
   self.state.ownerMode = Constants.OWNER.wilds
 
   -- Detect legacy mods for migration only — never defer runtime ownership.
@@ -180,17 +194,40 @@ end
 
 function Follower:_installPartyLeaderItems()
   -- Extend party submenu: FOLLOW sets active follower mon, DISMISS clears it.
+  -- Gold PartyMenu.lua emits the same public hook as Gen1:
+  --   Runtime.call("ui.party.submenu", sameItems, self.game, items, mon, ctx)
   local mod = self.mod
   local selection = self.selection
   local control = self.control
   if not (mod and mod.hooks and mod.hooks.wrap) then return end
   if self._leaderMenuWrapped then return end
 
-  pcall(function()
+  local ok, err = pcall(function()
     mod.hooks:wrap("ui.party.submenu", function(next, game, items, mon, ctx)
       local out = next(game, items, mon, ctx)
-      if type(out) ~= "table" or (ctx and ctx.battle)
-          or not selection.healthy(mon) then
+      local GameCompat = V.require("game_compat")
+      local healthy = selection.healthy(mon)
+      local party = GameCompat.party(game) or (game and game.save and game.save.party) or {}
+
+      logGen2(mod,
+        "ui.party.submenu called mon=%s hp=%s partySize=%s battle=%s",
+        tostring(mon and mon.species or "?"),
+        tostring(mon and mon.hp),
+        tostring(#party),
+        tostring(ctx and ctx.battle == true))
+      logGen2(mod, "submenu hook species=%s healthy=%s",
+        tostring(mon and mon.species or "?"), tostring(healthy))
+
+      if type(out) ~= "table" or (ctx and ctx.battle) or not healthy then
+        local labels = {}
+        if type(out) == "table" then
+          for _, row in ipairs(out) do
+            labels[#labels + 1] = tostring(row and row.label or "?")
+          end
+        end
+        logGen2(mod, "rows=%s (no FOLLOW: battle=%s healthy=%s)",
+          table.concat(labels, ","),
+          tostring(ctx and ctx.battle == true), tostring(healthy))
         return out
       end
 
@@ -203,10 +240,16 @@ function Follower:_installPartyLeaderItems()
       end
       out = clean
 
-      local GameCompat = V.require("game_compat")
-      local party = GameCompat.party(game) or (game and game.save and game.save.party) or {}
       local monIndex = findPartyIndex(mon, party, selection)
-      if not monIndex then return out end
+      if not monIndex then
+        local labels = {}
+        for _, row in ipairs(out) do
+          labels[#labels + 1] = tostring(row and row.label or "?")
+        end
+        logGen2(mod,
+          "rows=%s (no FOLLOW: party index unresolved)", table.concat(labels, ","))
+        return out
+      end
 
       -- Determine if this mon is currently the active leader/follower
       local active = control:getActiveFollowerMon(game)
@@ -225,6 +268,7 @@ function Follower:_installPartyLeaderItems()
               selection.state:clearSelection()
             end
             control:clearLeader(selectedGame)
+            -- Config.setOption is canonical (Gen1Recomp has no mod.options:set).
             control:setFollowerCount(selectedGame, 0)
             if selectedGame and selectedGame.save then
               selectedGame.save.followerPartyIndex = nil
@@ -235,13 +279,23 @@ function Follower:_installPartyLeaderItems()
             control._optCache.follower_count = 0
             control._pendingMapTrailerSync = true
 
-            if mod and mod.options and mod.options.set then
-              pcall(function() mod.options:set("follower_count", 0) end)
-            end
-
             local GameCompat = V.require("game_compat")
             local ow = GameCompat.liveOverworld(mod, selectedGame)
-            pcall(function() control:syncAll(selectedGame, ow) end)
+            local syncOk, syncErr = pcall(function()
+              control:syncAll(selectedGame, ow)
+            end)
+            logGen2(mod,
+              "dismiss slot=%s species=%s count=0 world=%s map=%s sync=%s",
+              tostring(monIndex),
+              tostring(selected and selected.species or "?"),
+              ow and ((selectedGame and selectedGame.world == ow and "game.world")
+                or (selectedGame and selectedGame.overworld == ow and "game.overworld")
+                or "liveOverworld") or "nil",
+              tostring(ow and ow.map and ow.map.id or "?"),
+              tostring(syncOk))
+            if not syncOk then
+              logGen2(mod, "dismiss sync failed: %s", tostring(syncErr))
+            end
 
             local name = selected.nickname or selected.species or "It"
             local msg = name .. " is no longer following."
@@ -261,9 +315,6 @@ function Follower:_installPartyLeaderItems()
               if selectedGame and selectedGame.save then
                 selectedGame.save.pokepcFollowerCount = 1
               end
-              if mod and mod.options and mod.options.set then
-                pcall(function() mod.options:set("follower_count", 1) end)
-              end
             end
 
             if selectedGame and selectedGame.save then
@@ -271,12 +322,41 @@ function Follower:_installPartyLeaderItems()
             end
 
             control:setLeaderParty(selectedGame, monIndex)
-            selection:selectFollower(selected, selectedGame, {})
+            local selOk, selSlot = selection:selectFollower(selected, selectedGame, {})
+            if not selOk then
+              logGen2(mod,
+                "select FAILED species=%s healthy=%s slot=%s",
+                tostring(selected and selected.species or "?"),
+                tostring(selection.healthy(selected)),
+                tostring(selSlot))
+            end
             control._pendingMapTrailerSync = true
 
             local GameCompat = V.require("game_compat")
             local ow = GameCompat.liveOverworld(mod, selectedGame)
-            pcall(function() control:syncAll(selectedGame, ow) end)
+            local worldKind = "nil"
+            if ow and selectedGame and selectedGame.world == ow then
+              worldKind = "game.world"
+            elseif ow and selectedGame and selectedGame.overworld == ow then
+              worldKind = "game.overworld"
+            elseif ow then
+              worldKind = "liveOverworld"
+            end
+            local syncOk, syncErr = pcall(function()
+              control:syncAll(selectedGame, ow)
+            end)
+            logGen2(mod,
+              "select slot=%s species=%s count=%s",
+              tostring(monIndex),
+              tostring(selected and selected.species or "?"),
+              tostring(control:followerCount(selectedGame)))
+            logGen2(mod, "world=%s map=%s sync=%s",
+              worldKind,
+              tostring(ow and ow.map and ow.map.id or "?"),
+              tostring(syncOk))
+            if not syncOk then
+              logGen2(mod, "select sync failed: %s", tostring(syncErr))
+            end
 
             local name = selected.nickname or selected.species or "It"
             local msg = name .. " is now following you!"
@@ -286,9 +366,22 @@ function Follower:_installPartyLeaderItems()
           end,
         }
       end
+
+      local labels = {}
+      for _, row in ipairs(out) do
+        labels[#labels + 1] = tostring(row and row.label or "?")
+      end
+      logGen2(mod, "rows=%s", table.concat(labels, ","))
       return out
     end)
   end)
+  if not ok then
+    -- Keep runtime safety, but never hide a Gen2 install error as "no FOLLOW".
+    DebugLog.info(mod, "[Wilds][Follower] ui.party.submenu wrap failed: %s",
+                  tostring(err))
+    logGen2(mod, "ui.party.submenu wrap failed: %s", tostring(err))
+    return
+  end
   self._leaderMenuWrapped = true
 end
 
@@ -310,6 +403,11 @@ function Follower:processPendingExternalModCleanup()
 end
 
 function Follower:reassertAfterModsLoaded(game)
+  if not self._installed then
+    -- Construction may have happened before GameCompat could resolve Gold.
+    local ok = self:install({ game = game })
+    if not ok then return "unsupported" end
+  end
   self.state.ownerMode = Constants.OWNER.wilds
   self.compat:detectExternalMods()
   self.compat:restorePokePcIfPresent()
@@ -472,7 +570,8 @@ function Follower:snapshot()
   snap.hooksInstalled = self.lifecycle._installed == true
   snap.controlEngine = self.control._installed == true
   snap.trailerUpdateOwner = self.control._trailerUpdateOwner
-  snap.supported = self._supported
+  snap.supported = self:isSupported()
+  snap.supportedCached = self._supported
   snap.followControl = self.settings:followControl()
   snap.trainerTrail = self.settings:trainerTrail()
   snap.followerCount = self.settings:followerCount()

@@ -34,6 +34,22 @@ function DebugLog.info(mod, fmt, ...)
   emit(mod, "INFO", fmt, ...)
 end
 
+-- DEV-only Gold follower trace. Exact prefix the Gold FOLLOW path expects.
+-- Never per-frame: callers must log on submenu / select / sync / trailer create.
+function DebugLog.followerGen2(mod, fmt, ...)
+  if not DebugLog.enabled(mod) then return end
+  local okGC, GameCompat = pcall(function() return V.require("game_compat") end)
+  if not (okGC and GameCompat and GameCompat.isGen2(mod)) then return end
+  if not (mod and mod.log and type(mod.log.info) == "function") then return end
+  local msg = fmt
+  if select("#", ...) > 0 then
+    msg = string.format(fmt, ...)
+  end
+  pcall(function()
+    mod.log:info("[Wilds][Follower][Gen2] %s", msg)
+  end)
+end
+
 function DebugLog.debug(mod, fmt, ...)
   if not DebugLog.enabled(mod) then return end
   emit(mod, "DEBUG", fmt, ...)

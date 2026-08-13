@@ -197,7 +197,14 @@ end
 function ControlEngine:_attachTrailer(game, ow, npc)
   if not (ow and npc) then return end
   local GameCompat = V.require("game_compat")
-  GameCompat.attachGuestEntity(ow, npc, game)
+  local attached = GameCompat.attachGuestEntity(ow, npc, game)
+  npc.worldContainer = attached or npc.worldContainer
+  if DebugLog and DebugLog.followerGen2 then
+    DebugLog.followerGen2(self.mod,
+      "trailer created slot=%s attached=%s",
+      tostring(npc.wildsFollowerSlot or npc.pokepcTrailerId or "?"),
+      tostring(attached or npc.worldContainer or "?"))
+  end
 end
 
 function ControlEngine:_isYellow()
@@ -1022,6 +1029,7 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
   npc.wildsFollowerRole = (kind == "trainer") and "trainer_trailer" or "party_trailer"
   npc.pokepcTrailerKind = kind
   npc.pokepcTrailerId = kind .. ":" .. tostring(slot)
+  npc.wildsFollowerSlot = slot
   npc.pokepcMon = mon
   npc.passable = true
   npc.facing = facing or "down"
@@ -3077,6 +3085,16 @@ end
 --- Wrap OverworldController.update so trailer ticks are independent of
 -- PikachuFollower.shouldSpawn / stock follower presence.
 function ControlEngine:_installOverworldUpdateWrap()
+  -- Gold World:step always calls src.world.gen2.Follower.update (the
+  -- PikachuFollower alias). OverworldController.update on Gold is a Gen2
+  -- facade whose defaultUpdate is a no-op unless worldTick sees a replacement
+  -- on THAT table. Wrapping the real Gen1 OverworldController is a silent
+  -- no-op on Gold. Tick from Follower.update instead (install() sets owner
+  -- to pikachu_follower when this returns false).
+  local GameCompat = V.require("game_compat")
+  if GameCompat.isGen2(self.mod, self:_game()) then
+    return false
+  end
   local OverworldState = tryRequire("src.world.OverworldController")
   if not (OverworldState and type(OverworldState.update) == "function") then
     return false
@@ -3217,9 +3235,10 @@ function ControlEngine:install()
     self:restore()
   end
 
-  -- Always install the OverworldController update wrap so trailers
-  -- tick in every version (Red / Blue / Yellow).  This must succeed
-  -- even when PikachuFollower is absent (Red / Blue).
+  -- Gen1: wrap OverworldController.update so trailers tick every frame
+  -- (Red / Blue / Yellow), even when PikachuFollower is absent.
+  -- Gen2: that wrap is skipped; Gold World:step calls gen2.Follower.update
+  -- (PikachuFollower alias) and wrappedUpdate drives ControlEngine:update.
   local owWrapOk = self:_installOverworldUpdateWrap()
 
   -- Always install event subscriptions (map.entered, game.ready, etc.)
@@ -3279,8 +3298,13 @@ function ControlEngine:install()
     -- Fallback only: when OverworldController.update wrap is unavailable,
     -- keep trailers alive via this path (including while surfing).
     if engine._trailerUpdateOwner ~= "overworld" then
+      -- Gold: World:step → gen2.Follower.update (this wrap).
+      -- Gen1 fallback: PikachuFollower.update when OW wrap is unavailable.
+      local GameCompat = V.require("game_compat")
+      local source = GameCompat.isGen2(engine.mod, game) and "gold_world"
+        or "pikachu_follower"
       pcall(function()
-        engine:update(game, ow, { source = "pikachu_follower" })
+        engine:update(game, ow, { source = source })
       end)
     end
     return result

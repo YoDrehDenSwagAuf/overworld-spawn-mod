@@ -202,7 +202,8 @@ local follower = mod.exports.follower
 check(follower ~= nil, "follower object exists (construct only)")
 if follower then
   eq(follower._installed, true, "follower hooks installed")
-  eq(follower._supported, true, "follower capability true at construct")
+  check(follower:isSupported(goldGame) == true, "follower capability true at install")
+  eq(follower._supported, true, "install recorded Gold support")
 end
 
 local catching = mod.exports.catching

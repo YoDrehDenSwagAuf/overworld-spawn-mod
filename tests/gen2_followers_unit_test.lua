@@ -288,7 +288,8 @@ do
   V.mod.world = { game = game, overworld = function() return world end }
   V.mod.game = game
   local follower = Follower.new(V.mod, {})
-  eq(follower._supported, true, "Follower.new supports Gold")
+  check(follower._supported == nil, "Follower.new does not cache support")
+  check(follower:isSupported(game) == true, "isSupported(Gold) is true")
   local ok = follower:install({ game = game })
   check(ok == true, "Follower:install on Gold")
   check(type(submenuWrap) == "function", "2. ui.party.submenu wrap installed")
@@ -509,6 +510,158 @@ do
   local order6 = packSpecies(world.pokepcTrailers)
   eq(order6[1], "CHIKORITA", "13. six-pack leader first")
   eq(#order6, 6, "13. six species slots")
+end
+
+----------------------------------------------------------------
+-- A/B. Healthy Gold mon gets FOLLOW; fainted does not
+----------------------------------------------------------------
+do
+  local world = select(1, goldWorld())
+  local healthyMon = healthy("SENTRET")
+  local fainted = healthy("SENTRET", { hp = 0, otId = 2 })
+  local game = goldGame(world, { healthyMon, fainted })
+  V.mod.world = { game = game, overworld = function() return world end }
+  V.mod.game = game
+  submenuWrap = nil
+  local follower = Follower.new(V.mod, {})
+  follower:install({ game = game })
+  local vanilla = {
+    { label = "STATS" }, { label = "SWITCH" }, { label = "MOVE" },
+    { label = "ITEM" }, { label = "CANCEL" },
+  }
+  local healthyRows = submenuWrap(function() return vanilla end, game, vanilla, healthyMon, { battle = false })
+  local sawFollow = false
+  for _, row in ipairs(healthyRows or {}) do
+    if row.label == "FOLLOW" then sawFollow = true end
+  end
+  check(sawFollow, "A. healthy Gold SENTRET gets FOLLOW")
+
+  local faintRows = submenuWrap(function() return vanilla end, game, vanilla, fainted, { battle = false })
+  local faintFollow = false
+  for _, row in ipairs(faintRows or {}) do
+    if row.label == "FOLLOW" then faintFollow = true end
+  end
+  check(not faintFollow, "B. fainted Gold mon does not get FOLLOW")
+  follower:restore()
+end
+
+----------------------------------------------------------------
+-- Part 3: construction-time unsupported must not stick after install(Gold)
+----------------------------------------------------------------
+do
+  package.loaded["src.core.GameVersion"] = {
+    get = function() return nil end,
+    isYellow = function() return false end,
+    generation = function() return nil end,
+  }
+  local lonely = Follower.new({
+    path = ".", id = "overworld_wild_spawns",
+    log = { info = function() end, warn = function() end },
+    find = function() return nil end,
+    options = optionStore and {
+      get = function(_, k) return optionStore[k] end,
+      set = function(_, k, v) optionStore[k] = v end,
+    } or nil,
+    events = V.mod.events,
+    hooks = V.mod.hooks,
+    world = { game = nil, overworld = function() return nil end },
+  }, {})
+  check(lonely._supported == nil, "3. support not cached at construct")
+  check(lonely:isSupported() == false, "3. no game + unknown version → unsupported")
+
+  package.loaded["src.core.GameVersion"] = {
+    get = function() return "gold" end,
+    isYellow = function() return false end,
+    isGold = function() return true end,
+    generation = function() return 2 end,
+  }
+  local world = select(1, goldWorld())
+  local game = goldGame(world, { healthy("SENTRET") })
+  lonely.mod.world = { game = game, overworld = function() return world end }
+  lonely.mod.game = game
+  local ok = lonely:install({ game = game })
+  check(ok == true, "3. install(Gold) succeeds after early unsupported")
+  eq(lonely._supported, true, "3. support recorded at install, not construct")
+  lonely:restore()
+end
+
+----------------------------------------------------------------
+-- Gold Follower.update (World:step) ticks trailers; liveOverworld is game.world
+----------------------------------------------------------------
+do
+  local world, player = goldWorld()
+  local mon = healthy("SENTRET")
+  local game = goldGame(world, { mon })
+  game.save.pokepcFollowerCount = 1
+  V.mod.world = { game = game, overworld = function() return world end }
+  V.mod.game = game
+  submenuWrap = nil
+  local follower = Follower.new(V.mod, {})
+  follower:install({ game = game })
+  follower.control:setFollowerCount(game, 0)
+  local items = submenuWrap(function() return {} end, game, {}, mon, {})
+  local labels = {}
+  local follow
+  for _, row in ipairs(items or {}) do
+    labels[#labels + 1] = tostring(row and row.label or "?")
+    if row.label == "FOLLOW" then follow = row end
+  end
+  check(follow ~= nil, "E. FOLLOW present for SENTRET (" .. table.concat(labels, ",") .. ")")
+  if not follow then
+    io.stderr:write("FAIL: aborting Gold Follower.update tick\n")
+  else
+  follow.onSelect(mon, game)
+  local ow = GameCompat.liveOverworld(V.mod, game)
+  check(ow == world, "E. syncAll liveOverworld is game.world")
+  check(game.overworld == nil, "E. game.overworld stays nil")
+  check(ow ~= game.overworld, "E. not game.overworld")
+
+  local npc = world.pokepcTrailers and world.pokepcTrailers[1]
+  check(npc ~= nil, "F. trailer attached after FOLLOW")
+  npc.cellX, npc.cellY = 10, 9
+  npc.px, npc.py = 160, 144
+  npc.moving = false
+  player.cellX, player.cellY = 10, 10
+  player.targetX, player.targetY = 10, 11
+  player.facing = "down"
+  player.moving = true
+  player.stepFrames = 4
+  world.pokepcTrailHead = { x = 10, y = 10 }
+  world.pokepcTrailCells = { { x = 10, y = 9 } }
+  local startY = npc.cellY
+  local pf = package.loaded["src.world.PikachuFollower"]
+  check(type(pf.update) == "function", "G. Gold Follower.update wrap installed")
+  pf.update(game, world)
+  local moved = npc.cellY ~= startY or npc.moving or npc.targetY
+  check(moved, "G. Gold Follower.update produces follower movement")
+  follower:restore()
+  end
+end
+
+----------------------------------------------------------------
+-- Gold fingerprint: catchRate absent, DVs still unique (Gen1 key shape)
+----------------------------------------------------------------
+do
+  local a = {
+    species = "SENTRET", otId = 7, hp = 20, level = 5,
+    dvs = { attack = 1, defense = 2, speed = 3, special = 4 },
+  }
+  local b = {
+    species = "SENTRET", otId = 7, hp = 20, level = 5,
+    dvs = { attack = 8, defense = 2, speed = 3, special = 4 },
+  }
+  local gen1 = {
+    species = "PIDGEY", otId = 12345, catchRate = 255,
+    dvs = { attack = 8, defense = 7, speed = 6, special = 5 },
+  }
+  check(Selection.monFingerprint(a) ~= Selection.monFingerprint(b),
+        "10. two Gold Sentrets with different DVs differ")
+  eq(Selection.monFingerprint(gen1),
+     "PIDGEY:12345:8:7:6:5:255",
+     "10. Gen1 fingerprint shape unchanged")
+  eq(Selection.healthy(a), true, "4. Gold hp number is healthy")
+  eq(Selection.healthy({ species = "SENTRET", hp = 0 }), false,
+     "4. Gold hp 0 is fainted")
 end
 
 if failures > 0 then
