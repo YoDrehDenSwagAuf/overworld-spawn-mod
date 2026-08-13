@@ -248,4 +248,152 @@ function GameCompat.startWildBattle(world, species, level, game)
   return nil, "no wild battle adapter"
 end
 
+-- Live world object used by visible Wilds (map / player / entities / npcs).
+-- Gen1: WorldAPI:overworld() → OverworldState.
+-- Gen2: WorldAPI:overworld() → game.world (only once world.map exists).
+-- Does NOT assign game.overworld = game.world; the two are not identical.
+function GameCompat.liveOverworld(mod, game)
+  game = game or (mod and (mod.game or (mod.world and mod.world.game)))
+  local api = mod and mod.world
+  if api then
+    if type(api.overworld) == "function" then
+      local ok, ow = pcall(api.overworld, api)
+      if ok and ow and ow.map and ow.player then return ow end
+    elseif type(api.overworld) == "table" then
+      local ow = api.overworld
+      if ow.map and ow.player then return ow end
+    end
+  end
+  if game and game.world and game.world.map and game.world.player then
+    return game.world
+  end
+  if game and game.overworld and game.overworld.map and game.overworld.player then
+    return game.overworld
+  end
+  return nil
+end
+
+local function listHas(list, entity)
+  if type(list) ~= "table" or not entity then return false end
+  for _, e in ipairs(list) do
+    if e == entity or (e and entity.id and e.id == entity.id) then
+      return true
+    end
+  end
+  return false
+end
+
+local function listInsert(list, entity)
+  if type(list) ~= "table" or not entity then return end
+  if listHas(list, entity) then return end
+  table.insert(list, entity)
+end
+
+local function listRemove(list, entity)
+  if type(list) ~= "table" or not entity then return end
+  for i = #list, 1, -1 do
+    local e = list[i]
+    if e == entity or (e and entity.id and e.id == entity.id) then
+      table.remove(list, i)
+    end
+  end
+end
+
+-- Gold World:drawPeople / updatePeople / rebuildPeople guests live on npcs.
+-- Gen1 OverworldState draws ow.entities. Wilds Entity:draw(camX, camY) is
+-- NOT the Gold NPC:draw(ox, oy, scale) signature, so Gen2 gets a thin wrap.
+function GameCompat.adaptWildEntity(entity, game)
+  if not entity or entity._wildsGoldAdapted then return entity end
+  if not GameCompat.isGen2(nil, game) then return entity end
+  entity._wildsGoldAdapted = true
+  entity._wildsGoldGuest = true
+  local origDraw = entity.draw
+  local origUpdate = entity.update
+  function entity:draw(ox, oy, scale)
+    if scale ~= nil then
+      -- Gold World:drawPeople: ox/oy are already camera-translated screen
+      -- offsets; SpriteRenderer then draws at world px/py inside the transform.
+      if love and love.graphics and love.graphics.push then
+        love.graphics.push()
+        love.graphics.translate(ox or 0, oy or 0)
+        love.graphics.scale(scale, scale)
+        if origDraw then origDraw(self, 0, 0) end
+        love.graphics.pop()
+      elseif origDraw then
+        origDraw(self, 0, 0)
+      end
+      self._lastGoldDraw = { ox = ox, oy = oy, scale = scale }
+      return
+    end
+    if origDraw then return origDraw(self, ox, oy) end
+  end
+  function entity:update(a, b)
+    -- Gold World:updatePeople calls npc:update(map, entities). BehaviorTick
+    -- is the Wilds AI source of truth and calls Entity.update(dt).
+    if type(a) == "table" then
+      return
+    end
+    if origUpdate then return origUpdate(self, a, b) end
+  end
+  return entity
+end
+
+--- Insert a visible Wild into the container Gold/Gen1 actually draws.
+-- Returns the container name used: "npcs+entities" | "entities" | "logical_only".
+function GameCompat.attachWildEntity(ow, entity, game)
+  if not ow or not entity then return "none" end
+  ow.entities = ow.entities or {}
+  listInsert(ow.entities, entity)
+  if GameCompat.isGen2(nil, game) then
+    GameCompat.adaptWildEntity(entity, game)
+    ow.npcs = ow.npcs or {}
+    -- rebuildPeople keeps npcs that are not map objects as guests. Entities
+    -- alone are wiped every zoom / time-of-day rebuild and are never drawn.
+    if entity.mapId == nil and ow.map and ow.map.id then
+      entity.mapId = ow.map.id
+    end
+    listInsert(ow.npcs, entity)
+    entity.worldContainer = "npcs+entities"
+    return "npcs+entities"
+  end
+  entity.worldContainer = "entities"
+  return "entities"
+end
+
+function GameCompat.detachWildEntity(ow, entity)
+  if not ow or not entity then return end
+  listRemove(ow.entities, entity)
+  listRemove(ow.npcs, entity)
+end
+
+function GameCompat.entityInDrawList(ow, entity, game)
+  if not ow or not entity then return false end
+  if GameCompat.isGen2(nil, game) then
+    return listHas(ow.npcs, entity)
+  end
+  return listHas(ow.entities, entity)
+end
+
+-- One-line DEV snapshot for Gold map enter. Never per-frame.
+function GameCompat.logGoldRuntime(mod, info)
+  if not (mod and mod.log and type(mod.log.info) == "function") then return end
+  info = info or {}
+  local parts = {
+    "generation=" .. tostring(info.generation or 2),
+    "game=" .. tostring(info.gameVersion or "gold"),
+    "world=" .. tostring(info.worldType or "game.world"),
+    "map=" .. tostring(info.mapId or "?"),
+    "encounterSource=" .. tostring(info.encounterSource or "none"),
+    "grassSlots=" .. tostring(info.grassSlots or 0),
+    "tod=" .. tostring(info.timeOfDay or "?"),
+    "wilds=" .. tostring(info.wildsEnabled),
+    "randomEnc=" .. tostring(info.randomEnc),
+    "activeWilds=" .. tostring(info.activeWilds or 0),
+    "container=" .. tostring(info.entityContainer or "?"),
+  }
+  pcall(function()
+    mod.log:info("[Wilds][Gen2] %s", table.concat(parts, " "))
+  end)
+end
+
 return GameCompat

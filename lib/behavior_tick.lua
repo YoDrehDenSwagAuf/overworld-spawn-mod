@@ -14,6 +14,7 @@ local WaterSpawn = V.require("water_spawn")
 local SafariCompat = V.require("safari_compat")
 local Grass = V.require("grass")
 local PaletteWatch = V.require("palette_watch")
+local GameCompat = V.require("game_compat")
 
 local BehaviorTick = {}
 BehaviorTick.__index = BehaviorTick
@@ -120,7 +121,7 @@ function BehaviorTick:step(ctx)
   self._lastT = t
 
   local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = GameCompat.liveOverworld(self.mod, world and world.game)
   if not ow or not ow.map or not ow.player then return end
 
   -- PaletteFX COLORS mode watcher: on an ADVANCED <-> non-ADVANCED flip,
@@ -390,13 +391,23 @@ function BehaviorTick:drawFx(canvas, ctx)
   if Config.get(self.mod, "enable_grass_movement_effects") == false then return end
   local logic = self.logic
   local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = GameCompat.liveOverworld(self.mod, world and world.game)
   if not ow or not ow.map then return end
 
   if logic.spawnFx then
     logic.spawnFx:drawPresent(canvas, ctx, ow)
     logic.spawnFx:drawWaterSplashes(canvas, ctx, ow, logic.entities)
   end
+end
+
+-- Gold present pipelines should tick AI every frame. If present is skipped,
+-- world.stepped still drives the same BehaviorTick (no second AI).
+function BehaviorTick:stepFromWorld(ctx)
+  local t = now()
+  if (t - (self._lastT or 0)) < 0.04 then
+    return
+  end
+  self:step(ctx)
 end
 
 return BehaviorTick

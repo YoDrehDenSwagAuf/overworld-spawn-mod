@@ -70,11 +70,25 @@ return function(mod)
   end
 
   local goldFoundationLogged = false
+  local gen2EventOnce = {}
   local function noteGoldFoundation()
     if goldFoundationLogged then return end
     goldFoundationLogged = true
     pcall(function()
       mod.log:info("[Wilds] Pokémon Gold: experimental Gen2 wild encounters. Followers, catching, and Safari stay off.")
+    end)
+  end
+
+  local function logGen2Event(name, extra)
+    if not GameCompat.isGen2(mod, liveGame()) then return end
+    local key = name
+    if name == "world.stepped" then
+      if gen2EventOnce[key] then return end
+      gen2EventOnce[key] = true
+    end
+    local suffix = extra and (" " .. tostring(extra)) or ""
+    pcall(function()
+      mod.log:info("[Wilds][Gen2] %s%s", name, suffix)
     end)
   end
 
@@ -189,6 +203,7 @@ return function(mod)
       noteGameplaySkipped()
       return
     end
+    logGen2Event("map.entered", ev and ev.mapId)
     local ok, err = pcall(logic.onMapEntered, logic, ev)
     if not ok then
       DebugLog.error(mod, "map.entered error: %s", tostring(err))
@@ -238,11 +253,15 @@ return function(mod)
 
   mod.events:on("world.stepped", function(ev)
     if not supports("encounters") then return end
+    logGen2Event("world.stepped")
     local ok, err = pcall(logic.onStepped, logic, ev)
     if not ok then
       DebugLog.error(mod, "world.stepped error: %s", tostring(err))
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("world.stepped error")
+    end
+    if GameCompat.isGen2(mod, liveGame()) and behaviorTick then
+      pcall(function() behaviorTick:stepFromWorld(ev) end)
     end
     if render._pendingSpriteRefresh then
       render._pendingSpriteRefresh = false
@@ -286,6 +305,7 @@ return function(mod)
   end)
 
   mod.events:on("game.ready", function()
+    logGen2Event("game.ready")
     hud:syncPipelineLevel()
     if devOverlay then devOverlay:syncPipelineLevel() end
     -- The engine's Pipelines.applyOptions restores pipeline levels from the

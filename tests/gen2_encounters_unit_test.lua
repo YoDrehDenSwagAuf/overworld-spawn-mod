@@ -236,6 +236,33 @@ do
 end
 
 ----------------------------------------------------------------
+-- Pokédex is never a spawn gate (fresh Gold save)
+----------------------------------------------------------------
+do
+  local game = {
+    version = { id = "gold" },
+    generation = 2,
+    save = {
+      pokedex = nil,
+      pokedexReceived = false,
+      engineFlags = {},
+    },
+    data = {
+      gen2Encounters = { grass = { ROUTE_29 = ROUTE_29 } },
+      pokemon = { PIDGEY = { dex = 16 }, RATTATA = { dex = 19 } },
+    },
+    world = { daytime = "DAY", encounters = { grass = { ROUTE_29 = ROUTE_29 } } },
+  }
+  local names, def = Enc.candidates(game, "ROUTE_29", "grass")
+  check(def ~= nil, "fresh save still has Route 29 encDef")
+  check(#names > 0, "fresh save still has Route 29 candidates")
+  check(def.grass ~= nil and #def.grass.slots > 0, "grass slots without Pokédex")
+  local viaCompat = GameCompat.encountersForMap(game, "ROUTE_29")
+  check(viaCompat ~= nil and viaCompat.grass ~= nil,
+        "GameCompat.encountersForMap ignores missing Pokédex")
+end
+
+----------------------------------------------------------------
 -- Gen1 still uses map-first encounters, never Gold tables
 ----------------------------------------------------------------
 do
