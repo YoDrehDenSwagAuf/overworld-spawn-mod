@@ -2780,14 +2780,16 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
           pcall(function() Config = V.require("config") end)
           local LuminanceSheet = nil
           pcall(function() LuminanceSheet = V.require("luminance_sheet") end)
-          -- Luminance-based shading: every non-ADVANCED mode derives the
-          -- 3-shade luminance sheet from the submerged art at load (cached
-          -- in the save dir) and serves it with trueColor=false, so the
-          -- engine's zone pass colors it out of the mode palette. ADVANCED
-          -- keeps the submerged colored (shiny/normal) sheet.
-          local redpp = Config and Config.paletteFxRedpp and Config.paletteFxRedpp()
+          -- Luminance-based shading: Gen1 non-ADVANCED derives a 3-shade
+          -- luminance sheet (trueColor=false). Gold keeps colored submerged
+          -- art with trueColor=true.
+          local useLuma = Config and Config.waterArtUsesLuminance
+            and Config.waterArtUsesLuminance(self.mod)
+          if useLuma == nil then
+            useLuma = not (Config and Config.paletteFxRedpp and Config.paletteFxRedpp())
+          end
           local tryVariants = {}
-          if not redpp then
+          if useLuma then
             tryVariants = { "normal" }
           elseif shiny then
             tryVariants = { "shiny", "normal" }
@@ -2811,7 +2813,7 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
                    and love.filesystem.getInfo(rel)) then
               local subPath = LuminanceSheet and LuminanceSheet.submergedFor(loadPath)
               if subPath then
-                local luma = (not redpp) and LuminanceSheet
+                local luma = useLuma and LuminanceSheet
                   and LuminanceSheet.pathFor(subPath) or nil
                 local image = luma or subPath
                 resolved = {

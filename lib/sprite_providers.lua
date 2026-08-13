@@ -985,11 +985,9 @@ function SpriteProviders:_makeFollowersExProvider()
   end
 
   -- Water extension (submerged sheets).  Naming is
-  -- follower_NNN_{variant}_submerged.png.  Luminance-based shading: every
-  -- non-ADVANCED mode derives the 3-shade luminance sheet from the colored
-  -- submerged art at load (cached in the save dir — no separate
-  -- -grayscale_submerged files) and serves it through the engine's zone
-  -- pass; ADVANCED keeps the colored (normal/shiny) art.
+  -- follower_NNN_{variant}_submerged.png.  Gen1 non-ADVANCED derives a
+  -- luminance sheet (trueColor=false). Gold keeps the colored submerged
+  -- PNG with trueColor=true.
   function provider:resolveWater(speciesId, variant, game)
     local okAvail, why = self:isAvailable(game)
     if not okAvail then
@@ -999,9 +997,11 @@ function SpriteProviders:_makeFollowersExProvider()
     if not dex then return nil, nil, "dex unresolved" end
 
     local redpp = Config.paletteFxRedpp and Config.paletteFxRedpp() or false
+    local useLuma = Config.waterArtUsesLuminance and Config.waterArtUsesLuminance(mod)
+    if useLuma == nil then useLuma = not redpp end
     local imagePath, rel, usedVariant = nil, nil, "normal"
     local lumaServed = false
-    if not redpp then
+    if useLuma then
       local cPath, cRel = owners:_pokeFollowersSubmergedPath(dex, render, "normal")
       local cExists = false
       if cPath and cRel then

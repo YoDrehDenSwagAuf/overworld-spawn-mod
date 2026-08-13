@@ -227,11 +227,14 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
     end
     if not dexId then return nil end
     -- Derive the submerged look from the normal coloured poke_followers
-    -- sheet at load — no separate _submerged.png files.  Luminance-based
-    -- shading: every non-ADVANCED mode then derives the 3-shade luminance
-    -- sheet from the submerged art; ADVANCED keeps the submerged coloured.
-    local redpp = Config and Config.paletteFxRedpp and Config.paletteFxRedpp()
-    if not redpp then
+    -- sheet at load — no separate _submerged.png files.  Gen1 non-ADVANCED
+    -- then derives a luminance sheet; Gold keeps the colored submerged art.
+    local useLuma = Config and Config.waterArtUsesLuminance
+      and Config.waterArtUsesLuminance(self.mod)
+    if useLuma == nil then
+      useLuma = not (Config and Config.paletteFxRedpp and Config.paletteFxRedpp())
+    end
+    if useLuma then
       local rel = string.format(
         "assets/enhanced_overworld/poke_followers/follower_%03d_normal.png",
         dexId)

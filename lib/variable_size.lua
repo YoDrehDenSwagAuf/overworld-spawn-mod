@@ -566,7 +566,8 @@ function VariableSize.applyToDef(mod, def, opts)
   -- 3-shade luminance ramp and serve it with trueColor = false so the
   -- engine zone pass colors it. Gold land packs skip that (Gold has no
   -- zone shader; luma+trueColor=false bakes DMG OBP and looks monochrome).
-  -- Water / swimming / levitate packs still follow the redpp luma gate.
+  -- Water / swimming / levitate packs use waterArtUsesLuminance (Gen2 keeps
+  -- colored RGBA; Gen1 still luma unless ADVANCED).
   -- Derivation is unavailable headless / without love → colored art stays
   -- raw.  opts.skipLuminance lets callers serving pre-shaded art (silhouette
   -- sheets, water runtime ramps) opt out.
@@ -579,6 +580,8 @@ function VariableSize.applyToDef(mod, def, opts)
     local useLuma = true
     if landPack and Config and Config.landArtUsesLuminance then
       useLuma = Config.landArtUsesLuminance(mod) == true
+    elseif Config and Config.waterArtUsesLuminance then
+      useLuma = Config.waterArtUsesLuminance(mod) == true
     elseif Config and Config.paletteFxRedpp then
       useLuma = Config.paletteFxRedpp() ~= true
     end

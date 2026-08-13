@@ -139,13 +139,18 @@ end
 local LuminanceSheet = V.require("luminance_sheet")
 function LuminanceSheet.pathFor(src)
   if type(src) ~= "string" or src == "" then return nil end
-  if src:find("^luma:", 1, true) or src:find("^silo:", 1, true) then return src end
+  if src:sub(1, 5) == "luma:" or src:sub(1, 5) == "silo:" then return src end
   return "luma:" .. src
 end
 function LuminanceSheet.silhouetteFor(src)
   if type(src) ~= "string" or src == "" then return nil end
-  if src:find("^silo:", 1, true) then return src end
+  if src:sub(1, 5) == "silo:" then return src end
   return "silo:" .. src
+end
+function LuminanceSheet.submergedFor(src)
+  if type(src) ~= "string" or src == "" then return nil end
+  if src:sub(1, 4) == "sub:" then return src end
+  return "sub:" .. src
 end
 function LuminanceSheet.available()
   return true
@@ -159,6 +164,7 @@ local SpriteProviders = V.require("sprite_providers")
 local SpriteResolver = V.require("sprite_resolver")
 local VariableSize = V.require("variable_size")
 VariableSize.clearCaches()
+local WaterSpriteRegistry = V.require("water_sprite_registry")
 
 local render = {
   runtimeSheets = RuntimeSheets.new(V.mod),
@@ -171,10 +177,19 @@ local render = {
 check(render.runtimeSheets:load() == true, "runtime HGSS sheets load")
 
 local providers = SpriteProviders.new(V.mod, render)
-local resolver = SpriteResolver.new(V.mod, providers, nil)
+local waterReg = WaterSpriteRegistry.new(V.mod)
+check(waterReg:load() == true, "water sprite registry loads")
+local resolver = SpriteResolver.new(V.mod, providers, waterReg)
 
 local SPECIES = {
   PIDGEY = 16,
+  RATTATA = 19,
+  PIKACHU = 25,
+  POLIWAG = 60,
+  ABRA = 63,
+  GYARADOS = 130,
+  LAPRAS = 131,
+  BLASTOISE = 9,
   CHIKORITA = 152,
   CYNDAQUIL = 155,
   SENTRET = 161,
@@ -204,6 +219,9 @@ end
 local function isSiloPath(path)
   return type(path) == "string" and path:sub(1, 5) == "silo:"
 end
+local function isSubPath(path)
+  return type(path) == "string" and path:sub(1, 4) == "sub:"
+end
 
 ------------------------------------------------------------------------
 -- Schema / Config defaults
@@ -232,12 +250,14 @@ setPaletteMode("gbc")
 setEngineVersion("gold")
 eq(GameCompat.generation(V.mod), 2, "gold generation is 2")
 eq(Config.landArtUsesLuminance(V.mod), false, "Gold gbc: land art stays colored")
+eq(Config.waterArtUsesLuminance(V.mod), false, "Gold gbc: water art stays colored")
 eq(Config.spriteTrueColor(V.mod), false, "spriteTrueColor still equals paletteFxRedpp (gbc)")
 eq(Config.paletteFxRedpp(), false, "gbc is not redpp")
 
 setEngineVersion("red")
 eq(GameCompat.generation(V.mod), 1, "red generation is 1")
 eq(Config.landArtUsesLuminance(V.mod), true, "Red non-redpp: land uses luminance")
+eq(Config.waterArtUsesLuminance(V.mod), true, "Red non-redpp: water uses luminance")
 eq(Config.spriteTrueColor(V.mod), false, "Red gbc/classic: spriteTrueColor false")
 
 setEngineVersion("blue")
@@ -393,61 +413,186 @@ if advF then
 end
 
 ------------------------------------------------------------------------
--- Water: luminance modes still luma; ADVANCED stays colored
+-- Water: Gold keeps colored custom art; Gen1 luminance unchanged
 ------------------------------------------------------------------------
+
+local function applySwim(dex, presentation, packId)
+  presentation = presentation or "swimming"
+  packId = packId or "swimming"
+  local def = {
+    image = "assets/generated/followsprites_runtime/016-normal.png",
+    frames = 6,
+    walker = true,
+    trueColor = true,
+    id = "SPRITE_OW_WILD_WATER_" .. tostring(dex),
+  }
+  return VariableSize.applyToDef(V.mod, def, {
+    speciesId = dex,
+    style = savedOpts.sprite_style or "pokemmo",
+    presentation = presentation,
+    packId = packId,
+  })
+end
+
+local function waterEntity(dex, name)
+  return {
+    species = name or tostring(dex),
+    enhancedDexId = dex,
+    surface = Surface.WATER,
+    behavior = "WATER_IDLE",
+  }
+end
 
 setPaletteMode("gbc")
 setEngineVersion("gold")
 savedOpts.sprite_style = "pokemmo"
-local waterDef = {
-  image = "assets/generated/followsprites_runtime/016-normal.png",
-  frames = 6,
-  walker = true,
-  trueColor = true,
-  id = "SPRITE_OW_WILD_WATER_PIDGEY",
-}
-local waterOut = VariableSize.applyToDef(V.mod, waterDef, {
-  speciesId = SPECIES.PIDGEY,
-  style = "pokemmo",
-  presentation = "swimming",
-  packId = "swimming",
-})
-eq(waterOut.trueColor, false, "Gold gbc swimming pack: luminance trueColor false")
-check(isLumaPath(waterOut.image), "Gold gbc swimming pack derives luma")
+savedOpts.wild_silhouettes = nil
+
+local function assertGoldHgssWater(name, dex, kind)
+  kind = kind or "swimming"
+  local pack = (kind == "levitate" or kind == "levitates") and "levitate" or "swimming"
+  local out = applySwim(dex, pack, pack)
+  eq(out.trueColor, true, "Gold HGSS " .. kind .. " " .. name .. " trueColor true")
+  check(not isLumaPath(out.image), "Gold HGSS " .. kind .. " " .. name .. " is not luma")
+  check(tonumber(out.frameWidth) ~= nil, "Gold HGSS " .. kind .. " " .. name .. " frameWidth")
+  check(tonumber(out.frameHeight) ~= nil, "Gold HGSS " .. kind .. " " .. name .. " frameHeight")
+  check(tonumber(out.anchorX) ~= nil, "Gold HGSS " .. kind .. " " .. name .. " anchorX")
+  check(tonumber(out.anchorY) ~= nil, "Gold HGSS " .. kind .. " " .. name .. " anchorY")
+  local fw, fh, ax, ay = out.frameWidth, out.frameHeight, out.anchorX, out.anchorY
+  local r = resolver:resolveWaterSprite(waterEntity(dex, name), {
+    style = "pokemmo", speciesId = dex, variant = "normal",
+  })
+  check(r ~= nil and r.def ~= nil, "Gold HGSS resolver water " .. name)
+  if r and r.def then
+    eq(r.def.trueColor, true, "Gold HGSS resolver " .. name .. " trueColor true")
+    check(not isLumaPath(r.def.image), "Gold HGSS resolver " .. name .. " is not luma")
+    eq(r.def.frameWidth, fw, "Gold HGSS resolver " .. name .. " frameWidth unchanged")
+    eq(r.def.frameHeight, fh, "Gold HGSS resolver " .. name .. " frameHeight unchanged")
+    eq(r.def.anchorX, ax, "Gold HGSS resolver " .. name .. " anchorX unchanged")
+    eq(r.def.anchorY, ay, "Gold HGSS resolver " .. name .. " anchorY unchanged")
+  end
+end
+
+assertGoldHgssWater("RATTATA", SPECIES.RATTATA, "swimming")
+assertGoldHgssWater("POLIWAG", SPECIES.POLIWAG, "swimming")
+assertGoldHgssWater("BLASTOISE", SPECIES.BLASTOISE, "swimming")
+assertGoldHgssWater("LAPRAS", SPECIES.LAPRAS, "swimming")
+assertGoldHgssWater("GYARADOS", SPECIES.GYARADOS, "swimming")
+assertGoldHgssWater("ABRA", SPECIES.ABRA, "levitate")
+
+-- Shiny HGSS water keeps variant + color
+do
+  local shiny = resolver:resolveWaterSprite(waterEntity(SPECIES.RATTATA, "RATTATA"), {
+    style = "pokemmo", speciesId = SPECIES.RATTATA, variant = "shiny",
+  })
+  check(shiny ~= nil and shiny.def ~= nil, "Gold HGSS shiny Rattata water")
+  if shiny and shiny.def then
+    eq(shiny.def.trueColor, true, "Gold HGSS shiny water trueColor true")
+    check(not isLumaPath(shiny.def.image), "Gold HGSS shiny water is not luma")
+    local v = (shiny.meta and shiny.meta.usedVariant) or shiny.def.variant
+    check(v == "shiny" or v == "normal", "Gold HGSS shiny water keeps a variant")
+  end
+end
+
+-- Followers submerged: colored subPath, no pathFor
+savedOpts.sprite_style = "followers"
+local function assertGoldFollowersWater(name, dex)
+  local r = resolver:resolveWaterSprite(waterEntity(dex, name), {
+    style = "followers", speciesId = dex, variant = "normal",
+  })
+  check(r ~= nil and r.def ~= nil, "Gold Followers water " .. name)
+  if not r or not r.def then return end
+  eq(r.providerId, "poke_followers_submerged", "Gold Followers water " .. name .. " provider")
+  eq(r.def.trueColor, true, "Gold Followers water " .. name .. " trueColor true")
+  check(isSubPath(r.def.image), "Gold Followers water " .. name .. " uses colored submergedFor")
+  check(not isLumaPath(r.def.image), "Gold Followers water " .. name .. " skipped pathFor")
+  eq(r.spriteKind, "submerged", "Gold Followers water " .. name .. " kind submerged")
+end
+
+assertGoldFollowersWater("SENTRET", SPECIES.SENTRET)
+assertGoldFollowersWater("RATTATA", SPECIES.RATTATA)
+assertGoldFollowersWater("PIKACHU", SPECIES.PIKACHU)
+
+do
+  local shiny = resolver:resolveWaterSprite(waterEntity(SPECIES.PIKACHU, "PIKACHU"), {
+    style = "followers", speciesId = SPECIES.PIKACHU, variant = "shiny",
+  })
+  check(shiny ~= nil and shiny.def ~= nil, "Gold Followers shiny Pikachu water")
+  if shiny and shiny.def then
+    eq(shiny.def.trueColor, true, "Gold Followers shiny water trueColor true")
+    check(not isLumaPath(shiny.def.image), "Gold Followers shiny water skipped pathFor")
+    eq(shiny.meta.usedVariant, "shiny", "Gold Followers shiny water keeps shiny variant")
+  end
+end
+
+-- Encounter silhouettes still black-out Gold water
+savedOpts.sprite_style = "pokemmo"
+savedOpts.wild_silhouettes = true
+do
+  local silo = resolver:resolveWaterSprite(waterEntity(SPECIES.RATTATA, "RATTATA"), {
+    style = "pokemmo", speciesId = SPECIES.RATTATA, variant = "normal",
+  })
+  check(silo ~= nil and silo.def ~= nil, "Gold water silhouette resolves")
+  if silo and silo.def then
+    eq(silo.def.trueColor, false, "Gold water silhouette trueColor false")
+    check(silo.wildSilhouette == true or isSiloPath(silo.def.image),
+          "Gold water silhouette flagged or silo image")
+  end
+end
+savedOpts.wild_silhouettes = nil
 
 setPaletteMode("redpp")
-waterDef = {
-  image = "assets/generated/followsprites_runtime/016-normal.png",
-  frames = 6,
-  walker = true,
-  trueColor = true,
-  id = "SPRITE_OW_WILD_WATER_PIDGEY",
-}
-waterOut = VariableSize.applyToDef(V.mod, waterDef, {
-  speciesId = SPECIES.PIDGEY,
-  style = "pokemmo",
-  presentation = "swimming",
-  packId = "swimming",
-})
+setEngineVersion("gold")
+savedOpts.sprite_style = "pokemmo"
+local waterOut = applySwim(SPECIES.PIDGEY)
 eq(waterOut.trueColor, true, "ADVANCED swimming pack: trueColor true")
 check(not isLumaPath(waterOut.image), "ADVANCED swimming pack skips luma")
 
 setEngineVersion("red")
 setPaletteMode("gbc")
-waterDef = {
-  image = "assets/generated/followsprites_runtime/016-normal.png",
-  frames = 6,
-  walker = true,
-  trueColor = true,
-  id = "SPRITE_OW_WILD_WATER_PIDGEY",
-}
-waterOut = VariableSize.applyToDef(V.mod, waterDef, {
-  speciesId = SPECIES.PIDGEY,
-  style = "pokemmo",
-  presentation = "swimming",
-  packId = "swimming",
-})
+savedOpts.sprite_style = "pokemmo"
+waterOut = applySwim(SPECIES.PIDGEY)
 eq(waterOut.trueColor, false, "Red gbc swimming pack: luminance trueColor false")
+check(isLumaPath(waterOut.image), "Red gbc swimming pack derives luma")
+
+setEngineVersion("blue")
+waterOut = applySwim(SPECIES.PIDGEY)
+eq(waterOut.trueColor, false, "Blue gbc swimming pack: luminance trueColor false")
+
+setEngineVersion("yellow")
+waterOut = applySwim(SPECIES.PIDGEY)
+eq(waterOut.trueColor, false, "Yellow gbc swimming pack: luminance trueColor false")
+
+savedOpts.sprite_style = "followers"
+setEngineVersion("red")
+do
+  local r = resolver:resolveWaterSprite(waterEntity(SPECIES.PIKACHU, "PIKACHU"), {
+    style = "followers", speciesId = SPECIES.PIKACHU, variant = "normal",
+  })
+  check(r ~= nil and r.def ~= nil, "Red Followers water Pikachu")
+  if r and r.def then
+    eq(r.def.trueColor, false, "Red Followers water trueColor false")
+    check(isLumaPath(r.def.image), "Red Followers water still uses pathFor")
+  end
+end
+setEngineVersion("blue")
+do
+  local r = resolver:resolveWaterSprite(waterEntity(SPECIES.PIKACHU, "PIKACHU"), {
+    style = "followers", speciesId = SPECIES.PIKACHU, variant = "normal",
+  })
+  if r and r.def then
+    eq(r.def.trueColor, false, "Blue Followers water trueColor false")
+  end
+end
+setEngineVersion("yellow")
+do
+  local r = resolver:resolveWaterSprite(waterEntity(SPECIES.PIKACHU, "PIKACHU"), {
+    style = "followers", speciesId = SPECIES.PIKACHU, variant = "normal",
+  })
+  if r and r.def then
+    eq(r.def.trueColor, false, "Yellow Followers water trueColor false")
+  end
+end
 
 ------------------------------------------------------------------------
 -- Gen2 entity adapt does not strip sprite.trueColor
@@ -474,6 +619,9 @@ check(spawnSrc:find("trueColor = result.def.trueColor ~= false", 1, true),
       "applyProviderSprite copies provider trueColor")
 check(spawnSrc:find("[Wilds][Color]", 1, true),
       "DEV [Wilds][Color] log is present before SpriteRenderer")
+local resolverSrc = assert(io.open("lib/sprite_resolver.lua", "r")):read("*a")
+check(resolverSrc:find("[Wilds][Gen2][WaterColor]", 1, true),
+      "DEV [Wilds][Gen2][WaterColor] log is present")
 check(spawnSrc:find("if def[k] == nil then def[k] = v end", 1, true)
       or spawnSrc:find("if drawDef[k] == nil then drawDef[k] = v end", 1, true),
       "SpawnRender copies remaining SpriteDef keys (artFamily)")

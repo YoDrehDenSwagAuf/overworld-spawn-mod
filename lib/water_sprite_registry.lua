@@ -144,8 +144,14 @@ function WaterSpriteRegistry:_indexEntry(kind, entry, sourceDir)
   -- unknown mode defaults to colored. Entries without a grayscaleTarget
   -- (colored-only variants such as female forms) fall back to the colored
   -- target everywhere.
-  local useGray = not (Config.paletteFxRedpp and Config.paletteFxRedpp())
-    and type(entry.grayscaleTarget) == "string" and entry.grayscaleTarget ~= ""
+  local useGray = false
+  if Config and Config.waterArtUsesLuminance then
+    useGray = Config.waterArtUsesLuminance(self.mod) == true
+      and type(entry.grayscaleTarget) == "string" and entry.grayscaleTarget ~= ""
+  else
+    useGray = not (Config.paletteFxRedpp and Config.paletteFxRedpp())
+      and type(entry.grayscaleTarget) == "string" and entry.grayscaleTarget ~= ""
+  end
   local target = useGray and entry.grayscaleTarget or entry.target
   if type(target) ~= "string" or target == "" then
     return false, "missing target"
@@ -524,9 +530,16 @@ function WaterSpriteRegistry:resolve(speciesId, variant, preferredKind, form, op
 
   -- Cache key MUST include sprite style so Followers→HGSS never returns a
   -- stale water def from another art family / size mode combination.
-  local cacheKey = string.format("%d:%s:%s:water:%s:%s:%s:%s",
+  local lumaKey = "rgba"
+  if Config.waterArtUsesLuminance and Config.waterArtUsesLuminance(self.mod) then
+    lumaKey = "luma"
+  elseif not Config.waterArtUsesLuminance
+     and Config.paletteFxRedpp and not Config.paletteFxRedpp() then
+    lumaKey = "luma"
+  end
+  local cacheKey = string.format("%d:%s:%s:water:%s:%s:%s:%s:%s",
     sid, want, style, tostring(preferredKind or "auto"), formKey(form), silKey,
-    tostring((V.require("variable_size")).effectiveMode(self.mod)))
+    tostring((V.require("variable_size")).effectiveMode(self.mod)), lumaKey)
   local cached = self.cache[cacheKey]
   if cached ~= nil then
     if cached.ok then return cached.def end
