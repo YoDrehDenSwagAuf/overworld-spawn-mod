@@ -15,7 +15,7 @@ T.check(modMeta ~= nil, "loader discovered mod by manifest id")
 T.eq(modMeta.state, "loaded", "mod reached loaded state")
 T.eq(modMeta.manifest.id, "overworld_wild_spawns", "manifest id")
 T.eq(modMeta.manifest.name, "Wilds of Kanto", "manifest name")
-T.eq(modMeta.manifest.version, "2.0.1", "manifest version")
+T.eq(modMeta.manifest.version, "2.1.0", "manifest version")
 T.eq(modMeta.manifest.entry, "main.lua", "entry path")
 T.eq(modMeta.manifest.category, "MECHANIC", "category")
 T.eq(modMeta.manifest.api, 2, "mod api version")
@@ -23,7 +23,7 @@ T.eq(modMeta.manifest.github, "YoDrehDenSwagAuf/overworld-spawn-mod", "github fi
 
 local exports = run.loader.exports["overworld_wild_spawns"]
 T.check(exports ~= nil, "exports table published")
-T.eq(exports.version, "2.0.1", "version export")
+T.eq(exports.version, "2.1.0", "version export")
 T.check(exports.logic ~= nil, "logic export")
 T.check(exports.render ~= nil, "render export")
 T.check(exports.hud ~= nil, "hud export")

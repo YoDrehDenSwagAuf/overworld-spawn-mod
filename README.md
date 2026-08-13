@@ -6,6 +6,9 @@ Wilds of Kanto makes Kanto feel alive in
 Wild Pokémon appear in the overworld, react to the player, and can be followed
 by party Pokémon — without replacing the classic Gen 1 feel.
 
+It now also includes **experimental Pokémon Gold / Gen 2 support (beta)**.
+The mod targets **Gen 1 + Gen 2** in Gen1Recomp's Mod Manager.
+
 ## Features
 
 - Visible overworld Pokémon
@@ -27,10 +30,73 @@ by party Pokémon — without replacing the classic Gen 1 feel.
   Original Dramatic Shape stays Classic unless it ships native variable geometry.
 - Town / Indoor / Ambient Pokémon
 - Red / Blue / Yellow
-- Experimental Pokémon Gold wild encounters (same mod; Mod Manager **Gen 1+2**).
-  Gold uses a separate encounter provider over the engine's Gold tables.
-  Followers, catching, and Safari are not implemented yet.
+- Experimental Pokémon Gold / Gen 2 support (beta) — see below
 - Dramatic Shape Voxel compatibility
+
+## Pokémon Gold / Gen 2 Support — Beta
+
+Wilds of Kanto now includes experimental support for Pokémon Gold through
+Gen1Recomp's Gen 2 compatibility layer.
+
+The mod targets **Gen 1 + Gen 2** in the Mod Manager:
+
+- **Gen 1:** Red / Blue / Yellow
+- **Gen 2:** Pokémon Gold (**beta**)
+
+Gen1 and Gen2 use separate compatibility paths while sharing Wilds' common
+rendering and gameplay systems. Red / Blue / Yellow keep their existing
+implementation.
+
+> Pokémon Gold support is currently in beta. The core systems are working,
+> but Gen2 has only recently been integrated and there may still be map,
+> follower, interaction, battle, sprite, or compatibility edge cases.
+> Please report anything that behaves differently from Gen1.
+
+### Currently working
+
+- Wild overworld Pokémon in Pokémon Gold
+- Pokémon spawn from Gold's encounter data
+- Overworld Pokémon roam normally
+- Aggressive Pokémon can detect/chase the player
+- Random encounter suppression option
+- Wilds settings menu
+- HGSS sprite style (including larger / variable-size overworld sprites)
+- Poké Followers / GSC sprite style
+- Colored overworld sprites
+- Colored swimming / water sprites
+- Town Pokémon / ambient Pokémon on curated Johto towns
+- Town Pokémon interaction
+- Player-as-Pokémon mode
+- Party Pokémon followers behind the trainer
+- Multiple followers, up to the existing Wilds limit
+- Gen2-compatible follower sprite resolution
+- Existing True Size infrastructure where supported
+
+Overworld catching and Safari stay off on Gold.
+
+### Sprites
+
+- **HGSS:** supported in Gen1 and Gold, including larger / variable-size
+  overworld sprites
+- **Poké Followers / GSC:** supported in Gen1 and Gold
+- **Water:** corresponding swimming / submerged presentation is supported in Gold
+
+### Known limitations / beta status
+
+- Gold support is still under active testing
+- Edge cases on specific maps may remain
+- Followers / transitions / water / scripted sequences still need broader testing
+- Compatibility with other Gen2 mods may vary
+- Please report crashes or behavior differences with exact map + settings
+
+If reporting a Gen2 issue, please include:
+
+- Pokémon Gold
+- map / location
+- sprite style
+- follower count / control mode if relevant
+- Voxel mod if enabled
+- reproduction steps
 
 ## Collaborators
 
@@ -134,6 +200,7 @@ Legacy Followers EX / PokéPC installs are detected only for settings migration.
 - Pokémon Red
 - Pokémon Blue
 - Pokémon Yellow
+- Pokémon Gold (beta)
 - Dramatic Shape Voxel Mod
 
 ## Credits
