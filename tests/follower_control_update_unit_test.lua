@@ -40,7 +40,10 @@ end
 package.loaded["src.world.OverworldController"] = OverworldState
 
 -- Stock PikachuFollower that early-returns when shouldSpawn is false (surf).
+-- Vanilla Yellow also returns false when no healthy Pikachu is in the party
+-- (cutscenes / healing use the same false — that is NOT "no Pikachu").
 local stockShouldSpawn
+local vanillaCutscene = false
 local PF = {
   update = function(game, ow)
     if not stockShouldSpawn(game, ow) then
@@ -54,8 +57,17 @@ local PF = {
 -- Upvalues for patchUpvalue
 do
   local shouldSpawn = function(game, ow)
+    if vanillaCutscene then return false end
     if ow and ow.player and ow.player.surfing then return false end
-    return true
+    local party = game and game.save and game.save.party
+    if party then
+      for _, mon in ipairs(party) do
+        if mon and mon.species == "PIKACHU" and (mon.hp or 0) > 0 then
+          return true
+        end
+      end
+    end
+    return false
   end
   stockShouldSpawn = shouldSpawn
   -- Recreate update/onMapEntered with upvalue named shouldSpawn
@@ -571,6 +583,194 @@ do
   player.targetX, player.targetY = 5, 12
   engine:update(game, ow, { source = "to-land" })
   eq(ow._wildsFollowerTrailSurface, "land", "returned to land")
+end
+
+----------------------------------------------------------------
+-- Yellow cutscene-gate regression: vanilla shouldSpawn is false when
+-- Pikachu is absent. That must NOT skip ControlEngine:update.
+----------------------------------------------------------------
+local function makeGateTrailer(mon, x, y)
+  local t = makeTrailer(1, mon, x, y)
+  t.moving = true
+  t.targetX, t.targetY = x, y - 1
+  t.stepFrames = 4
+  t.progress = 0
+  t.update = function() end
+  t._wildsFollowerStepOwned = true
+  return t
+end
+
+local function tickOwGate(opts)
+  vanillaCutscene = opts.cutscene == true
+  local engine = makeEngine(opts.count or 1)
+  if opts.yellow then
+    engine._isYellow = function() return true end
+  else
+    engine._isYellow = function() return false end
+  end
+  engine:install()
+  local party = opts.party
+  local mon = party[1]
+  local game = {
+    save = {
+      party = party,
+      pokepcFollowerCount = opts.count or 1,
+      pokepcControlMode = "follow",
+    },
+    data = { sprites = { SPRITE_PIKACHU = { image = "x" } } },
+  }
+  engine._gameRef = game
+  local surfing = opts.surfing == true
+  local trailerY = surfing and 6 or 12
+  local playerY = surfing and 4 or 10
+  local t1 = makeGateTrailer(mon, 5, trailerY)
+  local ow = setmetatable({
+    map = makeMap(),
+    player = {
+      cellX = 5, cellY = playerY, facing = "up",
+      surfing = surfing, stepFrames = 4,
+    },
+    npcs = { t1 },
+    entities = { t1 },
+    pokepcTrailers = { t1 },
+    pokepcTrailCells = { { x = 5, y = trailerY - 1 } },
+    pokepcTrailHead = { x = 5, y = playerY },
+    _wildsFollowerTrailSurface = surfing and "water" or nil,
+  }, { __index = OverworldState })
+  -- Post-spawn overworld: map-enter sync already consumed. This is the
+  -- frame that used to freeze Yellow trailers when Pikachu was absent.
+  engine._pendingMapTrailerSync = false
+  engine._pendingConnectionHandoff = nil
+  local vanilla = engine._vanillaShouldSpawn(game, ow)
+  local beforeCtrl = engine.diag.controlUpdateCalls or 0
+  local beforeOw = engine.diag.overworldUpdateCalls or 0
+  ow:update(1 / 60)
+  local result = {
+    vanilla = vanilla,
+    stockActive = engine:yellowStockFollowActive(game),
+    controlDelta = (engine.diag.controlUpdateCalls or 0) - beforeCtrl,
+    owDelta = (engine.diag.overworldUpdateCalls or 0) - beforeOw,
+    progress = t1.progress,
+    owner = engine._trailerUpdateOwner,
+  }
+  engine:restore()
+  vanillaCutscene = false
+  return result
+end
+
+-- CASE A — Yellow, no Pikachu, vanillaSpawn false → update still runs
+do
+  local r = tickOwGate({
+    yellow = true,
+    party = {
+      { species = "CHARMANDER", hp = 20 },
+      { species = "PIDGEY", hp = 18 },
+    },
+  })
+  eq(r.vanilla, false, "A: vanilla shouldSpawn false with no party Pikachu")
+  eq(r.stockActive, false, "A: stock Pikachu follower is not active")
+  eq(r.owDelta, 1, "A: overworld update ran")
+  eq(r.controlDelta, 1, "A: ControlEngine:update still runs without Pikachu")
+  check(r.progress > 0, "A: trailer received a movement update")
+end
+
+-- CASE B — Yellow, Pikachu present, simulated cutscene → gate stays
+do
+  local r = tickOwGate({
+    yellow = true,
+    cutscene = true,
+    party = {
+      { species = "PIKACHU", hp = 20 },
+      { species = "CHARMANDER", hp = 20 },
+    },
+  })
+  eq(r.vanilla, false, "B: vanilla shouldSpawn false in cutscene")
+  eq(r.stockActive, true, "B: stock Pikachu follower is active")
+  eq(r.owDelta, 1, "B: overworld update ran")
+  eq(r.controlDelta, 0, "B: ControlEngine:update skipped for cutscene frame")
+  eq(r.progress, 0, "B: trailer did not advance during cutscene")
+end
+
+-- CASE C — Yellow, Pikachu present, normal gameplay → update runs
+do
+  local r = tickOwGate({
+    yellow = true,
+    party = {
+      { species = "PIKACHU", hp = 20 },
+      { species = "CHARMANDER", hp = 20 },
+    },
+  })
+  eq(r.vanilla, true, "C: vanilla shouldSpawn true in normal Yellow gameplay")
+  eq(r.stockActive, true, "C: stock Pikachu follower is active")
+  eq(r.controlDelta, 1, "C: ControlEngine:update runs when vanillaSpawn true")
+end
+
+-- CASE D — Red, no Pikachu, vanillaSpawn false → unchanged
+do
+  local r = tickOwGate({
+    yellow = false,
+    party = {
+      { species = "CHARMANDER", hp = 20 },
+      { species = "PIDGEY", hp = 18 },
+    },
+  })
+  eq(r.vanilla, false, "D: Red vanilla shouldSpawn false without Pikachu")
+  eq(r.stockActive, false, "D: Red stock Pikachu follower is not active")
+  eq(r.controlDelta, 1, "D: Red ControlEngine:update still runs")
+  check(r.progress > 0, "D: Red trailer advanced")
+end
+
+-- CASE E — Blue, no Pikachu, vanillaSpawn false → unchanged
+do
+  local r = tickOwGate({
+    yellow = false,
+    party = {
+      { species = "SQUIRTLE", hp = 20 },
+      { species = "PIDGEY", hp = 18 },
+    },
+  })
+  eq(r.vanilla, false, "E: Blue vanilla shouldSpawn false without Pikachu")
+  eq(r.stockActive, false, "E: Blue stock Pikachu follower is not active")
+  eq(r.controlDelta, 1, "E: Blue ControlEngine:update still runs")
+  check(r.progress > 0, "E: Blue trailer advanced")
+end
+
+-- CASE G — Yellow surf: trailers keep ticking even if stock Pikachu is hidden
+do
+  local r = tickOwGate({
+    yellow = true,
+    surfing = true,
+    party = {
+      { species = "PIKACHU", hp = 20 },
+      { species = "SQUIRTLE", hp = 20 },
+    },
+  })
+  eq(r.vanilla, false, "G: vanilla shouldSpawn false while surfing")
+  eq(r.stockActive, true, "G: stock Pikachu is active on Yellow")
+  eq(r.controlDelta, 1, "G: surf exception still runs ControlEngine:update")
+end
+
+-- CASE F — Gold keeps World:step ownership; Gen1 OW wrap is not installed
+do
+  local prevGV = package.loaded["src.core.GameVersion"]
+  package.loaded["src.core.GameVersion"] = {
+    get = function() return "gold" end,
+    isYellow = function() return false end,
+    isGold = function() return true end,
+    generation = function() return 2 end,
+  }
+  local World = { step = function() end }
+  package.loaded["src.world.gen2.World"] = World
+  local engine = makeEngine(1)
+  engine._gameRef = { generation = 2, save = { party = { { species = "SENTRET", hp = 20 } } } }
+  local owWrap = engine:_installOverworldUpdateWrap()
+  eq(owWrap, false, "F: Gold does not install Gen1 OverworldController wrap")
+  local gen2Wrap = engine:_installGen2WorldStepWrap()
+  eq(gen2Wrap, true, "F: Gold World:step wrap still installs")
+  engine:_restoreGen2WorldStepWrap()
+  engine:_restoreOverworldUpdateWrap()
+  package.loaded["src.core.GameVersion"] = prevGV
+  package.loaded["src.world.gen2.World"] = nil
 end
 
 if failures > 0 then
