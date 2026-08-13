@@ -562,21 +562,27 @@ function VariableSize.applyToDef(mod, def, opts)
   if def.anchorY == nil then def.anchorY = def.frameHeight end
   if opts.spriteId then def.id = opts.spriteId end
   -- Luminance-based shading for the True Size sheets (parity with the
-  -- Classic/GSC art path): in every COLORS mode EXCEPT ADVANCED, derive the
-  -- 3-shade luminance ramp from the colored true_size sheet at load (cached
-  -- in the save dir — no separate -grayscale assets) and serve it with
-  -- trueColor = false so the engine's zone pass colors it out of the mode
-  -- palette; ADVANCED (redpp) keeps the colored sheet raw (trueColor = true).
+  -- Classic/GSC art path): Gen1 COLORS modes EXCEPT ADVANCED derive the
+  -- 3-shade luminance ramp and serve it with trueColor = false so the
+  -- engine zone pass colors it. Gold land packs skip that (Gold has no
+  -- zone shader; luma+trueColor=false bakes DMG OBP and looks monochrome).
+  -- Water / swimming / levitate packs still follow the redpp luma gate.
   -- Derivation is unavailable headless / without love → colored art stays
   -- raw.  opts.skipLuminance lets callers serving pre-shaded art (silhouette
   -- sheets, water runtime ramps) opt out.
   local lumaServed = false
+  local landPack = not (opts.presentation == "swimming"
+    or opts.presentation == "levitate"
+    or opts.packId == "swimming"
+    or opts.packId == "levitate")
   if not opts.skipLuminance and not keepImage then
-    local redpp = false
-    if Config and Config.paletteFxRedpp then
-      redpp = Config.paletteFxRedpp() == true
+    local useLuma = true
+    if landPack and Config and Config.landArtUsesLuminance then
+      useLuma = Config.landArtUsesLuminance(mod) == true
+    elseif Config and Config.paletteFxRedpp then
+      useLuma = Config.paletteFxRedpp() ~= true
     end
-    if not redpp then
+    if useLuma then
       local okLS, LuminanceSheet = pcall(function() return V.require("luminance_sheet") end)
       if okLS and LuminanceSheet and LuminanceSheet.pathFor then
         local luma = LuminanceSheet.pathFor(loadPath)

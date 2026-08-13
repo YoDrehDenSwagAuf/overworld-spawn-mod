@@ -1281,6 +1281,19 @@ function Config.spriteTrueColor(_mod)
   return Config.paletteFxRedpp()
 end
 
+-- Gold (Gen 2) world: GbcPalette + SpriteRenderer trueColor, not Gen1's
+-- PaletteFX zone-shader. Serving luminance sheets with trueColor=false on
+-- Gold bakes PaletteFX.dmgObj() (or a PAL_OW_* OBP) onto HGSS/Followers art
+-- and they render monochrome. Land wilds therefore keep colored RGBA and
+-- trueColor=true unless the user enabled Encounter Silhouettes.
+function Config.landArtUsesLuminance(mod)
+  local ok, GameCompat = pcall(function() return V.require("game_compat") end)
+  if ok and GameCompat and type(GameCompat.isGen2) == "function" then
+    if GameCompat.isGen2(mod) then return false end
+  end
+  return not Config.paletteFxRedpp()
+end
+
 -- PaletteFX mode gate: the genuinely monochrome modes (CLASSIC / OG /
 -- OG INV), which colorize through the whole-screen shade/zone pass.  Kept
 -- for diagnostics and the water registry's grayscaleTarget selection; the

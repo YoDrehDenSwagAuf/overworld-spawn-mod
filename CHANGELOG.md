@@ -9,6 +9,16 @@
   from Gold's kind-first `data.gen2Encounters` tables via
   `lib/gen2/encounters.lua` — not from Kanto tables and not from Pokédex
   habitat data.
+- Gold HGSS / Poké Followers land Wilds were drawn **monochrome** because the
+  Gen1 luminance contract (`trueColor = false` + `LuminanceSheet` +
+  `Config.spriteTrueColor` = PaletteFX `redpp` only) ran on Gold, where
+  `PaletteFX.mode` defaults to `"gbc"`. SpriteRenderer then baked
+  `PaletteFX.dmgObj()`. Land art on Gen2 now keeps original RGBA
+  (`trueColor = true`). Enc Silhouette still blacks out when the user
+  enables it (`options.lua` default is **false**, matching Config). Water
+  luminance / ADVANCED coloring is unchanged. Gen1 Red / Blue / Yellow
+  land luminance is unchanged.
+
 - Touching a visible wild starts a **normal Gold wild battle**
   (`start_battle` / `wild` / species / level) exactly once. Overworld
   Catching stays off.

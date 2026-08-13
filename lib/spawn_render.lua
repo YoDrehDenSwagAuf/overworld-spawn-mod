@@ -18,6 +18,40 @@
 local V = ...
 local Config = V.require("config")
 local DebugLog = V.require("debug_log")
+local GameCompat = V.require("game_compat")
+
+-- DEV-only: log the SpriteDef that is about to bind onto the entity
+-- (immediately before SpriteRenderer). Once per species/style/trueColor.
+local _wildColorLogOnce = {}
+
+local function logWildSpriteColor(mod, species, def, extra)
+  if not Config.debug(mod) then return end
+  extra = extra or {}
+  def = def or {}
+  local key = table.concat({
+    tostring(species),
+    tostring(extra.generation or ""),
+    tostring(extra.style or ""),
+    tostring(extra.providerId or ""),
+    tostring(def.trueColor),
+    tostring(extra.wildSilhouette == true),
+  }, "|")
+  if _wildColorLogOnce[key] then return end
+  _wildColorLogOnce[key] = true
+  DebugLog.info(mod,
+    "[Wilds][Color] species=%s gen=%s style=%s provider=%s image=%s trueColor=%s artFamily=%s spriteState=%s silhouette=%s fallbackStep=%s",
+    tostring(species),
+    tostring(extra.generation or "?"),
+    tostring(extra.style or "?"),
+    tostring(extra.providerId or "?"),
+    tostring(def.image or "?"),
+    tostring(def.trueColor),
+    tostring(def.artFamily or extra.artFamily or "?"),
+    tostring(extra.spriteState or "?"),
+    tostring(extra.wildSilhouette == true),
+    tostring(extra.fallbackStep or "?"))
+end
+
 local SpriteScale = V.require("sprite_scale")
 local Behavior = V.require("behavior")
 local Surface = V.require("surface")
@@ -1205,6 +1239,9 @@ function Entity.new(game, mod, render, record)
     if resolvedProvider.def.pokepcShiny then
       drawDef.pokepcShiny = true
     end
+    for k, v in pairs(resolvedProvider.def) do
+      if drawDef[k] == nil then drawDef[k] = v end
+    end
     drawPath = drawDef.image
     nativeSheet = (drawDef.walker == true and (drawDef.frames or 1) >= 6)
       or (tonumber(drawDef.frameWidth) and tonumber(drawDef.frameHeight)
@@ -1325,6 +1362,19 @@ function Entity.new(game, mod, render, record)
     self.entityPhase = "ENTITY_CREATE_ERROR"
     error("SpriteRenderer unavailable: " .. tostring(err), 0)
   end
+
+  logWildSpriteColor(mod, record.species or dexId, drawDef, {
+    generation = GameCompat.generation(mod, game),
+    style = style,
+    providerId = self.spriteProviderId
+      or (resolvedProvider and resolvedProvider.providerId),
+    spriteState = (resolvedProvider and resolvedProvider.spriteState)
+      or ((self.spriteKind == "swimming" or self.spriteKind == "levitates")
+          and "water") or "land",
+    wildSilhouette = resolvedProvider and resolvedProvider.wildSilhouette,
+    fallbackStep = self.spriteFallbackStep
+      or (resolvedProvider and resolvedProvider.fallbackStep),
+  })
 
   local okSprite, spriteOrErr = pcall(SpriteRenderer.new, drawDef, self.spawnId)
   if not okSprite then
@@ -2237,6 +2287,19 @@ function SpawnRender:applyProviderSprite(entity, game)
       end
     end
   end
+
+  logWildSpriteColor(self.mod, entity.species or dexId, def, {
+    generation = GameCompat.generation(self.mod, game),
+    style = style,
+    providerId = result.providerId,
+    spriteState = result.spriteState
+      or ((result.spriteKind == "swimming" or result.spriteKind == "levitates"
+           or entity.spriteKind == "swimming" or entity.spriteKind == "levitates")
+          and "water")
+      or "land",
+    wildSilhouette = result.wildSilhouette,
+    fallbackStep = result.fallbackStep,
+  })
 
   local ok, sprite = pcall(SpriteRenderer.new, def, entity.spawnId or entity.id)
   if not ok or not sprite then
