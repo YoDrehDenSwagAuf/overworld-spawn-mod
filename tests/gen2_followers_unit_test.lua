@@ -28,26 +28,56 @@ package.loaded["src.render.SpriteRenderer"] = {
   new = function(def, id) return { def = def, id = id } end,
 }
 
-package.loaded["src.world.NPC"] = {
-  new = function(_, mapId, def)
-    return {
-      id = "WILDS_TRAILER_" .. tostring(def and def.index or 0),
-      mapId = mapId,
-      cellX = def and def.x or 0,
-      cellY = def and def.y or 0,
-      px = (def and def.x or 0) * 16,
-      py = (def and def.y or 0) * 16,
-      facing = "down",
-      moving = false,
-      progress = 0,
-      update = function() end,
-      pose = function(ent)
-        return ent.sprite, ent.px, ent.py, ent.facing, 0, false
-      end,
-    }
-  end,
-  walkPhase = function() return 0 end,
-}
+-- Real Gold NPC contract: NPC.new(mapId, objDef, spriteDef).
+-- Do not silently accept Gen1 NPC.new(data, mapId, def).
+local function nativeGoldNpcModule()
+  return {
+    MOVE = {
+      STILL = 1, WANDER = 2, STANDING_DOWN = 6,
+      STANDING_UP = 7, STANDING_LEFT = 8, STANDING_RIGHT = 9,
+    },
+    fallbackSpriteDef = function() return nil end,
+    new = function(mapId, objDef, spriteDef)
+      if type(mapId) == "table" then
+        error("Gold native NPC.new received Gen1 arity")
+      end
+      if type(objDef) ~= "table" then
+        error("Gold native NPC.new missing objDef")
+      end
+      if type(spriteDef) ~= "table" or spriteDef.image == nil then
+        error("Gold native NPC.new requires spriteDef.image")
+      end
+      return {
+        id = string.format("%s_obj_%d", tostring(mapId), objDef.index or 0),
+        mapId = mapId,
+        def = objDef,
+        spriteDef = spriteDef,
+        sprite = { def = spriteDef, id = "npc" },
+        cellX = objDef.x or 0,
+        cellY = objDef.y or 0,
+        px = (objDef.x or 0) * 16,
+        py = (objDef.y or 0) * 16,
+        facing = "down",
+        moving = false,
+        progress = 0,
+        passable = false,
+        movement = objDef.movement,
+        update = function() end,
+        pose = function(ent)
+          return ent.sprite, ent.px, ent.py, ent.facing, 0, false
+        end,
+        draw = function(self, ox, oy, scale)
+          self._lastGoldDraw = { ox = ox, oy = oy, scale = scale }
+        end,
+        walkPhase = function() return 0 end,
+      }
+    end,
+    walkPhase = function() return 0 end,
+  }
+end
+local goldNpc = nativeGoldNpcModule()
+package.loaded["src.world.NPC"] = goldNpc
+package.loaded["src.world.gen2.Npc"] = goldNpc
 
 local owUpdateCalls = 0
 local OverworldState = {

@@ -173,26 +173,53 @@ function Gen2.startWildBattle(world, species, level)
   })
 end
 
--- STANDING_DOWN (Npc.MOVE): STILL carries FIXED_FACING and cannot turn.
+-- STANDING_DOWN (src/world/gen2/Npc.lua MOVE table). STILL=1 carries
+-- FIXED_FACING and cannot turn. Same constant Follower.lua uses.
 local GOLD_STANDING_DOWN = 6
 
+--- Native Gold NPC module.
+-- Prefer `src.world.gen2.Npc` (the path `src/world/gen2/Follower.lua` uses)
+-- so construction does not depend on Loader's Gen2Compat alias.
+--
+-- `pcall(require, "src.world.NPC")` can miss that alias: Loader's shim
+-- uses callerIsMod(3), a C `pcall` frame makes the call look like engine
+-- code, and Gold then loads Gen1 `src/world/NPC.lua` (no MOVE, draw is
+-- `draw(camX, camY)` — invisible under Gold `draw(ox, oy, scale)`).
+-- An extra Lua frame makes callerIsMod(3) see this mod chunk.
+local function loadGoldNpc(name)
+  local ok, Npc = pcall(function()
+    return require(name)
+  end)
+  if ok and type(Npc) == "table" and type(Npc.new) == "function" then
+    return Npc, name
+  end
+  return nil, nil
+end
+
+function Gen2.npcModule()
+  local Npc, name = loadGoldNpc("src.world.gen2.Npc")
+  if Npc then return Npc, name end
+  return loadGoldNpc("src.world.NPC")
+end
+
 --- Gold trailer NPC: native Npc.new(mapId, objDef, spriteDef).
--- Does not register a fake Gen1 SPRITE_PIKACHU; the resolved Pokémon
--- SpriteDef is the sheet. Falls back to Gen1 arity (fromGen1 sniff) if
--- the native call errors.
+-- Same contract as src/world/gen2/Follower.lua makeFollower.
+-- Never sniffs NPC.MOVE to choose Gen1 arity. Never calls
+-- NPC.new(data, mapId, objDef) — that is Gen1.makeGuestNpc only.
 function Gen2.makeGuestNpc(game, ow, spec)
   spec = spec or {}
-  local NPC = tryRequire("src.world.NPC")
-  if not (NPC and NPC.new) then return nil, "no NPC" end
+  local NPC, npcSource = Gen2.npcModule()
+  if not (NPC and NPC.new) then
+    return nil, "no Gold NPC (src.world.gen2.Npc)"
+  end
   if not (ow and ow.map and ow.map.id) then return nil, "no map" end
   local spriteDef = spec.spriteDef
   if type(spriteDef) ~= "table" or not spriteDef.image then
     return nil, "Gold trailer requires spriteDef.image"
   end
-  local movement = GOLD_STANDING_DOWN
-  if NPC.MOVE and NPC.MOVE.STANDING_DOWN then
-    movement = NPC.MOVE.STANDING_DOWN
-  end
+  local mapId = ow.map.id
+  local MOVE = type(NPC.MOVE) == "table" and NPC.MOVE or {}
+  local movement = MOVE.STANDING_DOWN or GOLD_STANDING_DOWN
   local objDef = {
     index = spec.index,
     name = spec.name,
@@ -200,33 +227,21 @@ function Gen2.makeGuestNpc(game, ow, spec)
     movement = movement,
     x = spec.x, y = spec.y,
   }
-  -- Live Gold Npc.lua exports MOVE / fallbackSpriteDef. Test stubs that
-  -- only implement Gen1 arity do not, so they take the fromGen1 path.
-  local nativeGold = NPC.MOVE ~= nil or NPC.fallbackSpriteDef ~= nil
-  if nativeGold then
-    local ok, npc = pcall(NPC.new, ow.map.id, objDef, spriteDef)
-    if ok and npc then
-      npc.spriteDef = npc.spriteDef or spriteDef
-      npc.mapId = npc.mapId or ow.map.id
-      return npc
-    end
-    if not ok then
-      return nil, tostring(npc)
-    end
+  local ok, npc = pcall(NPC.new, mapId, objDef, spriteDef)
+  if not ok then
+    return nil, tostring(npc)
   end
-  local ok2, npc2 = pcall(NPC.new, game and game.data, ow.map.id, {
-    index = spec.index,
-    name = spec.name,
-    sprite = spec.spriteId or "SPRITE_PIKACHU",
-    movement = "STAY", range = "NONE",
-    x = spec.x, y = spec.y,
-  })
-  if ok2 and npc2 then
-    npc2.spriteDef = spriteDef
-    npc2.mapId = npc2.mapId or ow.map.id
-    return npc2
+  if not npc then
+    return nil, "NPC.new returned nil (" .. tostring(npcSource) .. ")"
   end
-  return nil, tostring(npc2 or "NPC.new failed")
+  npc.spriteDef = npc.spriteDef or spriteDef
+  npc.mapId = npc.mapId or mapId
+  npc.passable = true
+  npc._wildsGoldGuest = true
+  if spec.facing then npc.facing = spec.facing end
+  npc._wildsGoldNpcSource = npcSource
+  npc._wildsGoldMovement = movement
+  return npc
 end
 
 --- Gold CONTROL=POKEMON: Player:setSprite(spriteDef). Keeps the same

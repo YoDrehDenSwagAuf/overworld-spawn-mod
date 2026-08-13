@@ -25,23 +25,58 @@ package.loaded["src.core.GameVersion"] = {
 package.loaded["src.render.SpriteRenderer"] = {
   new = function(def, id) return { def = def, id = id } end,
 }
-package.loaded["src.world.NPC"] = {
-  new = function(_, mapId, def)
-    return {
-      id = "WILDS_TRAILER_" .. tostring(def and def.index or 0),
-      mapId = mapId,
-      cellX = def and def.x or 0,
-      cellY = def and def.y or 0,
-      px = (def and def.x or 0) * 16,
-      py = (def and def.y or 0) * 16,
-      facing = "down",
-      moving = false,
-      progress = 0,
-      update = function() end,
-    }
-  end,
-  walkPhase = function() return 0 end,
-}
+
+-- Real Gold: require("src.world.NPC") is an alias of src.world.gen2.Npc.
+-- NPC.new(mapId, objDef, spriteDef) — NOT Gen1 NPC.new(data, mapId, def).
+-- A mock that accepts both arities hid the live Gold failure.
+local function nativeGoldNpcModule()
+  return {
+    MOVE = {
+      STILL = 1, WANDER = 2, STANDING_DOWN = 6,
+      STANDING_UP = 7, STANDING_LEFT = 8, STANDING_RIGHT = 9,
+    },
+    fallbackSpriteDef = function() return nil end,
+    new = function(mapId, objDef, spriteDef)
+      if type(mapId) == "table" then
+        error("Gold native NPC.new received Gen1 arity")
+      end
+      if type(objDef) ~= "table" then
+        error("Gold native NPC.new missing objDef")
+      end
+      if type(spriteDef) ~= "table" or spriteDef.image == nil then
+        error("Gold native NPC.new requires spriteDef.image")
+      end
+      return {
+        id = string.format("%s_obj_%d", tostring(mapId), objDef.index or 0),
+        mapId = mapId,
+        def = objDef,
+        spriteDef = spriteDef,
+        sprite = { def = spriteDef, id = "npc" },
+        cellX = objDef.x or 0,
+        cellY = objDef.y or 0,
+        px = (objDef.x or 0) * 16,
+        py = (objDef.y or 0) * 16,
+        facing = "down",
+        moving = false,
+        progress = 0,
+        passable = false,
+        movement = objDef.movement,
+        update = function() end,
+        pose = function(ent)
+          return ent.sprite, ent.px, ent.py, ent.facing, 0, false
+        end,
+        draw = function(self, ox, oy, scale)
+          self._lastGoldDraw = { ox = ox, oy = oy, scale = scale }
+        end,
+        walkPhase = function() return 0 end,
+      }
+    end,
+    walkPhase = function() return 0 end,
+  }
+end
+local goldNpc = nativeGoldNpcModule()
+package.loaded["src.world.NPC"] = goldNpc
+package.loaded["src.world.gen2.Npc"] = goldNpc
 package.loaded["src.world.OverworldController"] = {
   update = function() end,
   talkTo = function() return false end,
@@ -398,8 +433,9 @@ end
 ----------------------------------------------------------------
 do
   local origNpc = package.loaded["src.world.NPC"]
+  local origNpc2 = package.loaded["src.world.gen2.Npc"]
   local nativeCalls = 0
-  package.loaded["src.world.NPC"] = {
+  local goldNative = {
     MOVE = { STANDING_DOWN = 6 },
     fallbackSpriteDef = { image = "chris.png", frames = 6 },
     new = function(mapId, objDef, spriteDef)
@@ -409,10 +445,12 @@ do
       end
       check(type(spriteDef) == "table" and spriteDef.image ~= nil,
             "native Gold NPC.new received spriteDef.image")
+      eq(objDef.movement, 6, "native Gold NPC.new uses STANDING_DOWN")
       return {
         id = "WILDS_TRAILER_" .. tostring(objDef and objDef.index or 0),
         mapId = mapId,
         spriteDef = spriteDef,
+        sprite = { def = spriteDef, id = "npc" },
         cellX = objDef and objDef.x or 0,
         cellY = objDef and objDef.y or 0,
         px = (objDef and objDef.x or 0) * 16,
@@ -421,10 +459,15 @@ do
         moving = false,
         progress = 0,
         update = function() end,
+        draw = function(self, ox, oy, scale)
+          self._lastGoldDraw = { ox = ox, oy = oy, scale = scale }
+        end,
       }
     end,
     walkPhase = function() return 0 end,
   }
+  package.loaded["src.world.NPC"] = goldNative
+  package.loaded["src.world.gen2.Npc"] = goldNative
   local world = select(1, goldWorld())
   local game = goldGame(world, { healthy("SENTRET") })
   local engine = makeEngine(1)
@@ -435,7 +478,124 @@ do
   check(nativeCalls >= 1, "native Gold NPC.new was used")
   check(world.npcs[1] and world.npcs[1].pokepcTrailer == true,
         "native trailer attached to world.npcs")
+  check(world.npcs[1] and world.npcs[1].spriteDef ~= nil,
+        "native trailer draw contract has spriteDef")
+  check(world.entities[1] == world.npcs[1] or (function()
+    for _, e in ipairs(world.entities or {}) do
+      if e == world.npcs[1] then return true end
+    end
+    return false
+  end)(), "native trailer also in world.entities")
   package.loaded["src.world.NPC"] = origNpc
+  package.loaded["src.world.gen2.Npc"] = origNpc2
+end
+
+----------------------------------------------------------------
+-- Gen2.makeGuestNpc does NOT fall back to Gen1 NPC.new(data, mapId, def)
+----------------------------------------------------------------
+do
+  local origNpc = package.loaded["src.world.NPC"]
+  local origNpc2 = package.loaded["src.world.gen2.Npc"]
+  local gen1Calls = 0
+  package.loaded["src.world.gen2.Npc"] = nil
+  package.loaded["src.world.NPC"] = {
+    -- No MOVE: this is the old sniff that took fromGen1.
+    new = function(data, mapId, def)
+      gen1Calls = gen1Calls + 1
+      if type(data) == "table" and type(mapId) ~= "table" then
+        return { id = "GEN1_FALLBACK", fromGen1 = true }
+      end
+      error("Gen1 NPC.new expected (data, mapId, def)")
+    end,
+  }
+  local world = select(1, goldWorld())
+  local game = goldGame(world, { healthy("SENTRET") })
+  local npc, err = GameCompat.makeGuestNpc(game, world, {
+    index = 241, name = "WILDS_TRAILER_1",
+    spriteId = "SPRITE_PIKACHU",
+    spriteDef = { id = "SPRITE_WILDS_FOLLOWER_MON", image = "land_SENTRET.png", frames = 6 },
+    x = 10, y = 10,
+  })
+  check(npc == nil, "Gen2.makeGuestNpc does not succeed via Gen1 arity")
+  check(npc == nil or npc.fromGen1 ~= true, "no fromGen1 guest NPC")
+  check(err ~= nil, "Gen1-arity Gold NPC.new returns an error")
+  package.loaded["src.world.NPC"] = origNpc
+  package.loaded["src.world.gen2.Npc"] = origNpc2
+end
+
+----------------------------------------------------------------
+-- Poisoned package.loaded["src.world.NPC"] (Gen1 arity) must not win
+-- when src.world.gen2.Npc is the real Gold module.
+-- Unit tests used to pass because mock X exposed Y, real Gold exposes Z:
+--   X = package.loaded["src.world.NPC"]
+--   Y = Gen1-arity new(_, mapId, def) without MOVE (accepted both arities)
+--   Z = src.world.gen2.Npc / alias NPC.new(mapId, objDef, spriteDef)
+--       with MOVE.STANDING_DOWN. pcall(require, "src.world.NPC") can also
+--       cache Gen1 NPC.lua whose draw(camX, camY) is invisible under Gold.
+----------------------------------------------------------------
+do
+  local origNpc = package.loaded["src.world.NPC"]
+  local origNpc2 = package.loaded["src.world.gen2.Npc"]
+  local nativeCalls, gen1Calls = 0, 0
+  local goldNative = nativeGoldNpcModule()
+  local origNew = goldNative.new
+  goldNative.new = function(mapId, objDef, spriteDef)
+    nativeCalls = nativeCalls + 1
+    return origNew(mapId, objDef, spriteDef)
+  end
+  package.loaded["src.world.gen2.Npc"] = goldNative
+  package.loaded["src.world.NPC"] = {
+    new = function(data, mapId, def)
+      gen1Calls = gen1Calls + 1
+      return { id = "GEN1_POISON", fromGen1 = true, mapId = mapId }
+    end,
+  }
+  local world = select(1, goldWorld())
+  local game = goldGame(world, { healthy("SENTRET") })
+  local npc, err = GameCompat.makeGuestNpc(game, world, {
+    index = 241, name = "WILDS_TRAILER_1",
+    spriteId = "SPRITE_PIKACHU",
+    spriteDef = { id = "SPRITE_WILDS_FOLLOWER_MON", image = "land_SENTRET.png", frames = 6 },
+    x = 10, y = 10,
+  })
+  check(npc ~= nil, "poisoned src.world.NPC does not block gen2.Npc: " .. tostring(err))
+  check(npc and npc.fromGen1 ~= true, "guest is not the Gen1-poisoned object")
+  eq(nativeCalls, 1, "used src.world.gen2.Npc")
+  eq(gen1Calls, 0, "did not call poisoned Gen1 NPC.new")
+  eq(npc and npc._wildsGoldNpcSource, "src.world.gen2.Npc", "source is gen2.Npc")
+  package.loaded["src.world.NPC"] = origNpc
+  package.loaded["src.world.gen2.Npc"] = origNpc2
+end
+
+----------------------------------------------------------------
+-- Gen2.makeGuestNpc + attach: world.npcs, spriteDef, STANDING_DOWN
+----------------------------------------------------------------
+do
+  local world = select(1, goldWorld())
+  local game = goldGame(world, { healthy("SENTRET") })
+  local npc, err = GameCompat.makeGuestNpc(game, world, {
+    index = 241, name = "WILDS_TRAILER_1",
+    spriteId = "SPRITE_PIKACHU",
+    spriteDef = {
+      id = "SPRITE_WILDS_FOLLOWER_MON", image = "land_SENTRET.png",
+      frames = 6, trueColor = true, frameWidth = 16, frameHeight = 16,
+    },
+    x = 9, y = 11,
+  })
+  check(npc ~= nil, "Gen2.makeGuestNpc succeeds on native contract: " .. tostring(err))
+  eq(npc and npc.cellX, 9, "native NPC cellX from objDef")
+  eq(npc and npc.mapId, "ROUTE_29", "native NPC mapId is Gold map id")
+  eq(npc and npc.movement, 6, "native NPC movement is STANDING_DOWN")
+  check(npc and npc.spriteDef and npc.spriteDef.image ~= nil, "spriteDef valid")
+  eq(npc and npc.passable, true, "native NPC passable like Follower.lua")
+  eq(npc and npc._wildsGoldGuest, true, "guest persistence marker matches town Pokémon")
+  local attached = GameCompat.attachGuestEntity(world, npc, game)
+  eq(attached, "npcs+entities", "attachGuestEntity uses npcs+entities")
+  local inNpcs, inEntities = false, false
+  for _, n in ipairs(world.npcs) do if n == npc then inNpcs = true end end
+  for _, e in ipairs(world.entities) do if e == npc then inEntities = true end end
+  check(inNpcs, "attached guest is in world.npcs")
+  check(inEntities, "attached guest is in world.entities")
 end
 
 if failures > 0 then

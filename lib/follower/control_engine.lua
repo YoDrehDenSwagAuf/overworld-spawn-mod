@@ -78,6 +78,14 @@ local function logGen2(mod, fmt, ...)
   end
 end
 
+local function logGen2Once(self, key, fmt, ...)
+  if not self then return end
+  self._gen2Once = self._gen2Once or {}
+  if self._gen2Once[key] then return end
+  self._gen2Once[key] = true
+  logGen2(self.mod, fmt, ...)
+end
+
 local function isMissingFallbackImage(image)
   return type(image) == "string"
     and image:find("pokemon_missing.png", 1, true) ~= nil
@@ -219,7 +227,19 @@ function ControlEngine:_attachTrailer(game, ow, npc)
   local GameCompat = V.require("game_compat")
   local attached = GameCompat.attachGuestEntity(ow, npc, game)
   npc.worldContainer = attached or npc.worldContainer
-  logGen2(self.mod, "attached=%s", tostring(attached or npc.worldContainer or "?"))
+  local inNpcs, inEntities = false, false
+  for _, n in ipairs(ow.npcs or {}) do
+    if n == npc then inNpcs = true break end
+  end
+  for _, e in ipairs(ow.entities or {}) do
+    if e == npc then inEntities = true break end
+  end
+  logGen2(self.mod,
+    "attached=%s inNpcs=%s inEntities=%s npcs=%s entities=%s id=%s",
+    tostring(attached or npc.worldContainer or "?"),
+    tostring(inNpcs), tostring(inEntities),
+    tostring(#(ow.npcs or {})), tostring(#(ow.entities or {})),
+    tostring(npc.id))
 end
 
 function ControlEngine:_isYellow()
@@ -1133,14 +1153,27 @@ end
 
 function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts)
   opts = opts or {}
-  local NPC = tryRequire("src.world.NPC")
-  local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
-  if not (NPC and NPC.new) then return nil end
-
   local GameCompat = V.require("game_compat")
   local gen2 = GameCompat.isGen2(self.mod, game)
+  -- Gen2 must not pcall-require src.world.NPC: Loader.callerIsMod(3) treats
+  -- the C pcall frame as engine code, skips the Gen2Compat alias, and can
+  -- cache Gen1 NPC.lua (invisible under Gold drawPeople). Construction
+  -- goes through Gen2.npcModule → src.world.gen2.Npc.
+  local NPC = nil
+  if not gen2 then
+    NPC = tryRequire("src.world.NPC")
+    if not (NPC and NPC.new) then return nil end
+  end
+  local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
+
   local species = (kind ~= "trainer") and (mon and mon.species or "CHARMANDER") or "trainer"
-  logGen2(self.mod, "makeTrailer species=%s", tostring(species))
+  local surfaceHint = opts.surface or self:_trailSurface(ow, game) or "land"
+  if gen2 then
+    logGen2(self.mod, "makeTrailer BEGIN slot=%s species=%s surface=%s",
+      tostring(slot), tostring(species), tostring(surfaceHint))
+  else
+    logGen2(self.mod, "makeTrailer species=%s", tostring(species))
+  end
 
   local resolved, trainerDef, surface
   if kind == "trainer" then
@@ -1166,9 +1199,21 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
     })
   end
 
+  if gen2 then
+    logGen2(self.mod,
+      "sprite image=%s SpriteDef id=%s frameWidth=%s frameHeight=%s trueColor=%s",
+      tostring(spriteDef and spriteDef.image),
+      tostring(spriteDef and spriteDef.id),
+      tostring(spriteDef and spriteDef.frameWidth),
+      tostring(spriteDef and spriteDef.frameHeight),
+      tostring(spriteDef and spriteDef.trueColor))
+  end
+
   local npc
   if gen2 then
     if not (spriteDef and spriteDef.image) then
+      logGen2(self.mod, "makeGuestNpc success=false error=spriteDef.image missing species=%s",
+        tostring(species))
       error("makeTrailer Gold spriteDef missing species=" .. tostring(species))
     end
     local err
@@ -1178,7 +1223,19 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
       spriteId = Constants.SPRITE_ID,
       spriteDef = spriteDef,
       x = x, y = y,
+      facing = facing,
     })
+    logGen2(self.mod,
+      "makeGuestNpc success=%s error=%s type=%s id=%s cell=%s,%s spriteDef=%s sprite=%s source=%s movement=%s",
+      tostring(npc ~= nil),
+      tostring(err),
+      type(npc),
+      tostring(npc and npc.id),
+      tostring(npc and npc.cellX), tostring(npc and npc.cellY),
+      tostring(npc and npc.spriteDef ~= nil),
+      tostring(npc and npc.sprite ~= nil),
+      tostring(npc and npc._wildsGoldNpcSource or "?"),
+      tostring(npc and npc._wildsGoldMovement))
     if not npc then
       error("makeTrailer Gold NPC.new failed: " .. tostring(err))
     end
@@ -1249,17 +1306,23 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
     npc.pokepcShiny = shiny and true or false
     surface = surface or opts.surface or self:_trailSurface(ow, game) or "land"
     if resolved and resolved.image and SpriteRenderer and SpriteRenderer.new then
-      local ok, sprite = pcall(SpriteRenderer.new, spriteDefWithGeometry(resolved, {
-        pokepcShiny = npc.pokepcShiny,
-      }), npc.id)
-      if not ok then
-        logWarn(self.mod, "SpriteRenderer.new failed (party trailer %s): %s",
-          tostring(species), tostring(sprite))
-        logGen2(self.mod, "SpriteRenderer.new failed species=%s err=%s",
-          tostring(species), tostring(sprite))
-      elseif sprite then
-        npc.sprite = sprite
-        if gen2 then npc.spriteDef = sprite.def or spriteDef end
+      -- Native Gold NPC.new already built SpriteRenderer from spriteDef
+      -- (Follower.lua does not rebuild it). Keep that sprite unless missing.
+      if gen2 and npc.sprite then
+        npc.spriteDef = npc.spriteDef or spriteDef
+      else
+        local ok, sprite = pcall(SpriteRenderer.new, spriteDefWithGeometry(resolved, {
+          pokepcShiny = npc.pokepcShiny,
+        }), npc.id)
+        if not ok then
+          logWarn(self.mod, "SpriteRenderer.new failed (party trailer %s): %s",
+            tostring(species), tostring(sprite))
+          logGen2(self.mod, "SpriteRenderer.new failed species=%s err=%s",
+            tostring(species), tostring(sprite))
+        elseif sprite then
+          npc.sprite = sprite
+          if gen2 then npc.spriteDef = sprite.def or spriteDef end
+        end
       end
     end
     npc._wildsFollowerSpecies = species
@@ -1275,7 +1338,7 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
   npc.stepFlip = false
   npc.animClock = 0
   npc.stepLanded = false
-  if NPC.walkPhase then
+  if (NPC and NPC.walkPhase) or gen2 then
     npc.walkPhase = function(ent)
       if not ent.moving and not ent.stepLanded then
         -- Keep the walk cycle running while the pack is in motion, so a
@@ -2012,7 +2075,15 @@ function ControlEngine:syncTrailers(game, ow, opts)
   -- frame before the new map is fully live), so it keeps the pending
   -- map-entry seed and retries on the next update instead of letting the
   -- pack materialize behind the player.
-  if not ow or not ow.player or not ow.map then return false, "no_context" end
+  if not ow or not ow.player or not ow.map then
+    local reason = (not ow and "no_world")
+      or (not ow.player and "missing player")
+      or "missing map"
+    logGen2Once(self, "sync_no_context:" .. reason,
+      "syncTrailers exit=%s wantN=? (Gold world must be game.world, not game.overworld)",
+      reason)
+    return false, "no_context"
+  end
   self.diag.syncTrailersCalls = (self.diag.syncTrailersCalls or 0) + 1
   local mode = self:controlMode(game)
   local want = {}
@@ -2024,8 +2095,10 @@ function ControlEngine:syncTrailers(game, ow, opts)
     mode = "pack"
   end
 
+  local trailMons = {}
   if mode == "lead_trainer" then
-    for _, entry in ipairs(self:partyTrailMons(game)) do
+    trailMons = self:partyTrailMons(game)
+    for _, entry in ipairs(trailMons) do
       want[#want + 1] = { kind = "mon", mon = entry.mon }
     end
     -- Trainer trailers must not swim: hide while surfing, restore on land.
@@ -2033,9 +2106,24 @@ function ControlEngine:syncTrailers(game, ow, opts)
       want[#want + 1] = { kind = "trainer", mon = nil }
     end
   elseif mode == "follow" or mode == "pack" then
-    for _, entry in ipairs(self:partyTrailMons(game)) do
+    trailMons = self:partyTrailMons(game)
+    for _, entry in ipairs(trailMons) do
       want[#want + 1] = { kind = "mon", mon = entry.mon }
     end
+  end
+
+  local GameCompat = V.require("game_compat")
+  if GameCompat.isGen2(self.mod, game) then
+    local save = game and game.save
+    local party = (save and save.party) or {}
+    local leader = self:getLeaderMon(game)
+    local configured = self:followerCount(game)
+    logGen2Once(self,
+      string.format("partyTrail:%s:%s:%s:%s", tostring(mode), tostring(configured),
+        tostring(#trailMons), tostring(ow.map and ow.map.id)),
+      "mode=%s configuredCount=%s partySize=%s leader=%s desiredTrailers=%s",
+      tostring(mode), tostring(configured), tostring(#party),
+      tostring(leader and leader.species or "nil"), tostring(#trailMons))
   end
 
   local trailers = ow.pokepcTrailers or {}
@@ -2077,7 +2165,17 @@ function ControlEngine:syncTrailers(game, ow, opts)
     ow._wildsFollowerTrailSurface = surface
   end
   if dirty or mapEnter or opts.spawnAtPlayer or countChanged then
-    logGen2(self.mod, "wanted=%s", tostring(wantN))
+    local GameCompat = V.require("game_compat")
+    if GameCompat.isGen2(self.mod, game) then
+      logGen2(self.mod,
+        "sync wantN=%s existing=%s dirty=%s mapEnter=%s surface=%s player=%s,%s map=%s",
+        tostring(wantN), tostring(#trailers), tostring(dirty),
+        tostring(mapEnter or opts.mapEnter == true), tostring(surface),
+        tostring(p and p.cellX), tostring(p and p.cellY),
+        tostring(ow.map and ow.map.id))
+    else
+      logGen2(self.mod, "wanted=%s", tostring(wantN))
+    end
   end
 
   -- Yellow only: re-form the train behind the stock Pikachu when the pack
@@ -3387,6 +3485,26 @@ function ControlEngine:_installGen2WorldStepWrap()
       if not ok then
         logWarn(engine.mod, "[Wilds][Follower][Gen2] update failed: %s", tostring(err))
         logGen2(engine.mod, "update failed: %s", tostring(err))
+      else
+        logGen2Once(engine, "world_step_owner",
+          "updateOwner=%s controlUpdateCalls=%s syncTrailersCalls=%s",
+          tostring(engine._trailerUpdateOwner),
+          tostring(engine.diag.controlUpdateCalls),
+          tostring(engine.diag.syncTrailersCalls))
+        local trailers = worldSelf and worldSelf.pokepcTrailers or {}
+        local t = trailers[1]
+        if t then
+          local inNpcs, inEntities = false, false
+          for _, n in ipairs((worldSelf and worldSelf.npcs) or {}) do
+            if n == t then inNpcs = true break end
+          end
+          for _, e in ipairs((worldSelf and worldSelf.entities) or {}) do
+            if e == t then inEntities = true break end
+          end
+          logGen2Once(engine, "world_step_alive",
+            "stillAlive=true inNpcs=%s inEntities=%s activeTrailers=%s",
+            tostring(inNpcs), tostring(inEntities), tostring(#trailers))
+        end
       end
     end
     return a, b, c, d, e
@@ -3516,8 +3634,21 @@ function ControlEngine:install()
   -- update wrap to work (it relies on _pendingMapTrailerSync).
   self:_installEventSubscriptions()
 
+  local GameCompat = V.require("game_compat")
+  local gen2 = GameCompat.isGen2(self.mod, self:_game())
   local PF = tryRequire("src.world.PikachuFollower")
-  local NPC = tryRequire("src.world.NPC")
+  local NPC
+  if gen2 then
+    -- Same Loader.callerIsMod pitfall as makeTrailer: never pcall-require
+    -- src.world.NPC on Gold. Prefer the Follower.lua module path.
+    NPC = GameCompat.Gen2 and select(1, GameCompat.Gen2.npcModule())
+    local okF, goldF = pcall(function()
+      return require("src.world.gen2.Follower")
+    end)
+    if okF and type(goldF) == "table" then PF = goldF end
+  else
+    NPC = tryRequire("src.world.NPC")
+  end
   if not PF or not NPC then
     -- Red / Blue: no PikachuFollower, but OverworldController.update
     -- is now wrapped and events are subscribed.  Return partial so
@@ -3546,7 +3677,6 @@ function ControlEngine:install()
   end
 
   -- Owner is exclusive: Gen1 overworld, else Gold World:step, else PF fallback.
-  local GameCompat = V.require("game_compat")
   if owWrapOk then
     self._trailerUpdateOwner = "overworld"
   elseif gen2WrapOk or GameCompat.isGen2(self.mod, self:_game()) then
