@@ -1,7 +1,7 @@
 {
   "id": "overworld_wild_spawns",
   "name": "Wilds of Kanto",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -15,6 +15,6 @@
   "permissions": ["engine_internals"],
   "affects_link": false,
   "options_schema": "options.lua",
-  "description": "Visible and reactive wild Pokemon for the Gen 1 overworld. Experimental Pokémon Gold load support.",
+  "description": "Visible and reactive wild Pokemon for the Gen 1 overworld. Experimental Pokémon Gold / Gen 2 support (beta).",
   "github": "YoDrehDenSwagAuf/overworld-spawn-mod"
 }

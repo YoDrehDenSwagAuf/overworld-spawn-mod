@@ -49,7 +49,7 @@
   Cianwood, Mahogany, and Blackthorn.
 - HGSS True Size / runtime sprite generation range extends to **251**.
   Existing 1..151 geometry is unchanged.
-- Followers, catching, and Safari stay **off** on Gold.
+- Catching and Safari stay **off** on Gold.
 
 ### Experimental Pokémon Gold foundation
 
