@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Gold trainer-controlled followers
+
+- CONTROL=TRAINER trailers now construct Gold NPCs with the native
+  `NPC.new(mapId, objDef, spriteDef)` contract from
+  `src/world/gen2/Npc.lua` / `Follower.lua` (`MOVE.STANDING_DOWN`,
+  `passable`, `world.npcs` + `world.entities`). `Gen2.makeGuestNpc` no
+  longer sniffs `NPC.MOVE` to fall back to Gen1 `NPC.new(data, mapId,
+  def)`. That fallback is what unit tests were exercising: the mock
+  accepted Gen1 arity, while live Gold's Gen1 `draw(camX, camY)` is
+  invisible under `World:drawPeople`'s `draw(ox, oy, scale)`.
+- Player = Pokémon, wilds, and town Pokémon are unchanged. Gen1 follower
+  construction is unchanged.
+
 ### Experimental Pokémon Gold wild encounters
 
 - Gold now shows visible overworld Wild Pokémon using the **shared** Wilds

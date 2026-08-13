@@ -46,14 +46,20 @@ package.loaded["src.render.SpriteRenderer"] = {
   new = function(def, id) return { def = def, id = id } end,
 }
 package.loaded["src.world.NPC"] = {
-  new = function(_, mapId, def)
+  MOVE = { STANDING_DOWN = 6 },
+  new = function(mapId, objDef, spriteDef)
+    if type(mapId) == "table" then
+      error("Gold native NPC.new received Gen1 arity")
+    end
     return {
-      id = "WILDS_TRAILER_" .. tostring(def and def.index or 0),
+      id = "WILDS_TRAILER_" .. tostring(objDef and objDef.index or 0),
       mapId = mapId,
-      cellX = def and def.x or 0,
-      cellY = def and def.y or 0,
-      px = (def and def.x or 0) * 16,
-      py = (def and def.y or 0) * 16,
+      def = objDef,
+      spriteDef = spriteDef,
+      cellX = objDef and objDef.x or 0,
+      cellY = objDef and objDef.y or 0,
+      px = (objDef and objDef.x or 0) * 16,
+      py = (objDef and objDef.y or 0) * 16,
       facing = "down",
       moving = false,
       progress = 0,
@@ -65,6 +71,7 @@ package.loaded["src.world.NPC"] = {
   end,
   walkPhase = function() return 0 end,
 }
+package.loaded["src.world.gen2.Npc"] = package.loaded["src.world.NPC"]
 package.loaded["src.world.OverworldController"] = {
   update = function() end,
   talkTo = function() return false end,

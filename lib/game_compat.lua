@@ -406,7 +406,8 @@ end
 
 --- Construct a follower/town guest NPC. Gen1 keeps the exact historical
 -- NPC.new(data, mapId, objDef) call. Gen2 uses native Npc.new(mapId, objDef,
--- spriteDef) so Gold does not depend on SPRITE_PIKACHU existing.
+-- spriteDef) from src.world.gen2.Npc (same contract as Follower.lua). It does
+-- not sniff NPC.MOVE to fall back to Gen1 arity.
 function GameCompat.makeGuestNpc(game, ow, spec)
   local adapter = GameCompat.current(nil, game)
   if adapter and type(adapter.makeGuestNpc) == "function" then
