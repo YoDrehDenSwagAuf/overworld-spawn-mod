@@ -3411,14 +3411,18 @@ function ControlEngine:_installOverworldUpdateWrap()
     local vanillaSpawn = engine._vanillaShouldSpawn
     local transitioning = engine._pendingConnectionHandoff ~= nil
       or engine._pendingMapTrailerSync == true
-    -- The cutscene gate is Yellow-only: vanilla shouldSpawn reflects the
-    -- stock Pikachu (healing/dialog hiding).  In Red/Blue vanilla
-    -- shouldSpawn is false whenever no Pikachu is in the party — gating on
-    -- it would freeze the whole pack on land (Red/Blue hides trailers via
-    -- map.exited -> removeTrailers instead).
+    -- The cutscene gate is Yellow stock-Pikachu only. Vanilla shouldSpawn
+    -- is also false when Pikachu is simply not in the party — treating every
+    -- Yellow frame as a cutscene froze Wilds trailers at spawn. Red/Blue
+    -- never use this gate (they hide trailers via map.exited).
     local yellow = engine:_isYellow()
-    local inCutscene = yellow and not transitioning
-      and vanillaSpawn and not vanillaSpawn(game, owSelf)
+    local stockPikachuActive =
+      yellow and engine:yellowStockFollowActive(game)
+    local inCutscene =
+      stockPikachuActive
+      and not transitioning
+      and vanillaSpawn
+      and not vanillaSpawn(game, owSelf)
       and not (owSelf.player and owSelf.player.surfing)
     if inCutscene then
       -- Skip the engine update so trailers aren't re-added to entities

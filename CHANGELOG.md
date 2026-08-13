@@ -2,31 +2,11 @@
 
 ## Unreleased
 
-## 2.1.0
+### Yellow follower freeze without Pikachu
 
-Experimental Pokémon Gold / Gen 2 support. Red / Blue / Yellow are unchanged.
-
-### Added
-
-- Experimental Pokémon Gold / Gen 2 support (beta)
-- Gen 1 + Gen 2 Mod Manager compatibility (`games`: `["gen1", "gen2"]`, label **Gen 1+2**)
-- Gen 2 overworld wild Pokémon from Gold encounter tables
-- Gen 2 town Pokémon on curated Johto towns
-- Gen 2 follower support, including Player-as-Pokémon
-- Gen 2 HGSS and Poké Followers / GSC sprite support
-- Gen 2 colored land and swimming sprites
-
-### Compatibility
-
-- Red / Blue / Yellow remain fully supported
-- Pokémon Gold support is currently **beta**
-- Overworld catching and Safari stay off on Gold
-
-### Notes
-
-- Gen 2 support is still being actively tested
-- Some map, follower, transition, sprite, or compatibility edge cases may remain
-- Bug reports for Gold are especially welcome
+- CONTROL=TRAINER trailers no longer freeze at spawn in Yellow when Pikachu
+  is not in the party. Vanilla `PikachuFollower.shouldSpawn` is only used as
+  a cutscene gate while the stock Yellow Pikachu follower is actually active.
 
 ### Gold trainer-controlled followers
 
