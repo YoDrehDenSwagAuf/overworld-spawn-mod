@@ -2,29 +2,28 @@
 
 ## Unreleased
 
+### Experimental Pokémon Gold foundation
+
+- Production `manifest.json` now targets **Gen 1 + Gen 2** via
+  `"games": ["gen1", "gen2"]` (Mod Manager label **Gen 1+2**). Legacy
+  `gen2compat` is not used. `game_version` stays `>=0.0.0-0 <2.0.0`.
+- `lib/game_compat/gen2.lua` is a real boot-safe Gold adapter
+  (`supported = true`) for species, party, surf, map id, and water cell.
+  Encounters, followers, catching, ambient/town Pokémon, and Safari stay
+  **off** through adapter capabilities so Kanto systems cannot leak into Gold.
+- Red / Blue / Yellow gameplay is unchanged (full Gen1 capabilities).
+- Gold currently boots with Wilds enabled and the options menu loadable.
+  Visible Johto encounters, followers, and catching are not implemented yet.
+
 ### Internal multi-generation preparation
 
-- Added a small `lib/game_compat.lua` facade with a Gen1 adapter and an
-  unsupported Gen2 stub. Shared Wilds code can ask which generation is running
-  and resolve species / party / surf / map id through that layer.
-- Follower species lookup (`SpriteService:dexOf`) now uses GameCompat instead
-  of a private Gen1 `SPECIES_TO_DEX` table. Engine resolution and the existing
-  Gen1 name mapping remain as fallbacks.
-- Unknown game generations skip Gen1 gameplay hooks without crashing and log
-  once: `[Wilds] Unsupported game generation; Gen1 gameplay hooks disabled.`
+- Added a small `lib/game_compat.lua` facade so shared Wilds code can ask
+  which generation is running and resolve species / party / surf / map id
+  through that layer. Follower species lookup uses `GameCompat.speciesId`.
 - Generation detection uses Gen1Recomp `GameVersion.get()` +
-  `GameVersion.generation(id)` when the engine module is present, so Gold is
-  generation 2 and cannot be classified as Gen 1 at mod entry.
-- Manifest stays Gen1-only (no `games` / `gen2compat`). Future claim is
-  `"games": ["gen1", "gen2"]` → Mod Manager label **Gen 1+2**, only after a
-  boot-safe Gen2 adapter exists. See `docs/analysis/GEN2_PREPARATION.md`
-  and `docs/analysis/future-manifest-games.example.json`.
-- Unsupported generations skip Gen1 encounter / follower / catching / WILDS AI
-  hooks, including `game.ready` pipeline level sync.
-- Gen1 True Size / diagnostic dex cap (`151`) is owned by `Gen1.MAX_SPECIES`
-  rather than scattered magic numbers. Production range is still 1..151.
-- No Gen2 gameplay, maps, encounters, catching, followers, or settings. Public
-  options and manifest support claims are unchanged.
+  `GameVersion.generation(id)` when the engine module is present.
+- Gen1 True Size / diagnostic dex cap (`151`) is owned by `Gen1.MAX_SPECIES`.
+
 
 ## 2.0.2
 

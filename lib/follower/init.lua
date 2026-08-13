@@ -25,8 +25,8 @@ Follower.__index = Follower
 
 local function supportedVersion(mod)
   local GameCompat = V.require("game_compat")
-  local game = mod and mod.world and mod.world.game
-  return GameCompat.isSupported(mod, game) == true
+  local game = mod and (mod.game or (mod.world and mod.world.game))
+  return GameCompat.supportsFeature("followers", mod, game) == true
 end
 
 function Follower.new(mod, opts)

@@ -7,6 +7,7 @@
   "profile": "content",
   "category": "MECHANIC",
   "game_version": ">=0.0.0-0 <2.0.0",
+  "games": ["gen1", "gen2"],
   "priority": 80,
   "dependencies": [],
   "optional_dependencies": [],
@@ -14,6 +15,6 @@
   "permissions": ["engine_internals"],
   "affects_link": false,
   "options_schema": "options.lua",
-  "description": "Visible and reactive wild Pokemon for the Gen 1 overworld.",
+  "description": "Visible and reactive wild Pokemon for the Gen 1 overworld. Experimental Pokémon Gold load support.",
   "github": "YoDrehDenSwagAuf/overworld-spawn-mod"
 }

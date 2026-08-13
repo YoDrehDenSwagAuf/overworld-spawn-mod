@@ -119,7 +119,7 @@ do
 end
 
 ----------------------------------------------------------------
--- Mock Gen2 (Gold): generation 2, adapter still unsupported
+-- Mock Gen2 (Gold): generation 2, boot-safe adapter, no Gen1 gameplay
 ----------------------------------------------------------------
 do
   setEngineVersion("gold")
@@ -128,14 +128,19 @@ do
   eq(gen, 2, "gold generation == 2")
   eq(GameCompat.isGen2(nil, {}), true, "gold isGen2")
   eq(GameCompat.isGen1(nil, {}), false, "gold is not Gen1")
-  eq(GameCompat.isSupported(nil, {}), false, "gold supported == false (stub)")
-  eq(GameCompat.current(nil, {}), nil, "gold has no adapter while stub unsupported")
-  eq(GameCompat.speciesId("RATTATA", {}, V.mod), nil,
-     "gold does not use Gen1 species mapping")
-  eq(GameCompat.party({ save = { party = { 1 } } }), nil,
-     "gold does not expose Gen1 party")
+  eq(GameCompat.isSupported(nil, {}), true, "gold supported == true")
+  check(GameCompat.current(nil, {}) == GameCompat.Gen2, "gold uses Gen2 adapter")
+  check(GameCompat.current(nil, {}) ~= GameCompat.Gen1, "gold does not use Gen1 adapter")
+  eq(GameCompat.supportsFeature("core", nil, {}), true, "gold core capability")
+  eq(GameCompat.supportsFeature("species", nil, {}), true, "gold species capability")
+  eq(GameCompat.supportsFeature("encounters", nil, {}), false, "gold encounters off")
+  eq(GameCompat.supportsFeature("followers", nil, {}), false, "gold followers off")
+  eq(GameCompat.supportsFeature("catching", nil, {}), false, "gold catching off")
+  eq(GameCompat.supportsFeature("ambient", nil, {}), false, "gold ambient off")
+  eq(GameCompat.supportsFeature("townPokemon", nil, {}), false, "gold townPokemon off")
+  eq(GameCompat.supportsFeature("safari", nil, {}), false, "gold safari off")
   eq(GameCompat.isSurfing({}, { player = { surfing = true } }), false,
-     "gold does not use Gen1 surf detection")
+     "gold does not use Gen1 player.surfing")
 end
 
 ----------------------------------------------------------------
@@ -153,20 +158,25 @@ end
 do
   setEngineVersion("silver")
   eq(GameCompat.generation(nil, {}), 2, "silver mock generation == 2")
-  eq(GameCompat.isSupported(nil, {}), false, "silver unsupported (no adapter)")
+  check(GameCompat.current(nil, {}) == GameCompat.Gen2,
+        "generation 2 selects Gen2 adapter")
+  eq(GameCompat.supportsFeature("encounters", nil, {}), false,
+     "silver still has no Kanto encounters")
 end
 
 do
   setEngineVersion(nil)
-  eq(GameCompat.isSupported({ generation = 2 }), false,
-     "explicit generation=2 unsupported")
-  eq(GameCompat.generation({ generation = 2 }), nil, "generation=2 → nil")
+  eq(GameCompat.isSupported({ generation = 2 }), true,
+     "explicit generation=2 uses Gen2 adapter without engine module")
+  eq(GameCompat.generation({ generation = 2 }), 2, "generation=2 → 2")
+  eq(GameCompat.supportsFeature("encounters", { generation = 2 }), false,
+     "declared gen2 still has encounters off")
   local ok = pcall(function()
     GameCompat.speciesId("MEW", { generation = 2 }, V.mod)
     GameCompat.isSurfing({ generation = 2 }, { player = { surfing = true } })
     GameCompat.party({ generation = 2, save = { party = {} } })
   end)
-  check(ok, "unsupported accessors do not crash")
+  check(ok, "gen2 accessors do not crash")
 end
 
 ----------------------------------------------------------------
@@ -176,9 +186,13 @@ do
   -- Engine module exists (Gold already selected) even if game object is nil.
   setEngineVersion("gold")
   eq(GameCompat.generation(nil, nil), 2, "early-load gold is Gen2, not Gen1")
-  eq(GameCompat.isSupported(nil, nil), false, "early-load gold not supported")
+  eq(GameCompat.isSupported(nil, nil), true, "early-load gold is supported")
+  check(GameCompat.current(nil, nil) == GameCompat.Gen2,
+        "early-load gold selects Gen2 adapter")
   check(GameCompat.current(nil, nil) ~= GameCompat.Gen1,
         "early-load gold does not select Gen1 adapter")
+  eq(GameCompat.supportsFeature("followers", nil, nil), false,
+     "early-load gold does not enable followers")
 end
 
 ----------------------------------------------------------------
@@ -305,15 +319,68 @@ do
 end
 
 ----------------------------------------------------------------
--- Gen2 stub does not claim support
+-- Gold species / party / surf / map via engine-shaped data
 ----------------------------------------------------------------
 do
-  eq(GameCompat.Gen2.supported, false, "Gen2 stub supported == false")
-  check(GameCompat.Gen2.speciesId == nil, "Gen2 stub has no species API")
-  check(GameCompat.Gen2.isSurfing == nil, "Gen2 stub has no surf API")
-  check(GameCompat.FUTURE_GAMES[1] == "gen1"
-        and GameCompat.FUTURE_GAMES[2] == "gen2",
-        "documented future games tokens")
+  setEngineVersion("gold")
+  local pokemon = {
+    RATTATA = { name = "RATTATA", dex = 19, index = 19 },
+    PIKACHU = { name = "PIKACHU", dex = 25, index = 25 },
+    ONIX = { name = "ONIX", dex = 95, index = 95 },
+    CHIKORITA = { name = "CHIKORITA", dex = 152, index = 152 },
+    CYNDAQUIL = { name = "CYNDAQUIL", dex = 155, index = 155 },
+    TOTODILE = { name = "TOTODILE", dex = 158, index = 158 },
+    SENTRET = { name = "SENTRET", dex = 161, index = 161 },
+    HO_OH = { name = "HO_OH", dex = 250, index = 250 },
+    CELEBI = { name = "CELEBI", dex = 251, index = 251 },
+  }
+  local game = { data = { pokemon = pokemon }, save = { party = {} }, world = {} }
+  eq(GameCompat.speciesId("RATTATA", game, V.mod), 19, "gold RATTATA → 19")
+  eq(GameCompat.speciesId("PIKACHU", game, V.mod), 25, "gold PIKACHU → 25")
+  eq(GameCompat.speciesId("ONIX", game, V.mod), 95, "gold ONIX → 95")
+  eq(GameCompat.speciesId("CHIKORITA", game, V.mod), 152, "gold CHIKORITA → 152")
+  eq(GameCompat.speciesId("CYNDAQUIL", game, V.mod), 155, "gold CYNDAQUIL → 155")
+  eq(GameCompat.speciesId("TOTODILE", game, V.mod), 158, "gold TOTODILE → 158")
+  eq(GameCompat.speciesId("SENTRET", game, V.mod), 161, "gold SENTRET → 161")
+  eq(GameCompat.speciesId("HO_OH", game, V.mod), 250, "gold HO_OH → 250")
+  eq(GameCompat.speciesId("CELEBI", game, V.mod), 251, "gold CELEBI → 251")
+  eq(GameCompat.speciesId("CHIKORITA", {}, V.mod), nil,
+     "gold does not use a hand-maintained 251 name table")
+  eq(GameCompat.speciesId(161, game, V.mod), 161, "gold numeric Sentret preserved")
+
+  local party = { { species = "CHIKORITA", level = 5 } }
+  game.save.party = party
+  check(GameCompat.party(game) == party, "gold party is game.save.party")
+
+  eq(GameCompat.isSurfing(game, { playerState = "surf" }), true,
+     "gold FieldMoves PLAYER_SURF")
+  eq(GameCompat.isSurfing(game, { playerState = "surf_pika" }), true,
+     "gold FieldMoves PLAYER_SURF_PIKA")
+  eq(GameCompat.isSurfing({ save = { playerState = "surf" } }, {}), true,
+     "gold save.playerState surf")
+  eq(GameCompat.isSurfing(game, { playerState = "normal" }), false,
+     "gold PLAYER_NORMAL is not surfing")
+  eq(GameCompat.isSurfing(game, { player = { surfing = true } }), false,
+     "gold ignores Gen1 player.surfing")
+
+  local goldWorld = { map = { id = "ROUTE_29" }, playerState = "normal" }
+  eq(GameCompat.currentMapId({ world = goldWorld }, nil), "ROUTE_29",
+     "gold map id from game.world.map.id")
+  eq(GameCompat.currentMapId(game, { map = { id = "NEW_BARK_TOWN" } }),
+     "NEW_BARK_TOWN", "gold map id from live world")
+end
+
+----------------------------------------------------------------
+-- Gen1 capabilities remain full gameplay
+----------------------------------------------------------------
+do
+  setEngineVersion("red")
+  eq(GameCompat.supportsFeature("encounters", nil, {}), true, "red encounters")
+  eq(GameCompat.supportsFeature("followers", nil, {}), true, "red followers")
+  eq(GameCompat.supportsFeature("catching", nil, {}), true, "red catching")
+  eq(GameCompat.supportsFeature("ambient", nil, {}), true, "red ambient")
+  eq(GameCompat.supportsFeature("safari", nil, {}), true, "red safari")
+  eq(GameCompat.supportsFeature("townPokemon", nil, {}), true, "red townPokemon")
 end
 
 ----------------------------------------------------------------
@@ -331,14 +398,16 @@ do
 end
 
 ----------------------------------------------------------------
--- Production manifest stays Gen1-only (STATE A)
+-- Production manifest targets Gen1 + Gen2
 ----------------------------------------------------------------
 do
   local f = assert(io.open("manifest.json", "rb"))
   local raw = f:read("*a")
   f:close()
-  check(not raw:find('"games"', 1, true),
-        "production manifest has no games key yet")
+  check(raw:find('"games"', 1, true) ~= nil,
+        "production manifest has games key")
+  check(raw:find('"gen1"', 1, true) ~= nil and raw:find('"gen2"', 1, true) ~= nil,
+        'production games includes gen1 and gen2')
   check(not raw:find("gen2compat", 1, true),
         "production manifest has no gen2compat key")
   check(raw:find(">=0.0.0-0 <2.0.0", 1, true) ~= nil,
@@ -346,33 +415,52 @@ do
 end
 
 ----------------------------------------------------------------
--- main.lua boot gate: unsupported generations skip Gen1 hooks
+-- main.lua boot gate: feature capabilities, not isSupported-for-everything
 ----------------------------------------------------------------
 do
   local f = assert(io.open("main.lua", "rb"))
   local raw = f:read("*a")
   f:close()
-  check(raw:find("GameCompat.isSupported", 1, true) ~= nil,
-        "main.lua uses GameCompat.isSupported")
-  check(raw:find("if not gen1GameplayEnabled()", 1, true) ~= nil,
-        "main.lua gates map/world handlers on gen1GameplayEnabled")
-  check(raw:find("if gen1GameplayEnabled() then", 1, true) ~= nil,
-        "main.lua gates install / pipeline sync on gen1GameplayEnabled")
+  check(raw:find("supportsFeature", 1, true) ~= nil,
+        "main.lua uses GameCompat.supportsFeature")
+  check(raw:find('supports("encounters")', 1, true) ~= nil,
+        "main.lua gates spawn/hooks on encounters capability")
+  check(raw:find('supports("followers")', 1, true) ~= nil,
+        "main.lua gates follower install on followers capability")
+  check(raw:find('supports("catching")', 1, true) ~= nil,
+        "main.lua gates catching on catching capability")
+  check(raw:find('supports("ambient")', 1, true) ~= nil,
+        "main.lua gates ambient/town on ambient capability")
   local ready = raw:find('mod.events:on("game.ready"', 1, true)
   check(ready ~= nil, "main.lua has game.ready handler")
   if ready then
-    local afterReady = raw:sub(ready, ready + 2500)
-    check(afterReady:find("if gen1GameplayEnabled() then", 1, true) ~= nil,
-          "game.ready re-asserts catching/AI pipelines only when supported")
+    local afterReady = raw:sub(ready, ready + 2800)
+    check(afterReady:find('supports("encounters")', 1, true) ~= nil
+          or afterReady:find('supports("catching")', 1, true) ~= nil,
+          "game.ready re-asserts pipelines only for enabled features")
   end
 end
 
 ----------------------------------------------------------------
--- Example future manifest is not the production file
+-- Official games tokens
+----------------------------------------------------------------
+do
+  check(GameCompat.GAMES[1] == "gen1" and GameCompat.GAMES[2] == "gen2",
+        "GameCompat.GAMES tokens")
+  eq(GameCompat.Gen2.supported, true, "Gen2 adapter supported == true")
+  check(type(GameCompat.Gen2.speciesId) == "function", "Gen2.speciesId exists")
+  check(type(GameCompat.Gen2.isSurfing) == "function", "Gen2.isSurfing exists")
+  check(type(GameCompat.Gen2.party) == "function", "Gen2.party exists")
+  check(type(GameCompat.Gen2.currentMapId) == "function", "Gen2.currentMapId exists")
+  check(type(GameCompat.Gen2.isWaterCell) == "function", "Gen2.isWaterCell exists")
+end
+
+----------------------------------------------------------------
+-- Example future manifest matches production games claim
 ----------------------------------------------------------------
 do
   local example = io.open("docs/analysis/future-manifest-games.example.json", "rb")
-  check(example ~= nil, "future games example exists")
+  check(example ~= nil, "games example exists")
   if example then
     local raw = example:read("*a")
     example:close()
@@ -383,8 +471,8 @@ do
   local prod = assert(io.open("manifest.json", "rb"))
   local prodRaw = prod:read("*a")
   prod:close()
-  check(not prodRaw:find('"games"', 1, true),
-        "example was not copied into production manifest")
+  check(prodRaw:find('"games"', 1, true) ~= nil,
+        "production manifest now claims games")
 end
 
 if failures > 0 then

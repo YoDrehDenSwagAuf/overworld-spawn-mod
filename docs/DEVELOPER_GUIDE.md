@@ -61,17 +61,18 @@ See `docs/ANIMATED_SPRITE_FORMAT.md`.
 6. Hook `encounter.roll` + `movement.collision` when enabled
 7. Subscribe to map/world/battle/save/options events
 
-Generation gate: `GameCompat.isSupported` must be true before Gen1
-gameplay hooks, follower install, ambient, catching, or WILDS AI
-pipelines are installed. Unsupported generations log once and skip
-those hooks without crashing. Content registration still runs.
+Generation gate: `GameCompat.supportsFeature` decides which subsystems
+install. Red / Blue / Yellow keep full Gen1 capabilities. Gold is
+`isSupported` (boot-safe adapter) but encounters / followers / catching /
+ambient / safari stay off. Content registration and the options schema
+still run.
 
 Gen1Recomp freezes content registries after all mods load.
 `GameVersion.set()` runs in `bootGame` before `Loader:load`, so
 generation detection is reliable at mod entry.
 
-See `docs/analysis/GEN2_PREPARATION.md`. Production manifest stays
-Gen1-only until a boot-safe Gen2 adapter exists.
+See `docs/analysis/GEN2_PREPARATION.md`. Production manifest claims
+`"games": ["gen1", "gen2"]` (Mod Manager **Gen 1+2**).
 
 ## 3. Content registration
 

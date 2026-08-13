@@ -61,11 +61,21 @@ return function(mod)
   local DebugLog = V.require("debug_log")
   local Diagnostics = V.require("diagnostics")
 
-  local function gen1GameplayEnabled()
-    -- GameVersion.set() runs in Gen1Recomp bootGame() before Loader:load,
-    -- so this is reliable at mod entry. Unsupported generations skip Gen1
-    -- encounter/follower/catching hooks without crashing the engine.
-    return GameCompat.isSupported(mod, mod.world and mod.world.game) == true
+  local function liveGame()
+    return mod.game or (mod.world and mod.world.game)
+  end
+
+  local function supports(feature)
+    return GameCompat.supportsFeature(feature, mod, liveGame()) == true
+  end
+
+  local goldFoundationLogged = false
+  local function noteGoldFoundation()
+    if goldFoundationLogged then return end
+    goldFoundationLogged = true
+    pcall(function()
+      mod.log:info("[Wilds] Pokémon Gold: experimental Gen2 foundation. Encounters, followers, catching, and Kanto systems are disabled.")
+    end)
   end
 
   local unsupportedLogged = false
@@ -75,6 +85,14 @@ return function(mod)
     pcall(function()
       mod.log:info("[Wilds] Unsupported game generation; Gen1 gameplay hooks disabled.")
     end)
+  end
+
+  local function noteGameplaySkipped()
+    if GameCompat.isGen2(mod, liveGame()) and GameCompat.isSupported(mod, liveGame()) then
+      noteGoldFoundation()
+    else
+      noteUnsupportedGeneration()
+    end
   end
 
   Config.defineOptions(mod)
@@ -114,17 +132,17 @@ return function(mod)
   if not sprOk then
     DebugLog.warn(mod, "follower SPRITE_PIKACHU registration: %s", tostring(sprErr))
   end
-  if gen1GameplayEnabled() then
-    follower:install({ game = mod.world and mod.world.game })
+  if supports("followers") then
+    follower:install({ game = liveGame() })
   else
-    noteUnsupportedGeneration()
+    noteGameplaySkipped()
   end
 
   local AmbientPokemon = V.require("ambient_pokemon")
   local ambient = AmbientPokemon.new(mod, {
     render = render, logic = logic, follower = follower,
   })
-  if gen1GameplayEnabled() then
+  if supports("ambient") then
     ambient:install()
   end
 
@@ -145,11 +163,14 @@ return function(mod)
   browser:register()
   spriteStyleMenu:register()
   -- settingsMenus:register() after handleOptionsChanged is wired below
-  if gen1GameplayEnabled() then
+  if supports("encounters") then
     behaviorTick:register()
+  end
+  if supports("catching") then
     catching:register()
-  else
-    noteUnsupportedGeneration()
+  end
+  if not supports("encounters") then
+    noteGameplaySkipped()
   end
   devOverlay:register()
 
@@ -164,8 +185,8 @@ return function(mod)
   -- or when the running game generation is unsupported)
 
   mod.events:on("map.entered", function(ev)
-    if not gen1GameplayEnabled() then
-      noteUnsupportedGeneration()
+    if not supports("encounters") then
+      noteGameplaySkipped()
       return
     end
     local ok, err = pcall(logic.onMapEntered, logic, ev)
@@ -174,26 +195,34 @@ return function(mod)
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("map.entered error")
     end
-    pcall(function() follower:onMapEntered(ev) end)
-    pcall(function() ambient:onMapEntered(ev) end)
+    if supports("followers") then
+      pcall(function() follower:onMapEntered(ev) end)
+    end
+    if supports("ambient") then
+      pcall(function() ambient:onMapEntered(ev) end)
+    end
     -- Re-assert selected sprite style after companion mods retarget wilds
     -- (Followers EX map.entered may run after ours depending on registration).
     render._pendingSpriteRefresh = true
   end)
 
   mod.events:on("map.exited", function(ev)
-    if not gen1GameplayEnabled() then return end
+    if not supports("encounters") then return end
     local ok, err = pcall(logic.onMapExited, logic, ev)
     if not ok then
       DebugLog.error(mod, "map.exited error: %s", tostring(err))
       logic:_restoreVanillaEncounters("map.exited error")
     end
-    pcall(function() ambient:onMapExited(ev) end)
-    pcall(function() catching:onMapExited(ev) end)
+    if supports("ambient") then
+      pcall(function() ambient:onMapExited(ev) end)
+    end
+    if supports("catching") then
+      pcall(function() catching:onMapExited(ev) end)
+    end
   end)
 
   mod.events:on("map.reloaded", function(ev)
-    if not gen1GameplayEnabled() then return end
+    if not supports("encounters") then return end
     local ok, err = pcall(logic.onMapReloaded, logic, ev)
     if not ok then
       DebugLog.error(mod, "map.reloaded error: %s", tostring(err))
@@ -202,11 +231,13 @@ return function(mod)
     end
     -- WIP merge: hide followers during the reload and re-sync them at the
     -- player once the map is live again (healing animation, etc.).
-    pcall(function() follower:onMapReloaded(ev) end)
+    if supports("followers") then
+      pcall(function() follower:onMapReloaded(ev) end)
+    end
   end)
 
   mod.events:on("world.stepped", function(ev)
-    if not gen1GameplayEnabled() then return end
+    if not supports("encounters") then return end
     local ok, err = pcall(logic.onStepped, logic, ev)
     if not ok then
       DebugLog.error(mod, "world.stepped error: %s", tostring(err))
@@ -223,27 +254,31 @@ return function(mod)
     -- Followers EX calls setOptionsChangedHandler mid-init; its hooks are
     -- installed AFTER our handler returns.  Defer the restore + reinstall
     -- to the first game step so all external mods have loaded.
-    pcall(function() follower:processPendingExternalModCleanup() end)
+    if supports("followers") then
+      pcall(function() follower:processPendingExternalModCleanup() end)
+    end
   end)
 
   mod.events:on("battle.ended", function()
-    if not gen1GameplayEnabled() then return end
+    if not supports("encounters") then return end
     logic:onBattleEnded()
   end)
 
   mod.events:on("save.loaded", function()
-    if not gen1GameplayEnabled() then return end
+    if not supports("encounters") then return end
     local ok, err = pcall(logic.onSaveLoaded, logic)
     if not ok then
       DebugLog.error(mod, "save.loaded error: %s", tostring(err))
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("save.loaded error")
     end
-    pcall(function() follower:onSaveLoaded() end)
+    if supports("followers") then
+      pcall(function() follower:onSaveLoaded() end)
+    end
   end)
 
   mod.events:on("save.created", function()
-    if not gen1GameplayEnabled() then return end
+    if not supports("encounters") then return end
     logic:clearAll()
     logic.activeMapId = nil
     logic.stepsOnMap = 0
@@ -257,9 +292,11 @@ return function(mod)
     -- save right after mods load, wiping our registered level back to OFF.
     -- Re-assert Gen1 gameplay pipelines only when that generation is supported.
     -- Catching / WILDS AI are not registered on unsupported generations.
-    if gen1GameplayEnabled() then
-      if behaviorTick then behaviorTick:syncPipelineLevel() end
-      if catching then catching:syncPipelineLevel() end
+    if supports("encounters") and behaviorTick then
+      behaviorTick:syncPipelineLevel()
+    end
+    if supports("catching") and catching then
+      catching:syncPipelineLevel()
     end
     Config.migrateSpriteStyleOption(mod)
     Config.migrateRandomEncountersOption(mod)
@@ -269,9 +306,9 @@ return function(mod)
     Config.migrateSpriteFadeOption(mod)
     Config.migrateSpriteColorOption(mod)
     render:finalizeSpriteProviders(mod.world and mod.world.game)
-    if gen1GameplayEnabled() then
+    if supports("followers") then
       pcall(function()
-        local game = mod.world and mod.world.game
+        local game = liveGame()
         follower:reassertAfterModsLoaded(game)
         if not follower.lifecycle._installed
            and follower.state.ownerMode ~= "external" then
@@ -279,7 +316,7 @@ return function(mod)
         end
       end)
     else
-      noteUnsupportedGeneration()
+      noteGameplaySkipped()
     end
     if Config.devOverlay(mod) then
       local game = mod.world and mod.world.game
@@ -316,7 +353,7 @@ return function(mod)
     Config.migrateSpriteStyleOption(mod)
     local game = mod.world and mod.world.game
     render:finalizeSpriteProviders(game)
-    if gen1GameplayEnabled() then
+    if supports("followers") then
       pcall(function() follower:reassertAfterModsLoaded(game) end)
     end
     -- True Size Flat grass: clip drawCellBottom to a feet band (Classic unchanged).
@@ -356,8 +393,8 @@ return function(mod)
   logic:setRestoreVanilla(restoreVanillaEncounters)
 
   local function installHooks()
-    if not gen1GameplayEnabled() then
-      noteUnsupportedGeneration()
+    if not supports("encounters") then
+      noteGameplaySkipped()
       return
     end
     if unwraps.encounter or unwraps.collision then return end
@@ -402,21 +439,27 @@ return function(mod)
   -- mods cannot forge that event, so OPTIONS menus call this handler directly
   -- after Config.setOption writes the same option buckets.
   local function handleOptionsChanged(payload)
-    if not gen1GameplayEnabled() then
-      noteUnsupportedGeneration()
-      return
+    if supports("encounters") then
+      local ok, err = pcall(logic.onOptionsChanged, logic, payload)
+      if not ok then
+        DebugLog.error(mod, "options_changed error: %s", tostring(err))
+        logic.state:markError(err)
+        logic:_restoreVanillaEncounters("options_changed error")
+      end
     end
-    local ok, err = pcall(logic.onOptionsChanged, logic, payload)
-    if not ok then
-      DebugLog.error(mod, "options_changed error: %s", tostring(err))
-      logic.state:markError(err)
-      logic:_restoreVanillaEncounters("options_changed error")
+    if supports("followers") then
+      pcall(function() follower:onOptionsChanged(payload) end)
     end
-    pcall(function() follower:onOptionsChanged(payload) end)
-    pcall(function() ambient:onOptionsChanged(payload) end)
-    pcall(function() catching:onOptionsChanged(payload) end)
+    if supports("ambient") then
+      pcall(function() ambient:onOptionsChanged(payload) end)
+    end
+    if supports("catching") then
+      pcall(function() catching:onOptionsChanged(payload) end)
+    end
     if payload and payload.mod == mod.id and payload.key == "enabled" then
-      syncFeatureState()
+      if supports("encounters") then
+        syncFeatureState()
+      end
     end
   end
 
@@ -442,6 +485,9 @@ return function(mod)
 
   mod.exports.version = "2.0.1"
   mod.exports.gameCompat = GameCompat
+  mod.exports.supportsFeature = function(feature)
+    return supports(feature)
+  end
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated

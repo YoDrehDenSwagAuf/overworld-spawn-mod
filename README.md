@@ -27,6 +27,9 @@ by party Pokémon — without replacing the classic Gen 1 feel.
   Original Dramatic Shape stays Classic unless it ships native variable geometry.
 - Town / Indoor / Ambient Pokémon
 - Red / Blue / Yellow
+- Experimental Pokémon Gold load support (same mod; Mod Manager **Gen 1+2**).
+  Gold currently boots with Wilds enabled; Johto overworld encounters,
+  followers, and catching are not implemented yet.
 - Dramatic Shape Voxel compatibility
 
 ## Collaborators

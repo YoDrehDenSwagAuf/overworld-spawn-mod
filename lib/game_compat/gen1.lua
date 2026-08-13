@@ -11,6 +11,19 @@ Gen1.generation = 1
 -- GameCompat.speciesId does not apply this cap.
 Gen1.MAX_SPECIES = 151
 
+Gen1.capabilities = {
+  core = true,
+  species = true,
+  party = true,
+  surf = true,
+  encounters = true,
+  followers = true,
+  catching = true,
+  ambient = true,
+  townPokemon = true,
+  safari = true,
+}
+
 -- Existing Gen1 name → dex fallback (moved from follower/sprite_service.lua).
 -- Used only when the engine species resolver cannot resolve a key.
 Gen1.SPECIES_TO_DEX = {

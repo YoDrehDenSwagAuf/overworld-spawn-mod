@@ -1,7 +1,7 @@
 -- Manifest target semantics vs current Gen1Recomp ModTargets.
 -- Does not duplicate engine logic: when a Gen1Recomp tree is present it
--- requires src.mods.ModTargets and checks labels. Otherwise it only asserts
--- that Wilds' production manifest is still Gen1-only.
+-- requires src.mods.ModTargets and checks labels against the production
+-- Wilds manifest (`games`: gen1+gen2 → "Gen 1+2").
 --
 -- Run: lua tests/manifest_targets_unit_test.lua
 -- Optional: GEN1RECOMP_ROOT=/path/to/gen1recomp
@@ -40,12 +40,13 @@ local function engineRoot()
 end
 
 ----------------------------------------------------------------
--- Production Wilds manifest: Gen1-only until Gen2 adapter is boot-safe
+-- Production Wilds manifest: Gen1 + Gen2 (canonical `games` field)
 ----------------------------------------------------------------
 do
   local raw = assert(readFile("manifest.json"), "manifest.json missing")
-  check(not raw:find('"games"', 1, true),
-        "no games key (legacy Gen1 = omit games)")
+  check(raw:find('"games"', 1, true) ~= nil, "games key present")
+  check(raw:find('"gen1"', 1, true) ~= nil, "games includes gen1")
+  check(raw:find('"gen2"', 1, true) ~= nil, "games includes gen2")
   check(not raw:find("gen2compat", 1, true),
         "no gen2compat (legacy flag; games is the precise field)")
   check(raw:find('"api": 2', 1, true) ~= nil or raw:find('"api":2', 1, true) ~= nil,
@@ -105,6 +106,15 @@ else
   eq(GameVersion.generation("yellow"), 1, "engine generation(yellow) == 1")
   eq(GameVersion.generation("gold"), 2, "engine generation(gold) == 2")
   eq(GameVersion.VERSIONS.silver, nil, "engine has no silver version id yet")
+
+  local prodGames = ModTargets.normalize({ "gen1", "gen2" })
+  local prod = { games = prodGames }
+  eq(ModTargets.label(prod), "Gen 1+2", "production games label Gen 1+2")
+  eq(ModTargets.chip(prod), "GEN 1+2", "production games chip GEN 1+2")
+  eq(ModTargets.supports(prod, "red"), true, "production supports red")
+  eq(ModTargets.supports(prod, "blue"), true, "production supports blue")
+  eq(ModTargets.supports(prod, "yellow"), true, "production supports yellow")
+  eq(ModTargets.supports(prod, "gold"), true, "production supports gold")
 
   print("ok  ModTargets sourced from " .. root)
 end

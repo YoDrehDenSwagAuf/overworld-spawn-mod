@@ -1,7 +1,9 @@
 -- Wilds game / generation compatibility facade.
 --
 -- Shared Wilds systems should ask this module instead of assuming Gen 1.
--- This PR only implements a real Gen1 adapter. Gen2 is an unsupported stub.
+-- Gen1 is the full gameplay adapter. Gen2 is a boot-safe Gold adapter:
+-- species / party / surf / map / water work; encounters / followers /
+-- catching / ambient / safari stay off via capabilities.
 --
 -- Canonical engine source of truth (Gen1Recomp src/core/GameVersion.lua):
 --   GameVersion.get()            → "red"|"blue"|"yellow"|"gold"|…
@@ -13,9 +15,8 @@
 -- A real engine boot therefore never hits the "module missing" path.
 -- That path exists only for standalone Wilds unit tests.
 --
--- Future Mod Manager claim (NOT active in this PR):
---   manifest "games": ["gen1", "gen2"]  → ModTargets.label = "Gen 1+2"
--- Do not set that until Gen2.supported is true and boot is safe.
+-- Production manifest claims:
+--   "games": ["gen1", "gen2"]  → ModTargets.label = "Gen 1+2"
 local V = ...
 
 local Gen1 = V.require("game_compat/gen1")
@@ -25,9 +26,9 @@ local GameCompat = {}
 GameCompat.Gen1 = Gen1
 GameCompat.Gen2 = Gen2
 
--- Documented next-PR manifest tokens. Production manifest.json must not
--- include these until the Gen2 adapter is boot-safe.
-GameCompat.FUTURE_GAMES = { "gen1", "gen2" }
+-- Official manifest tokens (production manifest.json uses these).
+GameCompat.GAMES = { "gen1", "gen2" }
+GameCompat.FUTURE_GAMES = GameCompat.GAMES -- alias kept for older tests/docs
 
 local GEN1_VERSIONS = {
   red = true,
@@ -121,6 +122,7 @@ local function detectGeneration(game)
     local declared = tonumber(game.generation)
     if declared then
       if declared == 1 then return 1, ver, "declared" end
+      if declared == 2 then return 2, ver, "declared" end
       return nil, ver, "declared"
     end
   end
@@ -159,10 +161,22 @@ function GameCompat.current(mod, game)
   return nil
 end
 
---- True only when a supported adapter is active. Production: Gen1 only.
+--- True when a supported adapter is active (Gen1 or boot-safe Gen2).
+-- This is NOT permission to install every Wilds subsystem. Use
+-- GameCompat.supportsFeature(feature, mod, game) for gameplay gates.
 function GameCompat.isSupported(mod, game)
   local adapter = GameCompat.current(mod, game)
   return adapter ~= nil and adapter.supported == true
+end
+
+--- Adapter capability: "encounters", "followers", "catching", "ambient", …
+function GameCompat.supportsFeature(feature, mod, game)
+  if type(feature) ~= "string" or feature == "" then return false end
+  local adapter = GameCompat.current(mod, game)
+  if not (adapter and adapter.supported == true) then return false end
+  local caps = adapter.capabilities
+  if type(caps) ~= "table" then return false end
+  return caps[feature] == true
 end
 
 function GameCompat.speciesId(species, game, mod)
@@ -177,8 +191,11 @@ function GameCompat.isSurfing(game, ow)
   return adapter.isSurfing(game, ow) == true
 end
 
-function GameCompat.isWaterCell(map, x, y)
-  -- Map water probe is engine-level, not generation-specific.
+function GameCompat.isWaterCell(map, x, y, game)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and adapter.isWaterCell then
+    return adapter.isWaterCell(map, x, y) == true
+  end
   if not (map and type(map.isWaterCell) == "function") then return false end
   local ok, water = pcall(map.isWaterCell, map, x, y)
   return ok and water == true

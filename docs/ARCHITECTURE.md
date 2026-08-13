@@ -46,12 +46,13 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 ## Game compatibility (internal)
 
 `GameCompat` is a small facade so shared Wilds systems do not own Gen1-only
-assumptions. It is **not** playable Gen2 support.
+assumptions. Gold is an **experimental load target**, not full Johto gameplay.
 
 ```text
-GameCompat.current(mod, game)      → Gen1 adapter or nil
+GameCompat.current(mod, game)      → Gen1 or Gen2 adapter or nil
 GameCompat.generation(mod, game)   → 1, 2, or nil
-GameCompat.isSupported(mod, game)  → true only when an adapter is supported
+GameCompat.isSupported(mod, game)  → true when an adapter is supported
+GameCompat.supportsFeature(feat, …)→ adapter capability (encounters, …)
 GameCompat.isGen1(mod, game)
 GameCompat.isGen2(mod, game)
 GameCompat.gameVersion(game)       → "red"|"blue"|"yellow"|"gold"|other|nil
@@ -63,14 +64,13 @@ GameCompat.currentMapId(game, ow)
 ```
 
 Detection uses Gen1Recomp `GameVersion.get()` + `GameVersion.generation(id)`
-(set in `bootGame` before mod entry). Gold is generation 2; the Gen2 stub
-stays `supported = false`, so no Gen1 gameplay hooks install there.
+(set in `bootGame` before mod entry). Gold is generation 2 and uses the Gen2
+adapter. `isSupported` is **not** permission to install every subsystem:
+Gen2 capabilities keep encounters / followers / catching / ambient / safari
+off so Kanto systems cannot leak into Gold.
 
-Production `manifest.json` omits `games` / `gen2compat` (Mod Manager: **Gen 1**).
-Do not add `"games": ["gen1", "gen2"]` until the Gen2 adapter is boot-safe.
-That future claim is what produces the engine label **Gen 1+2**.
-Example (not production): `docs/analysis/future-manifest-games.example.json`.
-See `docs/analysis/GEN2_PREPARATION.md`.
+Production `manifest.json` claims `"games": ["gen1", "gen2"]`
+(Mod Manager: **Gen 1+2**). See `docs/analysis/GEN2_PREPARATION.md`.
 
 ## Verified contracts
 
