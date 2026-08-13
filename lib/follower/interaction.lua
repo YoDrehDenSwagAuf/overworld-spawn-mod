@@ -66,7 +66,6 @@ function Interaction:showFollowMessage(game, ow, npc, mon, done)
   end
 
   local Strings = tryRequire("src.core.Strings")
-  local TextBox = tryRequire("src.render.TextBox")
   local def = game and game.data and game.data.pokemon and game.data.pokemon[mon.species]
   local name = mon.nickname or (def and def.name) or mon.species
   local text
@@ -76,11 +75,8 @@ function Interaction:showFollowMessage(game, ow, npc, mon, done)
   else
     text = tostring(name) .. " is following\nyou!"
   end
-  if game and game.stack and TextBox and TextBox.new then
-    game.stack:push(TextBox.new(game, text, done))
-  elseif done then
-    done()
-  end
+  local GameCompat = V.require("game_compat")
+  GameCompat.presentText(self.mod, game, ow, text, done)
   return true
 end
 
@@ -90,7 +86,9 @@ function Interaction:makeTalkWrapper(originalTalk)
   local function wrappedTalk(a, b, c, d)
     local Game = tryRequire("src.core.Game")
     local game = type(a) == "table" and a.save and a or Game
-    local ow = type(b) == "table" and b.entities and b or (game and game.overworld)
+    local GameCompat = V.require("game_compat")
+    local ow = type(b) == "table" and (b.entities or b.npcs or b.player) and b
+      or GameCompat.liveOverworld(interaction.mod, game)
     local done = type(c) == "function" and c or d
 
     local PikachuFollower = tryRequire("src.world.PikachuFollower")

@@ -62,7 +62,8 @@ function Follower:installDefaultSpriteRefreshHandler()
   self.lifecycle:setSpriteRefreshHandler(function(reason, ctx)
     ctx = ctx or {}
     local game = ctx.game
-    local ow = ctx.ow or (game and game.overworld)
+    local GameCompat = V.require("game_compat")
+    local ow = ctx.ow or GameCompat.liveOverworld(follower.mod, game)
     local mon = ctx.mon or follower.selection:getActiveFollowerMon(game, false)
     local entity = ctx.entity
     local surface = ctx.surface or follower.state.surface or "land"
@@ -202,7 +203,8 @@ function Follower:_installPartyLeaderItems()
       end
       out = clean
 
-      local party = (game and game.save and game.save.party) or {}
+      local GameCompat = V.require("game_compat")
+      local party = GameCompat.party(game) or (game and game.save and game.save.party) or {}
       local monIndex = findPartyIndex(mon, party, selection)
       if not monIndex then return out end
 
@@ -237,15 +239,15 @@ function Follower:_installPartyLeaderItems()
               pcall(function() mod.options:set("follower_count", 0) end)
             end
 
-            pcall(function() control:syncAll(selectedGame, selectedGame and selectedGame.overworld) end)
+            local GameCompat = V.require("game_compat")
+            local ow = GameCompat.liveOverworld(mod, selectedGame)
+            pcall(function() control:syncAll(selectedGame, ow) end)
 
             local name = selected.nickname or selected.species or "It"
             local msg = name .. " is no longer following."
-            if selectedGame and selectedGame.stack and mod and mod.ui and mod.ui.TextBox then
-              pcall(function()
-                selectedGame.stack:push(mod.ui.TextBox.new(selectedGame, msg))
-              end)
-            end
+            pcall(function()
+              GameCompat.presentText(mod, selectedGame, ow, msg)
+            end)
           end,
         }
       else
@@ -272,15 +274,15 @@ function Follower:_installPartyLeaderItems()
             selection:selectFollower(selected, selectedGame, {})
             control._pendingMapTrailerSync = true
 
-            pcall(function() control:syncAll(selectedGame, selectedGame and selectedGame.overworld) end)
+            local GameCompat = V.require("game_compat")
+            local ow = GameCompat.liveOverworld(mod, selectedGame)
+            pcall(function() control:syncAll(selectedGame, ow) end)
 
             local name = selected.nickname or selected.species or "It"
             local msg = name .. " is now following you!"
-            if selectedGame and selectedGame.stack and mod and mod.ui and mod.ui.TextBox then
-              pcall(function()
-                selectedGame.stack:push(mod.ui.TextBox.new(selectedGame, msg))
-              end)
-            end
+            pcall(function()
+              GameCompat.presentText(mod, selectedGame, ow, msg)
+            end)
           end,
         }
       end
@@ -340,8 +342,8 @@ function Follower:onMapEntered(ev)
   if not game and self.mod and self.mod.world then
     game = self.mod.world.game
   end
-  local ow = game and game.overworld
-  -- Control engine map.entered event also runs; keep selection reconciled.
+  local GameCompat = V.require("game_compat")
+  local ow = GameCompat.liveOverworld(self.mod, game)
   self.selection:reconcile(game)
   if not self.control._installed then
     self.lifecycle:onMapEntered(game, ow)
@@ -358,7 +360,8 @@ function Follower:onMapReloaded(ev)
   -- Remove all followers from the overworld immediately so they
   -- disappear during the reload (healing animation, etc.).
   local game = self.mod and self.mod.world and self.mod.world.game
-  local ow = game and game.overworld
+  local GameCompat = V.require("game_compat")
+  local ow = GameCompat.liveOverworld(self.mod, game)
   if ow then
     pcall(function() engine:removeTrailers(ow) end)
   end
@@ -375,9 +378,10 @@ function Follower:onSaveLoaded()
     pcall(function() self.spriteService:patchPartyIconTrueColor(game) end)
   end
   if self.control._installed then
+    local GameCompat = V.require("game_compat")
     pcall(function()
       self.control:alignSaveFromOptions(game)
-      self.control:syncAll(game, game and game.overworld)
+      self.control:syncAll(game, GameCompat.liveOverworld(self.mod, game))
     end)
   end
 end
@@ -416,13 +420,16 @@ function Follower:selectFollower(mon, game, quiet)
     onSelected = function(selected, slot, g)
       if self.control and self.control.setLeaderParty then
         self.control:setLeaderParty(g, slot)
+        local GameCompat = V.require("game_compat")
+        local ow = GameCompat.liveOverworld(self.mod, g)
         pcall(function()
-          self.control:syncAll(g, g and g.overworld)
+          self.control:syncAll(g, ow)
         end)
       end
+      local GameCompat = V.require("game_compat")
       self.lifecycle:requestFollowerSpriteRefresh("party_select", {
         game = g,
-        ow = g and g.overworld,
+        ow = GameCompat.liveOverworld(self.mod, g),
         mon = selected,
         slot = slot,
       })

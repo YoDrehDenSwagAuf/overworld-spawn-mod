@@ -123,10 +123,11 @@ eq(goals[2].y, 8, "Pikachu follows lag=2 (accumulates behind Blastoise)")
 local onix = { _wildsFollowerDex = 95 }
 local snorlax = { _wildsFollowerDex = 143 }
 local goals2 = engine:_goalsFromTrailHistory(ow, { onix, snorlax, pikachu }, 0, 9)
--- Onix gap3 → lag3; Snorlax max(3,2)=3 → lag6; Pikachu max(2,1)=2 → lag8
-eq(goals2[1].y, 7, "Onix lag=3")
-eq(goals2[2].y, 4, "Snorlax lag=6")
-eq(goals2[3].y, 2, "Pikachu lag=8")
+-- ControlEngine keeps a one-cell Classic snake (order-preserving). Size-aware
+-- whole-cell gaps are computed for diagnostics but are not the live lag index.
+eq(goals2[1].y, 9, "Onix lag=1 (one-cell snake)")
+eq(goals2[2].y, 8, "Snorlax lag=2")
+eq(goals2[3].y, 7, "Pikachu lag=3")
 
 -- Classic deactivates spacing
 savedOpts.pokemon_size = "classic"

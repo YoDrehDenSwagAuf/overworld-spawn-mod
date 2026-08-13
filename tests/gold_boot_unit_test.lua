@@ -172,8 +172,8 @@ if GameCompat then
   eq(GameCompat.isSupported(mod, goldGame), true, "GameCompat.isSupported() → true")
   eq(GameCompat.supportsFeature("encounters", mod, goldGame), true,
      "encounters capability true")
-  eq(GameCompat.supportsFeature("followers", mod, goldGame), false,
-     "followers capability false")
+  eq(GameCompat.supportsFeature("followers", mod, goldGame), true,
+     "followers capability true")
   eq(GameCompat.supportsFeature("catching", mod, goldGame), false,
      "catching capability false")
   eq(GameCompat.supportsFeature("ambient", mod, goldGame), true,
@@ -196,19 +196,13 @@ end
 eq(wrappedHook("encounter.roll"), true, "encounter.roll wrapped for Gold wilds")
 eq(wrappedHook("movement.collision"), true, "movement.collision wrapped for Gold wilds")
 eq(wrappedHook("pikachu_follower"), false, "Yellow Pikachu hook NOT wrapped")
-eq(wrappedHook("ui.party.submenu"), false, "follower party submenu NOT wrapped")
+eq(wrappedHook("ui.party.submenu"), true, "follower party submenu wrapped")
 
 local follower = mod.exports.follower
 check(follower ~= nil, "follower object exists (construct only)")
 if follower then
-  eq(follower._installed, false, "follower hooks NOT installed")
-  eq(follower._supported, false, "follower capability false at construct")
-  if follower.lifecycle then
-    eq(follower.lifecycle._installed, false, "follower lifecycle hooks NOT installed")
-  end
-  if follower.control then
-    check(follower.control._installed ~= true, "ControlEngine NOT installed")
-  end
+  eq(follower._installed, true, "follower hooks installed")
+  eq(follower._supported, true, "follower capability true at construct")
 end
 
 local catching = mod.exports.catching
@@ -265,7 +259,7 @@ local modsOk, modsErr = fire("mods.loaded", {})
 check(modsOk, "mods.loaded on Gold does not throw (" .. tostring(modsErr) .. ")")
 
 eq(wrappedHook("encounter.roll"), true, "map.entered keeps encounter.roll wrap")
-eq(follower._installed, false, "map.entered still did not install followers")
+eq(follower._installed, true, "map.entered keeps followers installed")
 eq(ambient._installed, true, "map.entered keeps ambient installed")
 eq(catching._registered, false, "map.entered still did not register catching")
 

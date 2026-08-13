@@ -1,8 +1,8 @@
 -- Gen 2 / Pokémon Gold adapter for Wilds game compatibility.
 --
--- Gold adapter: species, party, surf, map, water, plus wild encounters.
+-- Gold adapter: species, party, surf, map, water, wild encounters, followers.
 -- Encounter tables live in lib/gen2/encounters.lua (not this file).
--- Followers / catching / safari stay off. Town Pokémon: curated Johto catalog.
+-- Catching / safari stay off. Town Pokémon: curated Johto catalog.
 --
 -- Engine pointers (verified against current Gen1Recomp Gold):
 --   party:        game.save.party (src/core/gen2/Save.lua)
@@ -30,7 +30,7 @@ Gen2.capabilities = {
   party = true,
   surf = true,
   encounters = true,
-  followers = false,
+  followers = true,
   catching = false,
   ambient = true,
   townPokemon = true,

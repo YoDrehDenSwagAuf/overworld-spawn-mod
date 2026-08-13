@@ -2,8 +2,8 @@
 --
 -- Shared Wilds systems should ask this module instead of assuming Gen 1.
 -- Gen1 is the full gameplay adapter. Gen2 is a Gold adapter with wild
--- overworld encounters and one curated town Pokémon; followers / catching /
--- safari stay off via capabilities.
+-- overworld encounters, curated town Pokémon, and shared followers.
+-- Catching / safari stay off via capabilities.
 --
 -- Canonical engine source of truth (Gen1Recomp src/core/GameVersion.lua):
 --   GameVersion.get()            → "red"|"blue"|"yellow"|"gold"|…
@@ -372,6 +372,55 @@ function GameCompat.entityInDrawList(ow, entity, game)
     return listHas(ow.npcs, entity)
   end
   return listHas(ow.entities, entity)
+end
+
+--- Insert a follower / town guest without wild-spawn flags.
+-- Gold World:drawPeople / rebuildPeople keep non-map NPCs as guests.
+-- Native Gold NPC:draw already accepts (ox, oy, scale); only wrap guests
+-- that still use the Gen1 camera-arity draw (no spriteDef).
+-- Never sets overworldWildSpawn.
+function GameCompat.attachGuestEntity(ow, entity, game)
+  if not ow or not entity then return "none" end
+  ow.entities = ow.entities or {}
+  ow.npcs = ow.npcs or {}
+  listInsert(ow.entities, entity)
+  listInsert(ow.npcs, entity)
+  if GameCompat.isGen2(nil, game) then
+    if entity.mapId == nil and ow.map and ow.map.id then
+      entity.mapId = ow.map.id
+    end
+    entity._wildsGoldGuest = true
+    if not entity.spriteDef then
+      GameCompat.adaptWildEntity(entity, game)
+    end
+    entity.worldContainer = "npcs+entities"
+    return "npcs+entities"
+  end
+  entity.worldContainer = "npcs+entities"
+  return "npcs+entities"
+end
+
+function GameCompat.detachGuestEntity(ow, entity)
+  return GameCompat.detachWildEntity(ow, entity)
+end
+
+--- Present dialogue. Gen1 keeps the existing TextBox stack path.
+-- Gen2 uses World:showText when the live world exposes it (Gold interact).
+function GameCompat.presentText(mod, game, ow, text, onDone)
+  ow = ow or GameCompat.liveOverworld(mod, game)
+  if GameCompat.isGen2(nil, game) and ow and type(ow.showText) == "function" then
+    ow:showText(text, onDone)
+    return "showText"
+  end
+  local TextBox = tryRequire("src.render.TextBox")
+  if game and game.stack and TextBox and TextBox.new then
+    game.stack:push(TextBox.new(game, text, onDone))
+    return "textBox"
+  end
+  if type(onDone) == "function" then
+    onDone()
+  end
+  return "none"
 end
 
 -- One-line DEV snapshot for Gold map enter. Never per-frame.

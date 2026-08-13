@@ -778,7 +778,8 @@ function AmbientPokemon:refreshSprites(game)
 end
 
 function AmbientPokemon:talkTo(ow, npc, done)
-  local game = self.mod.world and self.mod.world.game
+  local game = (ow and ow.game)
+    or (self.mod.world and self.mod.world.game)
   if not (npc and npc.wildsAmbientPokemon) then
     if done then done() end
     return
@@ -813,21 +814,14 @@ function AmbientPokemon:talkTo(ow, npc, done)
   end
 
   local text = AmbientCries.textFor(species)
-  local TextBox = tryRequire("src.render.TextBox")
-  if game and game.stack and TextBox and TextBox.new then
-    game.stack:push(TextBox.new(game, text, unfreeze))
-  else
-    unfreeze()
-  end
+  local GameCompat = V.require("game_compat")
+  GameCompat.presentText(self.mod, game, ow, text, unfreeze)
 end
 
 function AmbientPokemon:_installTalkWrap()
-  -- Gold uses a different talk path. Wrapping Gen1 OverworldController here
-  -- would touch unused engine code. Town Pokémon still spawn as shared entities.
-  local GameCompat = V.require("game_compat")
-  if GameCompat.isSupported() and GameCompat.generation() == 2 then
-    return false
-  end
+  -- Gen1: wrap OverworldController.talkTo (unchanged).
+  -- Gold: the same wrap is the World:interactBody talkToWrapper seam;
+  -- a true return suppresses vanilla trainer/script dispatch.
   local OverworldState = tryRequire("src.world.OverworldController")
   if not (OverworldState and OverworldState.talkTo) then return false end
   if OverworldState._wildsAmbientTalkWrap == OverworldState.talkTo then
@@ -838,12 +832,12 @@ function AmbientPokemon:_installTalkWrap()
   local function wrap(selfOw, npc, ...)
     if npc and npc.wildsAmbientPokemon then
       manager:talkTo(selfOw, npc)
-      return
+      return true
     end
     -- Never start battles from ambient even if flags were stripped.
     if npc and npc.def and npc.def._wildsAmbientGuard then
       manager:talkTo(selfOw, npc)
-      return
+      return true
     end
     return orig(selfOw, npc, ...)
   end

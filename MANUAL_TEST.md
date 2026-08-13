@@ -195,3 +195,48 @@ available), and with Sprite Style HGSS/PokeMMO / Poke Followers / Pokedex.
 3. Voxel and Flat must both keep chase behaviour.
 4. Land→water chase entry still works when a Swimming / Levitates sprite exists
    and Water Mons is a spawn-enabled mode.
+
+## Pokémon Gold — followers + town talk
+
+These steps are for a live Gold boot. Gen1 Red / Blue / Yellow must keep the
+existing follower and town-talk behaviour from the sections above.
+
+### Followers
+
+1. Boot Gold.
+2. Open party.
+3. Select first Pokémon.
+4. Choose FOLLOW.
+5. Leave menu.
+6. Pokémon appears behind player.
+7. Walk 20+ steps.
+8. Follower stays behind player.
+9. Enter town (Route 29 → Cherrygrove).
+10. Enter building.
+11. Exit building.
+12. No duplicate / wild teleport.
+13. Surf.
+14. Follower switches to swimming sprite.
+15. Leave water.
+16. Follower returns to land sprite.
+17. Test HGSS / PokeMMO True Size.
+18. Test Poké Followers style.
+19. DISMISS — follower disappears, no stale trailer.
+
+### Town Pokémon
+
+20. Find a curated Johto town Pokémon (e.g. New Bark Sentret).
+21. Face it.
+22. Press A.
+23. Pokémon faces player.
+24. Cry/text appears.
+25. No battle.
+26. Normal nearby NPC still talks normally.
+
+### Gen1 regression
+
+27. Boot Red — existing follower works.
+28. Existing town Pokémon talk works.
+29. Yellow special follower behaviour unchanged.
+30. Blue follower + town talk unchanged.
+

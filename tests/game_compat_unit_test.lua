@@ -134,7 +134,7 @@ do
   eq(GameCompat.supportsFeature("core", nil, {}), true, "gold core capability")
   eq(GameCompat.supportsFeature("species", nil, {}), true, "gold species capability")
   eq(GameCompat.supportsFeature("encounters", nil, {}), true, "gold encounters on")
-  eq(GameCompat.supportsFeature("followers", nil, {}), false, "gold followers off")
+  eq(GameCompat.supportsFeature("followers", nil, {}), true, "gold followers on")
   eq(GameCompat.supportsFeature("catching", nil, {}), false, "gold catching off")
   eq(GameCompat.supportsFeature("ambient", nil, {}), true, "gold ambient/town on")
   eq(GameCompat.supportsFeature("townPokemon", nil, {}), true, "gold townPokemon on")
@@ -162,8 +162,8 @@ do
         "generation 2 selects Gen2 adapter")
   eq(GameCompat.supportsFeature("encounters", nil, {}), true,
      "silver uses Gen2 encounter capability")
-  eq(GameCompat.supportsFeature("followers", nil, {}), false,
-     "silver still has no followers")
+  eq(GameCompat.supportsFeature("followers", nil, {}), true,
+     "silver shares Gen2 follower capability")
 end
 
 do
@@ -193,8 +193,8 @@ do
         "early-load gold selects Gen2 adapter")
   check(GameCompat.current(nil, nil) ~= GameCompat.Gen1,
         "early-load gold does not select Gen1 adapter")
-  eq(GameCompat.supportsFeature("followers", nil, nil), false,
-     "early-load gold does not enable followers")
+  eq(GameCompat.supportsFeature("followers", nil, nil), true,
+     "early-load gold enables followers after adapter paths exist")
 end
 
 ----------------------------------------------------------------
@@ -549,6 +549,90 @@ do
   prod:close()
   check(prodRaw:find('"games"', 1, true) ~= nil,
         "production manifest now claims games")
+end
+
+----------------------------------------------------------------
+-- liveOverworld + guest attach (followers stay non-wild)
+----------------------------------------------------------------
+do
+  setEngineVersion("red")
+  local gen1Ow = {
+    map = { id = "PALLET_TOWN" },
+    player = { cellX = 1, cellY = 1 },
+    entities = {},
+    npcs = {},
+  }
+  local gen1Game = { overworld = gen1Ow }
+  check(GameCompat.liveOverworld(nil, gen1Game) == gen1Ow,
+        "Gen1 liveOverworld is OverworldState")
+  eq(gen1Game.overworld, gen1Ow, "Gen1 does not rewrite game.overworld")
+end
+
+do
+  setEngineVersion("gold")
+  local world = {
+    map = { id = "ROUTE_29" },
+    player = { cellX = 8, cellY = 8, facing = "down" },
+    npcs = {},
+    entities = {},
+  }
+  local goldGame = { world = world, overworld = { stale = true } }
+  check(GameCompat.liveOverworld(nil, goldGame) == world,
+        "Gold liveOverworld is game.world")
+  check(goldGame.overworld ~= world, "does not assign game.overworld = game.world")
+  check(goldGame.overworld.stale == true, "Gold facade overworld left untouched")
+
+  local follower = {
+    id = "trailer1",
+    pokepcTrailer = true,
+    wildsFollower = true,
+    overworldWildSpawn = false,
+  }
+  local container = GameCompat.attachGuestEntity(world, follower, goldGame)
+  eq(container, "npcs+entities", "Gold follower container is npcs+entities")
+  eq(follower.overworldWildSpawn, false, "follower is not a wild spawn")
+  eq(follower._wildsGoldGuest, true, "Gold guest flag for rebuildPeople")
+  eq(follower.mapId, "ROUTE_29", "guest mapId set from world.map")
+  check(GameCompat.entityInDrawList(world, follower, goldGame),
+        "follower is on Gold draw list (npcs)")
+  check(world.npcs[1] == follower, "inserted into world.npcs")
+  check(world.entities[1] == follower, "inserted into world.entities")
+end
+
+do
+  setEngineVersion("gold")
+  local shown = {}
+  local world = {
+    map = { id = "NEW_BARK_TOWN" },
+    player = { cellX = 1, cellY = 1 },
+    showText = function(_, text, onDone)
+      shown[#shown + 1] = text
+      if onDone then onDone() end
+    end,
+  }
+  local goldGame = { world = world, stack = { push = function() error("Gen1 TextBox") end } }
+  local path = GameCompat.presentText(nil, goldGame, world, "Vee...", function() end)
+  eq(path, "showText", "Gold presentText uses world:showText")
+  eq(shown[1], "Vee...", "Gold showText body")
+end
+
+do
+  setEngineVersion("red")
+  local pushed = {}
+  package.loaded["src.render.TextBox"] = {
+    new = function(game, text, onDone)
+      return { game = game, text = text, onDone = onDone }
+    end,
+  }
+  local gen1Game = {
+    stack = {
+      push = function(_, box) pushed[#pushed + 1] = box end,
+    },
+  }
+  local path = GameCompat.presentText(nil, gen1Game, { player = {} }, "Pikaa...", nil)
+  eq(path, "textBox", "Gen1 presentText keeps TextBox")
+  eq(pushed[1] and pushed[1].text, "Pikaa...", "Gen1 TextBox body")
+  package.loaded["src.render.TextBox"] = nil
 end
 
 if failures > 0 then

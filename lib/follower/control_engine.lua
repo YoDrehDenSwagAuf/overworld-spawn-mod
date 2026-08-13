@@ -151,6 +151,7 @@ function ControlEngine.new(mod, deps)
   self._optCache = {}
   self._eventOff = {}
   self._talkWrapped = false
+  self._talkToWrapped = false
   self._owUpdateWrapped = false
   self._inControlUpdate = false
   -- "overworld" = OverworldController.update owns trailer ticks;
@@ -176,8 +177,27 @@ end
 
 function ControlEngine:_game()
   if self._gameRef then return self._gameRef end
+  local mod = self.mod
+  if mod then
+    if type(mod.game) == "table" then return mod.game end
+    if mod.world and type(mod.world.game) == "table" then return mod.world.game end
+  end
   local Game = tryRequire("src.core.Game")
   return Game
+end
+
+--- Live world: Gen1 OverworldState or Gold game.world. Never assigns
+-- game.overworld = game.world.
+function ControlEngine:_liveOw(game, ow)
+  if ow and (ow.player or ow.map) then return ow end
+  local GameCompat = V.require("game_compat")
+  return GameCompat.liveOverworld(self.mod, game)
+end
+
+function ControlEngine:_attachTrailer(game, ow, npc)
+  if not (ow and npc) then return end
+  local GameCompat = V.require("game_compat")
+  GameCompat.attachGuestEntity(ow, npc, game)
 end
 
 function ControlEngine:_isYellow()
@@ -213,7 +233,7 @@ function ControlEngine:onOptionsChanged(payload)
   if game then
     -- Mirror mod.options → game.save, then rebuild active trailers.
     pcall(function() self:alignSaveFromOptions(game) end)
-    pcall(function() self:syncAll(game, game.overworld) end)
+    pcall(function() self:syncAll(game, self:_liveOw(game)) end)
   end
 end
 
@@ -298,7 +318,8 @@ function ControlEngine:clearLeader(game)
 end
 
 function ControlEngine:bustLeaderVisual(game)
-  local player = game and game.overworld and game.overworld.player
+  local ow = self:_liveOw(game)
+  local player = ow and ow.player
   if player then
     player._pokepcControlSpecies = nil
   end
@@ -329,7 +350,7 @@ function ControlEngine:toggleStopFollowing(mon, game)
   if not mon then return end
   mon.stopFollowing = not mon.stopFollowing
   game = game or self:_game()
-  local ow = game and game.overworld
+  local ow = self:_liveOw(game)
   self:syncAll(game, ow)
   return mon.stopFollowing
 end
@@ -1004,6 +1025,10 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
   npc.pokepcMon = mon
   npc.passable = true
   npc.facing = facing or "down"
+  npc.overworldWildSpawn = false
+  npc.wildsBattleable = false
+  npc.wildsAggressive = false
+  npc.wildsEncounterEnabled = false
   -- Draw-order tiebreak: the engine y-sorts entities by py with a
   -- tie-break that only special-cases pikachuFollower (which trailers
   -- must NOT set — stock findFollower would remove them), so two
@@ -1323,10 +1348,10 @@ function ControlEngine:_applyConnectionHandoff(ow)
   local dy = (player.cellY or 0) - (snapshot.playerY or 0)
   ow.npcs = ow.npcs or {}
   ow.entities = ow.entities or {}
+  local game = self:_game()
   for _, trailer in ipairs(snapshot.trailers) do
     translateTrailer(trailer, dx, dy)
-    addIdentity(ow.npcs, trailer)
-    addIdentity(ow.entities, trailer)
+    self:_attachTrailer(game, ow, trailer)
   end
   for _, cell in ipairs(snapshot.trailCells or {}) do
     cell.x, cell.y = cell.x + dx, cell.y + dy
@@ -1973,8 +1998,7 @@ function ControlEngine:syncTrailers(game, ow, opts)
         logWarn(self.mod, "trailer spawn failed slot %s: %s", tostring(i), tostring(npc))
       else
         placeTrailerAt(npc, bx, by, facing)
-        table.insert(ow.npcs, npc)
-        table.insert(ow.entities, npc)
+        self:_attachTrailer(game, ow, npc)
         local slot = #trailers + 1
         trailers[slot] = npc
         goals[slot] = { x = bx, y = by }
@@ -2039,8 +2063,7 @@ function ControlEngine:syncTrailers(game, ow, opts)
         end)
         if okNpc and npc then
           placeTrailerAt(npc, bx, by, facing)
-          table.insert(ow.npcs, npc)
-          table.insert(ow.entities, npc)
+          self:_attachTrailer(game, ow, npc)
           kept[i] = npc
           keptGoals[i] = { x = bx, y = by }
         end
@@ -2081,8 +2104,7 @@ function ControlEngine:syncTrailers(game, ow, opts)
           logWarn(self.mod, "trailer spawn failed slot %s: %s", tostring(i), tostring(npc))
         else
           placeTrailerAt(npc, bx, by, facing)
-          table.insert(ow.npcs, npc)
-          table.insert(ow.entities, npc)
+          self:_attachTrailer(game, ow, npc)
           local slot = #trailers + 1
           trailers[slot] = npc
           goals[slot] = { x = bx, y = by }
@@ -2637,7 +2659,7 @@ function ControlEngine:update(game, ow, opts)
   opts = opts or {}
   if self._inControlUpdate then return false, "reentrant" end
   game = game or self:_game()
-  ow = ow or (game and game.overworld)
+  ow = self:_liveOw(game, ow)
   -- Always run when a pending sync is queued (stepper menu changed the count
   -- while the world was paused).  Otherwise skip if trailers aren't needed.
   if not self._pendingMapTrailerSync
@@ -2944,7 +2966,7 @@ end
 
 function ControlEngine:syncAll(game, ow)
   game = game or self:_game()
-  ow = ow or (game and game.overworld)
+  ow = self:_liveOw(game, ow)
   if ow then pcall(function() self:removeTrailers(ow) end) end
   -- Never reorder the party here. Wilds designates the follower via save data
   -- (pokepcLeader / followerPartyIndex), not party order, so the Yellow
@@ -2960,55 +2982,75 @@ end
 
 function ControlEngine:_installTalkWrap()
   local OverworldState = tryRequire("src.world.OverworldController")
-  if not (OverworldState and OverworldState.interact) then return false end
-  if OverworldState._wildsControlEngineTalkWrap == OverworldState.interact then
-    return true
-  end
+  if not OverworldState then return false end
   if not self._interaction then
     local Interaction = V.require("follower/interaction")
     self._interaction = Interaction.new(self.mod, self.selection)
   end
   local engine = self
-  local origInteract = OverworldState.interact
-  local function talkWrap(owSelf, ...)
-    local p = owSelf.player
-    if p and type(p.facingCell) == "function"
-        and type(owSelf.npcAtCell) == "function" then
-      local Collision = tryRequire("src.world.Collision")
-      local PF = tryRequire("src.world.PikachuFollower")
-      local fx, fy = p:facingCell()
-      local npc = owSelf:npcAtCell(fx, fy)
-      if not npc and owSelf.map and owSelf.map.isCounterCell
-         and owSelf.map:isCounterCell(fx, fy) and Collision and Collision.target then
-        local fx2, fy2 = Collision.target(fx, fy, p.facing)
-        npc = owSelf:npcAtCell(fx2, fy2)
-      end
-      -- Wilds-owned Pokémon follower trailers are talkable in every version;
-      -- no Pikachu in the party is required.
-      if npc and npc.wildsFollower == true and npc.pokepcTrailer == true
-         and npc.pokepcTrailerKind ~= "trainer" and npc.pokepcMon then
-        local mon = npc.pokepcMon
-        -- Yellow Pikachu keeps vanilla talk (Pikachu-specific options).
-        if engine:_isYellow() and mon.species == "PIKACHU" then
-          if PF and PF.talk then
-            PF.talk(engine:_game(), owSelf, npc)
-          end
-          return
-        end
-        -- Any other follower: "X is following you!".
-        if engine._interaction and engine._interaction.showFollowMessage then
-          engine._interaction:showFollowMessage(engine:_game(), owSelf, npc, mon)
-        end
-        return
-      end
+  local function handleFollowerTalk(owSelf, npc)
+    if not (npc and npc.wildsFollower == true and npc.pokepcTrailer == true
+            and npc.pokepcTrailerKind ~= "trainer" and npc.pokepcMon) then
+      return false
     end
-    return origInteract(owSelf, ...)
+    local mon = npc.pokepcMon
+    -- Yellow Pikachu keeps vanilla talk (Pikachu-specific options).
+    if engine:_isYellow() and mon.species == "PIKACHU" then
+      local PF = tryRequire("src.world.PikachuFollower")
+      if PF and PF.talk then
+        PF.talk(engine:_game(), owSelf, npc)
+      end
+      return true
+    end
+    if engine._interaction and engine._interaction.showFollowMessage then
+      engine._interaction:showFollowMessage(engine:_game(), owSelf, npc, mon)
+    end
+    return true
   end
-  OverworldState.interact = talkWrap
-  OverworldState._wildsControlEngineTalkWrap = talkWrap
-  self._talkOrigInteract = origInteract
-  self._talkWrapped = true
-  return true
+
+  -- Gen1 OverworldController.interact uses facingCell / npcAtCell.
+  -- Gold interactWrapper falls through to interactBody when facingCell is
+  -- absent (Gold player has cellX/cellY/facing, not facingCell).
+  if type(OverworldState.interact) == "function"
+     and OverworldState._wildsControlEngineTalkWrap ~= OverworldState.interact then
+    local origInteract = OverworldState.interact
+    local function talkWrap(owSelf, ...)
+      local p = owSelf and owSelf.player
+      if p and type(p.facingCell) == "function"
+          and type(owSelf.npcAtCell) == "function" then
+        local Collision = tryRequire("src.world.Collision")
+        local fx, fy = p:facingCell()
+        local npc = owSelf:npcAtCell(fx, fy)
+        if not npc and owSelf.map and owSelf.map.isCounterCell
+           and owSelf.map:isCounterCell(fx, fy) and Collision and Collision.target then
+          local fx2, fy2 = Collision.target(fx, fy, p.facing)
+          npc = owSelf:npcAtCell(fx2, fy2)
+        end
+        if handleFollowerTalk(owSelf, npc) then return true end
+      end
+      return origInteract(owSelf, ...)
+    end
+    OverworldState.interact = talkWrap
+    OverworldState._wildsControlEngineTalkWrap = talkWrap
+    self._talkOrigInteract = origInteract
+    self._talkWrapped = true
+  end
+
+  -- Gold World:interactBody already resolved the facing NPC, then calls
+  -- talkTo(world, npc). A true return suppresses trainer/script dispatch.
+  if type(OverworldState.talkTo) == "function"
+     and OverworldState._wildsControlEngineTalkToWrap ~= OverworldState.talkTo then
+    local origTalkTo = OverworldState.talkTo
+    local function talkToWrap(owSelf, npc, ...)
+      if handleFollowerTalk(owSelf, npc) then return true end
+      return origTalkTo(owSelf, npc, ...)
+    end
+    OverworldState.talkTo = talkToWrap
+    OverworldState._wildsControlEngineTalkToWrap = talkToWrap
+    self._talkOrigTalkTo = origTalkTo
+    self._talkToWrapped = true
+  end
+  return self._talkWrapped == true or self._talkToWrapped == true
 end
 
 function ControlEngine:_restoreTalkWrap()
@@ -3020,8 +3062,16 @@ function ControlEngine:_restoreTalkWrap()
     OverworldState.interact = self._talkOrigInteract
     OverworldState._wildsControlEngineTalkWrap = nil
   end
+  if self._talkToWrapped and OverworldState._wildsControlEngineTalkToWrap
+     and OverworldState.talkTo == OverworldState._wildsControlEngineTalkToWrap
+     and self._talkOrigTalkTo then
+    OverworldState.talkTo = self._talkOrigTalkTo
+    OverworldState._wildsControlEngineTalkToWrap = nil
+  end
   self._talkWrapped = false
+  self._talkToWrapped = false
   self._talkOrigInteract = nil
+  self._talkOrigTalkTo = nil
 end
 
 --- Wrap OverworldController.update so trailer ticks are independent of
@@ -3121,7 +3171,7 @@ function ControlEngine:_installEventSubscriptions()
     end)
   subscribe("map.exited", function(payload)
       local game = engine:_game()
-      local ow = game and game.overworld
+      local ow = engine:_liveOw(game)
       engine:_captureMapExit(game, ow, payload)
       -- Remove trailers from the overworld so they disappear during
       -- transitions (healing, warps, doors).  Connection handoffs
@@ -3131,7 +3181,7 @@ function ControlEngine:_installEventSubscriptions()
     end)
   subscribe("map.entered", function(payload)
       local game = engine:_game()
-      local ow = game and game.overworld
+      local ow = engine:_liveOw(game)
       pcall(function() engine:syncPlayerControlVisual(game, ow) end)
       engine:_queueMapEntry(game, ow, payload)
       engine._pendingMapTrailerSync = true
@@ -3152,7 +3202,7 @@ function ControlEngine:_installEventSubscriptions()
       engine._pendingConnectionHandoff = nil
       engine:alignSaveFromOptions(game)
       pcall(function()
-        engine:syncPlayerControlVisual(game, game and game.overworld)
+        engine:syncPlayerControlVisual(game, engine:_liveOw(game))
       end)
       engine._pendingMapTrailerSync = true
       engine._pendingSpawnAtPlayer = true

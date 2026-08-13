@@ -45,7 +45,10 @@ end
 local function playerInWater(player, game)
   if not player then return false end
   local GameCompat = V.require("game_compat")
-  local ow = player.ow or (game and game.overworld)
+  local ow = GameCompat.liveOverworld(nil, game)
+  if type(ow) ~= "table" then
+    ow = player.ow or (game and game.overworld)
+  end
   if type(ow) ~= "table" then
     ow = { player = player }
   elseif ow.player ~= player then

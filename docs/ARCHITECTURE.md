@@ -50,7 +50,7 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 `GameCompat` is a small facade so shared Wilds systems do not own Gen1-only
 assumptions. Gold is an **experimental gameplay target**: visible wild
 encounters reuse the shared Wilds entity/AI layer with a separate Gen2
-encounter provider. Followers, catching, and Safari stay off.
+encounter provider. Followers are on; catching and Safari stay off.
 
 ```text
 GameCompat.current(mod, game)      → Gen1 or Gen2 adapter or nil
