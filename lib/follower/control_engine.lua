@@ -3,9 +3,13 @@
 -- Credits: masterwebx / Followers EX ControlEngine concepts adapted for Wilds;
 -- assets via Wilds sprite service (no PokePCFollowers_VoxelMerge dependency).
 --
--- Ownership:
---   * Trailer movement: ControlEngine:update via OverworldController.update
---     (fallback: PikachuFollower.update wrap when OW wrap unavailable).
+-- Ownership (exactly one driver; never both):
+--   * Gen1 trailer movement: ControlEngine:update via OverworldController.update
+--     (owner = "overworld"). Fallback: PikachuFollower.update wrap
+--     (owner = "pikachu_follower") when the OW wrap is unavailable.
+--   * Gen2 trailer movement: ControlEngine:update via Gold World:step wrap
+--     (owner = "gen2_world_event"). world.stepped is per-tile-land, not a
+--     logic frame, so it is not the Gold driver. Do not wrap World.update.
 --   * Stock PikachuFollower: shouldSpawn / onMapEntered / talk only.
 -- Lifecycle must NOT also wrap update/onMapEntered/shouldSpawn when the
 -- control engine is installed.
@@ -64,6 +68,19 @@ local function logWarn(mod, fmt, ...)
   if DebugLog and DebugLog.warn then
     DebugLog.warn(mod, fmt, ...)
   end
+end
+
+local function logGen2(mod, fmt, ...)
+  if DebugLog and DebugLog.followerGen2Always then
+    DebugLog.followerGen2Always(mod, fmt, ...)
+  elseif DebugLog and DebugLog.followerGen2 then
+    DebugLog.followerGen2(mod, fmt, ...)
+  end
+end
+
+local function isMissingFallbackImage(image)
+  return type(image) == "string"
+    and image:find("pokemon_missing.png", 1, true) ~= nil
 end
 
 local function captureUpvalue(fn, upvalueName)
@@ -151,10 +168,13 @@ function ControlEngine.new(mod, deps)
   self._optCache = {}
   self._eventOff = {}
   self._talkWrapped = false
+  self._talkToWrapped = false
   self._owUpdateWrapped = false
+  self._gen2WorldStepWrapped = false
   self._inControlUpdate = false
-  -- "overworld" = OverworldController.update owns trailer ticks;
-  -- "pikachu_follower" = fallback when OW wrap is unavailable.
+  -- "overworld" = OverworldController.update owns trailer ticks (Gen1);
+  -- "gen2_world_event" = Gold World:step owns trailer ticks;
+  -- "pikachu_follower" = Gen1 fallback when OW wrap is unavailable.
   self._trailerUpdateOwner = nil
   self.diag = {
     wrappedUpdateCalls = 0,
@@ -162,6 +182,7 @@ function ControlEngine.new(mod, deps)
     advanceTrailerStepCalls = 0,
     controlUpdateCalls = 0,
     overworldUpdateCalls = 0,
+    gen2WorldStepCalls = 0,
     lastSource = nil,
     lastSurfing = false,
     -- Which re-seed branch parked/placed the pack last, for the WILDS HUD:
@@ -176,22 +197,35 @@ end
 
 function ControlEngine:_game()
   if self._gameRef then return self._gameRef end
+  local mod = self.mod
+  if mod then
+    if type(mod.game) == "table" then return mod.game end
+    if mod.world and type(mod.world.game) == "table" then return mod.world.game end
+  end
   local Game = tryRequire("src.core.Game")
   return Game
 end
 
+--- Live world: Gen1 OverworldState or Gold game.world. Never assigns
+-- game.overworld = game.world.
+function ControlEngine:_liveOw(game, ow)
+  if ow and (ow.player or ow.map) then return ow end
+  local GameCompat = V.require("game_compat")
+  return GameCompat.liveOverworld(self.mod, game)
+end
+
+function ControlEngine:_attachTrailer(game, ow, npc)
+  if not (ow and npc) then return end
+  local GameCompat = V.require("game_compat")
+  local attached = GameCompat.attachGuestEntity(ow, npc, game)
+  npc.worldContainer = attached or npc.worldContainer
+  logGen2(self.mod, "attached=%s", tostring(attached or npc.worldContainer or "?"))
+end
+
 function ControlEngine:_isYellow()
-  local GV = tryRequire("src.core.GameVersion")
-  if not GV then return false end
-  if type(GV.isYellow) == "function" then
-    local ok, yellow = pcall(GV.isYellow)
-    if ok then return yellow == true end
-  end
-  if type(GV.get) == "function" then
-    local ok, version = pcall(GV.get)
-    return ok and version == "yellow"
-  end
-  return false
+  local GameCompat = V.require("game_compat")
+  local game = self.mod and self.mod.world and self.mod.world.game
+  return GameCompat.gameVersion(game) == "yellow"
 end
 
 function ControlEngine:_opt(key, default)
@@ -221,7 +255,7 @@ function ControlEngine:onOptionsChanged(payload)
   if game then
     -- Mirror mod.options → game.save, then rebuild active trailers.
     pcall(function() self:alignSaveFromOptions(game) end)
-    pcall(function() self:syncAll(game, game.overworld) end)
+    pcall(function() self:syncAll(game, self:_liveOw(game)) end)
   end
 end
 
@@ -306,7 +340,8 @@ function ControlEngine:clearLeader(game)
 end
 
 function ControlEngine:bustLeaderVisual(game)
-  local player = game and game.overworld and game.overworld.player
+  local ow = self:_liveOw(game)
+  local player = ow and ow.player
   if player then
     player._pokepcControlSpecies = nil
   end
@@ -337,7 +372,7 @@ function ControlEngine:toggleStopFollowing(mon, game)
   if not mon then return end
   mon.stopFollowing = not mon.stopFollowing
   game = game or self:_game()
-  local ow = game and game.overworld
+  local ow = self:_liveOw(game)
   self:syncAll(game, ow)
   return mon.stopFollowing
 end
@@ -493,19 +528,29 @@ function ControlEngine:resolveFollowerSprite(opts)
   local sheets = render and render.runtimeSheets
   if sheets then
     if not sheets.ready and sheets.load then pcall(function() sheets:load() end) end
-    local dex = 4
+    local dex = nil
     if svc and type(svc.dexOf) == "function" then
-      local ok, d = pcall(svc.dexOf, svc, species)
+      local ok, d = pcall(svc.dexOf, svc, species, opts.game)
       if ok and d then dex = d end
-    else
+    end
+    if not dex then
+      local GameCompat = V.require("game_compat")
+      local ok, d = pcall(GameCompat.speciesId, species, opts.game, self.mod)
+      if ok and d then dex = d end
+    end
+    if not dex then
       local AS
       pcall(function() AS = V.require("animated_sprites") end)
       if AS and AS.resolveSpeciesId then
-        local ok, d = pcall(AS.resolveSpeciesId, species, nil, self.mod)
+        local ok, d = pcall(AS.resolveSpeciesId, species, opts.game, self.mod)
         if ok and d then dex = d end
       end
     end
-    local id = (role == "player_controlled") and "SPRITE_PLAYER_POKEMON"
+    dex = dex or 4
+    local GameCompat = V.require("game_compat")
+    local id = (role == "player_controlled")
+      and (GameCompat.isGen2(self.mod, opts.game) and "SPRITE_WILDS_PLAYER_MON"
+        or "SPRITE_PLAYER_POKEMON")
       or "SPRITE_WILDS_FOLLOWER_MON"
     if sheets.spriteDef then
       local ok, def = pcall(sheets.spriteDef, sheets, dex, variant, id)
@@ -516,6 +561,8 @@ function ControlEngine:resolveFollowerSprite(opts)
           walker = def.walker ~= false,
           trueColor = def.trueColor ~= false,
           id = def.id or id,
+          dex = dex,
+          fallback = isMissingFallbackImage(def.image),
         }
       end
     end
@@ -528,12 +575,18 @@ function ControlEngine:resolveFollowerSprite(opts)
   elseif self.mod and self.mod.path then
     image = self.mod.path .. "/assets/fallback/pokemon_missing.png"
   end
+  local GameCompat = V.require("game_compat")
+  local fallbackId = (role == "player_controlled")
+    and (GameCompat.isGen2(self.mod, opts.game) and "SPRITE_WILDS_PLAYER_MON"
+      or "SPRITE_PLAYER_POKEMON")
+    or Constants.SPRITE_ID
   return {
     image = image,
     frames = 1,
     walker = false,
     trueColor = true,
-    id = Constants.SPRITE_ID,
+    id = fallbackId,
+    fallback = true,
   }
 end
 
@@ -652,9 +705,12 @@ function ControlEngine:_speciesIdForTrailSource(source)
       or (mon and (mon.dex or mon.speciesId))
     if type(dex) == "number" then return dex end
     if type(species) == "string" then
+      local GameCompat = V.require("game_compat")
+      local resolved = GameCompat.speciesId(species, self:_game(), self.mod)
+      if type(resolved) == "number" then return resolved end
       local ok, AS = pcall(function() return V.require("animated_sprites") end)
       if ok and AS and AS.resolveSpeciesId then
-        local resolved = AS.resolveSpeciesId(species, nil, self.mod)
+        resolved = AS.resolveSpeciesId(species, self:_game(), self.mod)
         if type(resolved) == "number" then return resolved end
       end
       return species
@@ -873,7 +929,18 @@ end
 
 function ControlEngine:restorePlayerTrainerSprite(game, ow)
   local player = ow and ow.player
-  if not player or not game or not game.data then return end
+  if not player or not game then return end
+  local GameCompat = V.require("game_compat")
+  if GameCompat.isGen2(self.mod, game) then
+    local ok, err = GameCompat.restoreTrainerSprite(player, game, ow)
+    if not ok then
+      logWarn(self.mod, "[Wilds][Follower][Gen2] restore trainer sprite failed: %s",
+        tostring(err))
+      logGen2(self.mod, "restore trainer sprite failed: %s", tostring(err))
+    end
+    return
+  end
+  if not game.data then return end
   local monSprite = player._pokepcAsPokemon
     or (player.sprite and player.sprite.def
         and player.sprite.def.id == "SPRITE_PLAYER_POKEMON")
@@ -899,6 +966,23 @@ function ControlEngine:applyPlayerAsPokemon(game, ow, force)
     return
   end
   local mon = self:getLeaderMon(game)
+  if not mon and self.selection
+     and type(self.selection.getActiveFollowerMon) == "function" then
+    -- CONTROL=POKEMON with FOLLOWERS=0 still needs the selected party mon.
+    -- getLeaderMon returns nil when count is 0 (party menu FOLLOW vs ACTIVE).
+    local ok, sel = pcall(self.selection.getActiveFollowerMon, self.selection, game, true)
+    if ok then mon = sel end
+  end
+  if not mon then
+    local save = game and game.save
+    local idx = save and save.followerPartyIndex
+    if idx and save.party then mon = save.party[idx] end
+    if not mon then
+      for _, pmon in ipairs((save and save.party) or {}) do
+        if (pmon.hp or 0) > 0 then mon = pmon break end
+      end
+    end
+  end
   local species = mon and mon.species or "CHARMANDER"
   local shiny = isShinyMon(mon)
   local resolved = self:resolveFollowerSprite({
@@ -909,14 +993,66 @@ function ControlEngine:applyPlayerAsPokemon(game, ow, force)
     game = game,
   })
   local path = resolved and resolved.image
+  local GameCompat = V.require("game_compat")
+  local dex = (resolved and resolved.dex)
+    or GameCompat.speciesId(species, game, self.mod)
+  local fallback = (resolved and resolved.fallback == true)
+    or isMissingFallbackImage(path)
+  local Config
+  pcall(function() Config = V.require("config") end)
+  local style = Config and Config.spriteStyle and Config.spriteStyle(self.mod)
+  logGen2(self.mod,
+    "[PlayerSprite] species=%s dex=%s style=%s role=player_controlled resolved=%s fallback=%s",
+    tostring(species),
+    tostring(dex or "?"),
+    tostring(style or "?"),
+    tostring(path or "nil"),
+    tostring(fallback == true))
+  if fallback then
+    logWarn(self.mod,
+      "[Wilds][Follower][Gen2][PlayerSprite] missing sprite species=%s dex=%s resolved=%s",
+      tostring(species), tostring(dex or "?"), tostring(path or "nil"))
+  end
+  local already = player.sprite and player.sprite.def and player.sprite.def.image == path
+  if not already and player.spriteDef and player.spriteDef.image == path then
+    already = true
+  end
   if not force and player._pokepcAsPokemon and player._pokepcControlSpecies == species
      and player._pokepcShiny == (shiny and true or false)
-     and player.sprite and player.sprite.def
-     and player.sprite.def.image == path then
+     and already then
+    return
+  end
+  if not path then
+    logWarn(self.mod, "[Wilds][Follower][Gen2] player sprite skipped: no image")
+    logGen2(self.mod, "player sprite skipped: no image species=%s", tostring(species))
+    return
+  end
+  local def = spriteDefWithGeometry(resolved, {
+    id = (resolved and resolved.id)
+      or (GameCompat.isGen2(self.mod, game) and "SPRITE_WILDS_PLAYER_MON"
+        or "SPRITE_PLAYER_POKEMON"),
+    pokepcShiny = shiny and true or false,
+  })
+  -- Gold: Player:setSprite(def). Do not require a Gen1 SpriteRenderer
+  -- assignment and do not register SPRITE_PLAYER_POKEMON.
+  if GameCompat.isGen2(self.mod, game) then
+    local ok, how = GameCompat.applyControlledPokemonSprite(player, def, game)
+    if not ok then
+      logWarn(self.mod, "[Wilds][Follower][Gen2] Gold player sprite apply failed: %s",
+        tostring(how))
+      logGen2(self.mod, "player sprite apply failed: %s", tostring(how))
+      return
+    end
+    logGen2(self.mod, "player sprite applied via %s", tostring(how))
+    player._pokepcControlSpecies = species
+    player._pokepcShiny = shiny and true or false
     return
   end
   local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
-  if not (SpriteRenderer and SpriteRenderer.new and path) then return end
+  if not (SpriteRenderer and SpriteRenderer.new) then
+    logWarn(self.mod, "SpriteRenderer.new unavailable for player pokemon")
+    return
+  end
   local ok, sprite = pcall(SpriteRenderer.new, {
     id = "SPRITE_PLAYER_POKEMON",
     image = path,
@@ -925,6 +1061,10 @@ function ControlEngine:applyPlayerAsPokemon(game, ow, force)
     trueColor = not resolved or resolved.trueColor ~= false,
     pokepcShiny = shiny and true or false,
   }, "player")
+  if not ok then
+    logWarn(self.mod, "SpriteRenderer.new failed (player pokemon): %s", tostring(sprite))
+    return
+  end
   if ok and sprite then
     player.sprite = sprite
     player._pokepcAsPokemon = true
@@ -997,21 +1137,73 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
   local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
   if not (NPC and NPC.new) then return nil end
 
-  local npc = NPC.new(game.data, ow.map.id, {
-    index = TRAILER_BASE + slot,
-    name = "WILDS_TRAILER_" .. tostring(slot),
-    sprite = Constants.SPRITE_ID,
-    movement = "STAY", range = "NONE", x = x, y = y,
-  })
+  local GameCompat = V.require("game_compat")
+  local gen2 = GameCompat.isGen2(self.mod, game)
+  local species = (kind ~= "trainer") and (mon and mon.species or "CHARMANDER") or "trainer"
+  logGen2(self.mod, "makeTrailer species=%s", tostring(species))
+
+  local resolved, trainerDef, surface
+  if kind == "trainer" then
+    trainerDef = self:_trainerWalkDef(game)
+    if not trainerDef and gen2 and ow and ow.player then
+      trainerDef = ow.player.spriteDef
+    end
+  else
+    surface = opts.surface or self:_trailSurface(ow, game) or "land"
+    resolved = self:resolveFollowerSprite({
+      species = species,
+      shiny = isShinyMon(mon),
+      form = mon and mon.form,
+      surface = surface,
+      role = "party_trailer",
+      game = game,
+    })
+  end
+  local spriteDef = trainerDef
+  if kind ~= "trainer" and resolved and resolved.image then
+    spriteDef = spriteDefWithGeometry(resolved, {
+      pokepcShiny = isShinyMon(mon) and true or false,
+    })
+  end
+
+  local npc
+  if gen2 then
+    if not (spriteDef and spriteDef.image) then
+      error("makeTrailer Gold spriteDef missing species=" .. tostring(species))
+    end
+    local err
+    npc, err = GameCompat.makeGuestNpc(game, ow, {
+      index = TRAILER_BASE + slot,
+      name = "WILDS_TRAILER_" .. tostring(slot),
+      spriteId = Constants.SPRITE_ID,
+      spriteDef = spriteDef,
+      x = x, y = y,
+    })
+    if not npc then
+      error("makeTrailer Gold NPC.new failed: " .. tostring(err))
+    end
+  else
+    npc = NPC.new(game.data, ow.map.id, {
+      index = TRAILER_BASE + slot,
+      name = "WILDS_TRAILER_" .. tostring(slot),
+      sprite = Constants.SPRITE_ID,
+      movement = "STAY", range = "NONE", x = x, y = y,
+    })
+  end
   -- Legacy occupancy/water compat + Wilds role markers.
   npc.pokepcTrailer = true
   npc.wildsFollower = true
   npc.wildsFollowerRole = (kind == "trainer") and "trainer_trailer" or "party_trailer"
   npc.pokepcTrailerKind = kind
   npc.pokepcTrailerId = kind .. ":" .. tostring(slot)
+  npc.wildsFollowerSlot = slot
   npc.pokepcMon = mon
   npc.passable = true
   npc.facing = facing or "down"
+  npc.overworldWildSpawn = false
+  npc.wildsBattleable = false
+  npc.wildsAggressive = false
+  npc.wildsEncounterEnabled = false
   -- Draw-order tiebreak: the engine y-sorts entities by py with a
   -- tie-break that only special-cases pikachuFollower (which trailers
   -- must NOT set — stock findFollower would remove them), so two
@@ -1035,7 +1227,7 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
 
   if kind == "trainer" then
     -- Walk sheets are DMG greyscale; trueColor would draw raw greys.
-    local def = self:_trainerWalkDef(game)
+    local def = trainerDef or self:_trainerWalkDef(game)
     if def and SpriteRenderer and SpriteRenderer.new then
       local ok, sprite = pcall(SpriteRenderer.new, {
         id = def.id or "SPRITE_RED",
@@ -1045,26 +1237,30 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
         source = def.source,
         paletteSource = def.paletteSource,
       }, npc.id)
-      if ok and sprite then npc.sprite = sprite end
+      if not ok then
+        logWarn(self.mod, "SpriteRenderer.new failed (trainer trailer): %s", tostring(sprite))
+      elseif sprite then
+        npc.sprite = sprite
+        if gen2 then npc.spriteDef = def end
+      end
     end
   else
-    local species = mon and mon.species or "CHARMANDER"
     local shiny = isShinyMon(mon)
     npc.pokepcShiny = shiny and true or false
-    local surface = opts.surface or self:_trailSurface(ow, game) or "land"
-    local resolved = self:resolveFollowerSprite({
-      species = species,
-      shiny = shiny,
-      form = mon and mon.form,
-      surface = surface,
-      role = "party_trailer",
-      game = game,
-    })
+    surface = surface or opts.surface or self:_trailSurface(ow, game) or "land"
     if resolved and resolved.image and SpriteRenderer and SpriteRenderer.new then
       local ok, sprite = pcall(SpriteRenderer.new, spriteDefWithGeometry(resolved, {
         pokepcShiny = npc.pokepcShiny,
       }), npc.id)
-      if ok and sprite then npc.sprite = sprite end
+      if not ok then
+        logWarn(self.mod, "SpriteRenderer.new failed (party trailer %s): %s",
+          tostring(species), tostring(sprite))
+        logGen2(self.mod, "SpriteRenderer.new failed species=%s err=%s",
+          tostring(species), tostring(sprite))
+      elseif sprite then
+        npc.sprite = sprite
+        if gen2 then npc.spriteDef = sprite.def or spriteDef end
+      end
     end
     npc._wildsFollowerSpecies = species
     npc.wildsFollowerWater = (surface == "water" or surface == "surfing")
@@ -1125,20 +1321,8 @@ local function behindOffset(facing, steps)
 end
 
 function ControlEngine:_playerSurfing(ow, game)
-  local player = ow and ow.player
-  if not player then return false end
-  if player.surfing == true or player.isSurfing == true then return true end
-  if player.surface == "water" or player.surface == "WATER" then return true end
-  if game and game.player and game.player.surfing == true then return true end
-  -- Last resort: the player's own cell is water (surf field flags vary across
-  -- engine builds). Trailers must get water surface semantics or they can
-  -- never step onto water cells and get dragged along via teleports.
-  if ow and ow.map and player.cellX ~= nil and player.cellY ~= nil
-     and type(ow.map.isWaterCell) == "function" then
-    local ok, water = pcall(ow.map.isWaterCell, ow.map, player.cellX, player.cellY)
-    if ok and water == true then return true end
-  end
-  return false
+  local GameCompat = V.require("game_compat")
+  return GameCompat.isSurfing(game, ow) == true
 end
 
 function ControlEngine:_trailSurface(ow, game)
@@ -1343,10 +1527,10 @@ function ControlEngine:_applyConnectionHandoff(ow)
   local dy = (player.cellY or 0) - (snapshot.playerY or 0)
   ow.npcs = ow.npcs or {}
   ow.entities = ow.entities or {}
+  local game = self:_game()
   for _, trailer in ipairs(snapshot.trailers) do
     translateTrailer(trailer, dx, dy)
-    addIdentity(ow.npcs, trailer)
-    addIdentity(ow.entities, trailer)
+    self:_attachTrailer(game, ow, trailer)
   end
   for _, cell in ipairs(snapshot.trailCells or {}) do
     cell.x, cell.y = cell.x + dx, cell.y + dy
@@ -1892,6 +2076,9 @@ function ControlEngine:syncTrailers(game, ow, opts)
     mapEnter = true
     ow._wildsFollowerTrailSurface = surface
   end
+  if dirty or mapEnter or opts.spawnAtPlayer or countChanged then
+    logGen2(self.mod, "wanted=%s", tostring(wantN))
+  end
 
   -- Yellow only: re-form the train behind the stock Pikachu when the pack
   -- has collapsed onto its cell mid-play.  This must NOT fire right after a
@@ -1991,10 +2178,10 @@ function ControlEngine:syncTrailers(game, ow, opts)
       end)
       if not okNpc or not npc then
         logWarn(self.mod, "trailer spawn failed slot %s: %s", tostring(i), tostring(npc))
+        logGen2(self.mod, "makeTrailer FAILED slot=%s err=%s", tostring(i), tostring(npc))
       else
         placeTrailerAt(npc, bx, by, facing)
-        table.insert(ow.npcs, npc)
-        table.insert(ow.entities, npc)
+        self:_attachTrailer(game, ow, npc)
         local slot = #trailers + 1
         trailers[slot] = npc
         goals[slot] = { x = bx, y = by }
@@ -2059,10 +2246,12 @@ function ControlEngine:syncTrailers(game, ow, opts)
         end)
         if okNpc and npc then
           placeTrailerAt(npc, bx, by, facing)
-          table.insert(ow.npcs, npc)
-          table.insert(ow.entities, npc)
+          self:_attachTrailer(game, ow, npc)
           kept[i] = npc
           keptGoals[i] = { x = bx, y = by }
+        else
+          logWarn(self.mod, "trailer spawn failed slot %s: %s", tostring(i), tostring(npc))
+          logGen2(self.mod, "makeTrailer FAILED slot=%s err=%s", tostring(i), tostring(npc))
         end
       end
       ow.pokepcTrailers = kept
@@ -2099,10 +2288,10 @@ function ControlEngine:syncTrailers(game, ow, opts)
         end)
         if not okNpc or not npc then
           logWarn(self.mod, "trailer spawn failed slot %s: %s", tostring(i), tostring(npc))
+          logGen2(self.mod, "makeTrailer FAILED slot=%s err=%s", tostring(i), tostring(npc))
         else
           placeTrailerAt(npc, bx, by, facing)
-          table.insert(ow.npcs, npc)
-          table.insert(ow.entities, npc)
+          self:_attachTrailer(game, ow, npc)
           local slot = #trailers + 1
           trailers[slot] = npc
           goals[slot] = { x = bx, y = by }
@@ -2400,6 +2589,9 @@ function ControlEngine:syncTrailers(game, ow, opts)
   else
     ow._wildsJamFrames = 0
   end
+  if dirty or mapEnter or opts.spawnAtPlayer or countChanged then
+    logGen2(self.mod, "activeTrailers=%s", tostring(#(ow.pokepcTrailers or {})))
+  end
   return true
 end
 
@@ -2657,7 +2849,7 @@ function ControlEngine:update(game, ow, opts)
   opts = opts or {}
   if self._inControlUpdate then return false, "reentrant" end
   game = game or self:_game()
-  ow = ow or (game and game.overworld)
+  ow = self:_liveOw(game, ow)
   -- Always run when a pending sync is queued (stepper menu changed the count
   -- while the world was paused).  Otherwise skip if trailers aren't needed.
   if not self._pendingMapTrailerSync
@@ -2800,14 +2992,16 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
           pcall(function() Config = V.require("config") end)
           local LuminanceSheet = nil
           pcall(function() LuminanceSheet = V.require("luminance_sheet") end)
-          -- Luminance-based shading: every non-ADVANCED mode derives the
-          -- 3-shade luminance sheet from the submerged art at load (cached
-          -- in the save dir) and serves it with trueColor=false, so the
-          -- engine's zone pass colors it out of the mode palette. ADVANCED
-          -- keeps the submerged colored (shiny/normal) sheet.
-          local redpp = Config and Config.paletteFxRedpp and Config.paletteFxRedpp()
+          -- Luminance-based shading: Gen1 non-ADVANCED derives a 3-shade
+          -- luminance sheet (trueColor=false). Gold keeps colored submerged
+          -- art with trueColor=true.
+          local useLuma = Config and Config.waterArtUsesLuminance
+            and Config.waterArtUsesLuminance(self.mod)
+          if useLuma == nil then
+            useLuma = not (Config and Config.paletteFxRedpp and Config.paletteFxRedpp())
+          end
           local tryVariants = {}
-          if not redpp then
+          if useLuma then
             tryVariants = { "normal" }
           elseif shiny then
             tryVariants = { "shiny", "normal" }
@@ -2831,7 +3025,7 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
                    and love.filesystem.getInfo(rel)) then
               local subPath = LuminanceSheet and LuminanceSheet.submergedFor(loadPath)
               if subPath then
-                local luma = (not redpp) and LuminanceSheet
+                local luma = useLuma and LuminanceSheet
                   and LuminanceSheet.pathFor(subPath) or nil
                 local image = luma or subPath
                 resolved = {
@@ -2962,7 +3156,7 @@ end
 
 function ControlEngine:syncAll(game, ow)
   game = game or self:_game()
-  ow = ow or (game and game.overworld)
+  ow = self:_liveOw(game, ow)
   if ow then pcall(function() self:removeTrailers(ow) end) end
   -- Never reorder the party here. Wilds designates the follower via save data
   -- (pokepcLeader / followerPartyIndex), not party order, so the Yellow
@@ -2971,62 +3165,92 @@ function ControlEngine:syncAll(game, ow)
   if (self:isPokemonFront(game) or self:followerCount(game) <= 0) and ow and ow.player then
     ow.player._pokepcControlSpecies = nil
   end
-  pcall(function() self:syncPlayerControlVisual(game, ow, true) end)
+  local okVis, errVis = pcall(function() self:syncPlayerControlVisual(game, ow, true) end)
+  if not okVis then
+    logWarn(self.mod, "syncPlayerControlVisual failed: %s", tostring(errVis))
+    logGen2(self.mod, "syncPlayerControlVisual failed: %s", tostring(errVis))
+  end
   pcall(function() self:forceYellowStockPikachuArt(ow, game) end)
-  pcall(function() self:syncTrailers(game, ow, { mapEnter = true, catchUp = true }) end)
+  local okSync, errSync = pcall(function()
+    self:syncTrailers(game, ow, { mapEnter = true, catchUp = true })
+  end)
+  if not okSync then
+    logWarn(self.mod, "syncAll/syncTrailers failed: %s", tostring(errSync))
+    logGen2(self.mod, "syncAll failed: %s", tostring(errSync))
+  end
 end
 
 function ControlEngine:_installTalkWrap()
   local OverworldState = tryRequire("src.world.OverworldController")
-  if not (OverworldState and OverworldState.interact) then return false end
-  if OverworldState._wildsControlEngineTalkWrap == OverworldState.interact then
-    return true
-  end
+  if not OverworldState then return false end
   if not self._interaction then
     local Interaction = V.require("follower/interaction")
     self._interaction = Interaction.new(self.mod, self.selection)
   end
   local engine = self
-  local origInteract = OverworldState.interact
-  local function talkWrap(owSelf, ...)
-    local p = owSelf.player
-    if p and type(p.facingCell) == "function"
-        and type(owSelf.npcAtCell) == "function" then
-      local Collision = tryRequire("src.world.Collision")
-      local PF = tryRequire("src.world.PikachuFollower")
-      local fx, fy = p:facingCell()
-      local npc = owSelf:npcAtCell(fx, fy)
-      if not npc and owSelf.map and owSelf.map.isCounterCell
-         and owSelf.map:isCounterCell(fx, fy) and Collision and Collision.target then
-        local fx2, fy2 = Collision.target(fx, fy, p.facing)
-        npc = owSelf:npcAtCell(fx2, fy2)
-      end
-      -- Wilds-owned Pokémon follower trailers are talkable in every version;
-      -- no Pikachu in the party is required.
-      if npc and npc.wildsFollower == true and npc.pokepcTrailer == true
-         and npc.pokepcTrailerKind ~= "trainer" and npc.pokepcMon then
-        local mon = npc.pokepcMon
-        -- Yellow Pikachu keeps vanilla talk (Pikachu-specific options).
-        if engine:_isYellow() and mon.species == "PIKACHU" then
-          if PF and PF.talk then
-            PF.talk(engine:_game(), owSelf, npc)
-          end
-          return
-        end
-        -- Any other follower: "X is following you!".
-        if engine._interaction and engine._interaction.showFollowMessage then
-          engine._interaction:showFollowMessage(engine:_game(), owSelf, npc, mon)
-        end
-        return
-      end
+  local function handleFollowerTalk(owSelf, npc)
+    if not (npc and npc.wildsFollower == true and npc.pokepcTrailer == true
+            and npc.pokepcTrailerKind ~= "trainer" and npc.pokepcMon) then
+      return false
     end
-    return origInteract(owSelf, ...)
+    local mon = npc.pokepcMon
+    -- Yellow Pikachu keeps vanilla talk (Pikachu-specific options).
+    if engine:_isYellow() and mon.species == "PIKACHU" then
+      local PF = tryRequire("src.world.PikachuFollower")
+      if PF and PF.talk then
+        PF.talk(engine:_game(), owSelf, npc)
+      end
+      return true
+    end
+    if engine._interaction and engine._interaction.showFollowMessage then
+      engine._interaction:showFollowMessage(engine:_game(), owSelf, npc, mon)
+    end
+    return true
   end
-  OverworldState.interact = talkWrap
-  OverworldState._wildsControlEngineTalkWrap = talkWrap
-  self._talkOrigInteract = origInteract
-  self._talkWrapped = true
-  return true
+
+  -- Gen1 OverworldController.interact uses facingCell / npcAtCell.
+  -- Gold interactWrapper falls through to interactBody when facingCell is
+  -- absent (Gold player has cellX/cellY/facing, not facingCell).
+  if type(OverworldState.interact) == "function"
+     and OverworldState._wildsControlEngineTalkWrap ~= OverworldState.interact then
+    local origInteract = OverworldState.interact
+    local function talkWrap(owSelf, ...)
+      local p = owSelf and owSelf.player
+      if p and type(p.facingCell) == "function"
+          and type(owSelf.npcAtCell) == "function" then
+        local Collision = tryRequire("src.world.Collision")
+        local fx, fy = p:facingCell()
+        local npc = owSelf:npcAtCell(fx, fy)
+        if not npc and owSelf.map and owSelf.map.isCounterCell
+           and owSelf.map:isCounterCell(fx, fy) and Collision and Collision.target then
+          local fx2, fy2 = Collision.target(fx, fy, p.facing)
+          npc = owSelf:npcAtCell(fx2, fy2)
+        end
+        if handleFollowerTalk(owSelf, npc) then return true end
+      end
+      return origInteract(owSelf, ...)
+    end
+    OverworldState.interact = talkWrap
+    OverworldState._wildsControlEngineTalkWrap = talkWrap
+    self._talkOrigInteract = origInteract
+    self._talkWrapped = true
+  end
+
+  -- Gold World:interactBody already resolved the facing NPC, then calls
+  -- talkTo(world, npc). A true return suppresses trainer/script dispatch.
+  if type(OverworldState.talkTo) == "function"
+     and OverworldState._wildsControlEngineTalkToWrap ~= OverworldState.talkTo then
+    local origTalkTo = OverworldState.talkTo
+    local function talkToWrap(owSelf, npc, ...)
+      if handleFollowerTalk(owSelf, npc) then return true end
+      return origTalkTo(owSelf, npc, ...)
+    end
+    OverworldState.talkTo = talkToWrap
+    OverworldState._wildsControlEngineTalkToWrap = talkToWrap
+    self._talkOrigTalkTo = origTalkTo
+    self._talkToWrapped = true
+  end
+  return self._talkWrapped == true or self._talkToWrapped == true
 end
 
 function ControlEngine:_restoreTalkWrap()
@@ -3038,13 +3262,29 @@ function ControlEngine:_restoreTalkWrap()
     OverworldState.interact = self._talkOrigInteract
     OverworldState._wildsControlEngineTalkWrap = nil
   end
+  if self._talkToWrapped and OverworldState._wildsControlEngineTalkToWrap
+     and OverworldState.talkTo == OverworldState._wildsControlEngineTalkToWrap
+     and self._talkOrigTalkTo then
+    OverworldState.talkTo = self._talkOrigTalkTo
+    OverworldState._wildsControlEngineTalkToWrap = nil
+  end
   self._talkWrapped = false
+  self._talkToWrapped = false
   self._talkOrigInteract = nil
+  self._talkOrigTalkTo = nil
 end
 
 --- Wrap OverworldController.update so trailer ticks are independent of
 -- PikachuFollower.shouldSpawn / stock follower presence.
 function ControlEngine:_installOverworldUpdateWrap()
+  -- Gold World:step is the Gen2 driver (owner = gen2_world_event).
+  -- OverworldController.update on Gold is a Gen2 facade whose defaultUpdate
+  -- is a no-op unless worldTick sees a replacement on THAT table. Wrapping
+  -- the real Gen1 OverworldController is a silent no-op on Gold.
+  local GameCompat = V.require("game_compat")
+  if GameCompat.isGen2(self.mod, self:_game()) then
+    return false
+  end
   local OverworldState = tryRequire("src.world.OverworldController")
   if not (OverworldState and type(OverworldState.update) == "function") then
     return false
@@ -3117,6 +3357,79 @@ function ControlEngine:_restoreOverworldUpdateWrap()
   self._owOrigUpdate = nil
 end
 
+--- Gold driver: wrap src.world.gen2.World.step (one tick per logic frame).
+-- world.stepped is public and generation-neutral but fires only when a tile
+-- step lands — not every World:step — so it cannot own trailer interpolation.
+-- Do not wrap World.update. Gen1 OverworldController.update is untouched.
+function ControlEngine:_installGen2WorldStepWrap()
+  local GameCompat = V.require("game_compat")
+  if not GameCompat.isGen2(self.mod, self:_game()) then
+    return false
+  end
+  local World = tryRequire("src.world.gen2.World")
+  if not (World and type(World.step) == "function") then
+    return false
+  end
+  if World._wildsControlEngineStepWrap == World.step then
+    self._gen2WorldStepWrapped = true
+    return true
+  end
+  local engine = self
+  local origStep = World.step
+  local function gen2StepWrap(worldSelf, ...)
+    local a, b, c, d, e = origStep(worldSelf, ...)
+    if engine._trailerUpdateOwner == "gen2_world_event" then
+      engine.diag.gen2WorldStepCalls = (engine.diag.gen2WorldStepCalls or 0) + 1
+      local game = (worldSelf and worldSelf.game) or engine:_game()
+      local ok, err = pcall(function()
+        engine:update(game, worldSelf, { source = "gen2_world_event" })
+      end)
+      if not ok then
+        logWarn(engine.mod, "[Wilds][Follower][Gen2] update failed: %s", tostring(err))
+        logGen2(engine.mod, "update failed: %s", tostring(err))
+      end
+    end
+    return a, b, c, d, e
+  end
+  World.step = gen2StepWrap
+  World._wildsControlEngineStepWrap = gen2StepWrap
+  self._gen2OrigStep = origStep
+  self._gen2WorldStepWrapped = true
+  logGen2(self.mod, "World.step wrapped as update-owner=gen2_world_event")
+  return true
+end
+
+--- Retry Gold World:step wrap after late World.lua load (map.entered / game.ready).
+function ControlEngine:_ensureGen2WorldStepWrap(game)
+  local GameCompat = V.require("game_compat")
+  if not GameCompat.isGen2(self.mod, game or self:_game()) then
+    return false
+  end
+  local was = self._gen2WorldStepWrapped == true
+  local ok = self:_installGen2WorldStepWrap()
+  if ok then
+    self._trailerUpdateOwner = "gen2_world_event"
+    if not was then
+      logGen2(self.mod, "update-owner=gen2_world_event")
+    end
+    return true
+  end
+  if not was then
+    logGen2(self.mod, "World.step wrap not installed yet (World may still be loading)")
+  end
+  return false
+end
+
+function ControlEngine:_restoreGen2WorldStepWrap()
+  local World = tryRequire("src.world.gen2.World")
+  if World and self._gen2OrigStep then
+    World.step = self._gen2OrigStep
+    World._wildsControlEngineStepWrap = nil
+  end
+  self._gen2WorldStepWrapped = false
+  self._gen2OrigStep = nil
+end
+
 --- Install mod event subscriptions (map.entered, game.ready, etc.).
 -- Called from install() before the PF check, so Red/Blue also gets events.
 function ControlEngine:_installEventSubscriptions()
@@ -3139,7 +3452,7 @@ function ControlEngine:_installEventSubscriptions()
     end)
   subscribe("map.exited", function(payload)
       local game = engine:_game()
-      local ow = game and game.overworld
+      local ow = engine:_liveOw(game)
       engine:_captureMapExit(game, ow, payload)
       -- Remove trailers from the overworld so they disappear during
       -- transitions (healing, warps, doors).  Connection handoffs
@@ -3149,7 +3462,10 @@ function ControlEngine:_installEventSubscriptions()
     end)
   subscribe("map.entered", function(payload)
       local game = engine:_game()
-      local ow = game and game.overworld
+      local ow = engine:_liveOw(game)
+      -- World.lua is often first required on overworld entry, after mod load
+      -- and sometimes after game.ready. Retry the Gold World:step wrap here.
+      pcall(function() engine:_ensureGen2WorldStepWrap(game) end)
       pcall(function() engine:syncPlayerControlVisual(game, ow) end)
       engine:_queueMapEntry(game, ow, payload)
       engine._pendingMapTrailerSync = true
@@ -3170,11 +3486,14 @@ function ControlEngine:_installEventSubscriptions()
       engine._pendingConnectionHandoff = nil
       engine:alignSaveFromOptions(game)
       pcall(function()
-        engine:syncPlayerControlVisual(game, game and game.overworld)
+        engine:syncPlayerControlVisual(game, engine:_liveOw(game))
       end)
       engine._pendingMapTrailerSync = true
       engine._pendingSpawnAtPlayer = true
       pcall(function() engine:_installTalkWrap() end)
+      -- World.lua may load after the first install attempt; re-assert Gold
+      -- World:step wrap now that the overworld exists.
+      pcall(function() engine:_ensureGen2WorldStepWrap(game) end)
     end)
 end
 
@@ -3185,10 +3504,12 @@ function ControlEngine:install()
     self:restore()
   end
 
-  -- Always install the OverworldController update wrap so trailers
-  -- tick in every version (Red / Blue / Yellow).  This must succeed
-  -- even when PikachuFollower is absent (Red / Blue).
+  -- Gen1: wrap OverworldController.update so trailers tick every frame
+  -- (Red / Blue / Yellow), even when PikachuFollower is absent.
+  -- Gen2: that wrap is skipped. Gold World:step is the per-logic-frame
+  -- analog (owner = gen2_world_event). world.stepped is per-tile-land.
   local owWrapOk = self:_installOverworldUpdateWrap()
+  local gen2WrapOk = self:_installGen2WorldStepWrap()
 
   -- Always install event subscriptions (map.entered, game.ready, etc.)
   -- regardless of PF availability.  Red/Blue needs these for the OW
@@ -3203,19 +3524,39 @@ function ControlEngine:install()
     -- lifecycle does NOT install its own hooks (which also need PF) —
     -- trailers are handled by the OW update wrap alone.
     if owWrapOk then
+      self._trailerUpdateOwner = "overworld"
       self._installed = true
       return true, "ow_only"
     end
+    if gen2WrapOk then
+      self._trailerUpdateOwner = "gen2_world_event"
+      logGen2(self.mod, "update-owner=gen2_world_event")
+      self._installed = true
+      return true, "gen2_world_only"
+    end
     return false, "no_engine"
   end
-
-  -- PF is available: set the trailer update owner (overworld or fallback).
-  self._trailerUpdateOwner = owWrapOk and "overworld" or "pikachu_follower"
 
   -- Hot-reload: restore any previous control-engine install first.
   local previous = rawget(PF, Constants.CONTROL_ENGINE_STATE_KEY)
   if previous and type(previous.restore) == "function" then
     pcall(previous.restore)
+    owWrapOk = self:_installOverworldUpdateWrap()
+    gen2WrapOk = self:_installGen2WorldStepWrap()
+  end
+
+  -- Owner is exclusive: Gen1 overworld, else Gold World:step, else PF fallback.
+  local GameCompat = V.require("game_compat")
+  if owWrapOk then
+    self._trailerUpdateOwner = "overworld"
+  elseif gen2WrapOk or GameCompat.isGen2(self.mod, self:_game()) then
+    self._trailerUpdateOwner = "gen2_world_event"
+    logGen2(self.mod, "update-owner=gen2_world_event")
+    if not gen2WrapOk then
+      logGen2(self.mod, "World.step wrap not installed yet (World may still be loading)")
+    end
+  else
+    self._trailerUpdateOwner = "pikachu_follower"
   end
 
   local engine = self
@@ -3246,9 +3587,16 @@ function ControlEngine:install()
     pcall(function() engine:forceYellowStockPikachuArt(ow, game) end)
     -- Fallback only: when OverworldController.update wrap is unavailable,
     -- keep trailers alive via this path (including while surfing).
-    if engine._trailerUpdateOwner ~= "overworld" then
+    -- Gold World:step wrap is the exclusive Gen2 owner — do not also tick
+    -- here or trailers double-update.
+    if engine._trailerUpdateOwner == "pikachu_follower" then
       pcall(function()
         engine:update(game, ow, { source = "pikachu_follower" })
+      end)
+    elseif engine._trailerUpdateOwner == "gen2_world_event"
+        and not engine._gen2WorldStepWrapped then
+      pcall(function()
+        engine:update(game, ow, { source = "gen2_world_event" })
       end)
     end
     return result
@@ -3300,8 +3648,12 @@ function ControlEngine:install()
   pcall(function() self:_installTalkWrap() end)
   -- Re-assert OW wrap after talk wrap / late loads.
   pcall(function() self:_installOverworldUpdateWrap() end)
+  pcall(function() self:_installGen2WorldStepWrap() end)
   if self._owUpdateWrapped then
     self._trailerUpdateOwner = "overworld"
+  elseif self._gen2WorldStepWrapped then
+    self._trailerUpdateOwner = "gen2_world_event"
+    logGen2(self.mod, "update-owner=gen2_world_event")
   end
 
   local restoreState = {
@@ -3345,6 +3697,7 @@ function ControlEngine:install()
     if engine._vanillaOrigStarterInParty then PF.starterInParty = engine._vanillaOrigStarterInParty end
     engine:_restoreTalkWrap()
     engine:_restoreOverworldUpdateWrap()
+    engine:_restoreGen2WorldStepWrap()
     engine._mapExitSnapshot = nil
     engine._pendingConnectionHandoff = nil
     engine._pendingSpawnAtPlayer = false
@@ -3414,6 +3767,7 @@ function ControlEngine:restore()
     pcall(self._restoreState.restore)
   end
   self:_restoreOverworldUpdateWrap()
+  self:_restoreGen2WorldStepWrap()
   self._installed = false
   self._restoreState = nil
   self._trailerUpdateOwner = nil

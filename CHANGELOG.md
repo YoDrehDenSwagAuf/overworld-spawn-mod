@@ -1,5 +1,56 @@
 # Changelog
 
+## Unreleased
+
+### Experimental Pokémon Gold wild encounters
+
+- Gold now shows visible overworld Wild Pokémon using the **shared** Wilds
+  entity / render / AI layer. Species, levels, and time-of-day groups come
+  from Gold's kind-first `data.gen2Encounters` tables via
+  `lib/gen2/encounters.lua` — not from Kanto tables and not from Pokédex
+  habitat data.
+- Gold HGSS / Poké Followers **water** Wilds were still monochrome after the
+  land color fix: Followers called `LuminanceSheet.pathFor` on the colored
+  `submergedFor` sheet whenever PaletteFX was not `redpp`, and HGSS swimming /
+  levitate packs used the same `not redpp` luma gate in `VariableSize.applyToDef`.
+  Gold `gbc` is not `redpp`, so SpriteRenderer baked DMG OBP. Gen2 water now
+  keeps colored RGBA (`trueColor = true`); foam/waterline stays. Enc Silhouette
+  / hidden silhouettes still black-out. Gen1 water luminance is unchanged.
+
+- Touching a visible wild starts a **normal Gold wild battle**
+  (`start_battle` / `wild` / species / level) exactly once. Overworld
+  Catching stays off.
+- Aggressive Wilds on Gold use the **Gold World emote contract**
+  (`{ image, entity, left }`). Writing the Gen1 `{ npc, frames, onDone }`
+  bubble onto Gold World was crashing in `World:update` when a spawned
+  Pokémon saw the player. The shared Behavior state machine is unchanged.
+- Curated Johto town Pokémon (`lib/gen2/town_pokemon.lua`) spawn as NPC-like
+  ambient guests (non-aggressive, no Pokédex, not encounter tables) on
+  New Bark, Cherrygrove, Violet, Azalea, Goldenrod, Ecruteak, Olivine,
+  Cianwood, Mahogany, and Blackthorn.
+- HGSS True Size / runtime sprite generation range extends to **251**.
+  Existing 1..151 geometry is unchanged.
+- Followers, catching, and Safari stay **off** on Gold.
+
+### Experimental Pokémon Gold foundation
+
+- Production `manifest.json` now targets **Gen 1 + Gen 2** via
+  `"games": ["gen1", "gen2"]` (Mod Manager label **Gen 1+2**). Legacy
+  `gen2compat` is not used. `game_version` stays `>=0.0.0-0 <2.0.0`.
+- `lib/game_compat/gen2.lua` is a real Gold adapter (`supported = true`)
+  for species, party, surf, map id, water cell, encounters, and town Pokémon.
+- Red / Blue / Yellow gameplay is unchanged (full Gen1 capabilities).
+
+### Internal multi-generation preparation
+
+- Added a small `lib/game_compat.lua` facade so shared Wilds code can ask
+  which generation is running and resolve species / party / surf / map id
+  through that layer. Follower species lookup uses `GameCompat.speciesId`.
+- Generation detection uses Gen1Recomp `GameVersion.get()` +
+  `GameVersion.generation(id)` when the engine module is present.
+- Gen1 True Size / diagnostic dex cap (`151`) is owned by `Gen1.MAX_SPECIES`.
+
+
 ## 2.0.2
 
 ### Voxel True Size — provider-scoped adapters

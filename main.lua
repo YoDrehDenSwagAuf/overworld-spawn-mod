@@ -49,6 +49,7 @@ return function(mod)
   end
 
   local Config = V.require("config")
+  local GameCompat = V.require("game_compat")
   local SpawnRender = V.require("spawn_render")
   local SpawnLogic = V.require("spawn_logic")
   local DebugHud = V.require("debug_hud")
@@ -59,6 +60,54 @@ return function(mod)
   local BehaviorTick = V.require("behavior_tick")
   local DebugLog = V.require("debug_log")
   local Diagnostics = V.require("diagnostics")
+
+  local function liveGame()
+    return mod.game or (mod.world and mod.world.game)
+  end
+
+  local function supports(feature)
+    return GameCompat.supportsFeature(feature, mod, liveGame()) == true
+  end
+
+  local goldFoundationLogged = false
+  local gen2EventOnce = {}
+  local function noteGoldFoundation()
+    if goldFoundationLogged then return end
+    goldFoundationLogged = true
+    pcall(function()
+      mod.log:info("[Wilds] Pokémon Gold: experimental Gen2 wild encounters and followers. Catching and Safari stay off.")
+    end)
+  end
+
+  local function logGen2Event(name, extra)
+    if not GameCompat.isGen2(mod, liveGame()) then return end
+    local key = name
+    if name == "world.stepped" then
+      if gen2EventOnce[key] then return end
+      gen2EventOnce[key] = true
+    end
+    local suffix = extra and (" " .. tostring(extra)) or ""
+    pcall(function()
+      mod.log:info("[Wilds][Gen2] %s%s", name, suffix)
+    end)
+  end
+
+  local unsupportedLogged = false
+  local function noteUnsupportedGeneration()
+    if unsupportedLogged then return end
+    unsupportedLogged = true
+    pcall(function()
+      mod.log:info("[Wilds] Unsupported game generation; Gen1 gameplay hooks disabled.")
+    end)
+  end
+
+  local function noteGameplaySkipped()
+    if GameCompat.isGen2(mod, liveGame()) and GameCompat.isSupported(mod, liveGame()) then
+      noteGoldFoundation()
+    else
+      noteUnsupportedGeneration()
+    end
+  end
 
   Config.defineOptions(mod)
   Config.migrateSpriteStyleOption(mod)
@@ -97,13 +146,22 @@ return function(mod)
   if not sprOk then
     DebugLog.warn(mod, "follower SPRITE_PIKACHU registration: %s", tostring(sprErr))
   end
-  follower:install({ game = mod.world and mod.world.game })
+  if supports("followers") then
+    follower:install({ game = liveGame() })
+  else
+    noteGameplaySkipped()
+  end
+  if GameCompat.isGen2(mod, liveGame()) then
+    noteGoldFoundation()
+  end
 
   local AmbientPokemon = V.require("ambient_pokemon")
   local ambient = AmbientPokemon.new(mod, {
     render = render, logic = logic, follower = follower,
   })
-  ambient:install()
+  if supports("ambient") then
+    ambient:install()
+  end
 
   local OverworldCatching = V.require("catching/init")
   local catching = OverworldCatching.new(mod, logic)
@@ -122,8 +180,15 @@ return function(mod)
   browser:register()
   spriteStyleMenu:register()
   -- settingsMenus:register() after handleOptionsChanged is wired below
-  behaviorTick:register()
-  catching:register()
+  if supports("encounters") then
+    behaviorTick:register()
+  end
+  if supports("catching") then
+    catching:register()
+  end
+  if not supports("encounters") then
+    noteGameplaySkipped()
+  end
   devOverlay:register()
 
   mod.log:info("overworld_wild_spawns loaded (enabled=%s overlay=%s debug=%s sprites=%d missing=%d)",
@@ -133,33 +198,49 @@ return function(mod)
                tonumber(render.registeredCount) or 0,
                tonumber(render.missingCount) or 0)
 
-  -- ------- events (always registered; logic no-ops when feature is off)
+  -- ------- events (always registered; logic no-ops when feature is off
+  -- or when the running game generation is unsupported)
 
   mod.events:on("map.entered", function(ev)
+    if not supports("encounters") then
+      noteGameplaySkipped()
+      return
+    end
+    logGen2Event("map.entered", ev and ev.mapId)
     local ok, err = pcall(logic.onMapEntered, logic, ev)
     if not ok then
       DebugLog.error(mod, "map.entered error: %s", tostring(err))
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("map.entered error")
     end
-    pcall(function() follower:onMapEntered(ev) end)
-    pcall(function() ambient:onMapEntered(ev) end)
+    if supports("followers") then
+      pcall(function() follower:onMapEntered(ev) end)
+    end
+    if supports("ambient") then
+      pcall(function() ambient:onMapEntered(ev) end)
+    end
     -- Re-assert selected sprite style after companion mods retarget wilds
     -- (Followers EX map.entered may run after ours depending on registration).
     render._pendingSpriteRefresh = true
   end)
 
   mod.events:on("map.exited", function(ev)
+    if not supports("encounters") then return end
     local ok, err = pcall(logic.onMapExited, logic, ev)
     if not ok then
       DebugLog.error(mod, "map.exited error: %s", tostring(err))
       logic:_restoreVanillaEncounters("map.exited error")
     end
-    pcall(function() ambient:onMapExited(ev) end)
-    pcall(function() catching:onMapExited(ev) end)
+    if supports("ambient") then
+      pcall(function() ambient:onMapExited(ev) end)
+    end
+    if supports("catching") then
+      pcall(function() catching:onMapExited(ev) end)
+    end
   end)
 
   mod.events:on("map.reloaded", function(ev)
+    if not supports("encounters") then return end
     local ok, err = pcall(logic.onMapReloaded, logic, ev)
     if not ok then
       DebugLog.error(mod, "map.reloaded error: %s", tostring(err))
@@ -168,15 +249,22 @@ return function(mod)
     end
     -- WIP merge: hide followers during the reload and re-sync them at the
     -- player once the map is live again (healing animation, etc.).
-    pcall(function() follower:onMapReloaded(ev) end)
+    if supports("followers") then
+      pcall(function() follower:onMapReloaded(ev) end)
+    end
   end)
 
   mod.events:on("world.stepped", function(ev)
+    if not supports("encounters") then return end
+    logGen2Event("world.stepped")
     local ok, err = pcall(logic.onStepped, logic, ev)
     if not ok then
       DebugLog.error(mod, "world.stepped error: %s", tostring(err))
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("world.stepped error")
+    end
+    if GameCompat.isGen2(mod, liveGame()) and behaviorTick then
+      pcall(function() behaviorTick:stepFromWorld(ev) end)
     end
     if render._pendingSpriteRefresh then
       render._pendingSpriteRefresh = false
@@ -188,24 +276,31 @@ return function(mod)
     -- Followers EX calls setOptionsChangedHandler mid-init; its hooks are
     -- installed AFTER our handler returns.  Defer the restore + reinstall
     -- to the first game step so all external mods have loaded.
-    pcall(function() follower:processPendingExternalModCleanup() end)
+    if supports("followers") then
+      pcall(function() follower:processPendingExternalModCleanup() end)
+    end
   end)
 
   mod.events:on("battle.ended", function()
+    if not supports("encounters") then return end
     logic:onBattleEnded()
   end)
 
   mod.events:on("save.loaded", function()
+    if not supports("encounters") then return end
     local ok, err = pcall(logic.onSaveLoaded, logic)
     if not ok then
       DebugLog.error(mod, "save.loaded error: %s", tostring(err))
       logic.state:markError(err)
       logic:_restoreVanillaEncounters("save.loaded error")
     end
-    pcall(function() follower:onSaveLoaded() end)
+    if supports("followers") then
+      pcall(function() follower:onSaveLoaded() end)
+    end
   end)
 
   mod.events:on("save.created", function()
+    if not supports("encounters") then return end
     logic:clearAll()
     logic.activeMapId = nil
     logic.stepsOnMap = 0
@@ -213,13 +308,19 @@ return function(mod)
   end)
 
   mod.events:on("game.ready", function()
+    logGen2Event("game.ready")
     hud:syncPipelineLevel()
     if devOverlay then devOverlay:syncPipelineLevel() end
     -- The engine's Pipelines.applyOptions restores pipeline levels from the
     -- save right after mods load, wiping our registered level back to OFF.
-    -- Re-assert the WILDS AI pipeline now that the world is live.
-    if behaviorTick then behaviorTick:syncPipelineLevel() end
-    if catching then catching:syncPipelineLevel() end
+    -- Re-assert Gen1 gameplay pipelines only when that generation is supported.
+    -- Catching / WILDS AI are not registered on unsupported generations.
+    if supports("encounters") and behaviorTick then
+      behaviorTick:syncPipelineLevel()
+    end
+    if supports("catching") and catching then
+      catching:syncPipelineLevel()
+    end
     Config.migrateSpriteStyleOption(mod)
     Config.migrateRandomEncountersOption(mod)
     Config.migrateWaterDisplayMode(mod)
@@ -228,14 +329,18 @@ return function(mod)
     Config.migrateSpriteFadeOption(mod)
     Config.migrateSpriteColorOption(mod)
     render:finalizeSpriteProviders(mod.world and mod.world.game)
-    pcall(function()
-      local game = mod.world and mod.world.game
-      follower:reassertAfterModsLoaded(game)
-      if not follower.lifecycle._installed
-         and follower.state.ownerMode ~= "external" then
-        follower.lifecycle:installHooks()
-      end
-    end)
+    if supports("followers") then
+      pcall(function()
+        local game = liveGame()
+        follower:reassertAfterModsLoaded(game)
+        if not follower.lifecycle._installed
+           and follower.state.ownerMode ~= "external" then
+          follower.lifecycle:installHooks()
+        end
+      end)
+    else
+      noteGameplaySkipped()
+    end
     if Config.devOverlay(mod) then
       local game = mod.world and mod.world.game
       if game then
@@ -271,7 +376,9 @@ return function(mod)
     Config.migrateSpriteStyleOption(mod)
     local game = mod.world and mod.world.game
     render:finalizeSpriteProviders(game)
-    pcall(function() follower:reassertAfterModsLoaded(game) end)
+    if supports("followers") then
+      pcall(function() follower:reassertAfterModsLoaded(game) end)
+    end
     -- True Size Flat grass: clip drawCellBottom to a feet band (Classic unchanged).
     pcall(function()
       (V.require("grass_occlusion")).installTileRendererWrap(mod)
@@ -309,6 +416,10 @@ return function(mod)
   logic:setRestoreVanilla(restoreVanillaEncounters)
 
   local function installHooks()
+    if not supports("encounters") then
+      noteGameplaySkipped()
+      return
+    end
     if unwraps.encounter or unwraps.collision then return end
 
     unwraps.encounter = mod.hooks:wrap("encounter.roll", function(next, encDef, ctx)
@@ -351,17 +462,27 @@ return function(mod)
   -- mods cannot forge that event, so OPTIONS menus call this handler directly
   -- after Config.setOption writes the same option buckets.
   local function handleOptionsChanged(payload)
-    local ok, err = pcall(logic.onOptionsChanged, logic, payload)
-    if not ok then
-      DebugLog.error(mod, "options_changed error: %s", tostring(err))
-      logic.state:markError(err)
-      logic:_restoreVanillaEncounters("options_changed error")
+    if supports("encounters") then
+      local ok, err = pcall(logic.onOptionsChanged, logic, payload)
+      if not ok then
+        DebugLog.error(mod, "options_changed error: %s", tostring(err))
+        logic.state:markError(err)
+        logic:_restoreVanillaEncounters("options_changed error")
+      end
     end
-    pcall(function() follower:onOptionsChanged(payload) end)
-    pcall(function() ambient:onOptionsChanged(payload) end)
-    pcall(function() catching:onOptionsChanged(payload) end)
+    if supports("followers") then
+      pcall(function() follower:onOptionsChanged(payload) end)
+    end
+    if supports("ambient") then
+      pcall(function() ambient:onOptionsChanged(payload) end)
+    end
+    if supports("catching") then
+      pcall(function() catching:onOptionsChanged(payload) end)
+    end
     if payload and payload.mod == mod.id and payload.key == "enabled" then
-      syncFeatureState()
+      if supports("encounters") then
+        syncFeatureState()
+      end
     end
   end
 
@@ -386,6 +507,10 @@ return function(mod)
   -- ------- exports (companion / debug / test surface)
 
   mod.exports.version = "2.0.1"
+  mod.exports.gameCompat = GameCompat
+  mod.exports.supportsFeature = function(feature)
+    return supports(feature)
+  end
   mod.exports.logic = logic
   mod.exports.render = render
   mod.exports.animated = render.animated

@@ -12,7 +12,16 @@ local AnimatedSprites = {}
 AnimatedSprites.__index = AnimatedSprites
 
 local CELL = Tile.CELL
-local MAX_SPECIES_GAME = 151
+-- Gameplay Gen1 National Dex cap for diagnostic slot materialization.
+-- Owned by the Gen1 adapter (currently 151). Do not raise this to 251 here.
+local function gen1MaxSpecies()
+  local ok, Gen1 = pcall(function() return V.require("game_compat/gen1") end)
+  if ok and Gen1 and type(Gen1.MAX_SPECIES) == "number" then
+    return Gen1.MAX_SPECIES
+  end
+  return 151
+end
+local MAX_SPECIES_GAME = gen1MaxSpecies()
 
 AnimatedSprites.MAPPING_REL =
   "assets/enhanced_overworld/followsprites_mapping/followsprites_mapping.json"

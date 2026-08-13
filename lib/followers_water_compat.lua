@@ -44,23 +44,17 @@ end
 
 local function playerInWater(player, game)
   if not player then return false end
-  if player.surfing == true or player.isSurfing == true then return true end
-  if player.surface == Surface.WATER or player.surface == "water" then
-    return true
+  local GameCompat = V.require("game_compat")
+  local ow = GameCompat.liveOverworld(nil, game)
+  if type(ow) ~= "table" then
+    ow = player.ow or (game and game.overworld)
   end
-  if game and game.player and game.player.surfing == true then
-    return true
+  if type(ow) ~= "table" then
+    ow = { player = player }
+  elseif ow.player ~= player then
+    ow = { player = player, map = ow.map }
   end
-  -- Last resort: the player's own cell is water (surf field flags vary across
-  -- engine builds). Keeps the follower water sprites in sync with movement.
-  local ow = player.ow or (game and game.overworld)
-  if ow and ow.map and player.cellX ~= nil and player.cellY ~= nil
-     and type(ow.map.isWaterCell) == "function" then
-    local ok, water = pcall(ow.map.isWaterCell, ow.map, player.cellX, player.cellY)
-    if ok and water == true then return true end
-  end
-  if player.surfing == false then return false end
-  return false
+  return GameCompat.isSurfing(game, ow) == true
 end
 
 local function monShiny(mon)

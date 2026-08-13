@@ -173,6 +173,13 @@ local function resolveDexId(speciesId, game, mod)
   if n and n >= 1 and math.floor(n) == n then
     return math.floor(n)
   end
+  local okGC, GameCompat = pcall(function() return V.require("game_compat") end)
+  if okGC and GameCompat and GameCompat.speciesId then
+    local ok, dex = pcall(GameCompat.speciesId, speciesId, game, mod)
+    if ok and type(dex) == "number" and dex >= 1 then
+      return math.floor(dex)
+    end
+  end
   return AnimatedSprites.resolveSpeciesId(speciesId, game, mod)
 end
 
@@ -828,18 +835,17 @@ function SpriteProviders:_makeFollowersExProvider()
     local wantShiny = normalizeVariant(variant) == "shiny"
 
     -- Built-in pack: dex → follower_%03d.png split into normal/ (colored)
-    -- and shiny/ (colored shiny) subdirs. Luminance-based shading: every
-    -- COLORS mode EXCEPT ADVANCED derives a 3-shade luminance sheet from the
-    -- colored art at load (cached in the save dir — no separate -grayscale
-    -- files) and serves it with trueColor = false, so the engine's own zone
-    -- pass colors it out of the mode palette; ADVANCED serves the colored
-    -- art raw.
+    -- and shiny/ (colored shiny) subdirs. Gen1 luminance-based shading:
+    -- every COLORS mode EXCEPT ADVANCED derives a 3-shade luminance sheet
+    -- and serves it with trueColor = false so the engine zone pass colors
+    -- it. Gold (Gen2) keeps the colored PNG with trueColor = true — Gold
+    -- has no PaletteFX zone shader, so luma+trueColor=false bakes DMG OBP.
     if owners:_builtinPokeFollowersReady() and dex then
       local imagePath, rel = nil, nil
       local usedVariant = wantShiny and "shiny" or "normal"
-      local redpp = Config.paletteFxRedpp and Config.paletteFxRedpp() or false
+      local useLuma = Config.landArtUsesLuminance and Config.landArtUsesLuminance(mod)
       local lumaServed = false
-      if not redpp then
+      if useLuma then
         local cPath, cRel = owners:_pokeFollowersPath(dex, render)
         if cPath then
           local luma = LuminanceSheet.pathFor(cPath)
@@ -986,11 +992,9 @@ function SpriteProviders:_makeFollowersExProvider()
   end
 
   -- Water extension (submerged sheets).  Naming is
-  -- follower_NNN_{variant}_submerged.png.  Luminance-based shading: every
-  -- non-ADVANCED mode derives the 3-shade luminance sheet from the colored
-  -- submerged art at load (cached in the save dir — no separate
-  -- -grayscale_submerged files) and serves it through the engine's zone
-  -- pass; ADVANCED keeps the colored (normal/shiny) art.
+  -- follower_NNN_{variant}_submerged.png.  Gen1 non-ADVANCED derives a
+  -- luminance sheet (trueColor=false). Gold keeps the colored submerged
+  -- PNG with trueColor=true.
   function provider:resolveWater(speciesId, variant, game)
     local okAvail, why = self:isAvailable(game)
     if not okAvail then
@@ -1000,9 +1004,11 @@ function SpriteProviders:_makeFollowersExProvider()
     if not dex then return nil, nil, "dex unresolved" end
 
     local redpp = Config.paletteFxRedpp and Config.paletteFxRedpp() or false
+    local useLuma = Config.waterArtUsesLuminance and Config.waterArtUsesLuminance(mod)
+    if useLuma == nil then useLuma = not redpp end
     local imagePath, rel, usedVariant = nil, nil, "normal"
     local lumaServed = false
-    if not redpp then
+    if useLuma then
       local cPath, cRel = owners:_pokeFollowersSubmergedPath(dex, render, "normal")
       local cExists = false
       if cPath and cRel then
@@ -1290,9 +1296,15 @@ function SpriteProviders:resolve(style, speciesId, variant, game)
           meta.fallbackStep = fallbackStep
           meta.providerMod = meta.providerMod or provider.modId
           meta.bodyRenderer = meta.bodyRenderer or "NATIVE_SPRITE_RENDERER"
-          -- Apply shared Sprite Color (PokéPC color_mode semantics).
-          if Config.spriteTrueColor then
-            def.trueColor = Config.spriteTrueColor(self.mod)
+          -- Gen1 PaletteFX: non-ADVANCED modes recolor luminance sheets.
+          -- Gold: never overwrite a colored provider def with redpp=false
+          -- (that is what made HGSS/Followers draw through DMG OBP).
+          if not Config.landArtUsesLuminance or Config.landArtUsesLuminance(self.mod) then
+            if Config.spriteTrueColor then
+              def.trueColor = Config.spriteTrueColor(self.mod)
+            end
+          elseif def.trueColor == nil then
+            def.trueColor = true
           end
           local result = {
             def = def,

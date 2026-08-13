@@ -215,8 +215,8 @@ end
 local keyLand = resolver:cacheKey(landEntity, {
   style = "pokemmo", speciesId = 54, variant = "normal", form = nil,
 }, "land")
-eq(keyLand, "54:normal:default:land:pokemmo:na:flat:none:na:color:classic",
-   "cache key includes style+surface+silhouette+size")
+eq(keyLand, "54:normal:default:land:pokemmo:na:flat:none:na:color:classic:1:na",
+   "cache key includes style+surface+silhouette+size+generation+color")
 local keyFollowers = resolver:cacheKey(landEntity, {
   style = "followers", speciesId = 54, variant = "normal", form = nil,
 }, "land")

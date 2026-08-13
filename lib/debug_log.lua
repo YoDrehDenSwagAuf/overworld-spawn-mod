@@ -34,6 +34,32 @@ function DebugLog.info(mod, fmt, ...)
   emit(mod, "INFO", fmt, ...)
 end
 
+local function emitFollowerGen2(mod, fmt, ...)
+  local okGC, GameCompat = pcall(function() return V.require("game_compat") end)
+  local game = mod and (mod.game or (mod.world and mod.world.game))
+  if not (okGC and GameCompat and GameCompat.isGen2(mod, game)) then return end
+  if not (mod and mod.log and type(mod.log.info) == "function") then return end
+  local msg = fmt
+  if select("#", ...) > 0 then
+    msg = string.format(fmt, ...)
+  end
+  pcall(function()
+    mod.log:info("[Wilds][Follower][Gen2] %s", msg)
+  end)
+end
+
+-- Gold follower trace. Exact prefix the Gold FOLLOW / trailer path expects.
+-- Never per-frame: callers must log on submenu / select / sync / trailer create.
+function DebugLog.followerGen2(mod, fmt, ...)
+  if not DebugLog.enabled(mod) then return end
+  emitFollowerGen2(mod, fmt, ...)
+end
+
+-- Always-on Gold follower lifecycle / failure logs (not per-frame).
+function DebugLog.followerGen2Always(mod, fmt, ...)
+  emitFollowerGen2(mod, fmt, ...)
+end
+
 function DebugLog.debug(mod, fmt, ...)
   if not DebugLog.enabled(mod) then return end
   emit(mod, "DEBUG", fmt, ...)

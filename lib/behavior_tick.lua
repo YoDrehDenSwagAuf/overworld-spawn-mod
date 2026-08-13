@@ -14,6 +14,7 @@ local WaterSpawn = V.require("water_spawn")
 local SafariCompat = V.require("safari_compat")
 local Grass = V.require("grass")
 local PaletteWatch = V.require("palette_watch")
+local GameCompat = V.require("game_compat")
 
 local BehaviorTick = {}
 BehaviorTick.__index = BehaviorTick
@@ -25,6 +26,51 @@ local function now()
     return love.timer.getTime()
   end
   return os.clock()
+end
+
+-- Shared Behavior.tick. On Gold, wrap in pcall so a chase primitive error
+-- is logged with coordinates instead of taking down the overworld. The
+-- high-level state machine stays in lib/behavior.lua.
+local function tickBehavior(mod, entity, ctx, record, ow)
+  if not GameCompat.isGen2(mod) then
+    return Behavior.tick(entity, ctx)
+  end
+  local ok, eventOrErr = pcall(Behavior.tick, entity, ctx)
+  local bx = entity and entity.behaviorState
+  local state = bx and bx.state
+  if state and entity._wildsAggroLogState ~= state then
+    entity._wildsAggroLogState = state
+    local player = ow and ow.player
+    GameCompat.logGoldAggro(mod, {
+      species = (record and record.species) or (entity and entity.species),
+      state = state,
+      entityX = entity and entity.cellX,
+      entityY = entity and entity.cellY,
+      playerX = player and player.cellX,
+      playerY = player and player.cellY,
+      mapId = ow and ow.map and ow.map.id,
+      surface = entity and entity.surface,
+      op = (state == Behavior.STATE.CHASING or state == Behavior.STATE.CHASE_START)
+        and "stepToward" or "Behavior.tick",
+    })
+  end
+  if not ok then
+    local player = ow and ow.player
+    GameCompat.logGoldAggroError(mod, {
+      op = "Behavior.tick",
+      err = eventOrErr,
+      mapId = ow and ow.map and ow.map.id,
+      species = (record and record.species) or (entity and entity.species),
+      entityX = entity and entity.cellX,
+      entityY = entity and entity.cellY,
+      playerX = player and player.cellX,
+      playerY = player and player.cellY,
+      surface = entity and entity.surface,
+      state = state,
+    })
+    return nil
+  end
+  return eventOrErr
 end
 
 function BehaviorTick.new(mod, logic)
@@ -120,8 +166,10 @@ function BehaviorTick:step(ctx)
   self._lastT = t
 
   local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = GameCompat.liveOverworld(self.mod, world and world.game)
   if not ow or not ow.map or not ow.player then return end
+
+  GameCompat.pollWildAlertEmote(ow)
 
   -- PaletteFX COLORS mode watcher: on an ADVANCED <-> non-ADVANCED flip,
   -- re-resolve sprite art so the colored/-grayscale switch lands without a
@@ -307,7 +355,7 @@ function BehaviorTick:step(ctx)
         -- Spawn pop in progress: no wander/chase planning.
         -- Contact during an in-progress chase step still needs the busy branch.
         if bx and (bx.chasing or bx.state == Behavior.STATE.CHASING) then
-          local event = Behavior.tick(entity, behaviorCtx(0, entity))
+          local event = tickBehavior(self.mod, entity, behaviorCtx(0, entity), record, ow)
           if event == "contact" or event == "battle_pending" then
             if SpawnFx.canBattle(entity) and not entity.caveScenery then
               logic:_startBattle(record)
@@ -319,13 +367,13 @@ function BehaviorTick:step(ctx)
         if bx and (bx.state == Behavior.STATE.ALERT
                    or bx.state == Behavior.STATE.PLAYER_NOTICED)
            and Behavior.isSafariFlee(bx.behavior) then
-          local event = Behavior.tick(entity, behaviorCtx(0, entity))
+          local event = tickBehavior(self.mod, entity, behaviorCtx(0, entity), record, ow)
           if event == "alert" then
             logic:_onAggressiveAlert(entity, record)
           end
         end
       else
-        local event = Behavior.tick(entity, behaviorCtx(alreadyMoved and 0 or dt, entity))
+        local event = tickBehavior(self.mod, entity, behaviorCtx(alreadyMoved and 0 or dt, entity), record, ow)
         if event == "alert" then
           logic:_onAggressiveAlert(entity, record)
         elseif event == "entered_water" then
@@ -390,13 +438,23 @@ function BehaviorTick:drawFx(canvas, ctx)
   if Config.get(self.mod, "enable_grass_movement_effects") == false then return end
   local logic = self.logic
   local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = GameCompat.liveOverworld(self.mod, world and world.game)
   if not ow or not ow.map then return end
 
   if logic.spawnFx then
     logic.spawnFx:drawPresent(canvas, ctx, ow)
     logic.spawnFx:drawWaterSplashes(canvas, ctx, ow, logic.entities)
   end
+end
+
+-- Gold present pipelines should tick AI every frame. If present is skipped,
+-- world.stepped still drives the same BehaviorTick (no second AI).
+function BehaviorTick:stepFromWorld(ctx)
+  local t = now()
+  if (t - (self._lastT or 0)) < 0.04 then
+    return
+  end
+  self:step(ctx)
 end
 
 return BehaviorTick

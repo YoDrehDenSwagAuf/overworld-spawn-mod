@@ -446,7 +446,8 @@ do
   posedHop.stepFrames, posedHop.progress = 16, 8
   posedHop.targetX, posedHop.targetY = 4, 8
   local _, _, hopPoseY, _, _, _, poseIsHopping = posedHop:pose()
-  eq(hopPoseY, 86, "TC-5 hop pose reaches a ten-pixel midpoint arc")
+  check(math.abs((hopPoseY or 0) - 86) < 0.01,
+        "TC-5 hop pose reaches a ten-pixel midpoint arc")
   check(poseIsHopping == true, "TC-5 hop pose marks the follower as hopping")
   package.loaded["src.world.NPC"] = previousNPC
 

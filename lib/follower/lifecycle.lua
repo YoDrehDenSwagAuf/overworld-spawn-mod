@@ -372,7 +372,10 @@ function Lifecycle:installPartySubmenu()
       onSelected = function(selected, slot, g)
         lifecycle:requestFollowerSpriteRefresh("party_select", {
           game = g,
-          ow = g and g.overworld,
+          ow = (function()
+            local GameCompat = V.require("game_compat")
+            return GameCompat.liveOverworld(mod, g)
+          end)(),
           mon = selected,
           slot = slot,
         })

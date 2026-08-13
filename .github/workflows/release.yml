@@ -84,7 +84,13 @@ jobs:
             tests/water_sprites_unit_test.lua \
             tests/cave_reachability_mixed_unit_test.lua \
             tests/settings_cave_water_overlay_unit_test.lua \
-            tests/random_enc_unit_test.lua
+            tests/random_enc_unit_test.lua \
+            tests/game_compat_unit_test.lua \
+            tests/gen2_encounters_unit_test.lua \
+            tests/gen2_wilds_unit_test.lua \
+            tests/true_size_gen2_geometry_unit_test.lua \
+            tests/manifest_targets_unit_test.lua \
+            tests/gold_boot_unit_test.lua
           do
             echo "==> luajit $t"
             luajit "$t"

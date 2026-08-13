@@ -314,15 +314,19 @@ end
 
 function SettingsMenus:_applyFollowerCount(game, value)
   local n = tonumber(value) or 1
-  if self.mod.options and self.mod.options.set then
-    self.mod.options:set("follower_count", n)
-  end
+  -- Config.setOption is the canonical writer (Gen1Recomp has no
+  -- mod.options:set). Do not call control:setFollowerCount here — that would
+  -- bypass the shared handleOptionsChanged path. Cache/save mirrors below
+  -- are best-effort until onOptionsChanged runs.
   if self.follower and self.follower.control then
     local ctrl = self.follower.control
-    ctrl:setFollowerCount(game, n)
+    ctrl._optCache = ctrl._optCache or {}
     ctrl._optCache.follower_count = n
     if game and game.save then game.save.pokepcFollowerCount = n end
-    local ctrlGame = ctrl:_game()
+    local ctrlGame
+    if type(ctrl._game) == "function" then
+      ctrlGame = ctrl:_game()
+    end
     if ctrlGame and ctrlGame ~= game and ctrlGame.save then
       ctrlGame.save.pokepcFollowerCount = n
     end
@@ -681,16 +685,125 @@ function SettingsMenus:_openWildsRoot(game)
   return menus:_makeStepperMenu(game, SettingsMenus.LABEL_WILDS, items, mod)
 end
 
+function SettingsMenus:_hasOptionsLabel(items, label)
+  if type(items) ~= "table" or not label then return false end
+  local lower = string.lower(label)
+  for _, it in ipairs(items) do
+    if it and (it.label == label or it.id == lower or it.id == label) then
+      return true
+    end
+  end
+  return false
+end
+
+-- OPTIONS injection is generation-neutral. Gold has no MODS row (MODS is on
+-- START), so a missing-MODS insertBefore would append AFTER CANCEL and the
+-- rows would look like they never appeared. Anchor on CANCEL in that case.
+function SettingsMenus:_insertOptionsRow(out, row)
+  local mod = self.mod
+  if mod.ui and type(mod.ui.insertBefore) == "function" then
+    if self:_hasOptionsLabel(out, "MODS") then
+      return mod.ui.insertBefore(out, "MODS", row) or out
+    end
+    if self:_hasOptionsLabel(out, "CANCEL") then
+      return mod.ui.insertBefore(out, "CANCEL", row) or out
+    end
+  end
+  out[#out + 1] = row
+  return out
+end
+
+function SettingsMenus:_wrapOptionsRows()
+  if self._optionsWrapped then return end
+  local mod = self.mod
+  local menus = self
+  if not (mod.hooks and mod.hooks.wrap) then return end
+  self._optionsWrapped = true
+
+  mod.hooks:wrap("ui.options.rows", function(next, game, rows)
+    local out = next(game, rows)
+    if type(out) ~= "table" then return out end
+    local goldLayout = not menus:_hasOptionsLabel(out, "MODS")
+
+    -- Gold OPTIONS is a label:value screen. Direct toggles stay usable even
+    -- if ListMenu submenus are unavailable. Gen1 keeps OPEN-only rows.
+    if goldLayout then
+      out = menus:_insertOptionsRow(out, {
+        id = "overworld_wild_spawns:enabled",
+        label = "SHOW WILD MONS",
+        text = function()
+          return optGet(mod, "enabled", true) ~= false and "ON" or "OFF"
+        end,
+        value = function()
+          return optGet(mod, "enabled", true) ~= false and "ON" or "OFF"
+        end,
+        cycle = function(_, _delta, g)
+          local cur = optGet(mod, "enabled", true) ~= false
+          menus:_setOption("enabled", not cur, g or game)
+        end,
+        step = function(g)
+          local cur = optGet(mod, "enabled", true) ~= false
+          menus:_setOption("enabled", not cur, g or game)
+        end,
+      })
+      out = menus:_insertOptionsRow(out, {
+        id = "overworld_wild_spawns:random",
+        label = "RANDOM ENC",
+        text = function()
+          return Config.randomEncountersEnabled(mod) and "ON" or "OFF"
+        end,
+        value = function()
+          return Config.randomEncountersEnabled(mod) and "ON" or "OFF"
+        end,
+        cycle = function(_, _delta, g)
+          local cur = Config.randomEncountersEnabled(mod)
+          menus:_setOption("random_encounters", not cur, g or game)
+        end,
+        step = function(g)
+          local cur = Config.randomEncountersEnabled(mod)
+          menus:_setOption("random_encounters", not cur, g or game)
+        end,
+      })
+    end
+
+    local function addOpen(label, screen, id)
+      out = menus:_insertOptionsRow(out, {
+        id = id,
+        label = label,
+        text = function() return "OPEN" end,
+        value = function() return "OPEN" end,
+        activate = function(g)
+          if mod.ui and mod.ui.push then
+            mod.ui.push(g, screen)
+          end
+        end,
+      })
+    end
+    addOpen(SettingsMenus.OPTIONS_LABEL_FOLLOWERS, SettingsMenus.SCREEN_FOLLOWERS,
+            "overworld_wild_spawns:followers_ex_open")
+    addOpen(SettingsMenus.OPTIONS_LABEL_WILDS, SettingsMenus.SCREEN_WILDS,
+            "overworld_wild_spawns:wilds_open")
+    return out
+  end)
+end
+
 function SettingsMenus:register()
   if self._registered then return end
   local mod = self.mod
   local menus = self
 
+  -- OPTIONS rows are not a Gen1 gameplay feature. Always inject them, even
+  -- when ListMenu / screens are missing (Gold still draws row.text / activate).
+  self:_wrapOptionsRows()
+
   if not (mod.content and mod.content.screens and mod.content.screens.register) then
+    DebugLog.warn(mod, "settings submenus skipped: screens unavailable; OPTIONS rows still registered")
+    self._registered = true
     return
   end
   if not (mod.ui and mod.ui.ListMenu and mod.ui.ListMenu.new) then
-    DebugLog.warn(mod, "settings menus skipped: ListMenu unavailable")
+    DebugLog.warn(mod, "settings submenus skipped: ListMenu unavailable; OPTIONS rows still registered")
+    self._registered = true
     return
   end
 
@@ -923,36 +1036,6 @@ function SettingsMenus:register()
       end)
     end,
   })
-
-  -- START → OPTIONS only (no top-level START entries).
-  if mod.hooks and mod.hooks.wrap then
-    mod.hooks:wrap("ui.options.rows", function(next, game, rows)
-      local out = next(game, rows)
-      if type(out) ~= "table" then return out end
-      local function add(label, screen, id)
-        local row = {
-          id = id,
-          label = label,
-          value = function() return "OPEN" end,
-          activate = function(g)
-            if mod.ui and mod.ui.push then
-              mod.ui.push(g, screen)
-            end
-          end,
-        }
-        if mod.ui and type(mod.ui.insertBefore) == "function" then
-          out = mod.ui.insertBefore(out, "MODS", row) or out
-        else
-          out[#out + 1] = row
-        end
-      end
-      add(SettingsMenus.OPTIONS_LABEL_FOLLOWERS, SettingsMenus.SCREEN_FOLLOWERS,
-          "overworld_wild_spawns:followers_ex_open")
-      add(SettingsMenus.OPTIONS_LABEL_WILDS, SettingsMenus.SCREEN_WILDS,
-          "overworld_wild_spawns:wilds_open")
-      return out
-    end)
-  end
 
   self._registered = true
   if Config.debug(mod) then

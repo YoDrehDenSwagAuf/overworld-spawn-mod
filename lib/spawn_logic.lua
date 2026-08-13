@@ -26,6 +26,7 @@ local CellOccupancy = V.require("cell_occupancy")
 local FollowersWaterCompat = V.require("followers_water_compat")
 local CaveReachability = V.require("cave_reachability")
 local SafariCompat = V.require("safari_compat")
+local GameCompat = V.require("game_compat")
 
 local SpawnLogic = {}
 SpawnLogic.__index = SpawnLogic
@@ -120,11 +121,14 @@ function SpawnLogic.new(mod, render)
   return self
 end
 
+function SpawnLogic:_ow(game)
+  return GameCompat.liveOverworld(self.mod, game or gameOf(self.mod))
+end
+
 function SpawnLogic:rebuildOccupancy(ow)
   local occupancy = self.occupancy or CellOccupancy.new()
   self.occupancy = occupancy
-  ow = ow or (self.mod.world and self.mod.world.overworld
-              and self.mod.world:overworld())
+  ow = ow or self:_ow()
   occupancy:rebuild({
     player = ow and ow.player,
     entities = ow and ow.entities,
@@ -136,8 +140,7 @@ function SpawnLogic:rebuildOccupancy(ow)
 end
 
 function SpawnLogic:occupancyContext(ow)
-  ow = ow or (self.mod.world and self.mod.world.overworld
-              and self.mod.world:overworld())
+  ow = ow or self:_ow()
   return {
     player = ow and ow.player,
     entities = ow and ow.entities,
@@ -224,11 +227,14 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
     end
     if not dexId then return nil end
     -- Derive the submerged look from the normal coloured poke_followers
-    -- sheet at load — no separate _submerged.png files.  Luminance-based
-    -- shading: every non-ADVANCED mode then derives the 3-shade luminance
-    -- sheet from the submerged art; ADVANCED keeps the submerged coloured.
-    local redpp = Config and Config.paletteFxRedpp and Config.paletteFxRedpp()
-    if not redpp then
+    -- sheet at load — no separate _submerged.png files.  Gen1 non-ADVANCED
+    -- then derives a luminance sheet; Gold keeps the colored submerged art.
+    local useLuma = Config and Config.waterArtUsesLuminance
+      and Config.waterArtUsesLuminance(self.mod)
+    if useLuma == nil then
+      useLuma = not (Config and Config.paletteFxRedpp and Config.paletteFxRedpp())
+    end
+    if useLuma then
       local rel = string.format(
         "assets/enhanced_overworld/poke_followers/follower_%03d_normal.png",
         dexId)
@@ -465,8 +471,7 @@ end
 -- Land / cave remain gated solely by Random Enc (+ Safari).
 function SpawnLogic:shouldSuppressClassicEncounter(ctx)
   local game = gameOf(self.mod)
-  local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = GameCompat.liveOverworld(self.mod, game)
   local mapId = (ctx and ctx.mapId) or (ow and ow.map and ow.map.id) or self.activeMapId
   if SafariCompat.shouldSuppressClassicEncounters(game, ow, mapId) then
     return true
@@ -487,8 +492,7 @@ end
 
 function SpawnLogic:_safariStatus(game, ow, mapId)
   game = game or gameOf(self.mod)
-  local world = self.mod.world
-  ow = ow or (world and world.overworld and world:overworld())
+  ow = ow or self:_ow(game)
   mapId = mapId or (ow and ow.map and ow.map.id) or self.activeMapId
   return SafariCompat.status(game, ow, mapId)
 end
@@ -527,10 +531,12 @@ end
 
 function SpawnLogic:_encDef(mapId, game)
   game = game or gameOf(self.mod)
-  if not game or not game.data then return nil end
-  local encounters = game.data.encounters
-  if type(encounters) ~= "table" then return nil end
-  return encounters[mapId]
+  -- Adapter-owned. Gen2 never falls back to Gen1 map-first tables.
+  local ow = self:_ow(game)
+  return GameCompat.encountersForMap(game, mapId, {
+    world = (game and game.world) or ow,
+    mod = self.mod,
+  })
 end
 
 function SpawnLogic:_clearMap(mapId)
@@ -618,8 +624,7 @@ end
 function SpawnLogic:_onAggressiveAlert(entity, record)
   if not entity or not record then return end
   if record.state ~= Config.STATE.AVAILABLE then return end
-  local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = self:_ow()
   if not ow then return end
   local bx = entity.behaviorState
   if not bx then return end
@@ -651,20 +656,34 @@ function SpawnLogic:_onAggressiveAlert(entity, record)
 
   -- Engine emotion bubble (same path as trainers). NOT a wild/Voxel entity.
   -- No species, no collision, no spawn slot — only npc.px/py for anchoring.
+  -- Gen1 OverworldController: { npc, frames, onDone }.
+  -- Gold World: { image, entity, left } — writing the Gen1 shape crashes
+  -- World:update (`emote.left = emote.left - 1` on nil).
   local frames = safariFlee and (SafariCompat.ALERT_FRAMES or 24) or 60
-  ow.emote = {
-    npc = entity,
-    frames = frames,
-    onDone = function()
-      if safariFlee then
-        Behavior.markFleeReady(entity)
-      else
-        -- Clear emote ownership first; then arm chase exactly once.
-        Behavior.markChaseReady(entity)
-      end
-    end,
-  }
+  local shown = GameCompat.showWildAlertEmote(ow, entity, frames, function()
+    if safariFlee then
+      Behavior.markFleeReady(entity)
+    else
+      Behavior.markChaseReady(entity)
+    end
+  end, gameOf(self.mod))
+  if not shown then
+    bx.alertEmoteSpawned = false
+    return
+  end
   entity.alertIcon = true
+  local player = ow.player
+  GameCompat.logGoldAggro(self.mod, {
+    species = record.species,
+    state = tostring(bx.state or "ALERT"),
+    entityX = entity.cellX or record.x,
+    entityY = entity.cellY or record.y,
+    playerX = player and player.cellX,
+    playerY = player and player.cellY,
+    mapId = ow.map and ow.map.id,
+    surface = entity.surface,
+    op = "showWildAlertEmote",
+  })
   self:_log("%s alert id=%s species=%s at (%d,%d)",
             safariFlee and "safari flee" or "aggressive",
             tostring(entity.id or record.id),
@@ -673,18 +692,9 @@ end
 
 function SpawnLogic:_detachFromWorld(entity)
   if not entity then return end
-  local world = self.mod.world
-  if not world or not world.overworld then return end
-  local ow = world:overworld()
+  local ow = self:_ow()
   if not ow then return end
-  for _, listName in ipairs({ "entities", "npcs" }) do
-    local list = ow[listName]
-    if list then
-      for i = #list, 1, -1 do
-        if list[i] == entity then table.remove(list, i) end
-      end
-    end
-  end
+  GameCompat.detachWildEntity(ow, entity)
   entity.registeredInWorld = false
   entity.registered2D = false
   if self.voxel then self.voxel:unregister(entity) end
@@ -714,11 +724,8 @@ function SpawnLogic:_despawn(id, removeEntity)
     end
     if self.voxel then self.voxel:unregister(entity) end
     -- Clear emote if we own it (exactly once).
-    local world = self.mod.world
-    local ow = world and world.overworld and world:overworld()
-    if ow and ow.emote and ow.emote.npc == entity then
-      ow.emote = nil
-    end
+    local ow = self:_ow()
+    GameCompat.clearWildAlertEmote(ow, entity)
     if removeEntity ~= false then
       self:_removeEntity(entity)
     end
@@ -828,7 +835,7 @@ function SpawnLogic:applyCaveSpawnMode(mode, source)
     self.caveSceneryCache = {}
   end
   local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = self:_ow()
   if ow and ow.map and self.state and self.state.initialized then
     self:onMapEntered({ mapId = ow.map.id, map = ow.map })
   end
@@ -915,12 +922,11 @@ function SpawnLogic:_rebuildWaterSpawnData(game, mapId, encDef)
   encDef = encDef or self:_encDef(mapId, game)
   self.waterPool = WaterSpawn.buildPool(game, mapId, encDef)
   self.shoreDistance = WaterSpawn.buildShoreDistance(
-    (self.mod.world and self.mod.world.overworld and self.mod.world:overworld()
-     and self.mod.world:overworld().map),
+    (self:_ow(game) and self:_ow(game).map),
     self.waterCache)
   -- Prefer map from overworld when available.
   local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = self:_ow()
   if ow and ow.map then
     self.shoreDistance = WaterSpawn.buildShoreDistance(ow.map, self.waterCache)
   end
@@ -973,9 +979,8 @@ function SpawnLogic:_computeWaterTarget(waterCells)
 end
 
 function SpawnLogic:_attach(entity)
-  local world = self.mod.world
-  if not world or not world.overworld then return false, "no world" end
-  local ow = world:overworld()
+  local game = gameOf(self.mod)
+  local ow = self:_ow(game)
   if not ow then return false, "no overworld" end
 
   -- Hidden markers / unrevealed / spawn-FX-hidden bodies must NEVER join
@@ -996,21 +1001,13 @@ function SpawnLogic:_attach(entity)
     return false, "voxel-unsafe entity: " .. tostring(why)
   end
 
-  ow.entities = ow.entities or {}
-  -- Stable id: never re-insert under a new identity.
-  for _, e in ipairs(ow.entities) do
-    if e == entity or (e.id and entity.id and e.id == entity.id) then
-      entity.registeredInWorld = true
-      entity.registered2D = true
-      if self.voxel then self.voxel:updateEntity(entity) end
-      return true
-    end
-  end
-  table.insert(ow.entities, entity)
-  entity.registeredInWorld = self.render:isEntityRegistered(ow, entity)
+  local container = GameCompat.attachWildEntity(ow, entity, game)
+  entity.worldRegistration = container
+  entity.registeredInWorld = GameCompat.entityInDrawList(ow, entity, game)
+    or self.render:isEntityRegistered(ow, entity)
   entity.registered2D = entity.registeredInWorld
   if not entity.registeredInWorld then
-    return false, "entity not in ow.entities after insert"
+    return false, "entity not in world draw list after insert"
   end
   if self.voxel then self.voxel:updateEntity(entity) end
   return true
@@ -1023,8 +1020,9 @@ end
 function SpawnLogic:entityRegisteredInWorld(id)
   local entity = self.entities[id]
   if not entity then return false end
-  local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local game = gameOf(self.mod)
+  local ow = self:_ow(game)
+  if GameCompat.entityInDrawList(ow, entity, game) then return true end
   return self.render:isEntityRegistered(ow, entity)
 end
 
@@ -1062,6 +1060,41 @@ function SpawnLogic:_logMapDiagnostics(mapId, game, encDef)
             tostring(st.pokedexOwnedDiag))
 end
 
+function SpawnLogic:_logGoldRuntime(mapId, game, encDef)
+  if not GameCompat.isGen2(self.mod, game) then return end
+  local ow = self:_ow(game)
+  local Enc = nil
+  pcall(function() Enc = V.require("gen2/encounters") end)
+  local tod = Enc and Enc.timeOfDay(game, { world = (game and game.world) or ow }) or "?"
+  local grassSlots = 0
+  if encDef and encDef.grass and type(encDef.grass.slots) == "table" then
+    grassSlots = #encDef.grass.slots
+  end
+  local source = (encDef and encDef._source)
+    or (self.state and self.state.encounterSource) or "none"
+  local firstSpecies = encDef and encDef.grass and encDef.grass.slots
+    and encDef.grass.slots[1] and encDef.grass.slots[1].species
+  GameCompat.logGoldRuntime(self.mod, {
+    generation = 2,
+    gameVersion = GameCompat.gameVersion(game) or "gold",
+    worldType = (ow and ow.playerState ~= nil and "game.world") or "overworld",
+    mapId = mapId,
+    encounterSource = source,
+    grassSlots = grassSlots,
+    timeOfDay = tod,
+    wildsEnabled = Config.isEnabled(self.mod),
+    randomEnc = Config.randomEncountersEnabled(self.mod),
+    activeWilds = self:countVisibleOnMap(mapId),
+    entityContainer = GameCompat.isGen2(self.mod, game) and "npcs+entities" or "entities",
+  })
+  if firstSpecies then
+    pcall(function()
+      self.mod.log:info("[Wilds][Gen2] map=%s firstSlot=%s pokedexGate=never",
+        tostring(mapId), tostring(firstSpecies))
+    end)
+  end
+end
+
 -- Full map init in the required order. Vanilla suppression is NOT enabled
 -- until this completes with pipelineVerified.
 function SpawnLogic:initializeForMap(mapId, game)
@@ -1087,11 +1120,11 @@ function SpawnLogic:initializeForMap(mapId, game)
   st.pokedexOwnedDiag = pokedexOwnedForDiag(game)
 
   -- 2) Map-ID and map name
-  local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = self:_ow(game)
   if not ow or not ow.map or not ow.player then
     st:markError("overworld not loaded")
     self:_restoreVanillaEncounters("no overworld")
+    self:_logGoldRuntime(mapId, game, nil)
     return false
   end
   if ow.map.id ~= mapId then
@@ -1136,6 +1169,7 @@ function SpawnLogic:initializeForMap(mapId, game)
     self:_log("map %s unsupported surface (%s); vanilla left intact",
               mapId, tostring(surfaceInfo.reason))
     self:_logMapDiagnostics(mapId, game, encDef)
+    self:_logGoldRuntime(mapId, game, encDef)
     if self.hud then self.hud:markMapEnter() end
     self:_restoreVanillaEncounters("no encounter data")
     return false
@@ -1168,7 +1202,8 @@ function SpawnLogic:initializeForMap(mapId, game)
 
   local kind = surfaceInfo.encounterKind
   st.encounterDataAvailable = true
-  st.encounterSource = "game.data.encounters." .. tostring(mapId) .. "." .. kind
+  st.encounterSource = (encDef and encDef._source)
+    or ("game.data.encounters." .. tostring(mapId) .. "." .. kind)
   st.encounterEntryCount = EncounterPick.slotCount(encDef, kind)
   local speciesNames = EncounterPick.uniqueSpecies(encDef, kind)
   st.uniqueSpecies = speciesNames
@@ -1467,6 +1502,7 @@ function SpawnLogic:initializeForMap(mapId, game)
   st.phase = "idle"
   st:clearError()
   self:_logMapDiagnostics(mapId, game, encDef)
+  self:_logGoldRuntime(mapId, game, encDef)
   self:_log("Spawn system: READY target=%d active=%d water=%d",
             self.targetSpawnCount, self:countVisibleOnMap(mapId),
             waterSpawned)
@@ -1488,11 +1524,7 @@ function SpawnLogic:trySpawn(game, opts)
     return nil, "paused after error: " .. tostring(st.lastError)
   end
 
-  local world = self.mod.world
-  if not world or not world.overworld then
-    return nil, "no world"
-  end
-  local ow = world:overworld()
+  local ow = self:_ow(game)
   if not ow or not ow.map or not ow.player then
     return nil, "no overworld"
   end
@@ -1654,7 +1686,13 @@ function SpawnLogic:trySpawn(game, opts)
     species = opts.species
     level = opts.level or 5
   else
-    local pick = EncounterPick.pick(encDef, nil, encounterKind)
+    local pick = GameCompat.pickEncounter(game, mapId, encounterKind, {
+      world = game and game.world,
+      encDef = encDef,
+    })
+    if not pick then
+      pick = EncounterPick.pick(encDef, nil, encounterKind)
+    end
     if not pick then
       occupancy:releaseSpawn(spawnToken)
       st:noteReject("rejected: no encounter data")
@@ -1837,11 +1875,7 @@ function SpawnLogic:trySpawnWater(game, opts)
     pcall(function() self.render:ensureStyleOwnedMakeEntity(game) end)
   end
 
-  local world = self.mod.world
-  if not world or not world.overworld then
-    return nil, "no world"
-  end
-  local ow = world:overworld()
+  local ow = self:_ow(game)
   if not ow or not ow.map or not ow.player then
     return nil, "no overworld"
   end
@@ -2088,7 +2122,7 @@ function SpawnLogic:_trimVisibleToTarget()
   if not mapId then return 0 end
   local target = self.targetSpawnCount or 0
   local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = self:_ow()
   local player = ow and ow.player
   local candidates = {}
   for _, id in ipairs(self.byMap[mapId] or {}) do
@@ -2125,7 +2159,7 @@ function SpawnLogic:applySpawnAmount(value, source)
     return
   end
   local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = self:_ow()
   if not (ow and ow.map) then return end
   local mapSpan = math.max(ow.map.widthCells or 0, ow.map.heightCells or 0)
   self.targetSpawnCount = SpawnRegions.targetCount({
@@ -2205,7 +2239,7 @@ function SpawnLogic:applyWaterMons(on, source, mode)
     return
   end
   local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = self:_ow()
   if not (ow and ow.map) then return end
   local encDef = self:_encDef(self.activeMapId, game)
   self.waterCache = Grass.waterCells(ow.map)
@@ -2276,7 +2310,7 @@ function SpawnLogic:testSpawn(species, opts)
 
   -- Snapshot player position to prove we never move it.
   local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = self:_ow()
   local px = ow and ow.player and ow.player.cellX
   local py = ow and ow.player and ow.player.cellY
   local pokedexBefore = game.save and game.save.pokedex
@@ -2484,7 +2518,8 @@ function SpawnLogic:testSpawn(species, opts)
 end
 
 function SpawnLogic:onMapEntered(ev)
-  local mapId = ev.mapId
+  ev = ev or {}
+  local mapId = ev.mapId or (ev.map and ev.map.id)
   if self.activeMapId and self.activeMapId ~= mapId then
     self:_clearMap(self.activeMapId)
   end
@@ -2567,9 +2602,7 @@ function SpawnLogic:onSaveLoaded()
   self.activeMapId = nil
   self.stepsOnMap = 0
   if self.browser then self.browser:invalidateIndex() end
-  local world = self.mod.world
-  if not world or not world.overworld then return end
-  local ow = world:overworld()
+  local ow = self:_ow()
   if ow and ow.map and ow.map.id then
     self:onMapEntered({ mapId = ow.map.id, map = ow.map })
   end
@@ -2581,8 +2614,7 @@ function SpawnLogic:onOptionsChanged(payload)
   if key == "enabled" and payload.value == false then
     self:clearAll()
   elseif key == "enabled" and payload.value == true then
-    local world = self.mod.world
-    local ow = world and world.overworld and world:overworld()
+    local ow = self:_ow()
     if ow and ow.map and ow.map.id then
       self:onMapEntered({ mapId = ow.map.id, map = ow.map })
     end
@@ -2682,7 +2714,7 @@ function SpawnLogic:onOptionsChanged(payload)
     if self.followersWater and self.followersWater.invalidateStyle then
       pcall(function()
         self.followersWater:invalidateStyle()
-        local ow = world and world.overworld and world:overworld()
+        local ow = self:_ow()
         self.followersWater:tick(game, ow, function(speciesId, shiny, form, opts)
           return self:resolveWaterSprite(speciesId, shiny, form, opts)
         end)
@@ -2732,8 +2764,7 @@ function SpawnLogic:_startBattle(record)
   if self.pendingBattle then return false end
 
   local world = self.mod.world
-  if not world or not world.overworld then return false end
-  local ow = world:overworld()
+  local ow = self:_ow()
   if not ow then return false end
   if ow.runner and ow.runner.isRunning and ow.runner:isRunning() then
     return false
@@ -2803,9 +2834,7 @@ function SpawnLogic:_startBattle(record)
   }
 
   -- Clear our emotion bubble if we own it.
-  if ow.emote and entity and ow.emote.npc == entity then
-    ow.emote = nil
-  end
+  GameCompat.clearWildAlertEmote(ow, entity)
 
   self:_despawn(record.id, true)
   self:_recountRegions()
@@ -2834,9 +2863,7 @@ function SpawnLogic:_startBattle(record)
     return true
   end
 
-  ok, err = world:queueScript({
-    { "start_battle", "wild", record.species, record.level },
-  })
+  ok, err = GameCompat.startWildBattle(world, record.species, record.level, game)
   if not ok then
     self:_warn("could not queue wild battle: %s", tostring(err))
     self.pendingBattle = nil
@@ -2918,7 +2945,7 @@ function SpawnLogic:_pollTrueSizeEffectiveMode()
   if self.followersWater and self.followersWater.invalidateStyle then
     pcall(function()
       self.followersWater:invalidateStyle()
-      local ow = world and world.overworld and world:overworld()
+      local ow = self:_ow()
       self.followersWater:tick(game, ow, function(speciesId, shiny, form, opts)
         return self:resolveWaterSprite(speciesId, shiny, form, opts)
       end)
@@ -2954,8 +2981,7 @@ function SpawnLogic:onStepped(ev)
   if not ev or not ev.mapId then return end
   if self.activeMapId ~= ev.mapId then return end
 
-  local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = self:_ow()
 
   if not self:featureActive() then
     if self:countOnMap(ev.mapId) > 0 then self:_clearMap(ev.mapId) end
@@ -3036,7 +3062,7 @@ end
 function SpawnLogic:_logDiag()
   local st = self.state
   local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = self:_ow()
   local px = ow and ow.player and ow.player.cellX
   local py = ow and ow.player and ow.player.cellY
   local game = gameOf(self.mod)
@@ -3060,7 +3086,7 @@ function SpawnLogic:onCollision(allowed, ctx)
   if not self:featureActive() then return allowed end
   if not ctx or ctx.reason ~= "entity" then return allowed end
   local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = self:_ow()
   if not ow or not ow.player or ctx.mover ~= ow.player then return allowed end
 
   -- Ambient Town Pokémon: normal NPC collision only — never a wild battle.

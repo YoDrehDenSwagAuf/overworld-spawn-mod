@@ -100,14 +100,36 @@ function SpeciesGeometry.clearCache()
   _loadError = nil
 end
 
-function SpeciesGeometry.normalizeDex(speciesId)
+local _cachedMaxSpecies
+local function activeMaxSpecies(game)
+  local ok, GameCompat = pcall(function() return V.require("game_compat") end)
+  if ok and GameCompat and GameCompat.current then
+    local adapter = GameCompat.current(nil, game)
+    if adapter and type(adapter.MAX_SPECIES) == "number" then
+      return adapter.MAX_SPECIES
+    end
+  end
+  if _cachedMaxSpecies then return _cachedMaxSpecies end
+  local ok1, Gen1 = pcall(function() return V.require("game_compat/gen1") end)
+  if ok1 and Gen1 and type(Gen1.MAX_SPECIES) == "number" then
+    _cachedMaxSpecies = Gen1.MAX_SPECIES
+  else
+    _cachedMaxSpecies = 151
+  end
+  return _cachedMaxSpecies
+end
+
+function SpeciesGeometry.normalizeDex(speciesId, game)
+  -- Cap comes from the active generation adapter (Gen1=151, Gen2=251).
+  -- Shared generated tables may contain 1..251; Gen1 never reads past 151.
   local n = tonumber(speciesId)
-  if n and n >= 1 and n <= 151 then return math.floor(n) end
+  if not (n and n >= 1 and math.floor(n) == n) then return nil end
+  if n <= activeMaxSpecies(game) then return math.floor(n) end
   return nil
 end
 
-function SpeciesGeometry.entryFor(speciesId, mod)
-  local dex = SpeciesGeometry.normalizeDex(speciesId)
+function SpeciesGeometry.entryFor(speciesId, mod, game)
+  local dex = SpeciesGeometry.normalizeDex(speciesId, game)
   if not dex then return nil, nil end
   local t = SpeciesGeometry.load(mod)
   return t[dex], dex

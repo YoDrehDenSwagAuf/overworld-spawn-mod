@@ -8475,5 +8475,6405 @@
     "landReferenceVisibleWidth": 11,
     "landReferenceVisibleHeight": 16,
     "landReferenceVisibleArea": 143
+  },
+  "152": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 22,
+        "frameHeight": 28,
+        "anchorX": 11.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 21,
+        "frameHeight": 20,
+        "anchorX": 10.5,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 13,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 148
+  },
+  "153": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 23,
+    "nativeVisualHeight": 27,
+    "scaledVisualWidth": 23,
+    "scaledVisualHeight": 27,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 27,
+        "frameHeight": 31,
+        "anchorX": 13.5,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 31,
+        "frameHeight": 31,
+        "anchorX": 15.5,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 30,
+        "anchorX": 12.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 31,
+        "frameHeight": 26,
+        "anchorX": 15.5,
+        "anchorY": 24.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 27,
+        "frameHeight": 31,
+        "anchorX": 13.5,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 241
+  },
+  "154": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 25,
+    "nativeVisualHeight": 29,
+    "scaledVisualWidth": 25,
+    "scaledVisualHeight": 29,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 29,
+        "frameHeight": 33,
+        "anchorX": 14.5,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 33,
+        "frameHeight": 33,
+        "anchorX": 16.5,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 32,
+        "anchorX": 12.5,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 35,
+        "frameHeight": 28,
+        "anchorX": 17.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 29,
+        "frameHeight": 33,
+        "anchorX": 14.5,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 27,
+    "landReferenceVisibleArea": 318
+  },
+  "155": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 31,
+        "frameHeight": 28,
+        "anchorX": 15.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 27,
+        "frameHeight": 21,
+        "anchorX": 13.5,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 192
+  },
+  "156": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 26,
+    "nativeVisualHeight": 28,
+    "scaledVisualWidth": 26,
+    "scaledVisualHeight": 28,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 30,
+        "frameHeight": 32,
+        "anchorX": 15.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 32,
+        "frameHeight": 32,
+        "anchorX": 16.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 27,
+        "frameHeight": 32,
+        "anchorX": 13.5,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 35,
+        "frameHeight": 27,
+        "anchorX": 17.5,
+        "anchorY": 25.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 30,
+        "frameHeight": 32,
+        "anchorX": 15.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 279
+  },
+  "157": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 29,
+    "nativeVisualHeight": 28,
+    "scaledVisualWidth": 29,
+    "scaledVisualHeight": 28,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 33,
+        "frameHeight": 32,
+        "anchorX": 16.5,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 32,
+        "frameHeight": 32,
+        "anchorX": 16.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 29,
+        "frameHeight": 31,
+        "anchorX": 14.5,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 38,
+        "frameHeight": 27,
+        "anchorX": 19.0,
+        "anchorY": 25.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 33,
+        "frameHeight": 32,
+        "anchorX": 16.5,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 25,
+    "landReferenceVisibleHeight": 25,
+    "landReferenceVisibleArea": 367
+  },
+  "158": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 28,
+        "anchorX": 15.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 26,
+        "frameHeight": 19,
+        "anchorX": 13.0,
+        "anchorY": 17.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 14,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 171
+  },
+  "159": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 24,
+    "nativeVisualHeight": 27,
+    "scaledVisualWidth": 24,
+    "scaledVisualHeight": 27,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 28,
+        "frameHeight": 31,
+        "anchorX": 14.0,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 31,
+        "frameHeight": 31,
+        "anchorX": 15.5,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 30,
+        "anchorX": 12.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 30,
+        "frameHeight": 27,
+        "anchorX": 15.0,
+        "anchorY": 25.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 28,
+        "frameHeight": 31,
+        "anchorX": 14.0,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 266
+  },
+  "160": {
+    "sizing": "native",
+    "class": "XL",
+    "heightM": 1.0,
+    "nativeVisualWidth": 28,
+    "nativeVisualHeight": 30,
+    "scaledVisualWidth": 28,
+    "scaledVisualHeight": 30,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 32,
+        "frameHeight": 34,
+        "anchorX": 16.0,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 34,
+        "frameHeight": 34,
+        "anchorX": 17.0,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 29,
+        "frameHeight": 33,
+        "anchorX": 14.5,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 37,
+        "frameHeight": 29,
+        "anchorX": 18.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 32,
+        "frameHeight": 34,
+        "anchorX": 16.0,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 25,
+    "landReferenceVisibleHeight": 27,
+    "landReferenceVisibleArea": 386
+  },
+  "161": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 23,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 23,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 28,
+        "anchorX": 15.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 29,
+        "frameHeight": 19,
+        "anchorX": 14.5,
+        "anchorY": 17.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 13,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 160
+  },
+  "162": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 26,
+    "nativeVisualHeight": 28,
+    "scaledVisualWidth": 26,
+    "scaledVisualHeight": 28,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 30,
+        "frameHeight": 32,
+        "anchorX": 15.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 32,
+        "frameHeight": 32,
+        "anchorX": 16.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 32,
+        "anchorX": 12.5,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 34,
+        "frameHeight": 26,
+        "anchorX": 17.0,
+        "anchorY": 24.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 30,
+        "frameHeight": 32,
+        "anchorX": 15.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 265
+  },
+  "163": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 28,
+        "anchorX": 15.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 27,
+        "frameHeight": 21,
+        "anchorX": 13.5,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 214
+  },
+  "164": {
+    "sizing": "native",
+    "class": "XL",
+    "heightM": 1.0,
+    "nativeVisualWidth": 30,
+    "nativeVisualHeight": 30,
+    "scaledVisualWidth": 30,
+    "scaledVisualHeight": 30,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 34,
+        "frameHeight": 34,
+        "anchorX": 17.0,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 32,
+        "frameHeight": 34,
+        "anchorX": 16.0,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 33,
+        "frameHeight": 33,
+        "anchorX": 16.5,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 34,
+        "frameHeight": 34,
+        "anchorX": 17.0,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 35,
+        "frameHeight": 26,
+        "anchorX": 17.5,
+        "anchorY": 24.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 29,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 392
+  },
+  "165": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 29,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 29,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 33,
+        "frameHeight": 28,
+        "anchorX": 16.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 34,
+        "frameHeight": 28,
+        "anchorX": 17.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 33,
+        "frameHeight": 28,
+        "anchorX": 16.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 33,
+        "frameHeight": 28,
+        "anchorX": 16.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 36,
+        "frameHeight": 22,
+        "anchorX": 18.0,
+        "anchorY": 20.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 25,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 315
+  },
+  "166": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 27,
+    "nativeVisualHeight": 26,
+    "scaledVisualWidth": 27,
+    "scaledVisualHeight": 26,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 31,
+        "frameHeight": 30,
+        "anchorX": 15.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 34,
+        "frameHeight": 30,
+        "anchorX": 17.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 33,
+        "frameHeight": 30,
+        "anchorX": 16.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 31,
+        "frameHeight": 30,
+        "anchorX": 15.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 36,
+        "frameHeight": 25,
+        "anchorX": 18.0,
+        "anchorY": 23.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 350
+  },
+  "167": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 22,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 22,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 34,
+        "frameHeight": 28,
+        "anchorX": 17.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 34,
+        "frameHeight": 18,
+        "anchorX": 17.0,
+        "anchorY": 16.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 15,
+    "landReferenceVisibleArea": 198
+  },
+  "168": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 30,
+    "nativeVisualHeight": 26,
+    "scaledVisualWidth": 30,
+    "scaledVisualHeight": 26,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 34,
+        "frameHeight": 30,
+        "anchorX": 17.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 34,
+        "frameHeight": 30,
+        "anchorX": 17.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 33,
+        "frameHeight": 29,
+        "anchorX": 16.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 43,
+        "frameHeight": 26,
+        "anchorX": 21.5,
+        "anchorY": 24.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 34,
+        "frameHeight": 30,
+        "anchorX": 17.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 345
+  },
+  "169": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 29,
+    "nativeVisualHeight": 29,
+    "scaledVisualWidth": 29,
+    "scaledVisualHeight": 29,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 33,
+        "frameHeight": 33,
+        "anchorX": 16.5,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 33,
+        "frameHeight": 33,
+        "anchorX": 16.5,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 33,
+        "frameHeight": 32,
+        "anchorX": 16.5,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 33,
+        "frameHeight": 33,
+        "anchorX": 16.5,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 37,
+        "frameHeight": 25,
+        "anchorX": 18.5,
+        "anchorY": 23.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 29,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 303
+  },
+  "170": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 25,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 25,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 29,
+        "frameHeight": 28,
+        "anchorX": 14.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 39,
+        "frameHeight": 28,
+        "anchorX": 19.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 37,
+        "frameHeight": 16,
+        "anchorX": 18.5,
+        "anchorY": 14.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 29,
+        "frameHeight": 28,
+        "anchorX": 14.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 14,
+    "landReferenceVisibleArea": 164
+  },
+  "171": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 28,
+    "nativeVisualHeight": 28,
+    "scaledVisualWidth": 28,
+    "scaledVisualHeight": 28,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 32,
+        "frameHeight": 32,
+        "anchorX": 16.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 32,
+        "frameHeight": 32,
+        "anchorX": 16.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 28,
+        "frameHeight": 32,
+        "anchorX": 14.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 37,
+        "frameHeight": 26,
+        "anchorX": 18.5,
+        "anchorY": 24.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 32,
+        "frameHeight": 32,
+        "anchorX": 16.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 24,
+    "landReferenceVisibleHeight": 25,
+    "landReferenceVisibleArea": 277
+  },
+  "172": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 28,
+        "anchorX": 15.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 21,
+        "frameHeight": 17,
+        "anchorX": 10.5,
+        "anchorY": 15.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 15,
+    "landReferenceVisibleArea": 157
+  },
+  "173": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 31,
+        "frameHeight": 28,
+        "anchorX": 15.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 25,
+        "frameHeight": 16,
+        "anchorX": 12.5,
+        "anchorY": 14.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 14,
+    "landReferenceVisibleArea": 144
+  },
+  "174": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 28,
+        "anchorX": 15.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 21,
+        "frameHeight": 18,
+        "anchorX": 10.5,
+        "anchorY": 16.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 152
+  },
+  "175": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 20,
+        "frameHeight": 19,
+        "anchorX": 10.0,
+        "anchorY": 17.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 14,
+    "landReferenceVisibleHeight": 15,
+    "landReferenceVisibleArea": 163
+  },
+  "176": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 26,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 26,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 30,
+        "anchorX": 12.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 27,
+        "frameHeight": 30,
+        "anchorX": 13.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 29,
+        "anchorX": 12.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 31,
+        "frameHeight": 24,
+        "anchorX": 15.5,
+        "anchorY": 22.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 30,
+        "anchorX": 12.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 241
+  },
+  "177": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 26,
+        "frameHeight": 18,
+        "anchorX": 13.0,
+        "anchorY": 16.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 14,
+    "landReferenceVisibleArea": 136
+  },
+  "178": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 22,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 22,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 29,
+        "frameHeight": 23,
+        "anchorX": 14.5,
+        "anchorY": 21.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 263
+  },
+  "179": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 28,
+        "frameHeight": 20,
+        "anchorX": 14.0,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 231
+  },
+  "180": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 24,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 24,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 34,
+        "frameHeight": 23,
+        "anchorX": 17.0,
+        "anchorY": 21.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 238
+  },
+  "181": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 24,
+    "nativeVisualHeight": 26,
+    "scaledVisualWidth": 24,
+    "scaledVisualHeight": 26,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 28,
+        "frameHeight": 30,
+        "anchorX": 14.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 30,
+        "anchorX": 15.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 29,
+        "anchorX": 12.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 34,
+        "frameHeight": 24,
+        "anchorX": 17.0,
+        "anchorY": 22.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 28,
+        "frameHeight": 30,
+        "anchorX": 14.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 247
+  },
+  "182": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 21,
+        "frameHeight": 20,
+        "anchorX": 10.5,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 214
+  },
+  "183": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 28,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 28,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 32,
+        "frameHeight": 28,
+        "anchorX": 16.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 31,
+        "frameHeight": 28,
+        "anchorX": 15.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 40,
+        "frameHeight": 18,
+        "anchorX": 20.0,
+        "anchorY": 16.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 32,
+        "frameHeight": 28,
+        "anchorX": 16.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 14,
+    "landReferenceVisibleArea": 195
+  },
+  "184": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 28,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 28,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 32,
+        "frameHeight": 28,
+        "anchorX": 16.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 35,
+        "frameHeight": 21,
+        "anchorX": 17.5,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 32,
+        "frameHeight": 28,
+        "anchorX": 16.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 222
+  },
+  "185": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 23,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 23,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 30,
+        "frameHeight": 22,
+        "anchorX": 15.0,
+        "anchorY": 20.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 243
+  },
+  "186": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 27,
+        "frameHeight": 24,
+        "anchorX": 13.5,
+        "anchorY": 22.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 242
+  },
+  "187": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 28,
+        "anchorX": 15.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 24,
+        "frameHeight": 20,
+        "anchorX": 12.0,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 169
+  },
+  "188": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 34,
+        "frameHeight": 28,
+        "anchorX": 17.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 28,
+        "frameHeight": 19,
+        "anchorX": 14.0,
+        "anchorY": 17.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 15,
+    "landReferenceVisibleArea": 186
+  },
+  "189": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 23,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 23,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 31,
+        "frameHeight": 28,
+        "anchorX": 15.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 29,
+        "frameHeight": 21,
+        "anchorX": 14.5,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 242
+  },
+  "190": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 25,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 25,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 29,
+        "frameHeight": 28,
+        "anchorX": 14.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 32,
+        "frameHeight": 22,
+        "anchorX": 16.0,
+        "anchorY": 20.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 29,
+        "frameHeight": 28,
+        "anchorX": 14.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 253
+  },
+  "191": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 20,
+        "frameHeight": 28,
+        "anchorX": 10.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 15,
+        "frameHeight": 18,
+        "anchorX": 7.5,
+        "anchorY": 16.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 10,
+    "landReferenceVisibleHeight": 15,
+    "landReferenceVisibleArea": 120
+  },
+  "192": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 26,
+        "frameHeight": 21,
+        "anchorX": 13.0,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 253
+  },
+  "193": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 29,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 29,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 33,
+        "frameHeight": 28,
+        "anchorX": 16.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 31,
+        "frameHeight": 28,
+        "anchorX": 15.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 33,
+        "frameHeight": 28,
+        "anchorX": 16.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 33,
+        "frameHeight": 28,
+        "anchorX": 16.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 36,
+        "frameHeight": 23,
+        "anchorX": 18.0,
+        "anchorY": 21.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 320
+  },
+  "194": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 36,
+        "frameHeight": 28,
+        "anchorX": 18.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 26,
+        "frameHeight": 16,
+        "anchorX": 13.0,
+        "anchorY": 14.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 14,
+    "landReferenceVisibleArea": 138
+  },
+  "195": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 22,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 22,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 34,
+        "frameHeight": 21,
+        "anchorX": 17.0,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 257
+  },
+  "196": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 26,
+    "nativeVisualHeight": 28,
+    "scaledVisualWidth": 26,
+    "scaledVisualHeight": 28,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 30,
+        "frameHeight": 32,
+        "anchorX": 15.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 32,
+        "frameHeight": 32,
+        "anchorX": 16.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 26,
+        "frameHeight": 32,
+        "anchorX": 13.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 33,
+        "frameHeight": 26,
+        "anchorX": 16.5,
+        "anchorY": 24.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 30,
+        "frameHeight": 32,
+        "anchorX": 15.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 266
+  },
+  "197": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 24,
+    "nativeVisualHeight": 26,
+    "scaledVisualWidth": 24,
+    "scaledVisualHeight": 26,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 28,
+        "frameHeight": 30,
+        "anchorX": 14.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 30,
+        "anchorX": 15.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 30,
+        "anchorX": 12.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 34,
+        "frameHeight": 25,
+        "anchorX": 17.0,
+        "anchorY": 23.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 28,
+        "frameHeight": 30,
+        "anchorX": 14.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 238
+  },
+  "198": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 21,
+        "frameHeight": 20,
+        "anchorX": 10.5,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 160
+  },
+  "199": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 28,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 28,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 32,
+        "anchorX": 12.5,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 32,
+        "anchorX": 14.0,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 32,
+        "anchorX": 12.5,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 31,
+        "frameHeight": 27,
+        "anchorX": 15.5,
+        "anchorY": 25.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 32,
+        "anchorX": 12.5,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 26,
+    "landReferenceVisibleArea": 332
+  },
+  "200": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 22,
+    "nativeVisualHeight": 25,
+    "scaledVisualWidth": 22,
+    "scaledVisualHeight": 25,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 26,
+        "frameHeight": 29,
+        "anchorX": 13.0,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 26,
+        "frameHeight": 29,
+        "anchorX": 13.0,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 29,
+        "anchorX": 12.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 26,
+        "frameHeight": 29,
+        "anchorX": 13.0,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 27,
+        "frameHeight": 23,
+        "anchorX": 13.5,
+        "anchorY": 21.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 253
+  },
+  "201": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 18,
+        "frameHeight": 28,
+        "anchorX": 9.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 17,
+        "frameHeight": 16,
+        "anchorX": 8.5,
+        "anchorY": 14.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 9,
+    "landReferenceVisibleHeight": 15,
+    "landReferenceVisibleArea": 86
+  },
+  "202": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 23,
+        "frameHeight": 21,
+        "anchorX": 11.5,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 215
+  },
+  "203": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 26,
+    "nativeVisualHeight": 25,
+    "scaledVisualWidth": 26,
+    "scaledVisualHeight": 25,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 30,
+        "frameHeight": 29,
+        "anchorX": 15.0,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 29,
+        "frameHeight": 29,
+        "anchorX": 14.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 29,
+        "anchorX": 12.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 38,
+        "frameHeight": 24,
+        "anchorX": 19.0,
+        "anchorY": 22.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 30,
+        "frameHeight": 29,
+        "anchorX": 15.0,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 235
+  },
+  "204": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 23,
+        "frameHeight": 28,
+        "anchorX": 11.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 19,
+        "frameHeight": 18,
+        "anchorX": 9.5,
+        "anchorY": 16.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 13,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 154
+  },
+  "205": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 31,
+        "frameHeight": 28,
+        "anchorX": 15.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 28,
+        "frameHeight": 20,
+        "anchorX": 14.0,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 258
+  },
+  "206": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 24,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 24,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 30,
+        "frameHeight": 23,
+        "anchorX": 15.0,
+        "anchorY": 21.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 223
+  },
+  "207": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 30,
+    "nativeVisualHeight": 25,
+    "scaledVisualWidth": 30,
+    "scaledVisualHeight": 25,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 34,
+        "frameHeight": 29,
+        "anchorX": 17.0,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 31,
+        "frameHeight": 29,
+        "anchorX": 15.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 33,
+        "frameHeight": 28,
+        "anchorX": 16.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 34,
+        "frameHeight": 29,
+        "anchorX": 17.0,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 38,
+        "frameHeight": 23,
+        "anchorX": 19.0,
+        "anchorY": 21.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 29,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 373
+  },
+  "208": {
+    "sizing": "native",
+    "class": "XXL",
+    "heightM": 1.0,
+    "nativeVisualWidth": 36,
+    "nativeVisualHeight": 36,
+    "scaledVisualWidth": 36,
+    "scaledVisualHeight": 36,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 40,
+        "frameHeight": 40,
+        "anchorX": 20.0,
+        "anchorY": 38.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 40,
+        "frameHeight": 40,
+        "anchorX": 20.0,
+        "anchorY": 38.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 40,
+        "frameHeight": 40,
+        "anchorX": 20.0,
+        "anchorY": 38.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 49,
+        "frameHeight": 34,
+        "anchorX": 24.5,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 40,
+        "frameHeight": 40,
+        "anchorX": 20.0,
+        "anchorY": 38.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 32,
+    "landReferenceVisibleHeight": 32,
+    "landReferenceVisibleArea": 574
+  },
+  "209": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 22,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 22,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 29,
+        "frameHeight": 19,
+        "anchorX": 14.5,
+        "anchorY": 17.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 222
+  },
+  "210": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 25,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 25,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 29,
+        "anchorX": 12.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 29,
+        "frameHeight": 29,
+        "anchorX": 14.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 27,
+        "frameHeight": 24,
+        "anchorX": 13.5,
+        "anchorY": 22.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 29,
+        "anchorX": 12.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 322
+  },
+  "211": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 24,
+    "nativeVisualHeight": 25,
+    "scaledVisualWidth": 24,
+    "scaledVisualHeight": 25,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 28,
+        "frameHeight": 29,
+        "anchorX": 14.0,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 29,
+        "frameHeight": 29,
+        "anchorX": 14.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 29,
+        "anchorX": 12.5,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 30,
+        "frameHeight": 22,
+        "anchorX": 15.0,
+        "anchorY": 20.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 28,
+        "frameHeight": 29,
+        "anchorX": 14.0,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 214
+  },
+  "212": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 25,
+    "nativeVisualHeight": 26,
+    "scaledVisualWidth": 25,
+    "scaledVisualHeight": 26,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 29,
+        "frameHeight": 30,
+        "anchorX": 14.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 30,
+        "anchorX": 15.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 26,
+        "frameHeight": 29,
+        "anchorX": 13.0,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 36,
+        "frameHeight": 25,
+        "anchorX": 18.0,
+        "anchorY": 23.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 29,
+        "frameHeight": 30,
+        "anchorX": 14.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 23,
+    "landReferenceVisibleArea": 333
+  },
+  "213": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 27,
+        "frameHeight": 21,
+        "anchorX": 13.5,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 180
+  },
+  "214": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 25,
+    "nativeVisualHeight": 26,
+    "scaledVisualWidth": 25,
+    "scaledVisualHeight": 26,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 29,
+        "frameHeight": 30,
+        "anchorX": 14.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 30,
+        "anchorX": 15.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 27,
+        "frameHeight": 30,
+        "anchorX": 13.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 35,
+        "frameHeight": 26,
+        "anchorX": 17.5,
+        "anchorY": 24.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 29,
+        "frameHeight": 30,
+        "anchorX": 14.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 303
+  },
+  "215": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 24,
+        "frameHeight": 21,
+        "anchorX": 12.0,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 185
+  },
+  "216": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 28,
+        "anchorX": 15.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 23,
+        "frameHeight": 20,
+        "anchorX": 11.5,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 204
+  },
+  "217": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 22,
+    "nativeVisualHeight": 27,
+    "scaledVisualWidth": 22,
+    "scaledVisualHeight": 27,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 26,
+        "frameHeight": 31,
+        "anchorX": 13.0,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 31,
+        "frameHeight": 31,
+        "anchorX": 15.5,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 26,
+        "frameHeight": 30,
+        "anchorX": 13.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 30,
+        "frameHeight": 26,
+        "anchorX": 15.0,
+        "anchorY": 24.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 26,
+        "frameHeight": 31,
+        "anchorX": 13.0,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 24,
+    "landReferenceVisibleArea": 358
+  },
+  "218": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 25,
+        "frameHeight": 22,
+        "anchorX": 12.5,
+        "anchorY": 20.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 186
+  },
+  "219": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 26,
+    "nativeVisualHeight": 26,
+    "scaledVisualWidth": 26,
+    "scaledVisualHeight": 26,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 30,
+        "frameHeight": 30,
+        "anchorX": 15.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 30,
+        "anchorX": 15.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 30,
+        "anchorX": 12.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 34,
+        "frameHeight": 25,
+        "anchorX": 17.0,
+        "anchorY": 23.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 30,
+        "frameHeight": 30,
+        "anchorX": 15.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 18,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 265
+  },
+  "220": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 31,
+        "frameHeight": 28,
+        "anchorX": 15.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 24,
+        "frameHeight": 16,
+        "anchorX": 12.0,
+        "anchorY": 14.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 13,
+    "landReferenceVisibleArea": 155
+  },
+  "221": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 22,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 22,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 33,
+        "frameHeight": 23,
+        "anchorX": 16.5,
+        "anchorY": 21.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 297
+  },
+  "222": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 28,
+        "anchorX": 15.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 29,
+        "frameHeight": 19,
+        "anchorX": 14.5,
+        "anchorY": 17.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 187
+  },
+  "223": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 23,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 23,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 28,
+        "anchorX": 15.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 27,
+        "frameHeight": 20,
+        "anchorX": 13.5,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 15,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 134
+  },
+  "224": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 31,
+        "frameHeight": 22,
+        "anchorX": 15.5,
+        "anchorY": 20.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 247
+  },
+  "225": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 23,
+        "frameHeight": 21,
+        "anchorX": 11.5,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 214
+  },
+  "226": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 30,
+    "nativeVisualHeight": 27,
+    "scaledVisualWidth": 30,
+    "scaledVisualHeight": 27,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 34,
+        "frameHeight": 31,
+        "anchorX": 17.0,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 35,
+        "frameHeight": 31,
+        "anchorX": 17.5,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 34,
+        "frameHeight": 31,
+        "anchorX": 17.0,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 35,
+        "frameHeight": 24,
+        "anchorX": 17.5,
+        "anchorY": 22.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 34,
+        "frameHeight": 31,
+        "anchorX": 17.0,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 30,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 316
+  },
+  "227": {
+    "sizing": "native",
+    "class": "XL",
+    "heightM": 1.0,
+    "nativeVisualWidth": 30,
+    "nativeVisualHeight": 30,
+    "scaledVisualWidth": 30,
+    "scaledVisualHeight": 30,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 34,
+        "frameHeight": 34,
+        "anchorX": 17.0,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 36,
+        "frameHeight": 34,
+        "anchorX": 18.0,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 35,
+        "frameHeight": 34,
+        "anchorX": 17.5,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 34,
+        "frameHeight": 34,
+        "anchorX": 17.0,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 38,
+        "frameHeight": 28,
+        "anchorX": 19.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 27,
+    "landReferenceVisibleHeight": 26,
+    "landReferenceVisibleArea": 308
+  },
+  "228": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 26,
+        "frameHeight": 21,
+        "anchorX": 13.0,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 13,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 171
+  },
+  "229": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 25,
+    "nativeVisualHeight": 26,
+    "scaledVisualWidth": 25,
+    "scaledVisualHeight": 26,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 29,
+        "frameHeight": 30,
+        "anchorX": 14.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 30,
+        "anchorX": 15.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 27,
+        "frameHeight": 30,
+        "anchorX": 13.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 33,
+        "frameHeight": 25,
+        "anchorX": 16.5,
+        "anchorY": 23.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 29,
+        "frameHeight": 30,
+        "anchorX": 14.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 22,
+    "landReferenceVisibleArea": 256
+  },
+  "230": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 25,
+    "nativeVisualHeight": 26,
+    "scaledVisualWidth": 25,
+    "scaledVisualHeight": 26,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 29,
+        "frameHeight": 30,
+        "anchorX": 14.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 32,
+        "frameHeight": 30,
+        "anchorX": 16.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 26,
+        "frameHeight": 30,
+        "anchorX": 13.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 33,
+        "frameHeight": 25,
+        "anchorX": 16.5,
+        "anchorY": 23.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 29,
+        "frameHeight": 30,
+        "anchorX": 14.5,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 22,
+    "landReferenceVisibleHeight": 25,
+    "landReferenceVisibleArea": 320
+  },
+  "231": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 34,
+        "frameHeight": 28,
+        "anchorX": 17.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 25,
+        "frameHeight": 17,
+        "anchorX": 12.5,
+        "anchorY": 15.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 16,
+    "landReferenceVisibleHeight": 15,
+    "landReferenceVisibleArea": 179
+  },
+  "232": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 28,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 28,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 32,
+        "frameHeight": 28,
+        "anchorX": 16.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 34,
+        "frameHeight": 28,
+        "anchorX": 17.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 30,
+        "frameHeight": 28,
+        "anchorX": 15.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 37,
+        "frameHeight": 23,
+        "anchorX": 18.5,
+        "anchorY": 21.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 32,
+        "frameHeight": 28,
+        "anchorX": 16.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 26,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 319
+  },
+  "233": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 24,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 24,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 30,
+        "frameHeight": 28,
+        "anchorX": 15.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 28,
+        "frameHeight": 18,
+        "anchorX": 14.0,
+        "anchorY": 16.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 12,
+    "landReferenceVisibleHeight": 16,
+    "landReferenceVisibleArea": 152
+  },
+  "234": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 22,
+    "nativeVisualHeight": 29,
+    "scaledVisualWidth": 22,
+    "scaledVisualHeight": 29,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 26,
+        "frameHeight": 33,
+        "anchorX": 13.0,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 33,
+        "frameHeight": 33,
+        "anchorX": 16.5,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 32,
+        "anchorX": 12.5,
+        "anchorY": 30.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 29,
+        "frameHeight": 28,
+        "anchorX": 14.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 26,
+        "frameHeight": 33,
+        "anchorX": 13.0,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 26,
+    "landReferenceVisibleArea": 296
+  },
+  "235": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 23,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 23,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 30,
+        "frameHeight": 21,
+        "anchorX": 15.0,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 27,
+        "frameHeight": 28,
+        "anchorX": 13.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 254
+  },
+  "236": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 23,
+        "frameHeight": 28,
+        "anchorX": 11.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 20,
+        "frameHeight": 20,
+        "anchorX": 10.0,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 13,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 157
+  },
+  "237": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 28,
+        "frameHeight": 23,
+        "anchorX": 14.0,
+        "anchorY": 21.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 21,
+    "landReferenceVisibleArea": 233
+  },
+  "238": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 25,
+        "frameHeight": 20,
+        "anchorX": 12.5,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 217
+  },
+  "239": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 22,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 22,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 33,
+        "frameHeight": 20,
+        "anchorX": 16.5,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 17,
+    "landReferenceVisibleArea": 192
+  },
+  "240": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 20,
+        "frameHeight": 20,
+        "anchorX": 10.0,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 14,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 179
+  },
+  "241": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 22,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 22,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 33,
+        "frameHeight": 21,
+        "anchorX": 16.5,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 26,
+        "frameHeight": 28,
+        "anchorX": 13.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 20,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 279
+  },
+  "242": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 28,
+        "frameHeight": 28,
+        "anchorX": 14.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 28,
+        "frameHeight": 22,
+        "anchorX": 14.0,
+        "anchorY": 20.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 306
+  },
+  "243": {
+    "sizing": "native",
+    "class": "XL",
+    "heightM": 1.0,
+    "nativeVisualWidth": 27,
+    "nativeVisualHeight": 30,
+    "scaledVisualWidth": 27,
+    "scaledVisualHeight": 30,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 31,
+        "frameHeight": 34,
+        "anchorX": 15.5,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 34,
+        "frameHeight": 34,
+        "anchorX": 17.0,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 34,
+        "anchorX": 12.5,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 36,
+        "frameHeight": 29,
+        "anchorX": 18.0,
+        "anchorY": 27.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 31,
+        "frameHeight": 34,
+        "anchorX": 15.5,
+        "anchorY": 32.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 19,
+    "landReferenceVisibleHeight": 26,
+    "landReferenceVisibleArea": 379
+  },
+  "244": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 26,
+    "nativeVisualHeight": 29,
+    "scaledVisualWidth": 26,
+    "scaledVisualHeight": 29,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 30,
+        "frameHeight": 33,
+        "anchorX": 15.0,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 33,
+        "frameHeight": 33,
+        "anchorX": 16.5,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 26,
+        "frameHeight": 33,
+        "anchorX": 13.0,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 36,
+        "frameHeight": 27,
+        "anchorX": 18.0,
+        "anchorY": 25.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 30,
+        "frameHeight": 33,
+        "anchorX": 15.0,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 26,
+    "landReferenceVisibleArea": 371
+  },
+  "245": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 28,
+    "nativeVisualHeight": 29,
+    "scaledVisualWidth": 28,
+    "scaledVisualHeight": 29,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 32,
+        "frameHeight": 33,
+        "anchorX": 16.0,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 33,
+        "frameHeight": 33,
+        "anchorX": 16.5,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 27,
+        "frameHeight": 33,
+        "anchorX": 13.5,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 36,
+        "frameHeight": 27,
+        "anchorX": 18.0,
+        "anchorY": 25.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 32,
+        "frameHeight": 33,
+        "anchorX": 16.0,
+        "anchorY": 31.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 23,
+    "landReferenceVisibleHeight": 26,
+    "landReferenceVisibleArea": 370
+  },
+  "246": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 21,
+        "frameHeight": 20,
+        "anchorX": 10.5,
+        "anchorY": 18.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 13,
+    "landReferenceVisibleHeight": 18,
+    "landReferenceVisibleArea": 171
+  },
+  "247": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 24,
+        "frameHeight": 28,
+        "anchorX": 12.0,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 26,
+        "frameHeight": 23,
+        "anchorX": 13.0,
+        "anchorY": 21.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 17,
+    "landReferenceVisibleHeight": 20,
+    "landReferenceVisibleArea": 212
+  },
+  "248": {
+    "sizing": "native",
+    "class": "L",
+    "heightM": 1.0,
+    "nativeVisualWidth": 25,
+    "nativeVisualHeight": 27,
+    "scaledVisualWidth": 25,
+    "scaledVisualHeight": 27,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 29,
+        "frameHeight": 31,
+        "anchorX": 14.5,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 31,
+        "frameHeight": 31,
+        "anchorX": 15.5,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 26,
+        "frameHeight": 30,
+        "anchorX": 13.0,
+        "anchorY": 28.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 35,
+        "frameHeight": 27,
+        "anchorX": 17.5,
+        "anchorY": 25.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 29,
+        "frameHeight": 31,
+        "anchorX": 14.5,
+        "anchorY": 29.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 21,
+    "landReferenceVisibleHeight": 25,
+    "landReferenceVisibleArea": 325
+  },
+  "249": {
+    "sizing": "native",
+    "class": "XXL",
+    "heightM": 1.0,
+    "nativeVisualWidth": 45,
+    "nativeVisualHeight": 43,
+    "scaledVisualWidth": 45,
+    "scaledVisualHeight": 43,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 49,
+        "frameHeight": 47,
+        "anchorX": 24.5,
+        "anchorY": 45.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 47,
+        "frameHeight": 47,
+        "anchorX": 23.5,
+        "anchorY": 45.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 48,
+        "frameHeight": 45,
+        "anchorX": 24.0,
+        "anchorY": 43.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 49,
+        "frameHeight": 47,
+        "anchorX": 24.5,
+        "anchorY": 45.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 56,
+        "frameHeight": 36,
+        "anchorX": 28.0,
+        "anchorY": 34.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 44,
+    "landReferenceVisibleHeight": 37,
+    "landReferenceVisibleArea": 688
+  },
+  "250": {
+    "sizing": "native",
+    "class": "XXL",
+    "heightM": 1.0,
+    "nativeVisualWidth": 47,
+    "nativeVisualHeight": 43,
+    "scaledVisualWidth": 47,
+    "scaledVisualHeight": 43,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 51,
+        "frameHeight": 47,
+        "anchorX": 25.5,
+        "anchorY": 45.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 47,
+        "frameHeight": 47,
+        "anchorX": 23.5,
+        "anchorY": 45.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 53,
+        "frameHeight": 47,
+        "anchorX": 26.5,
+        "anchorY": 45.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 51,
+        "frameHeight": 47,
+        "anchorX": 25.5,
+        "anchorY": 45.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 59,
+        "frameHeight": 36,
+        "anchorX": 29.5,
+        "anchorY": 34.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 41,
+    "landReferenceVisibleHeight": 38,
+    "landReferenceVisibleArea": 810
+  },
+  "251": {
+    "sizing": "native",
+    "class": "M",
+    "heightM": 1.0,
+    "nativeVisualWidth": 21,
+    "nativeVisualHeight": 24,
+    "scaledVisualWidth": 21,
+    "scaledVisualHeight": 24,
+    "visualScale": 1.0,
+    "padding": 2,
+    "manualOverride": false,
+    "override": null,
+    "missingSource": false,
+    "packs": {
+      "pokemmo": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/hgss",
+        "frames": 6,
+        "walker": true
+      },
+      "followers": {
+        "frameWidth": 23,
+        "frameHeight": 28,
+        "anchorX": 11.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/followers",
+        "frames": 6,
+        "walker": true
+      },
+      "pokedex": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/pokedex",
+        "frames": 1,
+        "walker": false
+      },
+      "swimming": {
+        "frameWidth": 25,
+        "frameHeight": 28,
+        "anchorX": 12.5,
+        "anchorY": 26.0,
+        "relativeDir": "assets/generated/true_size/swimming",
+        "frames": 6,
+        "walker": true
+      },
+      "levitate": {
+        "frameWidth": 22,
+        "frameHeight": 21,
+        "anchorX": 11.0,
+        "anchorY": 19.0,
+        "relativeDir": "assets/generated/true_size/levitate",
+        "frames": 6,
+        "walker": true
+      }
+    },
+    "landReferenceVisibleWidth": 14,
+    "landReferenceVisibleHeight": 19,
+    "landReferenceVisibleArea": 179
   }
 }

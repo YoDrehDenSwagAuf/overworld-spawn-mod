@@ -10,6 +10,13 @@ local AnimatedSprites = V.require("animated_sprites")
 local Behavior = V.require("behavior")
 local LuminanceSheet = V.require("luminance_sheet")
 
+local function waterUsesLuminance(mod)
+  if Config and type(Config.waterArtUsesLuminance) == "function" then
+    return Config.waterArtUsesLuminance(mod) == true
+  end
+  return not (Config and Config.paletteFxRedpp and Config.paletteFxRedpp())
+end
+
 local SpriteResolver = {}
 SpriteResolver.__index = SpriteResolver
 
@@ -278,14 +285,14 @@ function SpriteResolver:resolveWaterSprite(entity, context)
       end
     end
     if dex and type(dex) == "number" then
-      -- Luminance-based shading: every non-ADVANCED mode derives the 3-shade
-      -- luminance sheet from the submerged art at load (cached in the save
-      -- dir) and serves it with trueColor=false, so the engine's zone pass
-      -- colors it out of the mode palette. ADVANCED keeps the submerged
-      -- colored (shiny/normal) sheet and serves it with trueColor=true.
-      local redpp = Config and Config.paletteFxRedpp and Config.paletteFxRedpp()
+      -- Luminance-based shading: Gen1 non-ADVANCED derives a 3-shade
+      -- luminance sheet from the colored submerged art (trueColor=false)
+      -- so the zone pass colors it. Gold keeps the colored submerged sheet
+      -- (waterline/foam intact) with trueColor=true — pathFor would bake
+      -- DMG OBP and look monochrome.
+      local useLuma = waterUsesLuminance(self.mod)
       local tryVariants
-      if not redpp then
+      if useLuma then
         tryVariants = { "normal" }
       elseif variant == "shiny" then
         tryVariants = { "shiny", "normal" }
@@ -307,14 +314,14 @@ function SpriteResolver:resolveWaterSprite(entity, context)
                and love.filesystem.getInfo(rel)) then
           local subPath = LuminanceSheet.submergedFor(loadPath)
           if subPath then
-            local luma = (not redpp) and LuminanceSheet.pathFor(subPath) or nil
+            local luma = useLuma and LuminanceSheet.pathFor(subPath) or nil
             local image = luma or subPath
             local def = {
               image = image,
               frames = 6,
               walker = true,
               -- trueColor travels with the art: luminance sheets are false so
-              -- the zone pass colors them; colored (ADVANCED / headless) true.
+              -- the zone pass colors them; colored (Gold / ADVANCED / headless) true.
               trueColor = luma == nil,
               id = "SPRITE_OW_WILD_SUBMERGED_" .. tostring(dex),
               artFamily = "poke_followers_submerged",
@@ -569,6 +576,32 @@ function SpriteResolver:_devLogWaterResolve(result, speciesId, style)
   self._waterDevLogged[key] = true
   local DebugLog = V.require("debug_log")
   if not (DebugLog and DebugLog.info) then return end
+  local gen = "?"
+  pcall(function()
+    local GameCompat = V.require("game_compat")
+    gen = tostring(GameCompat.generation(self.mod) or "?")
+  end)
+  local waterMode = "?"
+  if type(Config.waterDisplayMode) == "function" then
+    waterMode = tostring(Config.waterDisplayMode(self.mod) or "?")
+  end
+  if tostring(gen) == "2" then
+    DebugLog.info(self.mod,
+      "[Wilds][Gen2][WaterColor] species=%s gen=%s style=%s provider=%s kind=%s artFamily=%s source=%s final=%s trueColor=%s silhouette=%s waterDisplayMode=%s voxelActive=%s",
+      tostring(speciesId),
+      gen,
+      tostring(style),
+      tostring(result.providerId or meta.providerId or "?"),
+      tostring(result.spriteKind or meta.waterKind or meta.kind or "?"),
+      tostring(meta.artFamily or def.artFamily or "?"),
+      tostring(meta.relativePath or def.relativePath or "?"),
+      tostring(def.image or meta.loadPath or "?"),
+      tostring(def.trueColor),
+      tostring(result.wildSilhouette == true or result.waterSilhouetteSheet == true
+        or def.silhouette == true),
+      waterMode,
+      tostring(meta.voxelActive == true))
+  end
   DebugLog.info(self.mod,
     "WATER_RESOLVE species=%s style=%s kind=%s provider=%s artFamily=%s image=%s rel=%s fw=%s fh=%s",
     tostring(speciesId),
@@ -609,6 +642,19 @@ function SpriteResolver:cacheKey(entity, context, state)
       }) or "classic")
     end
   end
+  local gen = "?"
+  do
+    local ok, GameCompat = pcall(function() return V.require("game_compat") end)
+    if ok and GameCompat and GameCompat.generation then
+      gen = tostring(GameCompat.generation(self.mod, context.game) or "?")
+    end
+  end
+  local colorIntent = "na"
+  if state == "water" then
+    colorIntent = waterUsesLuminance(self.mod) and "luma" or "rgba"
+  elseif Config.landArtUsesLuminance then
+    colorIntent = Config.landArtUsesLuminance(self.mod) and "luma" or "rgba"
+  end
   if state == "water" then
     if type(Config.waterDisplayMode) == "function" then
       waterMode = tostring(Config.waterDisplayMode(self.mod) or "swimming_sprites")
@@ -627,9 +673,9 @@ function SpriteResolver:cacheKey(entity, context, state)
       end
     end
   end
-  return string.format("%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s",
+  return string.format("%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s",
     tostring(speciesId), variant, form, state, style, waterMode, voxel,
-    shadowMode, imagePath, silo, sizeMode)
+    shadowMode, imagePath, silo, sizeMode, gen, colorIntent)
 end
 
 function SpriteResolver:invalidateCache()

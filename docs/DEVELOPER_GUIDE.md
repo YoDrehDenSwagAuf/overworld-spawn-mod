@@ -61,7 +61,17 @@ See `docs/ANIMATED_SPRITE_FORMAT.md`.
 6. Hook `encounter.roll` + `movement.collision` when enabled
 7. Subscribe to map/world/battle/save/options events
 
+Generation gate: `GameCompat.supportsFeature` decides which subsystems
+install. Red / Blue / Yellow keep full Gen1 capabilities. Gold installs
+wild encounters and the New Bark town Pokémon; followers / catching /
+safari stay off. Content registration and the options schema still run.
+
 Gen1Recomp freezes content registries after all mods load.
+`GameVersion.set()` runs in `bootGame` before `Loader:load`, so
+generation detection is reliable at mod entry.
+
+See `docs/analysis/GEN2_PREPARATION.md`. Production manifest claims
+`"games": ["gen1", "gen2"]` (Mod Manager **Gen 1+2**).
 
 ## 3. Content registration
 
@@ -332,6 +342,8 @@ lua mods/overworld_wild_spawns/tests/battle_art_variable_geometry_unit_test.lua
 lua mods/overworld_wild_spawns/tests/voxel_provider_variable_geometry_unit_test.lua
 # Follower core (host lua; no engine required)
 lua mods/overworld_wild_spawns/tests/follower_core_unit_test.lua
+lua mods/overworld_wild_spawns/tests/game_compat_unit_test.lua
+lua mods/overworld_wild_spawns/tests/manifest_targets_unit_test.lua
 ```
 
 ## 25. Release build
