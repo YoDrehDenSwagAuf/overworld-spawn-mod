@@ -208,6 +208,44 @@ optionStore.town_pokemon = true
 local spawned = ambient:spawnForMap(game, ow)
 eq(spawned, 0, "no ambient spawn on hostile map")
 
+-- ------- Gen2 town Pokémon: New Bark only, no Kanto fallback
+package.loaded["src.core.GameVersion"] = {
+  get = function() return "gold" end,
+  isYellow = function() return false end,
+  isGold = function() return true end,
+  generation = function() return 2 end,
+}
+local goldGame = {
+  data = {
+    maps = {
+      NEW_BARK_TOWN = { id = "NEW_BARK_TOWN", tileset = "OVERWORLD" },
+      CHERRYGROVE_CITY = { id = "CHERRYGROVE_CITY", tileset = "OVERWORLD" },
+      ROUTE_29 = { id = "ROUTE_29", tileset = "OVERWORLD" },
+    },
+    encounters = {
+      PALLET_TOWN = { grass = { rate = 25, slots = { { species = "PIDGEY", level = 3 } } } },
+    },
+    gen2Encounters = {},
+  },
+}
+check(AmbientPokemon.isEligibleMap(goldGame, "NEW_BARK_TOWN"), "New Bark is eligible")
+check(not AmbientPokemon.isEligibleMap(goldGame, "CHERRYGROVE_CITY"),
+      "Cherrygrove not in first catalog")
+check(not AmbientPokemon.isEligibleMap(goldGame, "ROUTE_29"),
+      "Route 29 is wilds, not town Pokémon")
+check(not AmbientPokemon.isEligibleMap(goldGame, "PALLET_TOWN"),
+      "Gold does not use Kanto town maps")
+eq(AmbientPokemon.targetCount(goldGame, "NEW_BARK_TOWN"), 1, "New Bark count 1")
+eq(AmbientPokemon.targetCount(goldGame, "CHERRYGROVE_CITY"), 0, "other towns count 0")
+local pool = AmbientPokemon.speciesPool(goldGame, "NEW_BARK_TOWN")
+eq(#pool, 1, "New Bark pool size 1")
+eq(pool[1], "SENTRET", "New Bark curated Sentret")
+local emptyPool = AmbientPokemon.speciesPool(goldGame, "CHERRYGROVE_CITY")
+eq(#emptyPool, 0, "no Kanto FALLBACK_POOL on Gold")
+check(AmbientPokemon.isLegendary("LUGIA"), "Lugia blocked as legendary")
+check(AmbientPokemon.isLegendary("HO_OH"), "Ho-Oh blocked as legendary")
+check(AmbientPokemon.isLegendary("CELEBI"), "Celebi blocked as legendary")
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

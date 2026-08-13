@@ -417,18 +417,17 @@ local function looksLikeTrueSizePath(path)
   return type(path) == "string" and path:find("true_size/", 1, true) ~= nil
 end
 
---- Resolve speciesId to a Gen1 dex number. Wild entities often store
---- entity.species as a name ("ONIX"); packGeometry only accepts the Gen1
---- adapter cap (currently 1..151 via SpeciesGeometry.normalizeDex).
+--- Resolve speciesId to a dex number. Pack geometry uses the active
+--- adapter cap (Gen1 1..151, Gen2 1..251 via SpeciesGeometry.normalizeDex).
 local function resolveDex(mod, speciesId, opts)
-  local dex = SpeciesGeometry.normalizeDex(speciesId)
+  opts = opts or {}
+  local dex = SpeciesGeometry.normalizeDex(speciesId, opts.game)
   if dex then return dex end
   if speciesId == nil then return nil end
-  opts = opts or {}
   local ok, AnimatedSprites = pcall(V.require, "animated_sprites")
   if ok and AnimatedSprites and type(AnimatedSprites.resolveSpeciesId) == "function" then
     local resolved = AnimatedSprites.resolveSpeciesId(speciesId, opts.game, mod)
-    dex = SpeciesGeometry.normalizeDex(resolved)
+    dex = SpeciesGeometry.normalizeDex(resolved, opts.game)
     if dex then return dex end
   end
   return nil

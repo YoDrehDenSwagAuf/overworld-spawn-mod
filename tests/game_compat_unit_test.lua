@@ -119,7 +119,7 @@ do
 end
 
 ----------------------------------------------------------------
--- Mock Gen2 (Gold): generation 2, boot-safe adapter, no Gen1 gameplay
+-- Mock Gen2 (Gold): generation 2, Gold adapter, no Gen1 encounter tables
 ----------------------------------------------------------------
 do
   setEngineVersion("gold")
@@ -133,11 +133,11 @@ do
   check(GameCompat.current(nil, {}) ~= GameCompat.Gen1, "gold does not use Gen1 adapter")
   eq(GameCompat.supportsFeature("core", nil, {}), true, "gold core capability")
   eq(GameCompat.supportsFeature("species", nil, {}), true, "gold species capability")
-  eq(GameCompat.supportsFeature("encounters", nil, {}), false, "gold encounters off")
+  eq(GameCompat.supportsFeature("encounters", nil, {}), true, "gold encounters on")
   eq(GameCompat.supportsFeature("followers", nil, {}), false, "gold followers off")
   eq(GameCompat.supportsFeature("catching", nil, {}), false, "gold catching off")
-  eq(GameCompat.supportsFeature("ambient", nil, {}), false, "gold ambient off")
-  eq(GameCompat.supportsFeature("townPokemon", nil, {}), false, "gold townPokemon off")
+  eq(GameCompat.supportsFeature("ambient", nil, {}), true, "gold ambient/town on")
+  eq(GameCompat.supportsFeature("townPokemon", nil, {}), true, "gold townPokemon on")
   eq(GameCompat.supportsFeature("safari", nil, {}), false, "gold safari off")
   eq(GameCompat.isSurfing({}, { player = { surfing = true } }), false,
      "gold does not use Gen1 player.surfing")
@@ -160,8 +160,10 @@ do
   eq(GameCompat.generation(nil, {}), 2, "silver mock generation == 2")
   check(GameCompat.current(nil, {}) == GameCompat.Gen2,
         "generation 2 selects Gen2 adapter")
-  eq(GameCompat.supportsFeature("encounters", nil, {}), false,
-     "silver still has no Kanto encounters")
+  eq(GameCompat.supportsFeature("encounters", nil, {}), true,
+     "silver uses Gen2 encounter capability")
+  eq(GameCompat.supportsFeature("followers", nil, {}), false,
+     "silver still has no followers")
 end
 
 do
@@ -169,8 +171,8 @@ do
   eq(GameCompat.isSupported({ generation = 2 }), true,
      "explicit generation=2 uses Gen2 adapter without engine module")
   eq(GameCompat.generation({ generation = 2 }), 2, "generation=2 → 2")
-  eq(GameCompat.supportsFeature("encounters", { generation = 2 }), false,
-     "declared gen2 still has encounters off")
+  eq(GameCompat.supportsFeature("encounters", { generation = 2 }), true,
+     "declared gen2 has encounters on")
   local ok = pcall(function()
     GameCompat.speciesId("MEW", { generation = 2 }, V.mod)
     GameCompat.isSurfing({ generation = 2 }, { player = { surfing = true } })
@@ -397,6 +399,16 @@ do
   eq(SpeciesGeometry.normalizeDex(0), nil, "normalizeDex 0 invalid")
 end
 
+do
+  setEngineVersion("gold")
+  eq(GameCompat.Gen2.MAX_SPECIES, 251, "Gen2.MAX_SPECIES == 251")
+  local SpeciesGeometry = V.require("species_geometry")
+  eq(SpeciesGeometry.normalizeDex(152), 152, "Gold normalizeDex CHIKORITA 152")
+  eq(SpeciesGeometry.normalizeDex(161), 161, "Gold normalizeDex SENTRET 161")
+  eq(SpeciesGeometry.normalizeDex(251), 251, "Gold normalizeDex CELEBI 251")
+  eq(SpeciesGeometry.normalizeDex(252), nil, "Gold normalizeDex 252 still capped")
+end
+
 ----------------------------------------------------------------
 -- Production manifest targets Gen1 + Gen2
 ----------------------------------------------------------------
@@ -452,7 +464,45 @@ do
   check(type(GameCompat.Gen2.isSurfing) == "function", "Gen2.isSurfing exists")
   check(type(GameCompat.Gen2.party) == "function", "Gen2.party exists")
   check(type(GameCompat.Gen2.currentMapId) == "function", "Gen2.currentMapId exists")
-  check(type(GameCompat.Gen2.isWaterCell) == "function", "Gen2.isWaterCell exists")
+  check(type(GameCompat.Gen2.encountersForMap) == "function",
+        "Gen2.encountersForMap exists")
+  check(type(GameCompat.Gen2.pickEncounter) == "function",
+        "Gen2.pickEncounter exists")
+  check(type(GameCompat.Gen2.startWildBattle) == "function",
+        "Gen2.startWildBattle exists")
+end
+
+do
+  setEngineVersion("gold")
+  local queued = {}
+  local world = {
+    queueScript = function(_, rows)
+      queued[#queued + 1] = rows
+      return true
+    end,
+  }
+  local ok = GameCompat.startWildBattle(world, "SENTRET", 3, { version = "gold" })
+  check(ok, "Gold startWildBattle queues")
+  eq(#queued, 1, "Gold battle queued once")
+  eq(queued[1][1][1], "start_battle", "Gold uses start_battle")
+  eq(queued[1][1][2], "wild", "Gold kind is wild")
+  eq(queued[1][1][3], "SENTRET", "Gold species preserved")
+  eq(queued[1][1][4], 3, "Gold level preserved")
+end
+
+do
+  setEngineVersion("red")
+  local queued = {}
+  local world = {
+    queueScript = function(_, rows)
+      queued[#queued + 1] = rows
+      return true
+    end,
+  }
+  local ok = GameCompat.startWildBattle(world, "PIDGEY", 4, { version = "red" })
+  check(ok, "Gen1 startWildBattle still queues")
+  eq(queued[1][1][3], "PIDGEY", "Gen1 species preserved")
+  eq(queued[1][1][4], 4, "Gen1 level preserved")
 end
 
 ----------------------------------------------------------------

@@ -26,6 +26,7 @@ local CellOccupancy = V.require("cell_occupancy")
 local FollowersWaterCompat = V.require("followers_water_compat")
 local CaveReachability = V.require("cave_reachability")
 local SafariCompat = V.require("safari_compat")
+local GameCompat = V.require("game_compat")
 
 local SpawnLogic = {}
 SpawnLogic.__index = SpawnLogic
@@ -527,10 +528,11 @@ end
 
 function SpawnLogic:_encDef(mapId, game)
   game = game or gameOf(self.mod)
-  if not game or not game.data then return nil end
-  local encounters = game.data.encounters
-  if type(encounters) ~= "table" then return nil end
-  return encounters[mapId]
+  -- Adapter-owned. Gen2 never falls back to Gen1 map-first tables.
+  return GameCompat.encountersForMap(game, mapId, {
+    world = game and game.world,
+    mod = self.mod,
+  })
 end
 
 function SpawnLogic:_clearMap(mapId)
@@ -1654,7 +1656,13 @@ function SpawnLogic:trySpawn(game, opts)
     species = opts.species
     level = opts.level or 5
   else
-    local pick = EncounterPick.pick(encDef, nil, encounterKind)
+    local pick = GameCompat.pickEncounter(game, mapId, encounterKind, {
+      world = game and game.world,
+      encDef = encDef,
+    })
+    if not pick then
+      pick = EncounterPick.pick(encDef, nil, encounterKind)
+    end
     if not pick then
       occupancy:releaseSpawn(spawnToken)
       st:noteReject("rejected: no encounter data")
@@ -2834,9 +2842,7 @@ function SpawnLogic:_startBattle(record)
     return true
   end
 
-  ok, err = world:queueScript({
-    { "start_battle", "wild", record.species, record.level },
-  })
+  ok, err = GameCompat.startWildBattle(world, record.species, record.level, game)
   if not ok then
     self:_warn("could not queue wild battle: %s", tostring(err))
     self.pendingBattle = nil

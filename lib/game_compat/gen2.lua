@@ -1,9 +1,8 @@
 -- Gen 2 / Pokémon Gold adapter for Wilds game compatibility.
 --
--- Minimum boot-safe Gold surface: species, party, surf, map id, water cell.
--- Gameplay systems (encounters, followers, catching, ambient, safari) stay
--- off via capabilities until later PRs. Do not guess Johto internals beyond
--- the engine APIs cited below (Gen1Recomp dev).
+-- Gold adapter: species, party, surf, map, water, plus wild encounters.
+-- Encounter tables live in lib/gen2/encounters.lua (not this file).
+-- Followers / catching / safari stay off. Town Pokémon: New Bark only.
 --
 -- Engine pointers (verified against current Gen1Recomp Gold):
 --   party:        game.save.party (src/core/gen2/Save.lua)
@@ -14,15 +13,15 @@
 --   isWaterCell:  src.world.gen2.Map:isWaterCell → Permissions.isWater
 --   speciesId:    data.pokemon[id].dex or .index (World.monIndex uses index)
 --
--- Next gameplay proof (NOT this file): Route 29, one visible Sentret,
--- touch → Gold wild battle. No catching, no followers, no full Johto table.
+-- Wild encounters: lib/gen2/encounters.lua over data.gen2Encounters.
+-- Town Pokémon: lib/gen2/town_pokemon.lua (New Bark Sentret only).
 local V = ...
 
 local Gen2 = {}
 Gen2.supported = true
 Gen2.generation = 2
--- National Dex span Gold actually uses. True Size / Wilds sheets stay Gen1
--- 1..151 until a later asset PR; this cap is documentation + speciesId only.
+-- National Dex span Gold actually uses. Shared generated geometry may
+-- include 1..251; Gen1 consumers stay capped at Gen1.MAX_SPECIES.
 Gen2.MAX_SPECIES = 251
 
 Gen2.capabilities = {
@@ -30,11 +29,11 @@ Gen2.capabilities = {
   species = true,
   party = true,
   surf = true,
-  encounters = false,
+  encounters = true,
   followers = false,
   catching = false,
-  ambient = false,
-  townPokemon = false,
+  ambient = true,
+  townPokemon = true,
   safari = false,
 }
 
@@ -151,6 +150,27 @@ function Gen2.currentMapId(game, ow)
     return ow.map.id
   end
   return nil
+end
+
+function Gen2.encountersForMap(game, mapId, ctx)
+  local Enc = V.require("gen2/encounters")
+  return Enc.forMap(game, mapId, ctx)
+end
+
+function Gen2.pickEncounter(game, mapId, kind, ctx)
+  local Enc = V.require("gen2/encounters")
+  return Enc.pick(game, mapId, kind, ctx)
+end
+
+--- Gold wild battle: WorldAPI.queueScript start_battle wild species level.
+-- WorldAPI builds src.battle.gen2.Mon and World:startBattle({ wild = mon }).
+function Gen2.startWildBattle(world, species, level)
+  if not (world and type(world.queueScript) == "function") then
+    return nil, "no world"
+  end
+  return world:queueScript({
+    { "start_battle", "wild", species, tonumber(level) or 5 },
+  })
 end
 
 return Gen2

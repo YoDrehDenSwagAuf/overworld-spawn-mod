@@ -124,4 +124,22 @@ function Gen1.currentMapId(game, ow)
   return nil
 end
 
+--- Per-map encounter table. Same object as game.data.encounters[mapId].
+function Gen1.encountersForMap(game, mapId)
+  if not game or not game.data or type(game.data.encounters) ~= "table" then
+    return nil
+  end
+  return game.data.encounters[mapId]
+end
+
+--- Exact current Gen1 wild battle entry: queue start_battle wild species level.
+function Gen1.startWildBattle(world, species, level)
+  if not (world and type(world.queueScript) == "function") then
+    return nil, "no world"
+  end
+  return world:queueScript({
+    { "start_battle", "wild", species, tonumber(level) or 5 },
+  })
+end
+
 return Gen1

@@ -9,9 +9,11 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `main.lua` | Load-phase wiring, hooks, exports |
 | `options.lua` | Mod Manager schema |
 | `lib/config.lua` | Defaults + option helpers |
-| `lib/game_compat.lua` | Generation detection + small Gen1 adapter facade |
-| `lib/game_compat/gen1.lua` | Thin Red/Blue/Yellow wrappers (species, surf, party, map) |
-| `lib/game_compat/gen2.lua` | Unsupported stub (no Johto implementation) |
+| `lib/game_compat.lua` | Generation detection + Gen1/Gen2 adapter facade |
+| `lib/game_compat/gen1.lua` | Thin Red/Blue/Yellow wrappers (species, surf, party, map, battles) |
+| `lib/game_compat/gen2.lua` | Gold adapter (species, surf, party, map, wild battles) |
+| `lib/gen2/encounters.lua` | Gold kind-first encounter provider (not a Johto dump) |
+| `lib/gen2/town_pokemon.lua` | Curated Gen2 town Pokémon (New Bark Sentret) |
 | `lib/json_decode.lua` | Minimal JSON decoder for mappings |
 | `lib/animated_sprites.lua` | Follow-sprite mapping / source atlas helpers |
 | `lib/runtime_sheets.lua` | Resolve build-time 16×96 SpriteRenderer sheets |
@@ -46,7 +48,9 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 ## Game compatibility (internal)
 
 `GameCompat` is a small facade so shared Wilds systems do not own Gen1-only
-assumptions. Gold is an **experimental load target**, not full Johto gameplay.
+assumptions. Gold is an **experimental gameplay target**: visible wild
+encounters reuse the shared Wilds entity/AI layer with a separate Gen2
+encounter provider. Followers, catching, and Safari stay off.
 
 ```text
 GameCompat.current(mod, game)      → Gen1 or Gen2 adapter or nil
@@ -61,13 +65,15 @@ GameCompat.isSurfing(game, ow)
 GameCompat.isWaterCell(map, x, y)
 GameCompat.party(game)             → same save.party table
 GameCompat.currentMapId(game, ow)
+GameCompat.encountersForMap(game, mapId, ctx)
+GameCompat.pickEncounter(game, mapId, kind, ctx)
+GameCompat.startWildBattle(world, species, level, game)
 ```
 
 Detection uses Gen1Recomp `GameVersion.get()` + `GameVersion.generation(id)`
 (set in `bootGame` before mod entry). Gold is generation 2 and uses the Gen2
 adapter. `isSupported` is **not** permission to install every subsystem:
-Gen2 capabilities keep encounters / followers / catching / ambient / safari
-off so Kanto systems cannot leak into Gold.
+Gen2 capabilities keep followers / catching / safari off.
 
 Production `manifest.json` claims `"games": ["gen1", "gen2"]`
 (Mod Manager: **Gen 1+2**). See `docs/analysis/GEN2_PREPARATION.md`.

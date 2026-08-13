@@ -637,7 +637,7 @@ def follower_source(dex: int) -> dict[str, Path]:
     return out
 
 
-def water_sources(kind: str, max_dex: int = 151) -> dict[tuple[int, str], Path]:
+def water_sources(kind: str, max_dex: int = 251) -> dict[tuple[int, str], Path]:
     mapping = WATER_ROOT / kind / f"{kind}_sprite_mapping.json"
     src_dir = WATER_ROOT / kind
     if not mapping.exists():
@@ -1558,7 +1558,10 @@ def main(argv=None) -> int:
     ap.add_argument("--prototype", action="store_true",
                     help="Only Rattata(19), Blastoise(9), Onix(95); merge into existing table")
     ap.add_argument("--species", type=str, default=None,
-                    help="Comma-separated dex ids (default: all 1..151)")
+                    help="Comma-separated dex ids (default: 1..--max-species)")
+    ap.add_argument("--max-species", type=int, default=151,
+                    help="When --species is omitted, generate 1..N (default 151). "
+                         "Pass 251 to add Johto without rewriting 1..151 unless --force.")
     ap.add_argument("--pack", choices=("all", "hgss", "followers", "pokedex", "swimming", "levitate"),
                     default="all")
     ap.add_argument("--contact-sheet", action="store_true",
@@ -1576,7 +1579,10 @@ def main(argv=None) -> int:
 
     species_list = parse_species_list(args.species, args.prototype)
     if species_list is None:
-        species_list = list(range(1, 152))
+        max_sp = int(args.max_species) if args.max_species else 151
+        if max_sp < 1:
+            max_sp = 151
+        species_list = list(range(1, max_sp + 1))
 
     analyses = []
     for dex in species_list:
@@ -1600,11 +1606,16 @@ def main(argv=None) -> int:
     if args.prototype or set(species_list) <= set(PROTOTYPE_SPECIES):
         snapshot_old_targetheight(species_list)
 
-    existing = load_existing_table() if (args.prototype or len(species_list) < 151 or args.pack != "all") else {}
+    # Always load the existing table so a 152..251 run cannot wipe 1..151.
+    existing = load_existing_table()
     updates: dict[int, dict] = {}
     refs = {a["speciesId"]: a for a in analyses}
 
     for dex in species_list:
+        # Keep previously generated Gen1 geometry identical unless --force.
+        if (not args.force) and dex <= 151 and dex in existing:
+            updates[dex] = copy.deepcopy(existing[dex])
+            continue
         # Partial pack runs must keep already-measured pack geometry (e.g. do not
         # wipe followers/pokemmo when only regenerating swimming).
         if dex in existing and args.pack != "all":
@@ -1690,15 +1701,14 @@ def main(argv=None) -> int:
             "failCount": lev_audit["failCount"],
         }
 
-    # Merge prototype updates into full table; for full runs replace entirely.
-    if args.prototype or len(species_list) < 151:
-        table = merge_table(existing, updates)
-        # Ensure all 1..151 keys exist
+    # Merge into the existing table. Never drop 1..151 rows just because this
+    # run only generated Johto ids. --force rewrites selected PNGs/rows only.
+    table = merge_table(existing, updates)
+    if args.prototype or len(species_list) < 151 or max(species_list) <= 151:
         for dex in range(1, 152):
             if dex not in table:
                 table[dex] = build_species_entry(dex, layout, heights, analyze_hgss_native(dex, layout))
     else:
-        table = updates
         for dex in range(1, 152):
             if dex not in table:
                 table[dex] = build_species_entry(dex, layout, heights, analyze_hgss_native(dex, layout))

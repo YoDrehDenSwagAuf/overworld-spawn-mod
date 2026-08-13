@@ -2,18 +2,30 @@
 
 ## Unreleased
 
+### Experimental Pokémon Gold wild encounters
+
+- Gold now shows visible overworld Wild Pokémon using the **shared** Wilds
+  entity / render / AI layer. Species, levels, and time-of-day groups come
+  from Gold's kind-first `data.gen2Encounters` tables via
+  `lib/gen2/encounters.lua` — not from Kanto tables and not from Pokédex
+  habitat data.
+- Touching a visible wild starts a **normal Gold wild battle**
+  (`start_battle` / `wild` / species / level) exactly once. Overworld
+  Catching stays off.
+- One curated New Bark Town ambient Sentret (`lib/gen2/town_pokemon.lua`).
+  Not a grass roll. Not a full Johto town catalog.
+- HGSS True Size / runtime sprite generation range extends to **251**.
+  Existing 1..151 geometry is unchanged.
+- Followers, catching, and Safari stay **off** on Gold.
+
 ### Experimental Pokémon Gold foundation
 
 - Production `manifest.json` now targets **Gen 1 + Gen 2** via
   `"games": ["gen1", "gen2"]` (Mod Manager label **Gen 1+2**). Legacy
   `gen2compat` is not used. `game_version` stays `>=0.0.0-0 <2.0.0`.
-- `lib/game_compat/gen2.lua` is a real boot-safe Gold adapter
-  (`supported = true`) for species, party, surf, map id, and water cell.
-  Encounters, followers, catching, ambient/town Pokémon, and Safari stay
-  **off** through adapter capabilities so Kanto systems cannot leak into Gold.
+- `lib/game_compat/gen2.lua` is a real Gold adapter (`supported = true`)
+  for species, party, surf, map id, water cell, encounters, and town Pokémon.
 - Red / Blue / Yellow gameplay is unchanged (full Gen1 capabilities).
-- Gold currently boots with Wilds enabled and the options menu loadable.
-  Visible Johto encounters, followers, and catching are not implemented yet.
 
 ### Internal multi-generation preparation
 

@@ -1,9 +1,9 @@
 -- Wilds game / generation compatibility facade.
 --
 -- Shared Wilds systems should ask this module instead of assuming Gen 1.
--- Gen1 is the full gameplay adapter. Gen2 is a boot-safe Gold adapter:
--- species / party / surf / map / water work; encounters / followers /
--- catching / ambient / safari stay off via capabilities.
+-- Gen1 is the full gameplay adapter. Gen2 is a Gold adapter with wild
+-- overworld encounters and one curated town Pokémon; followers / catching /
+-- safari stay off via capabilities.
 --
 -- Canonical engine source of truth (Gen1Recomp src/core/GameVersion.lua):
 --   GameVersion.get()            → "red"|"blue"|"yellow"|"gold"|…
@@ -211,6 +211,41 @@ function GameCompat.currentMapId(game, ow)
   local adapter = GameCompat.current(nil, game)
   if not (adapter and adapter.currentMapId) then return nil end
   return adapter.currentMapId(game, ow)
+end
+
+--- Normalized per-map encounter table for the active adapter.
+function GameCompat.encountersForMap(game, mapId, ctx)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and adapter.encountersForMap then
+    return adapter.encountersForMap(game, mapId, ctx)
+  end
+  if not game or not game.data or type(game.data.encounters) ~= "table" then
+    return nil
+  end
+  return game.data.encounters[mapId]
+end
+
+--- Weighted species/level pick for the active adapter.
+function GameCompat.pickEncounter(game, mapId, kind, ctx)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and adapter.pickEncounter then
+    return adapter.pickEncounter(game, mapId, kind, ctx)
+  end
+  return nil
+end
+
+--- Start a wild battle for the visible overworld entity (exact species/level).
+function GameCompat.startWildBattle(world, species, level, game)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and adapter.startWildBattle then
+    return adapter.startWildBattle(world, species, level)
+  end
+  if world and type(world.queueScript) == "function" then
+    return world:queueScript({
+      { "start_battle", "wild", species, tonumber(level) or 5 },
+    })
+  end
+  return nil, "no wild battle adapter"
 end
 
 return GameCompat

@@ -33,6 +33,8 @@ AmbientPokemon.FALLBACK_POOL = {
 
 AmbientPokemon.LEGENDARY_BLOCK = {
   ARTICUNO = true, ZAPDOS = true, MOLTRES = true, MEWTWO = true, MEW = true,
+  RAIKOU = true, ENTEI = true, SUICUNE = true, LUGIA = true, HO_OH = true,
+  CELEBI = true,
 }
 
 local HOSTILE_ID_PATTERNS = {
@@ -133,10 +135,20 @@ function AmbientPokemon.classifyMap(game, mapId, map)
 end
 
 function AmbientPokemon.isEligibleMap(game, mapId, map)
+  local GameCompat = V.require("game_compat")
+  if GameCompat.isGen2(nil, game) then
+    local Town = V.require("gen2/town_pokemon")
+    return Town.forMap(mapId) ~= nil
+  end
   return AmbientPokemon.classifyMap(game, mapId, map) ~= nil
 end
 
 function AmbientPokemon.targetCount(game, mapId, map)
+  local GameCompat = V.require("game_compat")
+  if GameCompat.isGen2(nil, game) then
+    local Town = V.require("gen2/town_pokemon")
+    return Town.targetCount(mapId)
+  end
   local kind = AmbientPokemon.classifyMap(game, mapId, map)
   if not kind then return 0 end
   local dens = AmbientPokemon.DENSITY[kind] or { min = 0, max = 1 }
@@ -158,6 +170,14 @@ function AmbientPokemon.isLegendary(species)
 end
 
 function AmbientPokemon.speciesPool(game, mapId, map)
+  local GameCompat = V.require("game_compat")
+  if GameCompat.isGen2(nil, game) then
+    local Town = V.require("gen2/town_pokemon")
+    local curated = Town.speciesForMap(mapId)
+    if curated then return { curated } end
+    return {}
+  end
+
   local pool = {}
   local seen = {}
   local function add(sp)
@@ -644,6 +664,12 @@ function AmbientPokemon:talkTo(ow, npc, done)
 end
 
 function AmbientPokemon:_installTalkWrap()
+  -- Gold uses a different talk path. Wrapping Gen1 OverworldController here
+  -- would touch unused engine code. Town Pokémon still spawn as shared entities.
+  local GameCompat = V.require("game_compat")
+  if GameCompat.isSupported() and GameCompat.generation() == 2 then
+    return false
+  end
   local OverworldState = tryRequire("src.world.OverworldController")
   if not (OverworldState and OverworldState.talkTo) then return false end
   if OverworldState._wildsAmbientTalkWrap == OverworldState.talkTo then

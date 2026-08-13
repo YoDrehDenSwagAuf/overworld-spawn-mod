@@ -146,7 +146,7 @@ local mod = {
   },
   ui = {},
   exports = {},
-  world = { game = goldGame },
+  world = { game = goldGame, overworld = function() return goldGame.world end },
 }
 
 local chunk, err = loadfile("main.lua")
@@ -170,18 +170,18 @@ if GameCompat then
   check(GameCompat.current(mod, goldGame) == GameCompat.Gen2,
         "GameCompat.current() → Gen2")
   eq(GameCompat.isSupported(mod, goldGame), true, "GameCompat.isSupported() → true")
-  eq(GameCompat.supportsFeature("encounters", mod, goldGame), false,
-     "encounters capability false")
+  eq(GameCompat.supportsFeature("encounters", mod, goldGame), true,
+     "encounters capability true")
   eq(GameCompat.supportsFeature("followers", mod, goldGame), false,
      "followers capability false")
   eq(GameCompat.supportsFeature("catching", mod, goldGame), false,
      "catching capability false")
-  eq(GameCompat.supportsFeature("ambient", mod, goldGame), false,
-     "ambient capability false")
+  eq(GameCompat.supportsFeature("ambient", mod, goldGame), true,
+     "ambient capability true")
   eq(GameCompat.supportsFeature("safari", mod, goldGame), false,
      "safari capability false")
-  eq(GameCompat.supportsFeature("townPokemon", mod, goldGame), false,
-     "townPokemon capability false")
+  eq(GameCompat.supportsFeature("townPokemon", mod, goldGame), true,
+     "townPokemon capability true")
   eq(GameCompat.speciesId("SENTRET", goldGame, mod), 161, "SENTRET → 161")
   eq(GameCompat.currentMapId(goldGame), "ROUTE_29", "current map ROUTE_29")
 end
@@ -193,8 +193,8 @@ local function wrappedHook(name)
   return false
 end
 
-eq(wrappedHook("encounter.roll"), false, "encounter.roll NOT wrapped")
-eq(wrappedHook("movement.collision"), false, "movement.collision NOT wrapped")
+eq(wrappedHook("encounter.roll"), true, "encounter.roll wrapped for Gold wilds")
+eq(wrappedHook("movement.collision"), true, "movement.collision wrapped for Gold wilds")
 eq(wrappedHook("pikachu_follower"), false, "Yellow Pikachu hook NOT wrapped")
 eq(wrappedHook("ui.party.submenu"), false, "follower party submenu NOT wrapped")
 
@@ -218,15 +218,15 @@ if catching then
 end
 
 local ambient = mod.exports.ambient
-check(ambient ~= nil, "ambient object exists (construct only)")
+check(ambient ~= nil, "ambient object exists")
 if ambient then
-  eq(ambient._installed, false, "ambient / town Pokémon NOT installed")
+  eq(ambient._installed, true, "ambient / town Pokémon installed")
 end
 
 local behaviorTick = mod.exports.behaviorTick
-check(behaviorTick ~= nil, "behaviorTick object exists (construct only)")
+check(behaviorTick ~= nil, "behaviorTick object exists")
 if behaviorTick then
-  eq(behaviorTick._registered, false, "WILDS AI pipeline NOT registered")
+  eq(behaviorTick._registered, true, "shared WILDS AI pipeline registered")
 end
 
 check(definedSchema ~= nil, "options schema defined (menu can load)")
@@ -241,11 +241,11 @@ end
 
 local sawGoldLog = false
 for _, line in ipairs(logLines) do
-  if tostring(line):find("experimental Gen2 foundation", 1, true) then
+  if tostring(line):find("experimental Gen2 wild encounters", 1, true) then
     sawGoldLog = true
   end
 end
-check(sawGoldLog, "logs experimental Gold foundation once")
+check(sawGoldLog, "logs experimental Gen2 wild encounters")
 
 local function fire(name, ev)
   local list = events[name]
@@ -258,15 +258,15 @@ local function fire(name, ev)
 end
 
 local mapOk, mapErr = fire("map.entered", { map = goldGame.world.map })
-check(mapOk, "map.entered on Gold is a no-op (" .. tostring(mapErr) .. ")")
+check(mapOk, "map.entered on Gold does not throw (" .. tostring(mapErr) .. ")")
 local readyOk, readyErr = fire("game.ready", {})
 check(readyOk, "game.ready on Gold does not throw (" .. tostring(readyErr) .. ")")
 local modsOk, modsErr = fire("mods.loaded", {})
 check(modsOk, "mods.loaded on Gold does not throw (" .. tostring(modsErr) .. ")")
 
-eq(wrappedHook("encounter.roll"), false, "map.entered still did not wrap encounter.roll")
+eq(wrappedHook("encounter.roll"), true, "map.entered keeps encounter.roll wrap")
 eq(follower._installed, false, "map.entered still did not install followers")
-eq(ambient._installed, false, "map.entered still did not install ambient")
+eq(ambient._installed, true, "map.entered keeps ambient installed")
 eq(catching._registered, false, "map.entered still did not register catching")
 
 if failures > 0 then

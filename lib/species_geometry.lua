@@ -100,30 +100,36 @@ function SpeciesGeometry.clearCache()
   _loadError = nil
 end
 
-local _gen1MaxSpecies
-local function gen1MaxSpecies()
-  if _gen1MaxSpecies then return _gen1MaxSpecies end
-  local ok, Gen1 = pcall(function() return V.require("game_compat/gen1") end)
-  if ok and Gen1 and type(Gen1.MAX_SPECIES) == "number" then
-    _gen1MaxSpecies = Gen1.MAX_SPECIES
-  else
-    _gen1MaxSpecies = 151
+local _cachedMaxSpecies
+local function activeMaxSpecies(game)
+  local ok, GameCompat = pcall(function() return V.require("game_compat") end)
+  if ok and GameCompat and GameCompat.current then
+    local adapter = GameCompat.current(nil, game)
+    if adapter and type(adapter.MAX_SPECIES) == "number" then
+      return adapter.MAX_SPECIES
+    end
   end
-  return _gen1MaxSpecies
+  if _cachedMaxSpecies then return _cachedMaxSpecies end
+  local ok1, Gen1 = pcall(function() return V.require("game_compat/gen1") end)
+  if ok1 and Gen1 and type(Gen1.MAX_SPECIES) == "number" then
+    _cachedMaxSpecies = Gen1.MAX_SPECIES
+  else
+    _cachedMaxSpecies = 151
+  end
+  return _cachedMaxSpecies
 end
 
-function SpeciesGeometry.normalizeDex(speciesId)
-  -- Gen1 National Dex only. The numeric cap lives on the Gen1 adapter
-  -- (currently 151). Do not widen to 251 here; a future Gen2 adapter owns
-  -- its own geometry range.
+function SpeciesGeometry.normalizeDex(speciesId, game)
+  -- Cap comes from the active generation adapter (Gen1=151, Gen2=251).
+  -- Shared generated tables may contain 1..251; Gen1 never reads past 151.
   local n = tonumber(speciesId)
-  local maxDex = gen1MaxSpecies()
-  if n and n >= 1 and n <= maxDex then return math.floor(n) end
+  if not (n and n >= 1 and math.floor(n) == n) then return nil end
+  if n <= activeMaxSpecies(game) then return math.floor(n) end
   return nil
 end
 
-function SpeciesGeometry.entryFor(speciesId, mod)
-  local dex = SpeciesGeometry.normalizeDex(speciesId)
+function SpeciesGeometry.entryFor(speciesId, mod, game)
+  local dex = SpeciesGeometry.normalizeDex(speciesId, game)
   if not dex then return nil, nil end
   local t = SpeciesGeometry.load(mod)
   return t[dex], dex

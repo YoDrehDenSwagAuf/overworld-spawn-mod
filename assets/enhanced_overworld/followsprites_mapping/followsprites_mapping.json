@@ -168,7 +168,7 @@
     }
   },
   "spriteDir": "assets/enhanced_overworld/followsprites",
-  "currentGameSpeciesMax": 151,
+  "currentGameSpeciesMax": 251,
   "species": {
     "1": {
       "speciesId": 1,

@@ -74,7 +74,7 @@ return function(mod)
     if goldFoundationLogged then return end
     goldFoundationLogged = true
     pcall(function()
-      mod.log:info("[Wilds] Pokémon Gold: experimental Gen2 foundation. Encounters, followers, catching, and Kanto systems are disabled.")
+      mod.log:info("[Wilds] Pokémon Gold: experimental Gen2 wild encounters. Followers, catching, and Safari stay off.")
     end)
   end
 
