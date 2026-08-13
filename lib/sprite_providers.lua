@@ -173,6 +173,13 @@ local function resolveDexId(speciesId, game, mod)
   if n and n >= 1 and math.floor(n) == n then
     return math.floor(n)
   end
+  local okGC, GameCompat = pcall(function() return V.require("game_compat") end)
+  if okGC and GameCompat and GameCompat.speciesId then
+    local ok, dex = pcall(GameCompat.speciesId, speciesId, game, mod)
+    if ok and type(dex) == "number" and dex >= 1 then
+      return math.floor(dex)
+    end
+  end
   return AnimatedSprites.resolveSpeciesId(speciesId, game, mod)
 end
 

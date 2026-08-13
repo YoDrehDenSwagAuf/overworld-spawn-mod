@@ -173,4 +173,98 @@ function Gen2.startWildBattle(world, species, level)
   })
 end
 
+-- STANDING_DOWN (Npc.MOVE): STILL carries FIXED_FACING and cannot turn.
+local GOLD_STANDING_DOWN = 6
+
+--- Gold trailer NPC: native Npc.new(mapId, objDef, spriteDef).
+-- Does not register a fake Gen1 SPRITE_PIKACHU; the resolved Pokémon
+-- SpriteDef is the sheet. Falls back to Gen1 arity (fromGen1 sniff) if
+-- the native call errors.
+function Gen2.makeGuestNpc(game, ow, spec)
+  spec = spec or {}
+  local NPC = tryRequire("src.world.NPC")
+  if not (NPC and NPC.new) then return nil, "no NPC" end
+  if not (ow and ow.map and ow.map.id) then return nil, "no map" end
+  local spriteDef = spec.spriteDef
+  if type(spriteDef) ~= "table" or not spriteDef.image then
+    return nil, "Gold trailer requires spriteDef.image"
+  end
+  local movement = GOLD_STANDING_DOWN
+  if NPC.MOVE and NPC.MOVE.STANDING_DOWN then
+    movement = NPC.MOVE.STANDING_DOWN
+  end
+  local objDef = {
+    index = spec.index,
+    name = spec.name,
+    sprite = spec.spriteId,
+    movement = movement,
+    x = spec.x, y = spec.y,
+  }
+  -- Live Gold Npc.lua exports MOVE / fallbackSpriteDef. Test stubs that
+  -- only implement Gen1 arity do not, so they take the fromGen1 path.
+  local nativeGold = NPC.MOVE ~= nil or NPC.fallbackSpriteDef ~= nil
+  if nativeGold then
+    local ok, npc = pcall(NPC.new, ow.map.id, objDef, spriteDef)
+    if ok and npc then
+      npc.spriteDef = npc.spriteDef or spriteDef
+      npc.mapId = npc.mapId or ow.map.id
+      return npc
+    end
+    if not ok then
+      return nil, tostring(npc)
+    end
+  end
+  local ok2, npc2 = pcall(NPC.new, game and game.data, ow.map.id, {
+    index = spec.index,
+    name = spec.name,
+    sprite = spec.spriteId or "SPRITE_PIKACHU",
+    movement = "STAY", range = "NONE",
+    x = spec.x, y = spec.y,
+  })
+  if ok2 and npc2 then
+    npc2.spriteDef = spriteDef
+    npc2.mapId = npc2.mapId or ow.map.id
+    return npc2
+  end
+  return nil, tostring(npc2 or "NPC.new failed")
+end
+
+--- Gold CONTROL=POKEMON: Player:setSprite(spriteDef). Keeps the same
+-- player object (cell, input, collision, scripts, warps, surf).
+function Gen2.applyControlledPokemonSprite(player, def, _game)
+  if not (player and def) then return false, "missing player or def" end
+  if type(player.setSprite) == "function" then
+    local ok, err = pcall(player.setSprite, player, def)
+    if not ok then return false, err end
+    player._pokepcAsPokemon = true
+    return true, "setSprite"
+  end
+  local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
+  if not (SpriteRenderer and SpriteRenderer.new) then
+    return false, "no SpriteRenderer"
+  end
+  local ok, sprite = pcall(SpriteRenderer.new, def, "player")
+  if not ok or not sprite then return false, tostring(sprite) end
+  player.sprite = sprite
+  player.spriteDef = def
+  player._pokepcAsPokemon = true
+  return true, "player.sprite"
+end
+
+--- Gold restore: World:applyPlayerState picks SPRITE_CHRIS / bike / surf.
+function Gen2.restoreTrainerSprite(player, game, ow)
+  ow = goldWorld(game, ow)
+  if ow and type(ow.applyPlayerState) == "function" then
+    local ok, err = pcall(ow.applyPlayerState, ow, ow.playerState)
+    if not ok then return false, err end
+    if player then
+      player._pokepcAsPokemon = nil
+      player._pokepcControlSpecies = nil
+      player._pokepcShiny = nil
+    end
+    return true, "applyPlayerState"
+  end
+  return false, "no applyPlayerState"
+end
+
 return Gen2

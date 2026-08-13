@@ -77,6 +77,9 @@ package.loaded["src.world.PikachuFollower"] = {
   current = function() return nil end,
   talk = function() end,
 }
+package.loaded["src.world.gen2.World"] = {
+  step = function() end,
+}
 
 local optionStore = {
   follower_count = 0,

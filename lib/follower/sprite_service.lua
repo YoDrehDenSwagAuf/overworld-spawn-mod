@@ -70,6 +70,16 @@ function SpriteService:_fallbackImage()
   return self:_modAssetPath("assets/fallback/pokemon_missing.png")
 end
 
+local function playerControlledSpriteId(mod, game, role)
+  if role ~= "player_controlled" then return nil end
+  local GameCompat = V.require("game_compat")
+  if GameCompat.isGen2(mod, game) then
+    -- Do not register a fake Gen1 SPRITE_PLAYER_POKEMON on Gold.
+    return "SPRITE_WILDS_PLAYER_MON"
+  end
+  return "SPRITE_PLAYER_POKEMON"
+end
+
 --- Resolve a follower land/water sprite matching the active configured style.
 function SpriteService:resolveFollowerSprite(opts)
   opts = opts or {}
@@ -80,6 +90,8 @@ function SpriteService:resolveFollowerSprite(opts)
   local role = opts.role or "primary"
   local game = opts.game
   local variant = shiny and "shiny" or "normal"
+  local dex = self:dexOf(species, game)
+  local playerId = playerControlledSpriteId(self.mod, game, role)
 
   -- Water: prefer existing Wilds water resolver (swimming / levitates).
   if (surface == "surfing" or surface == "water") and self.logic
@@ -91,7 +103,7 @@ function SpriteService:resolveFollowerSprite(opts)
     })
     if def and def.image then
       return {
-        id = def.id or "SPRITE_WILDS_FOLLOWER_WATER",
+        id = playerId or def.id or "SPRITE_WILDS_FOLLOWER_WATER",
         image = def.image,
         frames = def.frames or 6,
         walker = def.walker ~= false,
@@ -103,6 +115,8 @@ function SpriteService:resolveFollowerSprite(opts)
         providerId = "water",
         role = role,
         surface = surface,
+        dex = dex,
+        fallback = false,
       }
     end
   end
@@ -118,7 +132,7 @@ function SpriteService:resolveFollowerSprite(opts)
       local def = result.def
       local trueColor = def.trueColor ~= false
       return {
-        id = (role == "player_controlled") and "SPRITE_PLAYER_POKEMON"
+        id = playerId
           or (role == "party_trailer" or role == "primary") and "SPRITE_WILDS_FOLLOWER_MON"
           or def.id or Constants.SPRITE_ID,
         image = def.image,
@@ -132,6 +146,8 @@ function SpriteService:resolveFollowerSprite(opts)
         providerId = result.providerId,
         role = role,
         surface = "land",
+        dex = dex,
+        fallback = false,
       }
     end
   end
@@ -140,18 +156,18 @@ function SpriteService:resolveFollowerSprite(opts)
   local sheets = self.render and self.render.runtimeSheets
   if sheets then
     if not sheets.ready and sheets.load then pcall(function() sheets:load() end) end
-    local dex = self:dexOf(species) or 4
-    local def = sheets:spriteDef(dex, variant, "SPRITE_WILDS_FOLLOWER_MON")
+    local sheetDex = dex or 4
+    local def = sheets:spriteDef(sheetDex, variant, playerId or "SPRITE_WILDS_FOLLOWER_MON")
     if def and def.image then
       local VariableSize = V.require("variable_size")
       local info
       def, info = VariableSize.applyToDef(self.mod, def, {
-        speciesId = dex,
+        speciesId = sheetDex,
         style = style,
         variant = variant,
       })
       return {
-        id = def.id,
+        id = playerId or def.id,
         image = def.image,
         frames = def.frames or 6,
         walker = def.walker ~= false,
@@ -164,12 +180,14 @@ function SpriteService:resolveFollowerSprite(opts)
         role = role,
         surface = "land",
         variableSize = info and info.applied or false,
+        dex = sheetDex,
+        fallback = false,
       }
     end
   end
 
   return {
-    id = Constants.SPRITE_ID,
+    id = playerId or Constants.SPRITE_ID,
     image = self:_fallbackImage(),
     frames = 1,
     walker = false,
@@ -177,6 +195,8 @@ function SpriteService:resolveFollowerSprite(opts)
     providerId = "fallback",
     role = role,
     surface = surface,
+    dex = dex,
+    fallback = true,
   }
 end
 

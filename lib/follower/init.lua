@@ -24,7 +24,9 @@ local Follower = {}
 Follower.__index = Follower
 
 local function logGen2(mod, fmt, ...)
-  if DebugLog and DebugLog.followerGen2 then
+  if DebugLog and DebugLog.followerGen2Always then
+    DebugLog.followerGen2Always(mod, fmt, ...)
+  elseif DebugLog and DebugLog.followerGen2 then
     DebugLog.followerGen2(mod, fmt, ...)
   end
 end
@@ -442,6 +444,9 @@ function Follower:onMapEntered(ev)
   end
   local GameCompat = V.require("game_compat")
   local ow = GameCompat.liveOverworld(self.mod, game)
+  if self.control and type(self.control._ensureGen2WorldStepWrap) == "function" then
+    pcall(function() self.control:_ensureGen2WorldStepWrap(game) end)
+  end
   self.selection:reconcile(game)
   if not self.control._installed then
     self.lifecycle:onMapEntered(game, ow)
@@ -453,11 +458,12 @@ end
 -- so they reappear together at the leader's position.
 function Follower:onMapReloaded(ev)
   if not self.control._installed then return end
-  local engine = self.control.engine
-  if not engine then return end
+  local engine = self.control
+  local game = ev and ev.game
+    or (self.mod and self.mod.world and self.mod.world.game)
+  pcall(function() engine:_ensureGen2WorldStepWrap(game) end)
   -- Remove all followers from the overworld immediately so they
   -- disappear during the reload (healing animation, etc.).
-  local game = self.mod and self.mod.world and self.mod.world.game
   local GameCompat = V.require("game_compat")
   local ow = GameCompat.liveOverworld(self.mod, game)
   if ow then

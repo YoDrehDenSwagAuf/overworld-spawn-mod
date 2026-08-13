@@ -67,6 +67,12 @@ package.loaded["src.world.PikachuFollower"] = {
   talk = function() end,
 }
 
+-- Gold World:step is the exclusive Gen2 trailer driver. A no-op body is
+-- enough: ControlEngine wraps this and calls update after origStep.
+package.loaded["src.world.gen2.World"] = {
+  step = function() end,
+}
+
 local optionStore = {
   follower_count = 1,
   follow_control = "trainer",
@@ -128,6 +134,7 @@ modules.config = {
 }
 modules.debug_log = {
   warn = function() end, info = function() end, error = function() end, debug = function() end,
+  followerGen2 = function() end, followerGen2Always = function() end,
 }
 modules.tile = { CELL = 16, WIDTH = 16, HEIGHT = 16 }
 modules.cell_occupancy = {
@@ -167,6 +174,10 @@ local function goldWorld(opts)
   local player = opts.player or {
     cellX = 10, cellY = 10, px = 160, py = 160,
     facing = "down", moving = false, stepFrames = 16,
+    setSprite = function(self, def)
+      self.spriteDef = def
+      self.sprite = { def = def, id = "player" }
+    end,
   }
   local world = {
     map = opts.map or goldMap(opts.mapId),
@@ -586,7 +597,7 @@ do
 end
 
 ----------------------------------------------------------------
--- Gold Follower.update (World:step) ticks trailers; liveOverworld is game.world
+-- Gold World:step ticks trailers exactly once; liveOverworld is game.world
 ----------------------------------------------------------------
 do
   local world, player = goldWorld()
@@ -598,6 +609,10 @@ do
   submenuWrap = nil
   local follower = Follower.new(V.mod, {})
   follower:install({ game = game })
+  eq(follower.control._trailerUpdateOwner, "gen2_world_event",
+     "G. Gold update-owner=gen2_world_event")
+  check(follower.control._owUpdateWrapped ~= true, "G. Gen1 OW wrap not installed on Gold")
+  check(follower.control._gen2WorldStepWrapped == true, "G. Gold World:step wrap installed")
   follower.control:setFollowerCount(game, 0)
   local items = submenuWrap(function() return {} end, game, {}, mon, {})
   local labels = {}
@@ -608,7 +623,7 @@ do
   end
   check(follow ~= nil, "E. FOLLOW present for SENTRET (" .. table.concat(labels, ",") .. ")")
   if not follow then
-    io.stderr:write("FAIL: aborting Gold Follower.update tick\n")
+    io.stderr:write("FAIL: aborting Gold World:step tick\n")
   else
   follow.onSelect(mon, game)
   local ow = GameCompat.liveOverworld(V.mod, game)
@@ -628,12 +643,20 @@ do
   player.stepFrames = 4
   world.pokepcTrailHead = { x = 10, y = 10 }
   world.pokepcTrailCells = { { x = 10, y = 9 } }
+  world.game = game
   local startY = npc.cellY
-  local pf = package.loaded["src.world.PikachuFollower"]
-  check(type(pf.update) == "function", "G. Gold Follower.update wrap installed")
-  pf.update(game, world)
+  local before = follower.control.diag.controlUpdateCalls or 0
+  local World = package.loaded["src.world.gen2.World"]
+  World.step(world)
+  eq(follower.control.diag.controlUpdateCalls, before + 1,
+     "G. Gold World:step calls ControlEngine:update exactly once")
   local moved = npc.cellY ~= startY or npc.moving or npc.targetY
-  check(moved, "G. Gold Follower.update produces follower movement")
+  check(moved, "G. Gold World:step produces follower movement")
+  local pfBefore = follower.control.diag.controlUpdateCalls
+  local pf = package.loaded["src.world.PikachuFollower"]
+  pf.update(game, world)
+  eq(follower.control.diag.controlUpdateCalls, pfBefore,
+     "G. Gold PikachuFollower.update does not double-tick")
   follower:restore()
   end
 end
@@ -662,6 +685,63 @@ do
   eq(Selection.healthy(a), true, "4. Gold hp number is healthy")
   eq(Selection.healthy({ species = "SENTRET", hp = 0 }), false,
      "4. Gold hp 0 is fainted")
+end
+
+----------------------------------------------------------------
+-- CONTROL=POKEMON land: Gen2 species (Sentret dex 161) and Gen1 species
+-- (Pidgey) resolve a real image, never pokemon_missing.png. Gold uses
+-- player:setSprite, not a registered SPRITE_PLAYER_POKEMON.
+----------------------------------------------------------------
+do
+  local world, player = goldWorld()
+  world.applyPlayerState = function(self, state)
+    self.playerState = state or "normal"
+    self._restoredTrainer = true
+  end
+  local sentret = healthy("SENTRET")
+  local pidgey = healthy("PIDGEY")
+  local game = goldGame(world, { sentret, pidgey })
+  game.data.pokemon.PIDGEY = { name = "PIDGEY", dex = 16 }
+  game.save.pokepcFollowerCount = 0
+  game.save.pokepcControlMode = "pokemon"
+  optionStore.follow_control = "pokemon"
+  optionStore.follower_count = 0
+  optionStore.trainer_trail = false
+  V.mod.world = { game = game, overworld = function() return world end }
+  V.mod.game = game
+  local engine = makeEngine(0)
+  engine._gameRef = game
+  engine.settings = {
+    followerCount = function() return 0 end,
+    engineMode = function() return "pokemon" end,
+    followControl = function() return "pokemon" end,
+    alignSave = function() end,
+  }
+  engine.selection:selectFollower(sentret, game, {})
+  engine:setLeaderParty(game, 1)
+  engine:applyPlayerAsPokemon(game, world, true)
+  eq(GameCompat.speciesId("SENTRET", game, V.mod), 161, "Sentret National Dex is 161")
+  check(player.spriteDef ~= nil, "Gold player:setSprite wrote spriteDef")
+  check(player.sprite ~= nil, "Gold player sprite renderer present")
+  local def = player.spriteDef or (player.sprite and player.sprite.def)
+  check(def and def.image, "Gold player SpriteDef has image")
+  check(not tostring(def.image):find("pokemon_missing.png", 1, true),
+        "Sentret player-controlled does not use pokemon_missing.png")
+  check(def.id ~= "SPRITE_PLAYER_POKEMON" or def.image,
+        "Gold does not require SPRITE_PLAYER_POKEMON registry")
+  eq(player._pokepcAsPokemon, true, "Gold CONTROL=POKEMON marker set")
+  eq(player._pokepcControlSpecies, "SENTRET", "Gold player species is SENTRET")
+
+  engine.selection:selectFollower(pidgey, game, {})
+  engine:setLeaderParty(game, 2)
+  engine:applyPlayerAsPokemon(game, world, true)
+  local def2 = player.spriteDef or (player.sprite and player.sprite.def)
+  check(def2 and def2.image, "Pidgey-in-Gold player SpriteDef has image")
+  check(not tostring(def2.image):find("pokemon_missing.png", 1, true),
+        "Gen1 species player-mode in Gold does not use pokemon_missing.png")
+  eq(player._pokepcControlSpecies, "PIDGEY", "Gold player species is PIDGEY")
+  optionStore.follow_control = "trainer"
+  optionStore.follower_count = 1
 end
 
 if failures > 0 then

@@ -60,6 +60,12 @@ local function tryVRequire(name)
   return nil
 end
 
+local function tryRequire(path)
+  local ok, mod = pcall(require, path)
+  if ok then return mod end
+  return nil
+end
+
 --- Resolve a species key to a numeric id using current Gen1 paths.
 -- 1. numeric id → return as-is if a positive integer
 -- 2. engine species resolver (AnimatedSprites / game.data / content)
@@ -140,6 +146,32 @@ function Gen1.startWildBattle(world, species, level)
   return world:queueScript({
     { "start_battle", "wild", species, tonumber(level) or 5 },
   })
+end
+
+--- Gen1 trailer NPC: exact ControlEngine makeTrailer constructor.
+function Gen1.makeGuestNpc(game, ow, spec)
+  spec = spec or {}
+  local NPC = tryRequire("src.world.NPC")
+  if not (NPC and NPC.new) then return nil, "no NPC" end
+  if not (game and game.data and ow and ow.map and ow.map.id) then
+    return nil, "no data/map"
+  end
+  return NPC.new(game.data, ow.map.id, {
+    index = spec.index,
+    name = spec.name,
+    sprite = spec.spriteId or "SPRITE_PIKACHU",
+    movement = spec.movement or "STAY",
+    range = spec.range or "NONE",
+    x = spec.x, y = spec.y,
+  })
+end
+
+--- Gen1 CONTROL=POKEMON: assign SpriteRenderer onto player.sprite.
+function Gen1.applyControlledPokemonSprite(player, renderer, _game)
+  if not (player and renderer) then return false, "missing player or renderer" end
+  player.sprite = renderer
+  player._pokepcAsPokemon = true
+  return true, "player.sprite"
 end
 
 return Gen1

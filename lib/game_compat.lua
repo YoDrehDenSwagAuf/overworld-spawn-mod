@@ -404,6 +404,41 @@ function GameCompat.detachGuestEntity(ow, entity)
   return GameCompat.detachWildEntity(ow, entity)
 end
 
+--- Construct a follower/town guest NPC. Gen1 keeps the exact historical
+-- NPC.new(data, mapId, objDef) call. Gen2 uses native Npc.new(mapId, objDef,
+-- spriteDef) so Gold does not depend on SPRITE_PIKACHU existing.
+function GameCompat.makeGuestNpc(game, ow, spec)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and type(adapter.makeGuestNpc) == "function" then
+    return adapter.makeGuestNpc(game, ow, spec)
+  end
+  return nil, "no makeGuestNpc adapter"
+end
+
+--- CONTROL=POKEMON presentation. Gen1 assigns player.sprite (SpriteRenderer).
+-- Gen2 calls player:setSprite(def) — Gold World:applyPlayerState uses that.
+function GameCompat.applyControlledPokemonSprite(player, defOrRenderer, game)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and type(adapter.applyControlledPokemonSprite) == "function" then
+    return adapter.applyControlledPokemonSprite(player, defOrRenderer, game)
+  end
+  if player then
+    player.sprite = defOrRenderer
+    player._pokepcAsPokemon = true
+    return true, "player.sprite"
+  end
+  return false, "no player"
+end
+
+--- Restore the walking trainer/Chris sprite. Gen2 uses World:applyPlayerState.
+function GameCompat.restoreTrainerSprite(player, game, ow)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and type(adapter.restoreTrainerSprite) == "function" then
+    return adapter.restoreTrainerSprite(player, game, ow)
+  end
+  return false, "no restoreTrainerSprite adapter"
+end
+
 --- Present dialogue. Gen1 keeps the existing TextBox stack path.
 -- Gen2 uses World:showText when the live world exposes it (Gold interact).
 function GameCompat.presentText(mod, game, ow, text, onDone)
