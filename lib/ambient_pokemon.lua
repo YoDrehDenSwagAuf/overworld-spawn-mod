@@ -173,6 +173,9 @@ function AmbientPokemon.speciesPool(game, mapId, map)
   local GameCompat = V.require("game_compat")
   if GameCompat.isGen2(nil, game) then
     local Town = V.require("gen2/town_pokemon")
+    if Town.speciesListForMap then
+      return Town.speciesListForMap(mapId)
+    end
     local curated = Town.speciesForMap(mapId)
     if curated then return { curated } end
     return {}
@@ -409,7 +412,126 @@ function AmbientPokemon:_bindSprite(npc, species, game)
   return false
 end
 
+function AmbientPokemon:_makeGoldGuest(game, ow, species, x, y, behavior)
+  self._nextIndex = (self._nextIndex or AmbientPokemon.INDEX_BASE) + 1
+  local mapId = ow and ow.map and ow.map.id or "UNKNOWN"
+  local npc = {
+    id = string.format("%s_ambient_%d", tostring(mapId), self._nextIndex),
+    mapId = mapId,
+    cellX = x,
+    cellY = y,
+    homeX = x,
+    homeY = y,
+    px = (x or 0) * 16,
+    py = (y or 0) * 16,
+    facing = "down",
+    moving = false,
+    progress = 0,
+    stepFlip = false,
+    frozen = false,
+    timer = randInt(90, 180),
+    roamDirs = { "up", "down", "left", "right" },
+    wanders = behavior == "WANDER",
+    _wildsGoldGuest = true,
+    def = { _wildsAmbientGuard = true, index = self._nextIndex },
+  }
+  function npc:walkPhase()
+    if not self.moving then return 0 end
+    local p = (self.progress or 0) % 16
+    return (p >= 4 and p < 12) and 1 or 0
+  end
+  function npc:facePlayer(player)
+    if not player then return end
+    local dx = (player.cellX or 0) - (self.cellX or 0)
+    local dy = (player.cellY or 0) - (self.cellY or 0)
+    if math.abs(dx) > math.abs(dy) then
+      self.facing = dx > 0 and "right" or "left"
+    else
+      self.facing = dy > 0 and "down" or "up"
+    end
+  end
+  -- Gold World:drawPeople calls draw(ox, oy, scale). SpriteRenderer then
+  -- draws at world px/py inside the camera transform (same as Gold NPC).
+  function npc:draw(ox, oy, scale)
+    if not (self.sprite and self.sprite.draw) then return end
+    local phase = self:walkPhase()
+    if scale == nil then
+      self.sprite:draw(self.px or 0, self.py or 0, ox or 0, oy or 0,
+                       self.facing or "down", phase, self.stepFlip)
+      return
+    end
+    local G = love and love.graphics
+    if G and G.push then
+      G.push()
+      G.translate(ox or 0, oy or 0)
+      G.scale(scale, scale)
+      self.sprite:draw(self.px or 0, self.py or 0, 0, 0,
+                       self.facing or "down", phase, self.stepFlip)
+      G.pop()
+    else
+      self.sprite:draw(self.px or 0, self.py or 0, 0, 0,
+                       self.facing or "down", phase, self.stepFlip)
+    end
+  end
+  function npc:update(map, entities)
+    if self.frozen then return end
+    local stepLen = 16
+    local DELTA = { up = { 0, -1 }, down = { 0, 1 }, left = { -1, 0 }, right = { 1, 0 } }
+    if self.moving then
+      self.progress = (self.progress or 0) + 1
+      local d = DELTA[self.facing] or { 0, 1 }
+      local moved = math.floor((self.progress or 0) * 16 / stepLen)
+      self.px = (self.cellX or 0) * 16 + d[1] * moved
+      self.py = (self.cellY or 0) * 16 + d[2] * moved
+      if self.progress >= stepLen then
+        self.cellX, self.cellY = self.targetX, self.targetY
+        self.targetX, self.targetY = nil, nil
+        self.px, self.py = (self.cellX or 0) * 16, (self.cellY or 0) * 16
+        self.moving = false
+        self.stepFlip = not self.stepFlip
+        self.progress = 0
+      end
+      return
+    end
+    if not self.wanders then return end
+    self.timer = (self.timer or 90) - 1
+    if self.timer > 0 then
+      if self.timer % 45 == 0 and chance(0.35) then
+        local dirs = self.roamDirs or { "up", "down", "left", "right" }
+        self.facing = dirs[randInt(1, #dirs)]
+      end
+      return
+    end
+    self.timer = randInt(90, 220)
+    local dirs = self.roamDirs or { "up", "down", "left", "right" }
+    local dir = dirs[randInt(1, #dirs)]
+    self.facing = dir
+    if chance(0.55) then return end
+    local d = DELTA[dir] or { 0, 1 }
+    local tx, ty = (self.cellX or 0) + d[1], (self.cellY or 0) + d[2]
+    if not AmbientPokemon.isSafeSpawnCell(
+         { player = ow.player, entities = entities, npcs = ow.npcs },
+         map, tx, ty, self) then
+      return
+    end
+    self.targetX, self.targetY = tx, ty
+    self.moving = true
+    self.progress = 0
+  end
+  self:_markAmbient(npc, species, behavior)
+  self:_bindSprite(npc, species, game)
+  return npc
+end
+
 function AmbientPokemon:_makeNpc(game, ow, species, x, y, behavior)
+  local GameCompat = V.require("game_compat")
+  -- Gold has no Gen1 NPC constructor contract (SPRITE_PIKACHU assert, WALK/STAY
+  -- strings). Build a guest that Gold World:drawPeople / updatePeople already
+  -- iterate — same SpriteRenderer as Gen1 ambient, no second renderer.
+  if GameCompat.isGen2(nil, game) then
+    return self:_makeGoldGuest(game, ow, species, x, y, behavior)
+  end
+
   local NPC = tryRequire("src.world.NPC")
   if not (NPC and NPC.new and game and game.data) then return nil end
 
@@ -548,19 +670,42 @@ function AmbientPokemon:spawnForMap(game, ow)
 
   local target = AmbientPokemon.targetCount(game, mapId, map)
   local spawned = 0
-  for _ = 1, target do
+  local GameCompat = V.require("game_compat")
+  local function placeOne(species, behavior)
     local x, y = self:findSpawnCell(ow, map)
-    if not x then break end
-    local species = AmbientPokemon.pickSpecies(game, mapId, map)
-    if not species then break end
-    local behavior = chance(0.65) and "IDLE" or "WANDER"
+    if not x then return false end
+    if not species then return false end
     local npc = self:_makeNpc(game, ow, species, x, y, behavior)
-    if npc then
-      npc.mapId = mapId
-      table.insert(ow.npcs, npc)
-      table.insert(ow.entities, npc)
-      self.active[npc] = true
-      spawned = spawned + 1
+    if not npc then return false end
+    npc.mapId = mapId
+    ow.npcs = ow.npcs or {}
+    ow.entities = ow.entities or {}
+    table.insert(ow.npcs, npc)
+    table.insert(ow.entities, npc)
+    self.active[npc] = true
+    return true
+  end
+
+  if GameCompat.isGen2(nil, game) then
+    local Town = V.require("gen2/town_pokemon")
+    for _, entry in ipairs(Town.entriesForMap(mapId)) do
+      for _ = 1, (entry.count or 0) do
+        local behavior = chance(0.65) and "IDLE" or "WANDER"
+        if placeOne(entry.species, behavior) then
+          spawned = spawned + 1
+        else
+          break
+        end
+      end
+    end
+  else
+    for _ = 1, target do
+      local behavior = chance(0.65) and "IDLE" or "WANDER"
+      if placeOne(AmbientPokemon.pickSpecies(game, mapId, map), behavior) then
+        spawned = spawned + 1
+      else
+        break
+      end
     end
   end
   self.activeMapId = mapId
@@ -571,10 +716,25 @@ function AmbientPokemon:spawnForMap(game, ow)
   return spawned
 end
 
-function AmbientPokemon:onMapEntered(ev)
-  local world = self.mod.world
+local function liveOw(self)
+  local world = self.mod and self.mod.world
   local game = world and world.game
-  local ow = world and world.overworld and world:overworld()
+  local GameCompat = V.require("game_compat")
+  local ow = GameCompat.liveOverworld(self.mod, game)
+  if ow then return ow, game end
+  if world and world.overworld then
+    if type(world.overworld) == "function" then
+      local ok, got = pcall(world.overworld, world)
+      if ok then return got, game end
+    elseif type(world.overworld) == "table" then
+      return world.overworld, game
+    end
+  end
+  return nil, game
+end
+
+function AmbientPokemon:onMapEntered(ev)
+  local ow, game = liveOw(self)
   if not ow then return end
   local mapId = ev and (ev.mapId or (ev.map and ev.map.id))
   if mapId and self.activeMapId and self.activeMapId ~= mapId then
@@ -584,16 +744,14 @@ function AmbientPokemon:onMapEntered(ev)
 end
 
 function AmbientPokemon:onMapExited(ev)
-  local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
+  local ow = liveOw(self)
   self:clearAll(ow)
   self.activeMapId = nil
 end
 
 function AmbientPokemon:onTownPokemonToggled(on, game)
-  local world = self.mod.world
-  local ow = world and world.overworld and world:overworld()
-  game = game or (world and world.game)
+  local ow, liveGame = liveOw(self)
+  game = game or liveGame
   if not on then
     self:clearAll(ow)
     return

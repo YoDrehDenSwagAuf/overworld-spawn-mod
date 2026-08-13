@@ -227,12 +227,22 @@ do
 end
 
 do
-  eq(Town.catalog and Town.CATALOG.NEW_BARK_TOWN.species or Town.speciesForMap("NEW_BARK_TOWN"),
-     "SENTRET", "New Bark catalog species is Sentret")
   eq(Town.speciesForMap("NEW_BARK_TOWN"), "SENTRET", "speciesForMap New Bark")
   eq(Town.targetCount("NEW_BARK_TOWN"), 1, "New Bark count is 1")
-  check(Town.forMap("CHERRYGROVE_CITY") == nil, "Cherrygrove not in first catalog")
+  check(#Town.entriesForMap("NEW_BARK_TOWN") >= 1, "New Bark has entries")
+  check(Town.forMap("CHERRYGROVE_CITY") ~= nil, "Cherrygrove is in the Johto catalog")
+  check(Town.forMap("VIOLET_CITY") ~= nil, "Violet is in the catalog")
+  check(Town.forMap("AZALEA_TOWN") ~= nil, "Azalea is in the catalog")
+  check(Town.forMap("GOLDENROD_CITY") ~= nil, "Goldenrod is in the catalog")
+  check(Town.forMap("ECRUTEAK_CITY") ~= nil, "Ecruteak is in the catalog")
+  check(Town.forMap("OLIVINE_CITY") ~= nil, "Olivine is in the catalog")
+  check(Town.forMap("CIANWOOD_CITY") ~= nil, "Cianwood is in the catalog")
+  check(Town.forMap("MAHOGANY_TOWN") ~= nil, "Mahogany is in the catalog")
+  check(Town.forMap("BLACKTHORN_CITY") ~= nil, "Blackthorn is in the catalog")
   check(Town.forMap("ROUTE_29") == nil, "Route 29 is not a town catalog map")
+  check(Town.forMap("PALLET_TOWN") == nil, "Kanto towns are not in the Gen2 catalog")
+  check(Town.targetCount("GOLDENROD_CITY") >= 1 and Town.targetCount("GOLDENROD_CITY") <= 3,
+        "city counts stay conservative")
 end
 
 ----------------------------------------------------------------

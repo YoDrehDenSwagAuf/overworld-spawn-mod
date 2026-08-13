@@ -12,8 +12,14 @@
 - Touching a visible wild starts a **normal Gold wild battle**
   (`start_battle` / `wild` / species / level) exactly once. Overworld
   Catching stays off.
-- One curated New Bark Town ambient Sentret (`lib/gen2/town_pokemon.lua`).
-  Not a grass roll. Not a full Johto town catalog.
+- Aggressive Wilds on Gold use the **Gold World emote contract**
+  (`{ image, entity, left }`). Writing the Gen1 `{ npc, frames, onDone }`
+  bubble onto Gold World was crashing in `World:update` when a spawned
+  Pokémon saw the player. The shared Behavior state machine is unchanged.
+- Curated Johto town Pokémon (`lib/gen2/town_pokemon.lua`) spawn as NPC-like
+  ambient guests (non-aggressive, no Pokédex, not encounter tables) on
+  New Bark, Cherrygrove, Violet, Azalea, Goldenrod, Ecruteak, Olivine,
+  Cianwood, Mahogany, and Blackthorn.
 - HGSS True Size / runtime sprite generation range extends to **251**.
   Existing 1..151 geometry is unchanged.
 - Followers, catching, and Safari stay **off** on Gold.

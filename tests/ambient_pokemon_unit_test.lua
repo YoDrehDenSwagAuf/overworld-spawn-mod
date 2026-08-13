@@ -186,7 +186,7 @@ eq(def.trueColor, true, "colored trueColor on ambient def")
 optionStore.sprite_color = "classic"
 ambient._spriteCache = {}
 def = ambient:_resolveSprite("EEVEE", game)
-eq(def.trueColor, false, "classic forces trueColor false")
+eq(def.trueColor, true, "provider trueColor is kept (sprite_color is not a gate)")
 
 -- Refresh sprites path
 ambient.active[fake] = true
@@ -208,7 +208,7 @@ optionStore.town_pokemon = true
 local spawned = ambient:spawnForMap(game, ow)
 eq(spawned, 0, "no ambient spawn on hostile map")
 
--- ------- Gen2 town Pokémon: New Bark only, no Kanto fallback
+-- ------- Gen2 town Pokémon: curated Johto catalog, no Kanto fallback
 package.loaded["src.core.GameVersion"] = {
   get = function() return "gold" end,
   isYellow = function() return false end,
@@ -216,35 +216,117 @@ package.loaded["src.core.GameVersion"] = {
   generation = function() return 2 end,
 }
 local goldGame = {
+  save = { pokedex = nil, pokedexReceived = false },
   data = {
     maps = {
       NEW_BARK_TOWN = { id = "NEW_BARK_TOWN", tileset = "OVERWORLD" },
       CHERRYGROVE_CITY = { id = "CHERRYGROVE_CITY", tileset = "OVERWORLD" },
+      VIOLET_CITY = { id = "VIOLET_CITY", tileset = "OVERWORLD" },
+      AZALEA_TOWN = { id = "AZALEA_TOWN", tileset = "OVERWORLD" },
+      GOLDENROD_CITY = { id = "GOLDENROD_CITY", tileset = "OVERWORLD" },
+      ECRUTEAK_CITY = { id = "ECRUTEAK_CITY", tileset = "OVERWORLD" },
+      OLIVINE_CITY = { id = "OLIVINE_CITY", tileset = "OVERWORLD" },
+      CIANWOOD_CITY = { id = "CIANWOOD_CITY", tileset = "OVERWORLD" },
+      MAHOGANY_TOWN = { id = "MAHOGANY_TOWN", tileset = "OVERWORLD" },
+      BLACKTHORN_CITY = { id = "BLACKTHORN_CITY", tileset = "OVERWORLD" },
       ROUTE_29 = { id = "ROUTE_29", tileset = "OVERWORLD" },
     },
+    -- Gold sprites do not include Gen1 SPRITE_PIKACHU — that was the dead path.
+    sprites = { SPRITE_GOLD = { id = "SPRITE_GOLD", image = "x.png", frames = 6 } },
     encounters = {
       PALLET_TOWN = { grass = { rate = 25, slots = { { species = "PIDGEY", level = 3 } } } },
     },
-    gen2Encounters = {},
+    gen2Encounters = {
+      grass = {
+        ROUTE_29 = { rates = { DAY = 25 }, slots = { DAY = { { species = "PIDGEY", level = 2 } } } },
+      },
+    },
+    pokemon = {},
   },
 }
 check(AmbientPokemon.isEligibleMap(goldGame, "NEW_BARK_TOWN"), "New Bark is eligible")
-check(not AmbientPokemon.isEligibleMap(goldGame, "CHERRYGROVE_CITY"),
-      "Cherrygrove not in first catalog")
+check(AmbientPokemon.isEligibleMap(goldGame, "CHERRYGROVE_CITY"),
+      "Cherrygrove is in the Johto catalog")
+check(AmbientPokemon.isEligibleMap(goldGame, "GOLDENROD_CITY"), "Goldenrod is eligible")
 check(not AmbientPokemon.isEligibleMap(goldGame, "ROUTE_29"),
       "Route 29 is wilds, not town Pokémon")
 check(not AmbientPokemon.isEligibleMap(goldGame, "PALLET_TOWN"),
       "Gold does not use Kanto town maps")
 eq(AmbientPokemon.targetCount(goldGame, "NEW_BARK_TOWN"), 1, "New Bark count 1")
-eq(AmbientPokemon.targetCount(goldGame, "CHERRYGROVE_CITY"), 0, "other towns count 0")
+check(AmbientPokemon.targetCount(goldGame, "CHERRYGROVE_CITY") >= 1,
+      "Cherrygrove catalog count >= 1")
 local pool = AmbientPokemon.speciesPool(goldGame, "NEW_BARK_TOWN")
 eq(#pool, 1, "New Bark pool size 1")
 eq(pool[1], "SENTRET", "New Bark curated Sentret")
-local emptyPool = AmbientPokemon.speciesPool(goldGame, "CHERRYGROVE_CITY")
-eq(#emptyPool, 0, "no Kanto FALLBACK_POOL on Gold")
+local cherryPool = AmbientPokemon.speciesPool(goldGame, "CHERRYGROVE_CITY")
+check(#cherryPool >= 1, "Cherrygrove pool is non-empty")
+eq(cherryPool[1], "PIDGEY", "Cherrygrove curated Pidgey")
+local routePool = AmbientPokemon.speciesPool(goldGame, "ROUTE_29")
+eq(#routePool, 0, "no Kanto FALLBACK_POOL on Gold routes")
 check(AmbientPokemon.isLegendary("LUGIA"), "Lugia blocked as legendary")
 check(AmbientPokemon.isLegendary("HO_OH"), "Ho-Oh blocked as legendary")
 check(AmbientPokemon.isLegendary("CELEBI"), "Celebi blocked as legendary")
+
+-- Gold ambient consumes the catalog and builds a guest without SPRITE_PIKACHU.
+local goldMap = {
+  id = "NEW_BARK_TOWN",
+  widthCells = 20, heightCells = 18,
+  def = goldGame.data.maps.NEW_BARK_TOWN,
+  inBounds = function(_, x, y) return x >= 0 and y >= 0 and x < 20 and y < 18 end,
+  isWalkableCell = function() return true end,
+  isWaterCell = function() return false end,
+  warpAtCell = function() return nil end,
+  isDoorCell = function() return false end,
+  isCounterCell = function() return false end,
+}
+local goldOw = {
+  player = { cellX = 2, cellY = 2 },
+  entities = {},
+  npcs = {},
+  map = goldMap,
+}
+local goldAmbient = AmbientPokemon.new(V.mod, {})
+local goldSpawned = goldAmbient:spawnForMap(goldGame, goldOw)
+eq(goldSpawned, 1, "New Bark Sentret entity created without SPRITE_PIKACHU")
+eq(goldAmbient:countActive(), 1, "one active Gold ambient")
+local guest
+for npc in pairs(goldAmbient.active) do guest = npc end
+check(guest ~= nil, "Gold ambient guest exists")
+eq(guest.ambientSpecies, "SENTRET", "guest species is Sentret")
+eq(guest.wildsAmbientPokemon, true, "NPC-like ambient marker")
+eq(guest.wildsAggressive, false, "town Pokémon is non-aggressive")
+eq(guest.wildsBattleable, false, "town Pokémon is not battleable")
+eq(guest.wildsEncounterEnabled, false, "not sourced from encounter tables")
+eq(guest.overworldWildSpawn, false, "not a wild spawn")
+check(guest.behaviorState == nil, "town Pokémon is not in the Wild Behavior pool")
+check(guest._wildsGoldGuest == true, "Gold guest flag for rebuildPeople")
+check(#goldOw.npcs == 1, "Gold ambient is on ow.npcs")
+check(#goldOw.entities == 1, "Gold ambient is on ow.entities")
+
+-- Empty Pokédex still appears (already spawned above with pokedex = nil).
+check(goldGame.save.pokedex == nil, "fixture Pokédex is empty")
+eq(goldSpawned, 1, "empty Pokédex still spawned New Bark Sentret")
+
+-- Live overworld wiring: WorldAPI:overworld() is how Gold map.entered finds World.
+V.mod.world = {
+  game = goldGame,
+  overworld = function() return goldOw end,
+}
+
+-- Map exit removes it.
+goldAmbient:onMapExited({ mapId = "NEW_BARK_TOWN" })
+eq(goldAmbient:countActive(), 0, "map exit removes Gold town Pokémon")
+eq(#goldOw.npcs, 0, "npcs list cleared on exit")
+eq(#goldOw.entities, 0, "entities list cleared on exit")
+
+goldOw.npcs, goldOw.entities = {}, {}
+goldOw.map = goldMap
+goldAmbient.activeMapId = nil
+goldAmbient:onMapEntered({ mapId = "NEW_BARK_TOWN" })
+eq(goldAmbient:countActive(), 1, "onMapEntered via liveOverworld/overworld() spawns")
+goldAmbient:onMapExited({ mapId = "NEW_BARK_TOWN" })
+eq(goldAmbient:countActive(), 0, "onMapExited clears after live enter")
+V.mod.world = { game = nil, overworld = function() return nil end }
 
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

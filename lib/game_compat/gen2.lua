@@ -2,7 +2,7 @@
 --
 -- Gold adapter: species, party, surf, map, water, plus wild encounters.
 -- Encounter tables live in lib/gen2/encounters.lua (not this file).
--- Followers / catching / safari stay off. Town Pokémon: New Bark only.
+-- Followers / catching / safari stay off. Town Pokémon: curated Johto catalog.
 --
 -- Engine pointers (verified against current Gen1Recomp Gold):
 --   party:        game.save.party (src/core/gen2/Save.lua)
@@ -14,7 +14,7 @@
 --   speciesId:    data.pokemon[id].dex or .index (World.monIndex uses index)
 --
 -- Wild encounters: lib/gen2/encounters.lua over data.gen2Encounters.
--- Town Pokémon: lib/gen2/town_pokemon.lua (New Bark Sentret only).
+-- Town Pokémon: lib/gen2/town_pokemon.lua (curated Johto towns).
 local V = ...
 
 local Gen2 = {}

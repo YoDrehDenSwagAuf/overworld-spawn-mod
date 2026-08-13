@@ -653,20 +653,34 @@ function SpawnLogic:_onAggressiveAlert(entity, record)
 
   -- Engine emotion bubble (same path as trainers). NOT a wild/Voxel entity.
   -- No species, no collision, no spawn slot — only npc.px/py for anchoring.
+  -- Gen1 OverworldController: { npc, frames, onDone }.
+  -- Gold World: { image, entity, left } — writing the Gen1 shape crashes
+  -- World:update (`emote.left = emote.left - 1` on nil).
   local frames = safariFlee and (SafariCompat.ALERT_FRAMES or 24) or 60
-  ow.emote = {
-    npc = entity,
-    frames = frames,
-    onDone = function()
-      if safariFlee then
-        Behavior.markFleeReady(entity)
-      else
-        -- Clear emote ownership first; then arm chase exactly once.
-        Behavior.markChaseReady(entity)
-      end
-    end,
-  }
+  local shown = GameCompat.showWildAlertEmote(ow, entity, frames, function()
+    if safariFlee then
+      Behavior.markFleeReady(entity)
+    else
+      Behavior.markChaseReady(entity)
+    end
+  end, gameOf(self.mod))
+  if not shown then
+    bx.alertEmoteSpawned = false
+    return
+  end
   entity.alertIcon = true
+  local player = ow.player
+  GameCompat.logGoldAggro(self.mod, {
+    species = record.species,
+    state = tostring(bx.state or "ALERT"),
+    entityX = entity.cellX or record.x,
+    entityY = entity.cellY or record.y,
+    playerX = player and player.cellX,
+    playerY = player and player.cellY,
+    mapId = ow.map and ow.map.id,
+    surface = entity.surface,
+    op = "showWildAlertEmote",
+  })
   self:_log("%s alert id=%s species=%s at (%d,%d)",
             safariFlee and "safari flee" or "aggressive",
             tostring(entity.id or record.id),
@@ -707,11 +721,8 @@ function SpawnLogic:_despawn(id, removeEntity)
     end
     if self.voxel then self.voxel:unregister(entity) end
     -- Clear emote if we own it (exactly once).
-    local world = self.mod.world
     local ow = self:_ow()
-    if ow and ow.emote and ow.emote.npc == entity then
-      ow.emote = nil
-    end
+    GameCompat.clearWildAlertEmote(ow, entity)
     if removeEntity ~= false then
       self:_removeEntity(entity)
     end
@@ -2820,9 +2831,7 @@ function SpawnLogic:_startBattle(record)
   }
 
   -- Clear our emotion bubble if we own it.
-  if ow.emote and entity and ow.emote.npc == entity then
-    ow.emote = nil
-  end
+  GameCompat.clearWildAlertEmote(ow, entity)
 
   self:_despawn(record.id, true)
   self:_recountRegions()

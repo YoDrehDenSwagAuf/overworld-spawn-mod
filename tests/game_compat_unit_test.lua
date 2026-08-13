@@ -470,6 +470,32 @@ do
         "Gen2.pickEncounter exists")
   check(type(GameCompat.Gen2.startWildBattle) == "function",
         "Gen2.startWildBattle exists")
+  check(type(GameCompat.showWildAlertEmote) == "function",
+        "showWildAlertEmote exists")
+  check(type(GameCompat.pollWildAlertEmote) == "function",
+        "pollWildAlertEmote exists")
+end
+
+----------------------------------------------------------------
+-- Gold alert emote uses {entity, left}, never the Gen1 {frames} shape
+----------------------------------------------------------------
+do
+  setEngineVersion("gold")
+  local ent = { id = "wild", cellX = 4, cellY = 4, px = 64, py = 64 }
+  local ow = { emote = nil }
+  local shown = GameCompat.showWildAlertEmote(ow, ent, 30, function() end)
+  check(shown, "Gold showWildAlertEmote returns true")
+  eq(type(ow.emote.left), "number", "Gold emote.left is numeric")
+  eq(ow.emote.entity, ent, "Gold emote.entity set")
+  check(ow.emote.left ~= nil, "Gold emote.left is not nil")
+  local ok = pcall(GameCompat.tickGoldEmote, ow)
+  check(ok, "Gold emote tick does not arithmetic-crash")
+  setEngineVersion("red")
+  local ow1 = { emote = nil }
+  GameCompat.showWildAlertEmote(ow1, ent, 60, function() end)
+  eq(ow1.emote.frames, 60, "Gen1 still uses frames")
+  check(ow1.emote.left == nil, "Gen1 emote has no left")
+  setEngineVersion("gold")
 end
 
 do

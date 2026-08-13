@@ -396,4 +396,158 @@ function GameCompat.logGoldRuntime(mod, info)
   end)
 end
 
+local function goldDebugEnabled(mod)
+  local ok, Config = pcall(function() return V.require("config") end)
+  if ok and Config and type(Config.debug) == "function" then
+    return Config.debug(mod) == true
+  end
+  return false
+end
+
+-- DEV-only, once-per-transition Gold aggro log. Never per-frame.
+function GameCompat.logGoldAggro(mod, info)
+  if not GameCompat.isGen2(mod) then return end
+  if not goldDebugEnabled(mod) then return end
+  if not (mod and mod.log and type(mod.log.info) == "function") then return end
+  info = info or {}
+  local parts = {
+    "species=" .. tostring(info.species or "?"),
+    "state=" .. tostring(info.state or "?"),
+    "entity=" .. tostring(info.entityX or "?") .. "," .. tostring(info.entityY or "?"),
+    "player=" .. tostring(info.playerX or "?") .. "," .. tostring(info.playerY or "?"),
+  }
+  if info.mapId then
+    parts[#parts + 1] = "map=" .. tostring(info.mapId)
+  end
+  if info.surface then
+    parts[#parts + 1] = "surface=" .. tostring(info.surface)
+  end
+  if info.op then
+    parts[#parts + 1] = "op=" .. tostring(info.op)
+  end
+  pcall(function()
+    mod.log:info("[Wilds][Gen2][Aggro] %s", table.concat(parts, " "))
+  end)
+end
+
+-- Always-on Gold aggro error (the crash we are diagnosing). Not per-frame.
+function GameCompat.logGoldAggroError(mod, info)
+  if not GameCompat.isGen2(mod) then return end
+  if not (mod and mod.log) then return end
+  info = info or {}
+  local parts = {
+    "ERROR",
+    "op=" .. tostring(info.op or "?"),
+    "err=" .. tostring(info.err or "?"),
+    "map=" .. tostring(info.mapId or "?"),
+    "species=" .. tostring(info.species or "?"),
+    "entity=" .. tostring(info.entityX or "?") .. "," .. tostring(info.entityY or "?"),
+    "player=" .. tostring(info.playerX or "?") .. "," .. tostring(info.playerY or "?"),
+    "surface=" .. tostring(info.surface or "?"),
+    "state=" .. tostring(info.state or "?"),
+  }
+  local line = "[Wilds][Gen2][Aggro] " .. table.concat(parts, " ")
+  pcall(function()
+    if type(mod.log.error) == "function" then
+      mod.log:error("%s", line)
+    elseif type(mod.log.warn) == "function" then
+      mod.log:warn("%s", line)
+    elseif type(mod.log.info) == "function" then
+      mod.log:info("%s", line)
+    end
+  end)
+end
+
+-- Gold World:showEmote stores { image, entity, left }. Gen1 OverworldController
+-- stores { npc, frames, onDone }. Writing the Gen1 shape onto Gold World crashes
+-- in World:update (`self.emote.left = self.emote.left - 1` on a nil field).
+function GameCompat.goldAlertEmoteImage(ow)
+  if not ow then return nil end
+  local images = ow.emoteImages
+  local order = ow.emoteOrder
+  if type(images) ~= "table" then return nil end
+  if type(order) == "table" then
+    for _, key in ipairs(order) do
+      if images[key] ~= nil then return images[key] end
+    end
+  end
+  return images.SHOCK or images.shock or images.EMOTE_SHOCK or images[1]
+end
+
+function GameCompat.showWildAlertEmote(ow, entity, frames, onDone, game)
+  if not ow or not entity then return false end
+  if ow.emote or ow.engaging then return false end
+  frames = tonumber(frames) or 60
+  if GameCompat.isGen2(nil, game) then
+    local payload = {
+      image = GameCompat.goldAlertEmoteImage(ow),
+      entity = entity,
+      npc = entity,
+      left = frames,
+      frames = frames,
+      onDone = onDone,
+      _wildsAlert = true,
+    }
+    ow.emote = payload
+    ow._wildsAlertEmote = payload
+    return true
+  end
+  ow.emote = {
+    npc = entity,
+    frames = frames,
+    onDone = onDone,
+  }
+  return true
+end
+
+function GameCompat.ownsWildAlertEmote(ow, entity)
+  if not (ow and ow.emote and entity) then return false end
+  return ow.emote.npc == entity or ow.emote.entity == entity
+end
+
+function GameCompat.clearWildAlertEmote(ow, entity)
+  if not ow then return end
+  if entity == nil or GameCompat.ownsWildAlertEmote(ow, entity) then
+    ow.emote = nil
+  end
+  local pending = ow._wildsAlertEmote
+  if pending and (entity == nil or pending.npc == entity or pending.entity == entity) then
+    ow._wildsAlertEmote = nil
+  end
+end
+
+-- Gold World expires emote by nilling it and never calls onDone. Fire once.
+function GameCompat.pollWildAlertEmote(ow)
+  local pending = ow and ow._wildsAlertEmote
+  if not pending then return false end
+  local live = ow.emote
+  local expired = (live == nil) or (live ~= pending)
+  if live and live._wildsAlert and type(live.left) == "number" and live.left <= 0 then
+    expired = true
+  end
+  if not expired then return false end
+  ow._wildsAlertEmote = nil
+  if ow.emote == pending then ow.emote = nil end
+  local cb = pending.onDone
+  pending.onDone = nil
+  if type(cb) == "function" then
+    pcall(cb)
+  end
+  return true
+end
+
+-- Simulate Gold World:update's emote arm. Tests use this; production Gold
+-- World already does the same decrement. Safe no-op on Gen1 {frames} emotes.
+function GameCompat.tickGoldEmote(ow)
+  if not (ow and ow.emote) then return end
+  if type(ow.emote.left) ~= "number" then
+    error("attempt to perform arithmetic on field 'left' (a "
+      .. type(ow.emote.left) .. " value)")
+  end
+  ow.emote.left = ow.emote.left - 1
+  if ow.emote.left <= 0 then
+    ow.emote = nil
+  end
+end
+
 return GameCompat
