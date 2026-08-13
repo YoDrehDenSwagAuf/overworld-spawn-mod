@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Yellow follower freeze without Pikachu
+
+- CONTROL=TRAINER trailers no longer freeze at spawn in Yellow when Pikachu
+  is not in the party. Vanilla `PikachuFollower.shouldSpawn` is only used as
+  a cutscene gate while the stock Yellow Pikachu follower is actually active.
+
 ### Gold trainer-controlled followers
 
 - CONTROL=TRAINER trailers now construct Gold NPCs with the native
