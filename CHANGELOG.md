@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Performance (redundant work reduction)
+
+- Behavior AI decisions now run at a fixed ~30 Hz accumulator while movement
+  interpolation, spawn FX, and animation sync stay per render frame — AI cost
+  no longer scales with 120/144/240 Hz displays.
+- Occupancy full rebuilds run on AI ticks only, and skip when dirty/fingerprint
+  shows player, trailers, and NPCs are unchanged (wild reserve/commit/cancel
+  remain incremental).
+- Voxel `refreshPresence` is throttled (~0.5s, force on map enter); inactive
+  `updateEntity` early-outs; `Voxel.active` probe is cached.
+- Sprite apply path skips resolve/`SpriteRenderer.new` when presentation
+  fingerprint is unchanged; config is snapshotted once per AI tick; PaletteWatch
+  polls at 10 Hz.
+- DEV-only `lib/perf_stats.lua` logs a one-line `[Wilds][Perf]` snapshot per
+  second when debug/Dev Overlay is on (disabled in release).
+
 ### Sprite asset identity (reordered Pokédex / Fakemon)
 
 - Wilds-owned sprite lookup now uses stable internal species identifiers

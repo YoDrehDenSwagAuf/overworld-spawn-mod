@@ -2951,6 +2951,17 @@ function ControlEngine:update(game, ow, opts)
     return false, "skip"
   end
 
+  local perf = nil
+  local perfStart = nil
+  do
+    local bt = self.mod and self.mod.exports and self.mod.exports.behaviorTick
+    perf = bt and bt.perf
+    if perf and perf.enabled then
+      perfStart = (love and love.timer and love.timer.getTime and love.timer.getTime())
+        or os.clock()
+    end
+  end
+
   self._inControlUpdate = true
   self._lastOw = ow  -- cached for menu-context access (stepper, etc.)
   self.diag.controlUpdateCalls = (self.diag.controlUpdateCalls or 0) + 1
@@ -3020,6 +3031,9 @@ function ControlEngine:update(game, ow, opts)
   end)
 
   self._inControlUpdate = false
+  if perfStart and perf and perf.addMs then
+    perf:addMs("msFollowers", perfStart)
+  end
   if not ok then
     logWarn(self.mod, "ControlEngine:update failed: %s", tostring(err))
     return false, err

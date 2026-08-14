@@ -315,6 +315,16 @@ function SpawnRender:_warn(fmt, ...)
   self.mod.log:info("[WildsOfKanto][WARN] %s", msg)
 end
 
+-- DEV perf counters (no-op when BehaviorTick / PerfStats are inactive).
+function SpawnRender:_perfCount(name, n)
+  local mod = self.mod
+  local bt = mod and mod.exports and mod.exports.behaviorTick
+  local perf = bt and bt.perf
+  if perf and perf.count then
+    perf:count(name, n or 1)
+  end
+end
+
 function SpawnRender:_modAssetPath(rel)
   -- Always address files under the mod root via the public assets helper.
   if type(rel) ~= "string" or rel == "" then return nil end
@@ -2092,7 +2102,10 @@ function SpawnRender:applyProviderSprite(entity, game)
   -- PaletteFX COLORS mode gate: a flip between ADVANCED (colored art) and
   -- every other mode (luminance -grayscale art) must force a re-resolve
   -- below.
-  local redpp = Config.paletteFxRedpp()
+  local redpp = false
+  if type(Config.paletteFxRedpp) == "function" then
+    redpp = Config.paletteFxRedpp() == true
+  end
   local variant = AnimatedSprites.resolveRuntimeVariant(entity)
   -- Prefer species → canonical Wilds asset id. Never use runtime mon.dex.
   local SpeciesAssets = V.require("species_assets")
@@ -2109,6 +2122,29 @@ function SpawnRender:applyProviderSprite(entity, game)
   end
   local WaterShadowRenderer = V.require("water_shadow_renderer")
   local shadowMode = WaterShadowRenderer.shadowModeFor(self.mod, entity, voxelActive)
+  local VariableSize = V.require("variable_size")
+  local effectiveSize = VariableSize.effectiveMode(self.mod, { voxelActive = voxelActive })
+  local surface = entity.surface
+  local spriteState = entity.spriteState
+
+  -- Cheap presentation gate BEFORE resolve / SpriteRenderer.new.
+  -- Structured field compares only (no string key allocation).
+  if entity.sprite and entity.sprite.def and entity.sprite.def.image
+     and entity._wildsPresSpecies == species
+     and entity._wildsPresVariant == variant
+     and entity._wildsPresStyle == style
+     and entity._wildsPresSurface == surface
+     and entity._wildsPresSpriteState == spriteState
+     and entity._wildsPresWaterMode == waterMode
+     and entity.waterVoxelActive == voxelActive
+     and entity.paletteRedpp == redpp
+     and entity._wildsEffectiveSize == effectiveSize
+     and entity.requestedSpriteStyle == style then
+    return true
+  end
+
+  self:_perfCount("spriteResolves", 1)
+
   local result
   if self.spriteResolver then
     result = self.spriteResolver:resolveForEntity(entity, {
@@ -2151,8 +2187,6 @@ function SpawnRender:applyProviderSprite(entity, game)
     or (result.meta and result.meta.shadowRendererMode)
     or shadowMode
   -- Skip rebuild when the same provider image / surface / water mode is bound.
-  local VariableSize = V.require("variable_size")
-  local effectiveSize = VariableSize.effectiveMode(self.mod, { voxelActive = voxelActive })
   local cur = entity.sprite and entity.sprite.def
   local inst = entity.sprite
   -- Compare BOTH SpriteDef and SpriteRenderer INSTANCE geometry.
@@ -2189,6 +2223,12 @@ function SpawnRender:applyProviderSprite(entity, game)
     entity.waterVoxelActive = voxelActive
     entity._wildsEffectiveSize = effectiveSize
     entity.paletteRedpp = redpp
+    entity._wildsPresSpecies = species
+    entity._wildsPresVariant = variant
+    entity._wildsPresStyle = style
+    entity._wildsPresSurface = surface
+    entity._wildsPresSpriteState = result.spriteState or spriteState
+    entity._wildsPresWaterMode = waterMode
     if self.spriteResolver then
       self.spriteResolver:applyEntityMeta(entity, result)
     end
@@ -2309,6 +2349,7 @@ function SpawnRender:applyProviderSprite(entity, game)
       tostring(def.image))
   end
   self._spriteRendererNews = (self._spriteRendererNews or 0) + 1
+  self:_perfCount("spriteRendererNews", 1)
   entity._wildsSpriteRendererNews = (entity._wildsSpriteRendererNews or 0) + 1
   entity._wildsSpriteRendererId = tostring(sprite)
   entity._wildsLastBindReason = "applyProviderSprite"
@@ -2449,6 +2490,14 @@ function SpawnRender:applyProviderSprite(entity, game)
   if entity.sprite and entity.sprite.image and entity.sprite.image.setFilter then
     entity.sprite.image:setFilter("nearest", "nearest")
   end
+  -- Presentation fingerprint for the cheap pre-resolve gate.
+  entity._wildsPresSpecies = species
+  entity._wildsPresVariant = variant
+  entity._wildsPresStyle = style
+  entity._wildsPresSurface = entity.surface
+  entity._wildsPresSpriteState = result.spriteState or entity.spriteState
+  entity._wildsPresWaterMode = waterMode
+  entity._wildsEffectiveSize = entity._wildsEffectiveSize or effectiveSize
   self:_instrumentResolveImage(entity, entity.sprite)
   self:bindWorldBillboard(entity, true)
   return true

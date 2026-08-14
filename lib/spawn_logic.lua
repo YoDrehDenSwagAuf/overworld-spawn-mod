@@ -99,6 +99,7 @@ function SpawnLogic.new(mod, render)
   self.recentWaterSpecies = {}
   self._lastStepDiag = nil
   self.occupancy = CellOccupancy.new()
+  self._occupancyDirty = true
   self.followersWater = FollowersWaterCompat.new(mod)
   -- Land style resolver bound after self exists (closure over logic).
   self.followersWater.resolveLandSprite = function(speciesId, isShiny, form, opts)
@@ -125,6 +126,10 @@ function SpawnLogic:_ow(game)
   return GameCompat.liveOverworld(self.mod, game or gameOf(self.mod))
 end
 
+function SpawnLogic:markOccupancyDirty()
+  self._occupancyDirty = true
+end
+
 function SpawnLogic:rebuildOccupancy(ow)
   local occupancy = self.occupancy or CellOccupancy.new()
   self.occupancy = occupancy
@@ -136,6 +141,7 @@ function SpawnLogic:rebuildOccupancy(ow)
     logicEntities = self.entities,
     trailers = ow and ow.pokepcTrailers,
   })
+  self._occupancyDirty = false
   return occupancy
 end
 
@@ -548,6 +554,7 @@ function SpawnLogic:_clearMap(mapId)
   end
   self.byMap[mapId] = {}
   if self.occupancy then self.occupancy:clear() end
+  self:markOccupancyDirty()
 end
 
 function SpawnLogic:clearAll()
@@ -690,6 +697,7 @@ function SpawnLogic:_onAggressiveAlert(entity, record)
 end
 
 function SpawnLogic:_detachFromWorld(entity)
+  self:markOccupancyDirty()
   if not entity then return end
   local ow = self:_ow()
   if not ow then return end
@@ -2536,6 +2544,19 @@ function SpawnLogic:onMapEntered(ev)
   self:_clearMap(mapId)
   if self.overlay then self.overlay:clear() end
   self:_restoreVanillaEncounters("map enter before init")
+  self:markOccupancyDirty()
+  if self.behaviorTick then
+    self.behaviorTick._occFp = nil
+    self.behaviorTick._aiAccum = 0
+    if self.behaviorTick.voxel and self.behaviorTick.voxel.refreshPresence then
+      pcall(function()
+        self.behaviorTick.voxel:refreshPresence({ force = true })
+      end)
+      self.behaviorTick._voxelPresenceAt = 0
+    end
+  elseif self.voxel and self.voxel.refreshPresence then
+    pcall(function() self.voxel:refreshPresence({ force = true }) end)
+  end
 
   -- Re-assert style-owned makeEntity wrap before any spawn (Followers may wrap later).
   if self.render and self.render.ensureStyleOwnedMakeEntity then
