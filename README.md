@@ -38,6 +38,10 @@ canonical asset IDs rather than the active Pokédex order. That improves
 compatibility with reordered / expanded Pokédex mods and Fakemon; unknown
 custom species use the missing-sprite fallback instead of an unrelated sheet.
 
+Wilds uses Gen1Recomp's supported `mod:read` / `mod.assets` APIs (and private
+`mod.storage` for data-only records). It does not require the `filesystem`
+permission.
+
 ## Pokémon Gold / Gen 2 Support — Beta
 
 Wilds of Kanto now includes experimental support for Pokémon Gold through

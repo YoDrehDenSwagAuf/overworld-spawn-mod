@@ -257,17 +257,9 @@ function AnimatedSprites:_modPath(rel)
 end
 
 function AnimatedSprites:_readText(rel)
-  if self.mod.read then
-    local ok, text = pcall(self.mod.read, self.mod, rel)
-    if ok and type(text) == "string" and text ~= "" then
-      return text
-    end
-  end
-  local path = self:_modPath(rel)
-  if love and love.filesystem and love.filesystem.read and path then
-    local ok, data = pcall(love.filesystem.read, path)
-    if ok and type(data) == "string" then return data end
-  end
+  local WildsFs = V.require("mod_fs")
+  local text = WildsFs.readAsset(self.mod, rel, { cacheBytes = true })
+  if type(text) == "string" and text ~= "" then return text end
   return nil
 end
 

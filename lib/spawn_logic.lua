@@ -219,7 +219,7 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
   local game = opts.game or gameOf(self.mod)
 
   -- When the GSC / Poke Followers sprite style is selected, try the
-  -- poke_followers submerged sheet directly (fsExists, no mod:read).
+  -- poke_followers submerged sheet directly (WildsFs.assetExists / pathExists).
   -- Otherwise fall through to the swimming/levitates registry so the
   -- selected style (e.g. HGSS) is respected.
   local style = opts.style or Config.spriteStyle(self.mod)
@@ -248,10 +248,8 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
         local ok, p = pcall(function() return self.mod.assets:path(rel) end)
         if ok and type(p) == "string" then loadPath = p end
       end
-      if (love and love.filesystem and love.filesystem.getInfo
-          and love.filesystem.getInfo(loadPath))
-         or (love and love.filesystem and love.filesystem.getInfo
-             and love.filesystem.getInfo(rel)) then
+      local WildsFs = V.require("mod_fs")
+      if WildsFs.assetExists(self.mod, rel) or WildsFs.pathExists(loadPath) then
         local subPath = LuminanceSheet.submergedFor(loadPath)
         if subPath then
           local luma = LuminanceSheet.pathFor(subPath)
@@ -290,10 +288,8 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
         local ok, p = pcall(function() return self.mod.assets:path(rel) end)
         if ok and type(p) == "string" then loadPath = p end
       end
-      if (love and love.filesystem and love.filesystem.getInfo
-          and love.filesystem.getInfo(loadPath))
-         or (love and love.filesystem and love.filesystem.getInfo
-             and love.filesystem.getInfo(rel)) then
+      local WildsFs = V.require("mod_fs")
+      if WildsFs.assetExists(self.mod, rel) or WildsFs.pathExists(loadPath) then
         local subPath = LuminanceSheet.submergedFor(loadPath)
         if subPath then
           return {

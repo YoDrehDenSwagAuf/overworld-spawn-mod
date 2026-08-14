@@ -110,13 +110,8 @@ local function spriteIdForSpecies(species)
 end
 
 local function fsExists(path)
-  if type(path) ~= "string" or path == "" then return false end
-  local fs = love and love.filesystem
-  if fs and fs.getInfo then
-    local ok, info = pcall(fs.getInfo, path)
-    if ok and info then return true end
-  end
-  return false
+  local WildsFs = V.require("mod_fs")
+  return WildsFs.pathExists(path)
 end
 
 local function isOsAbsolutePath(path)
@@ -185,34 +180,23 @@ local function bakeSheet(species, sourcePath, log)
   local idata = canvas:newImageData()
   canvas:release()
 
-  if not (love.filesystem and idata.encode and love.filesystem.write) then
-    return nil
+  local WildsFs = V.require("mod_fs")
+  -- Flat save-namespace name (ImageData:encode C API — no love.filesystem).
+  local rel = CACHE_DIR .. "_" .. tostring(species):lower() .. ".png"
+  if not WildsFs.encodePngToPath(idata, rel) then
+    -- Memory-only fallback when encode is unavailable.
+    if not WildsFs.registerFromImageData(rel, idata) then
+      if log then log("cache encode/register failed for %s", tostring(species)) end
+      return nil
+    end
   end
 
-  local dirOk, dirErr = pcall(love.filesystem.createDirectory, CACHE_DIR)
-  if not dirOk and log then
-    log("cache dir create failed: %s", tostring(dirErr))
-  end
-
-  local rel = CACHE_DIR .. "/" .. tostring(species):lower() .. ".png"
-  local fileData = idata:encode("png")
-  if not fileData then return nil end
-
-  local writeOk, writeErr = love.filesystem.write(rel, fileData:getString())
-  if not writeOk then
-    if log then log("cache write failed for %s: %s", tostring(species), tostring(writeErr)) end
-    return nil
-  end
-
-  -- Verify via the same API SpriteRenderer / Assets.image will use.
-  if not fsExists(rel) then
-    if log then log("cache write ok but getInfo missing for %s", rel) end
+  if not fsExists(rel) and not WildsFs.getDerivedImage(rel) then
+    if log then log("cache write ok but path missing for %s", rel) end
     return nil
   end
 
   -- CRITICAL: return the LÖVE virtual relative path only.
-  -- Never prefix with love.filesystem.getSaveDirectory(); Assets.image and
-  -- love.graphics.newImage reject OS absolute paths.
   return rel
 end
 
@@ -221,16 +205,14 @@ local function probeImageLoad(path)
     return false, "empty path", nil, nil
   end
   if isOsAbsolutePath(path) then
-    return false, "OS absolute path rejected (use love.filesystem virtual path): " .. path, nil, nil
+    return false, "OS absolute path rejected (use engine virtual path): " .. path, nil, nil
   end
 
-  local fs = love and love.filesystem
+  local WildsFs = V.require("mod_fs")
   local infoKnownMissing = false
-  if fs and fs.getInfo then
-    local okInfo, info = pcall(fs.getInfo, path)
-    if okInfo and info == nil then
-      infoKnownMissing = true
-    end
+  if not WildsFs.pathExists(path) and not WildsFs.getDerivedImage(path) then
+    -- Soft signal only; still try newImage below for headless stubs.
+    infoKnownMissing = true
   end
 
   if not (love and love.graphics and love.graphics.newImage) then
@@ -242,7 +224,7 @@ local function probeImageLoad(path)
 
   -- Always attempt newImage for non-absolute paths. Real LÖVE fails on
   -- missing files; headless stubs may still construct a stand-in Image.
-  -- When getInfo already reported missing, treat as not loaded so status
+  -- When pathExists already reported missing, treat as not loaded so status
   -- reporting / search order can fall through to the next candidate.
   if infoKnownMissing then
     return false, path .. ": Does not exist.", nil, nil
@@ -407,7 +389,7 @@ function SpawnRender:assetCandidates(speciesId, game, mon)
   end
 
   -- Optional cache — never required; listed last among real sources.
-  push(CACHE_DIR .. "/" .. idLower .. ".png", "runtime_cache")
+  push(CACHE_DIR .. "_" .. idLower .. ".png", "runtime_cache")
 
   return candidates, mon
 end

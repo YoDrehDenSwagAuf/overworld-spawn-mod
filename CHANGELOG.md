@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Gen1Recomp mod sandbox compatibility
+
+- Updated Wilds asset/cache access for the newer Gen1Recomp mod sandbox.
+  Packaged assets use `mod:read` / `mod.assets` via `lib/mod_fs.lua`; derived
+  luminance / submerged sheets use in-memory caching (optional ImageData
+  encode). Runtime code no longer calls `love.filesystem`.
+
 ### Performance (redundant work reduction)
 
 - Behavior AI decisions now run at a fixed ~30 Hz accumulator while movement

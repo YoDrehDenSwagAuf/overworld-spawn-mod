@@ -368,18 +368,8 @@ local function modAssetPath(mod, rel)
 end
 
 local function assetPresent(mod, rel)
-  if type(rel) ~= "string" or rel == "" then return false end
-  if mod and type(mod.read) == "function" then
-    local ok, data = pcall(mod.read, mod, rel)
-    if ok and data ~= nil then return true end
-  end
-  local f = io.open(rel, "rb")
-  if f then f:close(); return true end
-  if V.path then
-    f = io.open((V.path or ".") .. "/" .. rel, "rb")
-    if f then f:close(); return true end
-  end
-  return false
+  local WildsFs = V.require("mod_fs")
+  return WildsFs.assetExists(mod, rel)
 end
 
 function VariableSize.packIdForStyle(style, presentation)

@@ -41,20 +41,8 @@ local _table = nil
 local _loadError = nil
 
 local function readBytes(mod, rel)
-  if mod and type(mod.read) == "function" then
-    local ok, data = pcall(mod.read, mod, rel)
-    if ok and type(data) == "string" and data ~= "" then return data end
-  end
-  local f = io.open(rel, "rb")
-  if not f and V.path then
-    f = io.open((V.path or ".") .. "/" .. rel, "rb")
-  end
-  if f then
-    local data = f:read("*a")
-    f:close()
-    if type(data) == "string" and data ~= "" then return data end
-  end
-  return nil
+  local WildsFs = V.require("mod_fs")
+  return WildsFs.readAsset(mod, rel, { cacheBytes = true })
 end
 
 function SpeciesGeometry.load(mod)
