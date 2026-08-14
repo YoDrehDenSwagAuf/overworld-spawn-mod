@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Newest Gen1Recomp sandbox compatibility
+
+- Updated asset/cache access for compatibility with the newest Gen1Recomp mod
+  sandbox.
+
 ### Yellow follower freeze without Pikachu
 
 - CONTROL=TRAINER trailers no longer freeze at spawn in Yellow when Pikachu

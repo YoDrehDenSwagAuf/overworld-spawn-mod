@@ -21,14 +21,14 @@ local savedOpts = { sprite_style = "pokemmo" }
 local modules = {}
 local fsPaths = {}
 
--- Stub love.filesystem so Gold / Followers path probes can succeed in tests.
-love = love or {}
-love.filesystem = {
-  getInfo = function(path)
-    if fsPaths[path] then return { type = "file" } end
-    return nil
-  end,
-}
+-- Engine Assets.exists is how Wilds probes other-mod loadPaths (Gold pack).
+package.preload["src.render.Assets"] = function()
+  return {
+    exists = function(path)
+      return fsPaths[path] == true
+    end,
+  }
+end
 
 local V = {
   mod = {

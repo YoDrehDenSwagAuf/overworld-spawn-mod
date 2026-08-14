@@ -15,6 +15,7 @@
 -- control engine is installed.
 local V = ...
 local Constants = V.require("follower/constants")
+local WildsFs = V.require("wilds_fs")
 
 local DebugLog
 do
@@ -3117,10 +3118,7 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
               end)
               if ok and type(p) == "string" then loadPath = p end
             end
-            if (love and love.filesystem and love.filesystem.getInfo
-                and love.filesystem.getInfo(loadPath))
-               or (love and love.filesystem and love.filesystem.getInfo
-                   and love.filesystem.getInfo(rel)) then
+            if WildsFs.assetExists(self.mod, rel) then
               local subPath = LuminanceSheet and LuminanceSheet.submergedFor(loadPath)
               if subPath then
                 local luma = useLuma and LuminanceSheet

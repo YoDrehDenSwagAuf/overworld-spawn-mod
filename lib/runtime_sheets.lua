@@ -3,7 +3,7 @@
 --
 -- Path types (do not mix):
 --   relativePath  — mod-root relative, e.g. assets/generated/.../001-normal.png
---   loadPath      — love.filesystem path via mod.assets:path(relativePath)
+--   loadPath      — engine asset path via mod.assets:path(relativePath)
 --                   e.g. mods/overworld_wild_spawns/assets/generated/.../001-normal.png
 --
 -- SpriteRenderer / Assets.image MUST receive loadPath, never a bare relativePath
@@ -11,6 +11,7 @@
 local V = ...
 local JsonDecode = V.require("json_decode")
 local Config = V.require("config")
+local WildsFs = V.require("wilds_fs")
 
 local RuntimeSheets = {}
 RuntimeSheets.__index = RuntimeSheets
@@ -72,38 +73,13 @@ function RuntimeSheets:_modPath(rel)
 end
 
 function RuntimeSheets:_readBytes(rel)
-  if type(rel) ~= "string" or rel == "" then return nil end
-  if self.mod and type(self.mod.read) == "function" then
-    local ok, data = pcall(self.mod.read, self.mod, rel)
-    if ok and data ~= nil then
-      if type(data) == "string" and data ~= "" then return data end
-      -- Some stubs return truthy non-string; treat as present.
-      if data ~= false then return data end
-    end
-  end
-  local loadPath = self:_modPath(rel)
-  if love and love.filesystem and love.filesystem.read and loadPath then
-    local ok, data = pcall(love.filesystem.read, loadPath)
-    if ok and type(data) == "string" and data ~= "" then return data end
-  end
-  -- Unit-test / tooling fallback (never used as SpriteRenderer def.image).
-  local f = io.open(rel, "rb")
-  if not f and V.path then
-    f = io.open((V.path or ".") .. "/" .. rel, "rb")
-  end
-  if f then
-    local data = f:read("*a")
-    f:close()
-    if type(data) == "string" and data ~= "" then return data end
-  end
-  return nil
+  return WildsFs.readAsset(self.mod, rel)
 end
 
--- True when the mod can read the relative asset. Does NOT use
--- love.filesystem.getInfo(relativePath) alone — that checks the wrong
--- namespace for packaged mods.
+-- True when the packaged relative asset exists. Cached; does not re-read
+-- missing paths. SpriteRenderer still consumes loadPath, not these bytes.
 function RuntimeSheets:_assetPresent(rel)
-  return self:_readBytes(rel) ~= nil
+  return WildsFs.assetExists(self.mod, rel)
 end
 
 function RuntimeSheets:load()
@@ -231,20 +207,8 @@ function RuntimeSheets.probeImage(loadPath)
     end
     return false, "Assets.image returned nil", nil, nil
   end
-  -- Headless: verify file bytes exist via love or io when possible.
-  if love and love.filesystem and love.filesystem.getInfo then
-    local okInfo, info = pcall(love.filesystem.getInfo, loadPath)
-    if okInfo and info then
-      return true, "headless getInfo ok (no Assets)", nil, nil
-    end
-  end
-  local f = io.open(loadPath, "rb")
-  if not f and loadPath:match("^assets/") then
-    f = io.open(loadPath, "rb")
-  end
-  if f then
-    f:close()
-    return true, "headless file present (no Assets)", 16, 96
+  if WildsFs.enginePathExists(loadPath) then
+    return true, "headless path present (no Assets)", 16, 96
   end
   return false, "Assets.image unavailable and file not found: " .. loadPath, nil, nil
 end
@@ -261,11 +225,7 @@ function RuntimeSheets:probeRegistration(speciesId, variant)
   if loadPath then
     okImg, imgErr, w, h = RuntimeSheets.probeImage(loadPath)
   end
-  local getInfoRel = nil
-  if love and love.filesystem and love.filesystem.getInfo and rel then
-    local ok, info = pcall(love.filesystem.getInfo, rel)
-    getInfoRel = (ok and info) and "FOUND" or "MISSING"
-  end
+  local packagedRel = (rel and WildsFs.assetExists(self.mod, rel)) and "FOUND" or "MISSING"
   return {
     speciesId = n,
     requestedVariant = want,
@@ -275,7 +235,7 @@ function RuntimeSheets:probeRegistration(speciesId, variant)
     manifestStatus = entry and entry.status or nil,
     relativePath = rel,
     loadPath = loadPath,
-    loveGetInfoRelative = getInfoRel,
+    packagedRelative = packagedRel,
     assetsImageOk = okImg == true,
     assetsImageError = imgErr,
     imageWidth = w,

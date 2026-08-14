@@ -203,6 +203,9 @@ Legacy Followers EX / PokéPC installs are detected only for settings migration.
 - Pokémon Gold (beta)
 - Dramatic Shape Voxel Mod
 
+Updated asset/cache access for compatibility with the newest Gen1Recomp mod
+sandbox.
+
 ## Credits
 
 Short credits only — full license, asset, and third-party notices live in

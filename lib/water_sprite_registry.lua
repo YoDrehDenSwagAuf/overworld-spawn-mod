@@ -6,6 +6,7 @@ local V = ...
 local JsonDecode = V.require("json_decode")
 local Config = V.require("config")
 local RuntimeSheets = V.require("runtime_sheets")
+local WildsFs = V.require("wilds_fs")
 
 local WaterSpriteRegistry = {}
 WaterSpriteRegistry.__index = WaterSpriteRegistry
@@ -91,31 +92,11 @@ function WaterSpriteRegistry:_modPath(rel)
 end
 
 function WaterSpriteRegistry:_readBytes(rel)
-  if type(rel) ~= "string" or rel == "" then return nil end
-  if self.mod and type(self.mod.read) == "function" then
-    local ok, data = pcall(self.mod.read, self.mod, rel)
-    if ok and type(data) == "string" and data ~= "" then return data end
-    if ok and data ~= nil and data ~= false then return data end
-  end
-  local loadPath = self:_modPath(rel)
-  if love and love.filesystem and love.filesystem.read and loadPath then
-    local ok, data = pcall(love.filesystem.read, loadPath)
-    if ok and type(data) == "string" and data ~= "" then return data end
-  end
-  local f = io.open(rel, "rb")
-  if not f and V.path then
-    f = io.open((V.path or ".") .. "/" .. rel, "rb")
-  end
-  if f then
-    local data = f:read("*a")
-    f:close()
-    if type(data) == "string" and data ~= "" then return data end
-  end
-  return nil
+  return WildsFs.readAsset(self.mod, rel)
 end
 
 function WaterSpriteRegistry:_assetPresent(rel)
-  return self:_readBytes(rel) ~= nil
+  return WildsFs.assetExists(self.mod, rel)
 end
 
 local function ensureNested(root, ...)

@@ -7,6 +7,7 @@ local V = ...
 local Config = V.require("config")
 local JsonDecode = V.require("json_decode")
 local Tile = V.require("tile")
+local WildsFs = V.require("wilds_fs")
 
 local AnimatedSprites = {}
 AnimatedSprites.__index = AnimatedSprites
@@ -257,17 +258,8 @@ function AnimatedSprites:_modPath(rel)
 end
 
 function AnimatedSprites:_readText(rel)
-  if self.mod.read then
-    local ok, text = pcall(self.mod.read, self.mod, rel)
-    if ok and type(text) == "string" and text ~= "" then
-      return text
-    end
-  end
-  local path = self:_modPath(rel)
-  if love and love.filesystem and love.filesystem.read and path then
-    local ok, data = pcall(love.filesystem.read, path)
-    if ok and type(data) == "string" then return data end
-  end
+  local text = WildsFs.readAsset(self.mod, rel)
+  if type(text) == "string" and text ~= "" then return text end
   return nil
 end
 

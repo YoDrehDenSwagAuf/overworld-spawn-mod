@@ -158,7 +158,8 @@ w, h = pngSize("assets/generated/followsprites_runtime/151-normal.png")
 eq(w, 16, "151 width")
 eq(h, 96, "151 height")
 
--- love.filesystem.getInfo(relative) alone must NOT be required for success.
+-- Packaged relative existence must succeed via mod.read; a relative-only
+-- engine existence probe is not required.
 -- Simulate: relative getInfo would miss, but mod.read still finds the file.
 local relOnly = "assets/generated/followsprites_runtime/001-normal.png"
 check(sheets:_assetPresent(relOnly) == true,

@@ -22,6 +22,7 @@ local RuntimeSheets = V.require("runtime_sheets")
 local AnimatedSprites = V.require("animated_sprites")
 local DebugLog = V.require("debug_log")
 local LuminanceSheet = V.require("luminance_sheet")
+local WildsFs = V.require("wilds_fs")
 
 local SpriteProviders = {}
 SpriteProviders.__index = SpriteProviders
@@ -83,13 +84,7 @@ local GOLD_ROOT_CANDIDATES = {
 }
 
 local function fsExists(path)
-  if type(path) ~= "string" or path == "" then return false end
-  local fs = love and love.filesystem
-  if fs and fs.getInfo then
-    local ok, info = pcall(fs.getInfo, path)
-    if ok and info then return true end
-  end
-  return false
+  return WildsFs.pathExists(V.mod, path)
 end
 
 local function normalizeVariant(variant)
@@ -1164,7 +1159,7 @@ function SpriteProviders:_discoverPokepcRoot(game)
     if type(hit.path) == "string" and fsExists(hit.path .. "/" .. PROBE_REL) then
       return hit.path
     end
-    -- Documented love.filesystem install locations (same as Followers EX).
+    -- Documented engine install locations (same as Followers EX).
     return nil
   end
 

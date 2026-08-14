@@ -10,11 +10,13 @@
 -- module converts each colored sheet into the luminance ramp the engine
 -- expects — r = g = b = one of shades chosen by pixel brightness — with
 -- the lightest shade clamped under 0.83 so no interior pixel ever punches
--- through.  The result is cached as a PNG in love.filesystem's save
--- directory (one file per source sheet, regenerated only when missing), and
--- callers serve the cache path exactly like a normal asset.  The zone pass
--- then colors it per mode (SGB map tints, OG RED/BLUE object greens/pinks,
--- OG YELLOW CGB zones, CLASSIC/OG/OG INV ramps, SGB INV permuted).
+-- through.  The result is transformed once in memory and persisted through
+-- the Love ImageData:encode API as a SpriteRenderer save-dir path (not
+-- the blocked sandbox filesystem module, and not playthrough storage).
+-- Callers serve that path exactly like a normal asset.  The zone pass
+-- then colors it per mode
+-- (SGB map tints, OG RED/BLUE object greens/pinks, OG YELLOW CGB zones,
+-- CLASSIC/OG/OG INV ramps, SGB INV permuted).
 --
 -- Shade assignment is per-sheet adaptive, not a fixed ladder: the OBP0 bake
 -- collapses EVERYTHING above r = 0.5 into a single zone (c0), so a fixed
@@ -33,6 +35,7 @@
 -- Headless / no-LÖVE environments fall back to the original colored path
 -- (callers then keep trueColor = true); derivation is a rendering nicety.
 local V = ...
+local WildsFs = V.require("wilds_fs")
 
 local LuminanceSheet = {}
 
@@ -67,8 +70,8 @@ local function shadeValue(r, g, b)
   return luma - pen
 end
 
--- Cache dir name inside the save directory.
-local CACHE_DIR = "wilds_luma"
+-- Save-directory prefix for derived PNGs (ImageData:encode, not a FS API).
+local CACHE_PREFIX = "wilds_luma_"
 
 -- source path → derived runtime path (stable across calls).  Two
 -- namespaces: luma ramps (pathFor) and silhouettes (silhouetteFor) — the
@@ -80,8 +83,13 @@ local siloCache = {}
 function LuminanceSheet.available()
   return love and love.image and love.image.newImageData
     and love.graphics and love.graphics.newImage
-    and love.filesystem and love.filesystem.getInfo
-    and love.filesystem.createDirectory
+end
+
+local function deriveAndPersist(sourcePath, fileName, mapFn)
+  local id = love.image.newImageData(sourcePath)
+  mapFn(id)
+  local out = CACHE_PREFIX .. fileName
+  return WildsFs.persistImageData(id, out)
 end
 
 -- Derived PNG filename for a source path: sanitized, truncated (absolute
@@ -142,21 +150,16 @@ local function shadeFor(luma, lightFloor)
   return SHADE_DARK
 end
 
---- Derive (once) an engine-safe luminance copy of `coloredPath` in the save
---- dir and return its runtime path.  Returns nil when derivation is
---- unavailable or fails — the caller then keeps the colored path.
+--- Derive (once) an engine-safe luminance copy of `coloredPath` and return
+--- its runtime path.  Returns nil when derivation is unavailable or fails
+--- — the caller then keeps the colored path.
 function LuminanceSheet.pathFor(coloredPath)
   if type(coloredPath) ~= "string" or coloredPath == "" then return nil end
   if not LuminanceSheet.available() then return nil end
   if lumaCache[coloredPath] then return lumaCache[coloredPath] end
 
   local ok, result = pcall(function()
-    if not love.filesystem.getInfo(CACHE_DIR) then
-      love.filesystem.createDirectory(CACHE_DIR)
-    end
-    local out = CACHE_DIR .. "/" .. cacheFileName(coloredPath)
-    if not love.filesystem.getInfo(out) then
-      local id = love.image.newImageData(coloredPath)
+    return deriveAndPersist(coloredPath, cacheFileName(coloredPath), function(id)
       local bins, opaque = shadeHistogram(id)
       local levels = realLevels(bins, opaque)
       local lightFloor = lightFloorFor(levels)
@@ -166,9 +169,7 @@ function LuminanceSheet.pathFor(coloredPath)
         local s = shadeFor(v, lightFloor)
         return s, s, s, a
       end)
-      id:encode("png", out)
-    end
-    return out
+    end)
   end)
 
   if not ok or type(result) ~= "string" or result == "" then
@@ -181,8 +182,8 @@ end
 -- Silhouette derivation: every opaque pixel becomes the darkest shade so the
 -- engine's OBP0 bake maps the whole sheet to the darkest zone color — a
 -- solid black-out that keeps the sprite's shape (alpha still carries the
--- outline).  Same save-dir cache as pathFor, in its own silo_vN namespace so
--- silhouette files never collide with (or overwrite) the luma ramps.
+-- outline).  Same derived-path cache as pathFor, in its own silo_vN
+-- namespace so silhouette files never collide with the luma ramps.
 local SILO_ALGO_VERSION = 1
 local function siloCacheFileName(sourcePath)
   local key = tostring(sourcePath):gsub("[^%w%.%-_]", "_")
@@ -196,19 +197,12 @@ function LuminanceSheet.silhouetteFor(coloredPath)
   if siloCache[coloredPath] then return siloCache[coloredPath] end
 
   local ok, result = pcall(function()
-    if not love.filesystem.getInfo(CACHE_DIR) then
-      love.filesystem.createDirectory(CACHE_DIR)
-    end
-    local out = CACHE_DIR .. "/" .. siloCacheFileName(coloredPath)
-    if not love.filesystem.getInfo(out) then
-      local id = love.image.newImageData(coloredPath)
+    return deriveAndPersist(coloredPath, siloCacheFileName(coloredPath), function(id)
       id:mapPixel(function(_, _, r, g, b, a)
         if a <= 0 then return r, g, b, a end
         return SHADE_DARK, SHADE_DARK, SHADE_DARK, a
       end)
-      id:encode("png", out)
-    end
-    return out
+    end)
   end)
 
   if not ok or type(result) ~= "string" or result == "" then
@@ -227,7 +221,7 @@ end
 -- so the sprite appears to rise and sink as it animates.  The waterline
 -- is horizontal — the same height for every column in a frame — so the
 -- submerged region is a clean horizontal band.  No pre-made
--- _submerged.png files needed.  Same save-dir cache as the others.
+-- _submerged.png files needed.  Same derived-path cache as the others.
 local SUBMERGED_ALGO_VERSION = 15 -- v15: foam + blue water line, moved up 1px
 local function submergedCacheFileName(sourcePath)
   local key = tostring(sourcePath):gsub("[^%w%.%-_]", "_")
@@ -257,12 +251,7 @@ function LuminanceSheet.submergedFor(coloredPath)
   if submergedCache[coloredPath] then return submergedCache[coloredPath] end
 
   local ok, result = pcall(function()
-    if not love.filesystem.getInfo(CACHE_DIR) then
-      love.filesystem.createDirectory(CACHE_DIR)
-    end
-    local out = CACHE_DIR .. "/" .. submergedCacheFileName(coloredPath)
-    if not love.filesystem.getInfo(out) then
-      local id = love.image.newImageData(coloredPath)
+    return deriveAndPersist(coloredPath, submergedCacheFileName(coloredPath), function(id)
       local iw, ih = id:getWidth(), id:getHeight()
       local frameWidth = iw
       local frameHeight = math.floor(ih / 6)
@@ -285,9 +274,7 @@ function LuminanceSheet.submergedFor(coloredPath)
         end
         return r, g, b, a     -- above water → original colour
       end)
-      id:encode("png", out)
-    end
-    return out
+    end)
   end)
 
   if not ok or type(result) ~= "string" or result == "" then
@@ -323,12 +310,7 @@ function LuminanceSheet.submergedFromLuma(lumaPath)
   if submergedLumaCache[lumaPath] then return submergedLumaCache[lumaPath] end
 
   local ok, result = pcall(function()
-    if not love.filesystem.getInfo(CACHE_DIR) then
-      love.filesystem.createDirectory(CACHE_DIR)
-    end
-    local out = CACHE_DIR .. "/" .. submergedLumaCacheFileName(lumaPath)
-    if not love.filesystem.getInfo(out) then
-      local id = love.image.newImageData(lumaPath)
+    return deriveAndPersist(lumaPath, submergedLumaCacheFileName(lumaPath), function(id)
       local iw, ih = id:getWidth(), id:getHeight()
       local frameWidth = iw
       local frameHeight = math.floor(ih / 6)
@@ -351,9 +333,7 @@ function LuminanceSheet.submergedFromLuma(lumaPath)
         end
         return r, g, b, a
       end)
-      id:encode("png", out)
-    end
-    return out
+    end)
   end)
 
   if not ok or type(result) ~= "string" or result == "" then
