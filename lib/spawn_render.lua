@@ -367,7 +367,8 @@ function SpawnRender:assetCandidates(speciesId, game, mon)
     push(self:_modAssetPath(explicit), "explicit_map")
   end
 
-  local padded = mon and dexPadded(mon.dex)
+  local SpeciesAssets = V.require("species_assets")
+  local padded = dexPadded(SpeciesAssets.idFor(speciesId))
   if padded then
     push(self:_modAssetPath("assets/pokemon/" .. padded .. ".png"), "dex_padded")
     push(self:_modAssetPath("assets/pokemon/species_" .. padded .. ".png"), "species_dex")
@@ -611,13 +612,10 @@ function SpawnRender:registerContent()
       local relativePath = nil
       local fallbackReason = nil
 
-      local dexId = nil
-      if def and def.dex ~= nil then
-        dexId = tonumber(def.dex)
-      end
-      if not dexId then
-        dexId = AnimatedSprites.resolveSpeciesId(speciesId, nil, self.mod)
-      end
+      local SpeciesAssets = V.require("species_assets")
+      local assetId = SpeciesAssets.idFor(speciesId)
+      -- Registration uses canonical Wilds asset IDs, never runtime mon.dex.
+      local dexId = assetId
 
       local runtimeLoadPath, usedVariant, runtimeRel, runtimeEntry = nil, nil, nil, nil
       if dexId and self.runtimeSheets and self.runtimeSheets:isReady() then
@@ -1177,13 +1175,10 @@ function Entity.new(game, mod, render, record)
 
   -- Prefer sprite providers (Followers EX / PokeMMO / Pokedex). Same native
   -- SpriteRenderer contract for every style — only the image source changes.
-  local dexId = nil
-  if record.dex ~= nil then
-    dexId = tonumber(record.dex)
-  end
-  if not dexId then
-    dexId = AnimatedSprites.resolveSpeciesId(record.species, game, mod)
-  end
+  local SpeciesAssets = V.require("species_assets")
+  local assetId = SpeciesAssets.idFor(record.species)
+  -- enhancedDexId stores the canonical Wilds asset id (not runtime Pokédex).
+  local dexId = assetId
   local variant = AnimatedSprites.resolveRuntimeVariant(self)
   self.enhancedDexId = dexId
   self.spriteVariant = variant
@@ -2014,9 +2009,10 @@ function SpawnRender:previewImagePath(species, game)
   return self:_placeholderPath(), "placeholder"
 end
 
--- Numeric Pokedex id for atlas mapping (identity). Display names never used.
-function SpawnRender:resolveDexId(speciesKey, game)
-  return AnimatedSprites.resolveSpeciesId(speciesKey, game, self.mod)
+-- Canonical Wilds asset id for sprite sheets (identity). Display names never used.
+function SpawnRender:resolveDexId(speciesKey, _game)
+  local SpeciesAssets = V.require("species_assets")
+  return SpeciesAssets.idFor(speciesKey)
 end
 
 function SpawnRender:animatedEnabled()
@@ -2098,13 +2094,12 @@ function SpawnRender:applyProviderSprite(entity, game)
   -- below.
   local redpp = Config.paletteFxRedpp()
   local variant = AnimatedSprites.resolveRuntimeVariant(entity)
-  -- Prefer numeric dex. entity.species is often a name ("ONIX"); passing that
-  -- into VariableSize.applyToDef made packGeometry fail, stripped frame
-  -- geometry, and left the true_size image → SpriteRenderer baked 16×16 quads.
-  local dexId = tonumber(entity.enhancedDexId)
-    or AnimatedSprites.resolveSpeciesId(entity.species, game, self.mod)
-    or tonumber(entity.species)
-  local species = dexId or entity.species or entity.enhancedDexId
+  -- Prefer species → canonical Wilds asset id. Never use runtime mon.dex.
+  local SpeciesAssets = V.require("species_assets")
+  local assetId = SpeciesAssets.idFor(entity.species)
+    or SpeciesAssets.idFor(entity.enhancedDexId)
+  local dexId = assetId
+  local species = entity.species or dexId or entity.enhancedDexId
   local map = game and game.overworld and game.overworld.map
   local WaterDisplay = V.require("water_display")
   local voxelActive = WaterDisplay.isVoxelCameraActive(self.mod)
@@ -2121,7 +2116,7 @@ function SpawnRender:applyProviderSprite(entity, game)
       game = game,
       map = map,
       surface = entity.surface,
-      speciesId = dexId or entity.enhancedDexId or entity.species,
+      speciesId = entity.species or dexId or entity.enhancedDexId,
       variant = variant,
       voxelActive = voxelActive,
       nativeSilhouette = voxelActive

@@ -330,13 +330,10 @@ function AmbientPokemon:_resolveSprite(species, game)
   end
   if not def and self.render and self.render.runtimeSheets then
     local sheets = self.render.runtimeSheets
-    local dex
-    local poke = game and game.data and game.data.pokemon
-    if poke and poke[species] and poke[species].dex then
-      dex = tonumber(poke[species].dex)
-    end
-    if dex then
-      local sd = sheets:spriteDef(dex, "normal", "SPRITE_WILDS_AMBIENT")
+    local SpeciesAssets = V.require("species_assets")
+    local assetId = SpeciesAssets.idFor(species)
+    if assetId then
+      local sd = sheets:spriteDef(assetId, "normal", "SPRITE_WILDS_AMBIENT")
       if sd and sd.image then
         def = {
           id = "SPRITE_WILDS_AMBIENT",
@@ -356,7 +353,7 @@ function AmbientPokemon:_resolveSprite(species, game)
         local VariableSize = V.require("variable_size")
         local geoInfo
         def, geoInfo = VariableSize.applyToDef(self.mod, def, {
-          speciesId = dex,
+          speciesId = assetId,
           style = style,
           variant = "normal",
           spriteId = def.id,

@@ -67,11 +67,24 @@ function SpriteResolver.new(mod, spriteProviders, waterRegistry)
   return self
 end
 
+-- Canonical Wilds asset id from species identity. Never uses runtime mon.dex.
 local function resolveDex(entity, game, mod)
   if not entity then return nil end
-  local dex = entity.enhancedDexId or tonumber(entity.dex)
-  if dex and dex >= 1 then return math.floor(dex) end
-  return AnimatedSprites.resolveSpeciesId(entity.species, game, mod)
+  local SpeciesAssets = V.require("species_assets")
+  if entity.species then
+    local assetId = SpeciesAssets.idFor(entity.species)
+    if assetId then return assetId end
+    -- Known species string with no Wilds asset (Fakemon) → missing fallback.
+    if type(entity.species) == "string" and not tonumber(entity.species) then
+      return nil
+    end
+  end
+  -- enhancedDexId is set from SpeciesAssets at entity creation; accept it as
+  -- already-canonical. Do NOT fall back to entity.dex (runtime Pokédex).
+  if entity.enhancedDexId ~= nil then
+    return SpeciesAssets.idFor(entity.enhancedDexId)
+  end
+  return SpeciesAssets.idFor(entity.species)
 end
 
 local function resolveVariant(entity)
@@ -276,14 +289,8 @@ function SpriteResolver:resolveWaterSprite(entity, context)
     useGscSubmerged = style == "followers"
   end
   if useGscSubmerged and not wantSilhouette and not wantHiddenShadow then
-    local dex = speciesId
-    if type(dex) ~= "number" then
-      local AS
-      pcall(function() AS = V.require("animated_sprites") end)
-      if AS and AS.resolveSpeciesId then
-        dex = AS.resolveSpeciesId(tostring(dex), game, self.mod)
-      end
-    end
+    local SpeciesAssets = V.require("species_assets")
+    local dex = SpeciesAssets.idFor(speciesId)
     if dex and type(dex) == "number" then
       -- Luminance-based shading: Gen1 non-ADVANCED derives a 3-shade
       -- luminance sheet from the colored submerged art (trueColor=false)

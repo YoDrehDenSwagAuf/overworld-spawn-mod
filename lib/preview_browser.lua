@@ -192,8 +192,9 @@ function PreviewBrowser:_openDetail(game, speciesId)
   local imgPath, imgKind = render:previewImagePath(speciesId, game)
   local seen, owned = pokedexDiag(game)
   local AnimatedSprites = V.require("animated_sprites")
+  local SpeciesAssets = V.require("species_assets")
   local enh = render:enhancedStatusFor(speciesId, game)
-  local dexId = enh.dexId or mon.dex
+  local dexId = enh.dexId or SpeciesAssets.idFor(speciesId)
   local mapping = enh.mapping
 
   local runtimeLabel

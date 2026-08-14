@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Sprite asset identity (reordered Pokédex / Fakemon)
+
+- Wilds-owned sprite lookup now uses stable internal species identifiers
+  (`mon.species`) mapped to canonical asset IDs via `lib/species_assets.lua`,
+  instead of assuming the active Pokédex order.
+- Improves compatibility with reordered / expanded Pokédex mods and
+  Fakemon/custom species: unknown species use `pokemon_missing.png` instead
+  of another Pokémon's sheet. Numeric asset layout (`001`…`251`) is unchanged.
+
 ### Yellow follower freeze without Pikachu
 
 - CONTROL=TRAINER trailers no longer freeze at spawn in Yellow when Pikachu

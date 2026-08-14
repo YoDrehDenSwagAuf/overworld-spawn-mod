@@ -417,20 +417,21 @@ local function looksLikeTrueSizePath(path)
   return type(path) == "string" and path:find("true_size/", 1, true) ~= nil
 end
 
---- Resolve speciesId to a dex number. Pack geometry uses the active
---- adapter cap (Gen1 1..151, Gen2 1..251 via SpeciesGeometry.normalizeDex).
+--- Resolve speciesId to a canonical Wilds asset id for geometry packs.
+--- Never uses runtime Pokédex / mon.dex.
 local function resolveDex(mod, speciesId, opts)
   opts = opts or {}
-  local dex = SpeciesGeometry.normalizeDex(speciesId, opts.game)
-  if dex then return dex end
   if speciesId == nil then return nil end
-  local ok, AnimatedSprites = pcall(V.require, "animated_sprites")
-  if ok and AnimatedSprites and type(AnimatedSprites.resolveSpeciesId) == "function" then
-    local resolved = AnimatedSprites.resolveSpeciesId(speciesId, opts.game, mod)
-    dex = SpeciesGeometry.normalizeDex(resolved, opts.game)
-    if dex then return dex end
+  local okSA, SpeciesAssets = pcall(V.require, "species_assets")
+  local assetId = nil
+  if okSA and SpeciesAssets and SpeciesAssets.idFor then
+    assetId = SpeciesAssets.idFor(speciesId)
   end
-  return nil
+  if not assetId then
+    assetId = SpeciesGeometry.normalizeDex(speciesId, opts.game)
+  end
+  if not assetId then return nil end
+  return SpeciesGeometry.normalizeDex(assetId, opts.game)
 end
 
 --- Preserve already-stamped True Size geometry when rebind cannot resolve a pack.

@@ -33,6 +33,11 @@ The mod targets **Gen 1 + Gen 2** in Gen1Recomp's Mod Manager.
 - Experimental Pokémon Gold / Gen 2 support (beta) — see below
 - Dramatic Shape Voxel compatibility
 
+Sprite lookup uses stable Pokémon species identifiers mapped to Wilds'
+canonical asset IDs rather than the active Pokédex order. That improves
+compatibility with reordered / expanded Pokédex mods and Fakemon; unknown
+custom species use the missing-sprite fallback instead of an unrelated sheet.
+
 ## Pokémon Gold / Gen 2 Support — Beta
 
 Wilds of Kanto now includes experimental support for Pokémon Gold through
