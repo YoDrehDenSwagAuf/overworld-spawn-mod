@@ -172,6 +172,8 @@ function ControlEngine.new(mod, deps)
   self._restoreState = nil
   self._pendingMapTrailerSync = false
   self._pendingSpawnAtPlayer = false
+  self._pendingBattleReturnSync = false
+  self._battleReturnFlushedOnce = false
   self._mapExitSnapshot = nil
   self._pendingConnectionHandoff = nil
   self._optCache = {}
@@ -3248,6 +3250,54 @@ function ControlEngine:alignSaveFromOptions(game)
   local mode = tostring(self:_opt("control_mode", "follow"))
   if mode == "lead" then mode = "lead_trainer" end
   game.save.pokepcControlMode = mode
+end
+
+function ControlEngine:onBattleEnded(game, ow, ev)
+  game = game or self:_game()
+  ow = self:_liveOw(game, ow)
+  local source = ev and ev.source or "battle.ended"
+  self._pendingBattleReturnSync = true
+  self._pendingMapTrailerSync = true
+  self._pendingSpawnAtPlayer = true
+  if ow and ow.battleActive then
+    return false, "battle_active"
+  end
+  if not (ow and ow.map and ow.player) then
+    return false, "no_overworld"
+  end
+  if source ~= "world.stepped" and self._battleReturnFlushedOnce then
+    return true, "already_flushed"
+  end
+  -- Map-enter-style: drop stale trailer refs, rebuild desired count, park
+  -- at the player. removeTrailers inside update/syncAll prevents duplicates.
+  local ok, err = pcall(function()
+    self:update(game, ow, {
+      mapEnter = true,
+      force = true,
+      source = "battle_return",
+    })
+  end)
+  if not ok then
+    logWarn(self.mod, "battle-return follower sync failed: %s", tostring(err))
+    return false, err
+  end
+  if source == "world.stepped" then
+    self._pendingBattleReturnSync = false
+    self._battleReturnFlushedOnce = false
+  else
+    self._battleReturnFlushedOnce = true
+  end
+  local desired = self:followerCount(game) or 0
+  local attached = (ow.pokepcTrailers and #ow.pokepcTrailers) or 0
+  logGen2(self.mod,
+    "battleReturn source=%s followersDesired=%s followersAttached=%s",
+    tostring(source), tostring(desired), tostring(attached))
+  if DebugLog and DebugLog.info then
+    DebugLog.info(self.mod,
+      "[BattleReturn] followersDesired=%s followersAttached=%s source=%s",
+      tostring(desired), tostring(attached), tostring(source))
+  end
+  return true, { desired = desired, attached = attached }
 end
 
 function ControlEngine:syncAll(game, ow)

@@ -6,6 +6,8 @@
 
 - Updated asset/cache access for compatibility with the newest Gen1Recomp mod
   sandbox.
+- Reattach Wilds, followers, and town Pokémon after Battle → Overworld when
+  the engine rebuilds `ow.entities` / `ow.npcs`.
 
 ### Yellow follower freeze without Pikachu
 

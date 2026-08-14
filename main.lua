@@ -278,12 +278,30 @@ return function(mod)
     -- to the first game step so all external mods have loaded.
     if supports("followers") then
       pcall(function() follower:processPendingExternalModCleanup() end)
+      if logic._pendingBattleReturnReconcile
+         or (follower.control and follower.control._pendingBattleReturnSync) then
+        pcall(function() follower:onBattleEnded({ source = "world.stepped" }) end)
+      end
     end
+    if supports("ambient") and ambient and ambient._pendingBattleReturnReconcile then
+      pcall(function() ambient:onBattleEnded({ source = "world.stepped" }) end)
+    end
+    pcall(function() logic:rebuildOccupancy() end)
   end)
 
   mod.events:on("battle.ended", function()
-    if not supports("encounters") then return end
-    logic:onBattleEnded()
+    if supports("encounters") then
+      logic:onBattleEnded()
+    end
+    if supports("followers") then
+      pcall(function() follower:onBattleEnded({ source = "battle.ended" }) end)
+    end
+    if supports("ambient") then
+      pcall(function() ambient:onBattleEnded({ source = "battle.ended" }) end)
+    end
+    if supports("encounters") then
+      pcall(function() logic:rebuildOccupancy() end)
+    end
   end)
 
   mod.events:on("save.loaded", function()
