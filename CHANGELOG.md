@@ -2,17 +2,6 @@
 
 ## Unreleased
 
-### Newest Gen1Recomp sandbox compatibility
-
-- Updated asset/cache access for compatibility with the newest Gen1Recomp mod
-  sandbox.
-- Reattach Wilds, followers, and town Pokémon after Battle → Overworld when
-  the engine rebuilds `ow.entities` / `ow.npcs`.
-- Follower battle-return waits for a stable live overworld and reinserts the
-  existing trailer by identity after a late people-list rebuild (or a replaced
-  overworld object). Walking no longer leaves a missing follower until the
-  next map change.
-
 ### Yellow follower freeze without Pikachu
 
 - CONTROL=TRAINER trailers no longer freeze at spawn in Yellow when Pikachu
@@ -80,6 +69,13 @@
   `GameVersion.generation(id)` when the engine module is present.
 - Gen1 True Size / diagnostic dex cap (`151`) is owned by `Gen1.MAX_SPECIES`.
 
+## 2.1.5
+
+### Compatibility fixes
+
+- Updated compatibility with the newest Gen1Recomp sandbox.
+- Fixed Wilds/followers/town Pokémon disappearing after battles.
+- Fixed follower reattachment after returning to the overworld.
 
 ## 2.0.2
 
