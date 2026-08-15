@@ -278,58 +278,125 @@ eq(ambient:countActive(), 1, "CASE E: still 1 after second pass")
 eq(ambient._pendingBattleReturnReconcile, false, "CASE E: pending cleared on step")
 
 ------------------------------------------------------------------------
--- CASE C / D: follower pending sync, no duplicate trailers
+-- CASE C / D / late rebuild: identity in CURRENT live containers
 ------------------------------------------------------------------------
+local function makeTrailer(id)
+  return {
+    id = id,
+    pokepcTrailer = true,
+    pokepcTrailerKind = "mon",
+    wildsFollower = true,
+    pokepcMon = { species = "PIDGEY" },
+  }
+end
+
+local function countIdentity(list, npc)
+  local n = 0
+  for _, e in ipairs(list or {}) do
+    if e == npc then n = n + 1 end
+  end
+  return n
+end
+
+local function seedFollowers(n)
+  ow.entities = { ow.player }
+  ow.npcs = {}
+  ow.pokepcTrailers = {}
+  for i = 1, n do
+    local t = makeTrailer("trailer_" .. i)
+    GameCompat.attachGuestEntity(ow, t, game)
+    ow.pokepcTrailers[i] = t
+  end
+  return ow.pokepcTrailers
+end
+
 local engine = ControlEngine.new(mod, { game = game })
 engine._installed = true
-local syncCalls = 0
 engine.followerCount = function() return optionStore.follower_count end
-engine.update = function(self, _, world)
-  syncCalls = syncCalls + 1
-  self:removeTrailers(world)
-  local n = self:followerCount() or 1
-  world.pokepcTrailers = {}
-  for i = 1, n do
-    local t = { id = "trailer_" .. i, pokepcTrailer = true, wildsFollower = true }
-    GameCompat.attachGuestEntity(world, t, game)
-    world.pokepcTrailers[#world.pokepcTrailers + 1] = t
-  end
-end
 
 optionStore.follower_count = 1
-ow.entities, ow.npcs, ow.pokepcTrailers = { ow.player }, {}, {}
-engine._battleReturnFlushedOnce = false
-engine:onBattleEnded(game, ow, { source = "battle.ended" })
-eq(#ow.pokepcTrailers, 1, "CASE C: exactly 1 follower after battle")
-eq(syncCalls, 1, "CASE C: one sync on battle.ended")
-engine:onBattleEnded(game, ow, { source = "tick" })
-eq(syncCalls, 1, "CASE C: tick does not resync after first flush")
-engine:onBattleEnded(game, ow, { source = "world.stepped" })
-eq(#ow.pokepcTrailers, 1, "CASE C: still exactly 1 after step")
-eq(syncCalls, 2, "CASE C: second pass on world.stepped")
+local pack = seedFollowers(1)
+local t1 = pack[1]
+check(engine:_isTrailerAttached(ow, t1), "CASE C: attached before battle")
 
+engine:onBattleEnded(game, nil, { source = "battle.ended" })
+eq(engine._battleReturnPhase, "pending", "CASE C: battle.ended only marks pending")
+eq(#ow.pokepcTrailers, 1, "CASE C: battle.ended does not recreate trailers")
+check(engine:_isTrailerAttached(ow, t1), "CASE C: still the same object")
+
+engine:onBattleEnded(game, nil, { source = "tick" })
+eq(engine._battleReturnPhase, "first_live", "CASE C: first live tick → first_live")
+eq(engine._battleReturnPhase ~= nil, true, "CASE C: tick does not complete")
+
+-- ENGINE LATE REBUILD (the real-game failure): new people lists, same ow,
+-- pokepcTrailers still holds the old objects.
+ow.entities = { ow.player }
+ow.npcs = {}
+check(not engine:_isTrailerAttached(ow, t1),
+      "CASE C: late rebuild dropped identity from draw lists")
+eq(#ow.pokepcTrailers, 1, "CASE C: pokepcTrailers still has the object")
+
+engine:onBattleEnded(game, nil, { source = "world.stepped" })
+check(engine:_isTrailerAttached(ow, t1),
+      "CASE C: world.stepped reattached the SAME object to NEW lists")
+eq(#ow.pokepcTrailers, 1, "CASE C: still exactly 1 trailer")
+eq(countIdentity(ow.entities, t1), 1, "CASE C: one identity in ow.entities")
+eq(engine._battleReturnPhase, "verify", "CASE C: first step is verify, not complete")
+
+engine:onBattleEnded(game, nil, { source = "world.stepped" })
+eq(engine._battleReturnPhase, nil, "CASE C: second step completes")
+eq(#ow.pokepcTrailers, 1, "CASE C: still 1 after complete")
+eq(countIdentity(ow.entities, t1), 1, "CASE C: no duplicate identity")
+
+-- CASE D: FOLLOWERS=6 + late rebuild
 optionStore.follower_count = 6
-engine._battleReturnFlushedOnce = false
-engine._pendingBattleReturnSync = true
-syncCalls = 0
-engine:onBattleEnded(game, ow, { source = "battle.ended" })
-eq(#ow.pokepcTrailers, 6, "CASE D: exactly 6 followers")
-engine:onBattleEnded(game, ow, { source = "world.stepped" })
-eq(#ow.pokepcTrailers, 6, "CASE D: still 6, no duplicates")
-local trailerMarks = 0
+pack = seedFollowers(6)
+engine:onBattleEnded(game, nil, { source = "battle.ended" })
+engine:onBattleEnded(game, nil, { source = "tick" })
+ow.entities = { ow.player }
+ow.npcs = {}
+engine:onBattleEnded(game, nil, { source = "world.stepped" })
+eq(#ow.pokepcTrailers, 6, "CASE D: exactly 6 after late rebuild")
+local attached6 = 0
+for _, npc in ipairs(ow.pokepcTrailers) do
+  if engine:_isTrailerAttached(ow, npc) then attached6 = attached6 + 1 end
+end
+eq(attached6, 6, "CASE D: all 6 identity-attached")
+local marks = 0
 for _, e in ipairs(ow.entities) do
-  if e.pokepcTrailer then trailerMarks = trailerMarks + 1 end
+  if e.pokepcTrailer then marks = marks + 1 end
 end
-eq(trailerMarks, 6, "CASE D: 6 trailer refs in ow.entities")
+eq(marks, 6, "CASE D: 6 trailer refs in ow.entities, no extras")
+engine:onBattleEnded(game, nil, { source = "world.stepped" })
+eq(engine._battleReturnPhase, nil, "CASE D: completed")
 
--- CASE F followers: repeated battles
-for _ = 1, 2 do
-  wipeEngineLists()
-  engine._battleReturnFlushedOnce = false
-  engine:onBattleEnded(game, ow, { source = "battle.ended" })
-  engine:onBattleEnded(game, ow, { source = "world.stepped" })
+-- CASE F: two sequential battles, never 0 or 2 for count=1
+optionStore.follower_count = 1
+for battle = 1, 2 do
+  pack = seedFollowers(1)
+  t1 = pack[1]
+  engine:onBattleEnded(game, nil, { source = "battle.ended" })
+  engine:onBattleEnded(game, nil, { source = "tick" })
+  ow.entities = { ow.player }
+  ow.npcs = {}
+  engine:onBattleEnded(game, nil, { source = "world.stepped" })
+  check(engine:_isTrailerAttached(ow, t1),
+        "CASE F battle " .. battle .. ": reattached")
+  eq(#ow.pokepcTrailers, 1, "CASE F battle " .. battle .. ": exactly 1")
+  eq(countIdentity(ow.entities, t1), 1,
+     "CASE F battle " .. battle .. ": no duplicate identity")
+  engine:onBattleEnded(game, nil, { source = "world.stepped" })
 end
-eq(#ow.pokepcTrailers, 6, "CASE F: repeated battles still 6 followers")
+
+-- _ensureTrailersAttached must use CURRENT live lists, not recreate.
+pack = seedFollowers(1)
+t1 = pack[1]
+ow.entities = { ow.player }
+ow.npcs = {}
+local okEnsure = engine:_ensureTrailersAttached(game, ow)
+check(okEnsure == true, "ensureTrailersAttached reports success")
+check(t1 == ow.pokepcTrailers[1], "ensureTrailersAttached keeps the same NPC")
+check(engine:_isTrailerAttached(ow, t1), "ensureTrailersAttached identity in live ow")
 
 ------------------------------------------------------------------------
 -- CASE H: Yellow Pikachu path is not extra-wrapped here (control flags only)

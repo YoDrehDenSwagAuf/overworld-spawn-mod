@@ -8,6 +8,8 @@
   sandbox.
 - Reattach Wilds, followers, and town Pokémon after Battle → Overworld when
   the engine rebuilds `ow.entities` / `ow.npcs`.
+- Follower battle-return waits for a stable live overworld and reinserts the
+  existing trailer by identity after a late people-list rebuild.
 
 ### Yellow follower freeze without Pikachu
 

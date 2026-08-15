@@ -196,6 +196,11 @@ function BehaviorTick:step(ctx)
      and not ambient._battleReturnFlushedOnce then
     pcall(function() ambient:onBattleEnded({ source = "tick" }) end)
   end
+  local follower = logic.follower or (self.mod.exports and self.mod.exports.follower)
+  if follower and follower.control
+     and follower.control._battleReturnPhase == "pending" then
+    pcall(function() follower:onBattleEnded({ source = "tick" }) end)
+  end
 
   local occupancy = logic.rebuildOccupancy and logic:rebuildOccupancy(ow) or logic.occupancy
 

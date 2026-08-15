@@ -481,15 +481,8 @@ function Follower:onBattleEnded(ev)
   local engine = self.control
   local game = ev and ev.game
     or (self.mod and self.mod.world and self.mod.world.game)
-  local GameCompat = V.require("game_compat")
-  local ow = GameCompat.liveOverworld(self.mod, game)
-  local logic = self.logic
-  if logic and logic.activeMapId and ow and ow.map
-     and logic.activeMapId ~= ow.map.id then
-    engine._pendingBattleReturnSync = false
-    return
-  end
-  pcall(function() engine:onBattleEnded(game, ow, ev) end)
+  -- Never pass a cached ow: engine re-resolves GameCompat.liveOverworld.
+  pcall(function() engine:onBattleEnded(game, nil, ev) end)
 end
 
 function Follower:onSaveLoaded()
