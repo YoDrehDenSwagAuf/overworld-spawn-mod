@@ -51,11 +51,13 @@ local function owLooksVoxel(ow)
   return false
 end
 
---- Gold has no OverworldState.drawWorld / worldCanvas pass. Green cells stay
--- off; HUD meter / throw / catch are independent.
-function RangePreview.groundPreviewSupported(mod, game)
+--- Gen1: native worldCanvas. Gold Flat: screen-space overlay. Voxel: off.
+function RangePreview.groundPreviewSupported(mod, game, ow)
   if GameCompat.isGen2(mod, game) then
-    return false, "gold_no_world_pass"
+    if RangePreview.isVoxelActive(mod, ow) then
+      return false, "voxel_no_ground_preview"
+    end
+    return true, "gold_screen_overlay"
   end
   return true
 end
@@ -140,6 +142,20 @@ function RangePreview.worldToScreenFlat(cellX, cellY, cam)
   return sx, sy, CELL, CELL
 end
 
+--- Gold World:drawGround / drawPeople window-space projection.
+-- Map blit: floor((0 - cam) * s) then cell pixels * s (src/world/gen2/World.lua).
+-- Do NOT use Gen1 cell*16 - floor(cam) worldCanvas math.
+function RangePreview.worldToScreenGold(cellX, cellY, cam, scale)
+  local s = tonumber(scale) or 1
+  local camX = (cam and cam.x) or 0
+  local camY = (cam and cam.y) or 0
+  local ox = math.floor((0 - camX) * s)
+  local oy = math.floor((0 - camY) * s)
+  local sx = ox + (cellX or 0) * CELL * s
+  local sy = oy + (cellY or 0) * CELL * s
+  return sx, sy, CELL * s, CELL * s
+end
+
 --- Voxel world→screen via Dramatic Shape project(wx, wy).
 -- Kept for unit tests / future ground-plane work. Not used for live Voxel draw
 -- while VOXEL_GROUND_PREVIEW_ENABLED is false.
@@ -171,7 +187,7 @@ function RangePreview.sync(catching)
     RangePreview._goldSyncTraced = true
     goldCatchTrace("rangePreview sync ENTER")
   end
-  local supported, why = RangePreview.groundPreviewSupported(catching.mod, game)
+  local supported, why = RangePreview.groundPreviewSupported(catching.mod, game, ow)
   if not supported then
     RangePreview.clear()
     RangePreview._unsupportedReason = why or "unsupported"
@@ -187,7 +203,10 @@ function RangePreview.sync(catching)
     RangePreview.clear()
     return nil
   end
-  if trace then goldCatchTrace("rangePreview world resolved") end
+  if trace and not RangePreview._goldWorldTraced then
+    RangePreview._goldWorldTraced = true
+    goldCatchTrace("rangePreview world resolved")
+  end
   if catching.canShowHud and not catching:canShowHud(game, ow) then
     RangePreview.clear()
     return nil
@@ -195,13 +214,22 @@ function RangePreview.sync(catching)
   local mod = catching.mod
   if RangePreview.isVoxelActive(mod, ow) then
     -- Voxel: no ground preview state. HUD meter is independent.
-    if trace then goldCatchTrace("rangePreview voxel check") end
+    if trace and not RangePreview._goldVoxelTraced then
+      RangePreview._goldVoxelTraced = true
+      goldCatchTrace("rangePreview voxel check")
+    end
     RangePreview.clear()
     return nil
   end
-  if trace then goldCatchTrace("rangePreview voxel check") end
+  if trace and not RangePreview._goldVoxelTraced then
+    RangePreview._goldVoxelTraced = true
+    goldCatchTrace("rangePreview voxel check")
+  end
   local cells = RangePreview.cells(player, catching.meter.power, catching.logic, ow)
-  if trace then goldCatchTrace("rangePreview cells") end
+  if trace and not RangePreview._goldCellsTraced then
+    RangePreview._goldCellsTraced = true
+    goldCatchTrace("rangePreview cells")
+  end
   RangePreview._pending = {
     cells = cells,
     mod = mod,
@@ -234,7 +262,8 @@ function RangePreview.drawWorldPass(ow, catching)
     return
   end
   local game = catching.game and catching:game() or nil
-  if not RangePreview.groundPreviewSupported(catching.mod, game) then
+  -- Gen1 worldCanvas only. Gold Flat draws via drawGoldOverlay (render.hud).
+  if GameCompat.isGen2(catching.mod, game) then
     return
   end
   if RangePreview.isVoxelActive(catching.mod, ow) then return end
@@ -262,6 +291,57 @@ function RangePreview.drawWorldPass(ow, catching)
   -- baked into draw positions, same as tiles/entities).
   lg.push("all")
   drawFlatCells(lg, cells, ow.camera)
+  lg.setColor(1, 1, 1, 1)
+  lg.pop()
+end
+
+local function goldZoomScale(ow)
+  if ow and type(ow.zoomScale) == "function" then
+    local ok, s = pcall(ow.zoomScale, ow)
+    if ok and type(s) == "number" and s > 0 then return s end
+  end
+  return 1
+end
+
+--- Gold Flat screen-space overlay. Same cells as Gen1; Gold camera * zoomScale.
+-- Window space, matching World:draw (not the 160×144 letterbox).
+function RangePreview.drawGoldOverlay(catching)
+  if not (love and love.graphics) then return end
+  catching = catching or RangePreview._catching
+  if type(catching) ~= "table" then return end
+  if not catching.meter or not catching.meter.active
+     or catching.phase ~= "metering" then
+    return
+  end
+  local game = catching.game and catching:game() or nil
+  local ow = catching.overworld and catching:overworld() or nil
+  if not RangePreview.groundPreviewSupported(catching.mod, game, ow) then
+    return
+  end
+  if RangePreview.isVoxelActive(catching.mod, ow) then return end
+  if catching.canShowHud and not catching:canShowHud(game, ow) then
+    return
+  end
+  local player = GameCompat.catchPlayer(game, ow)
+  if not player then return end
+  local cells = RangePreview.cells(player, catching.meter.power, catching.logic, ow)
+  if not cells or #cells == 0 then return end
+  local cam = ow and ow.camera
+  local scale = goldZoomScale(ow)
+  RangePreview._pending = { cells = cells, mod = catching.mod, cam = cam, scale = scale }
+  local lg = love.graphics
+  lg.push("all")
+  lg.origin()
+  for _, cell in ipairs(cells) do
+    local sx, sy, w, h = RangePreview.worldToScreenGold(cell.x, cell.y, cam, scale)
+    local col = cell.hasTarget and COLOR_TARGET or COLOR_NORMAL
+    lg.setColor(col[1], col[2], col[3], col[4])
+    lg.rectangle("fill", sx, sy, w, h)
+    if cell.hasTarget then
+      lg.setColor(OUTLINE_TARGET[1], OUTLINE_TARGET[2], OUTLINE_TARGET[3], OUTLINE_TARGET[4])
+      lg.rectangle("line", sx + 0.5, sy + 0.5, w - 1, h - 1)
+    end
+  end
   lg.setColor(1, 1, 1, 1)
   lg.pop()
 end

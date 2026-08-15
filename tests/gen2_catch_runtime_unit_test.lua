@@ -346,8 +346,8 @@ catching.projectile:cleanup(catchOw)
 ----------------------------------------------------------------
 local RangePreview = OverworldCatching.RangePreview
 catching:cancelAll("preview test")
-eq(RangePreview.groundPreviewSupported(mod, game), false,
-   "Gold ground preview intentionally unsupported")
+eq(RangePreview.groundPreviewSupported(mod, game, catchOw), true,
+   "Gold Flat ground preview uses screen overlay")
 eq(RangePreview.installFlatWorldHook(catching), false,
    "Gold does not wrap OverworldState.drawWorld")
 
@@ -369,9 +369,8 @@ end)
 check(stepOk, "Gold _beginMeter + step does not error: " .. tostring(stepErr))
 eq(catching.meter.active, true, "HUD meter remains active after step")
 eq(catching.phase, "metering", "phase stays metering")
-eq(RangePreview._pending, nil, "Gold ground cells stay disabled")
-eq(RangePreview._unsupportedReason, "gold_no_world_pass",
-   "RangePreview reports unsupported Gold world pass")
+check(RangePreview._pending ~= nil, "Gold Flat RangePreview computes cells")
+eq(RangePreview._unsupportedReason, nil, "Gold Flat preview is supported")
 catching:cancelAll("preview test done")
 mod.world.overworld = nil
 

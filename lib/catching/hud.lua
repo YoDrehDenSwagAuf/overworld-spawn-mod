@@ -137,14 +137,16 @@ local function drawText(Font, lg, text, x, y)
   end
 end
 
-function BallHud:draw(canvas, ctx)
+function BallHud:draw(canvas, ctx, opts)
+  opts = opts or {}
   if not (love and love.graphics) then return canvas end
   -- Dedup when both owwild_catching_tick and owwild_ball_hud present run.
   local frame = self._frame or 0
-  if self._drawnFrame == frame and frame > 0 then
+  if not opts.force and self._drawnFrame == frame and frame > 0 then
     return canvas
   end
   self._drawnFrame = frame
+  self._hudDrawCount = (self._hudDrawCount or 0) + 1
 
   local catching = self.catching
   local game = catching and catching:game()
@@ -155,11 +157,15 @@ function BallHud:draw(canvas, ctx)
   local Font = self.mod.ui and self.mod.ui.Font
   local selected = catching:getSelectedBall(game)
 
-  lg.push("all")
-  if canvas then
+  if not opts.skipPush then
+    lg.push("all")
+  end
+  if canvas and not opts.skipCanvas then
     lg.setCanvas(canvas)
   end
-  lg.origin()
+  if not opts.skipOrigin then
+    lg.origin()
+  end
   lg.setColor(1, 1, 1, 1)
 
   -- Top-right of the 160×144 Game Boy canvas. Size reads catch_hud_size live.
@@ -273,8 +279,28 @@ function BallHud:draw(canvas, ctx)
     end
   end
 
-  lg.pop()
+  if not opts.skipPush then
+    lg.pop()
+  end
   return canvas
+end
+
+--- Gold screen-space HUD. Same 160×144 layout as Gen1, placed in the
+-- letterboxed playfield (render.hud viewport). Does not use Pipelines.present.
+function BallHud:drawScreen(viewport)
+  if not (love and love.graphics) then return end
+  viewport = viewport or {}
+  local lg = love.graphics
+  lg.push("all")
+  lg.origin()
+  lg.translate(viewport.gameX or 0, viewport.gameY or 0)
+  lg.scale(viewport.scale or 1, viewport.scale or 1)
+  self:draw(nil, { width = 160, height = 144 }, {
+    skipPush = true,
+    skipOrigin = true,
+    skipCanvas = true,
+  })
+  lg.pop()
 end
 
 function BallHud:register()
@@ -294,6 +320,11 @@ function BallHud:register()
         and Config.isEnabled(mod) == true
     end,
     present = function(canvas, ctx)
+      -- Gold HUD is render.hud (screen-space). Do not also paint present.
+      local catching = hud.catching
+      if catching and GameCompat.isGen2(catching.mod, catching:game()) then
+        return canvas
+      end
       return hud:draw(canvas, ctx)
     end,
   })

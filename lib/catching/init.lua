@@ -475,6 +475,7 @@ function OverworldCatching:_beginMeter()
   if GameCompat.isGen2(self.mod, self:game()) then
     print("[Wilds][GoldCatch] beginMeter ENTER")
     self:_goldCatchStage("METER")
+    self:_goldCatchFrameLog("beginMeter")
   end
   self.meter.active = true
   self.meter.t = 0
@@ -483,6 +484,9 @@ function OverworldCatching:_beginMeter()
   self.phase = "metering"
   RangePreview._goldSyncTraced = nil
   RangePreview._goldUnsupportedTraced = nil
+  RangePreview._goldWorldTraced = nil
+  RangePreview._goldVoxelTraced = nil
+  RangePreview._goldCellsTraced = nil
   self._goldStepTraced = nil
   self:_catchLog("begin meter")
   self:_catchLog("phase=metering source=%s", tostring(self.meterSource or "desktop"))
@@ -1144,25 +1148,131 @@ function OverworldCatching:pollInput(game, ow, dt)
   self.throwHeld = throwDown
 end
 
-function OverworldCatching:step(ctx)
-  local game = self:game()
-  local ow = self:overworld()
-  local t = now()
-  local dt = t - (self._lastT or t)
+function OverworldCatching:pipelineSnapshot()
+  local snap = { level = nil, eligible = nil }
+  local ok, Pipelines = pcall(require, "src.render.Pipelines")
+  if ok and type(Pipelines) == "table" then
+    if type(Pipelines.level) == "function" then
+      local okL, level = pcall(Pipelines.level, OverworldCatching.PIPELINE_ID)
+      if okL then snap.level = level end
+    end
+    if type(Pipelines.eligible) == "function" then
+      local okE, elig = pcall(Pipelines.eligible, OverworldCatching.PIPELINE_ID)
+      if okE then snap.eligible = elig end
+    end
+  end
+  return snap
+end
+
+function OverworldCatching:_goldCatchFrameLog(reason)
+  if not GameCompat.isGen2(self.mod, self:game()) then return end
+  local pipe = self:pipelineSnapshot()
+  print(string.format(
+    "[Wilds][GoldCatchFrame] %s pipelineLevel=%s pipelineEligible=%s catchStepFrames=%s hudDrawFrames=%s meterPower=%s phase=%s",
+    tostring(reason or "tick"),
+    tostring(pipe.level),
+    tostring(pipe.eligible),
+    tostring(self._catchUpdateCount or 0),
+    tostring(self.hud and self.hud._hudDrawCount or 0),
+    tostring(self.meter and self.meter.power),
+    tostring(self.phase)))
+end
+
+--- One owner for meter / projectile / wobble / desktop C. Not the render pipeline.
+-- input.step is the shared Gen1+Gold fixed-step seam. Pipeline present may
+-- call this as a fallback; the tick guard prevents double-speed.
+function OverworldCatching:update(dt, source)
+  source = source or "unknown"
+  if source == "input.step" then
+    self._logicTick = (self._logicTick or 0) + 1
+  end
+  local tick = self._logicTick or 0
+  if tick > 0 and self._lastLogicTick == tick then
+    self._skippedDoubleUpdate = (self._skippedDoubleUpdate or 0) + 1
+    return false
+  end
+  if tick > 0 then
+    self._lastLogicTick = tick
+  end
+
+  if dt == nil then
+    local t = now()
+    dt = t - (self._lastT or t)
+    self._lastT = t
+  else
+    self._lastT = now()
+  end
   if dt < 0 then dt = 0 end
   if dt > 0.1 then dt = 0.1 end
-  self._lastT = t
+
+  self._catchUpdateCount = (self._catchUpdateCount or 0) + 1
   if self.hud then
     self.hud._frame = (self.hud._frame or 0) + 1
   end
+
+  local game = self:game()
+  local ow = self:overworld()
   self:pollInput(game, ow, dt)
-  if self.meter.active and GameCompat.isGen2(self.mod, game) and not self._goldStepTraced then
-    self._goldStepTraced = true
-    print("[Wilds][GoldCatch] step meter active")
-  end
-  -- Flat ground preview pending (clears when not metering or when Voxel active).
-  -- Gold: RangePreview.sync is a no-op for green cells (no Gen1 worldCanvas).
   RangePreview.sync(self)
+
+  if self.meter.active and GameCompat.isGen2(self.mod, game) then
+    if not self._goldStepTraced then
+      self._goldStepTraced = true
+      print("[Wilds][GoldCatch] step meter active")
+    end
+    local t = now()
+    if not self._goldFrameLogAt or (t - self._goldFrameLogAt) >= 1 then
+      self._goldFrameLogAt = t
+      self:_goldCatchFrameLog("meter")
+    end
+  end
+  return true
+end
+
+function OverworldCatching:installUpdateHook(mod)
+  if self._updateHookInstalled then return true end
+  if not (mod and mod.hooks and mod.hooks.wrap) then
+    return false
+  end
+  local catching = self
+  -- Outer wrap: CatchInput (B+A) runs inside nextFn, then logic advances once.
+  mod.hooks:wrap("input.step", function(nextFn, game, dt)
+    if nextFn then nextFn(game, dt) end
+    catching:update(dt or (1 / 60), "input.step")
+  end)
+  self._updateHookInstalled = true
+  return true
+end
+
+function OverworldCatching:installGoldPresentHook(mod)
+  if self._goldPresentHookInstalled then return true end
+  if not (mod and mod.hooks and mod.hooks.wrap) then
+    return false
+  end
+  local catching = self
+  mod.hooks:wrap("render.hud", function(nextFn, game, viewport)
+    if nextFn then nextFn(game, viewport) end
+    if not GameCompat.isGen2(catching.mod, game or catching:game()) then
+      return
+    end
+    catching:presentGold(game, viewport)
+  end)
+  self._goldPresentHookInstalled = true
+  return true
+end
+
+--- Gold screen-space presentation. HUD in the 160×144 letterbox; range tiles
+-- in window space using World camera * zoomScale. Exactly once per render.hud.
+function OverworldCatching:presentGold(game, viewport)
+  RangePreview.drawGoldOverlay(self)
+  if self.hud then
+    self.hud:drawScreen(viewport)
+  end
+end
+
+function OverworldCatching:step(ctx)
+  -- Fallback for unit tests / Gen1 present if input.step has not run.
+  self:update(nil, "pipeline")
 end
 
 function OverworldCatching:register()
@@ -1174,6 +1284,10 @@ function OverworldCatching:register()
   if self.catchInput then
     self.catchInput:installHook(mod)
   end
+  -- Catch logic (meter / projectile / wobble) also lives on input.step so a
+  -- Gold pipeline reset cannot freeze power at 1.
+  self:installUpdateHook(mod)
+  self:installGoldPresentHook(mod)
 
   if not (mod.content and mod.content.render_pipelines
           and mod.content.render_pipelines.register) then
@@ -1193,6 +1307,10 @@ function OverworldCatching:register()
     end,
     present = function(canvas, ctx)
       catching:step(ctx)
+      if GameCompat.isGen2(catching.mod, catching:game()) then
+        -- Gold HUD + range overlay are render.hud, not this present pass.
+        return canvas
+      end
       -- Reassert world-pass hook (mods / reloads); do not draw tiles here.
       RangePreview.installFlatWorldHook(catching)
       -- Ball HUD stays on present (UI/screen space, not world tiles).
