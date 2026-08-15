@@ -13,6 +13,7 @@ local V = ...
 local Tile = V.require("tile")
 local CatchMath = V.require("catching/catch_math")
 local CatchSfx = V.require("catching/catch_sfx")
+local GameCompat = V.require("game_compat")
 
 local Projectile = {}
 Projectile.__index = Projectile
@@ -221,9 +222,8 @@ function Projectile:startFlight(game, ow, opts)
 
   -- image arg intentionally ignored: size comes from SpriteDef *_sm canvas art.
   local ballEntity = makeBallEntity(game, ow, ballType, startX, startY, spriteId, opts.image)
-  if ow and ow.entities then
-    table.insert(ow.entities, ballEntity)
-  end
+  if opts.image then ballEntity.image = opts.image end
+  GameCompat.attachCatchProjectile(ow, ballEntity, game)
   self._trackedBall = ballEntity
   self.phase = "FLYING"
 

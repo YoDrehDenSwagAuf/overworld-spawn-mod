@@ -121,6 +121,17 @@ local game = {
   },
 }
 
+local gen1Ow = { player = { cellX = 5, cellY = 6, facing = "down" }, map = { id = "ROUTE_1" } }
+local gen1Mod = {
+  world = {
+    game = game,
+    overworld = function() return gen1Ow end,
+  },
+}
+eq(GameCompat.catchWorld(gen1Mod, game), gen1Ow, "Gen1 catchWorld is exact overworld()")
+eq(GameCompat.catchPlayer(game, gen1Ow), gen1Ow.player, "Gen1 catchPlayer is ow.player")
+eq(GameCompat.catchPlayerHasControl(game, gen1Ow, {}), true, "Gen1 control with player")
+eq(GameCompat.catchUiBlocked(game, gen1Ow, {}), false, "Gen1 UI not blocked")
 eq(GameCompat.supportsFeature("catching", nil, game), true, "Red catching on")
 eq(GameCompat.ballCount(game, "POKE_BALL"), 5, "Gen1 ballCount reads inventory")
 eq(GameCompat.ballCount(game, "ULTRA_BALL"), 0, "Gen1 zero ball count")
@@ -207,6 +218,8 @@ check(src:find("GameCompat.consumeBall", 1, true), "catching asks compat.consume
 check(src:find("GameCompat.giveCaughtPokemon", 1, true), "catching asks compat.giveCaughtPokemon")
 check(src:find("GameCompat.createCaughtPokemon", 1, true),
       "catching asks compat.createCaughtPokemon")
+check(src:find("GameCompat.catchWorld", 1, true), "catching asks compat.catchWorld")
+check(src:find("GameCompat.catchPlayer", 1, true), "catching asks compat.catchPlayer")
 check(not src:find("src.pokemon.Pokemon", 1, true),
       "catching/init no longer constructs Gen1 Pokemon directly")
 check(not src:find("src.inventory.Bag", 1, true),

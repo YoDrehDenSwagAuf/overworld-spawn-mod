@@ -17,6 +17,7 @@ local V = ...
 local Tile = V.require("tile")
 local CatchMath = V.require("catching/catch_math")
 local Target = V.require("catching/target")
+local GameCompat = V.require("game_compat")
 
 local RangePreview = {}
 
@@ -148,7 +149,8 @@ function RangePreview.sync(catching)
   end
   local game = catching.game and catching:game() or nil
   local ow = catching.overworld and catching:overworld() or nil
-  if not ow or not ow.player then
+  local player = GameCompat.catchPlayer(game, ow)
+  if not ow or not player then
     RangePreview.clear()
     return nil
   end
@@ -162,7 +164,7 @@ function RangePreview.sync(catching)
     RangePreview.clear()
     return nil
   end
-  local cells = RangePreview.cells(ow.player, catching.meter.power, catching.logic, ow)
+  local cells = RangePreview.cells(player, catching.meter.power, catching.logic, ow)
   RangePreview._pending = {
     cells = cells,
     mod = mod,
@@ -202,9 +204,10 @@ function RangePreview.drawWorldPass(ow, catching)
   if catching.canShowHud and not catching:canShowHud(game, ow) then
     return
   end
-  if not ow.player then return end
+  local player = GameCompat.catchPlayer(game, ow)
+  if not player then return end
 
-  local cells = RangePreview.cells(ow.player, catching.meter.power, catching.logic, ow)
+  local cells = RangePreview.cells(player, catching.meter.power, catching.logic, ow)
   if not cells or #cells == 0 then return end
 
   RangePreview._pending = {

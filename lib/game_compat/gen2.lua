@@ -272,6 +272,92 @@ function Gen2.applyControlledPokemonSprite(player, def, _game)
   return true, "player.sprite"
 end
 
+--- Catching-only world: Gold's live object is game.world, not a stack state.
+-- WorldAPI:overworld() returns the same World once world.map exists; catching
+-- must not depend on that, because Wilds already attach to game.world.
+function Gen2.catchWorld(mod, game)
+  game = game or (mod and (mod.game or (mod.world and mod.world.game)))
+  if game and game.world and (game.world.player or game.world.map) then
+    return game.world
+  end
+  local api = mod and mod.world
+  if api and type(api.overworld) == "function" then
+    local ok, ow = pcall(api.overworld, api)
+    if ok and ow and (ow.player or ow.map) then return ow end
+  end
+  return nil
+end
+
+--- Native Gold Player (src/world/gen2/Player.lua). Same object World owns.
+function Gen2.catchPlayer(game, ow)
+  if ow and ow.player then return ow.player end
+  ow = goldWorld(game, ow)
+  return ow and ow.player
+end
+
+function Gen2.playerCell(game, ow)
+  local player = Gen2.catchPlayer(game, ow)
+  if not player then return nil, nil end
+  return player.cellX, player.cellY
+end
+
+--- Gold free-roam control. Uses real World fields only (no invented ones).
+-- Empty stack IS free roam (game.world is never a stack state).
+-- textbox is a latch (true / object / nil), not Gen1 TextBox:active().
+function Gen2.catchPlayerHasControl(game, ow, logic)
+  if not game then return false end
+  ow = goldWorld(game, ow)
+  if not ow then return false end
+  if not Gen2.catchPlayer(game, ow) then return false end
+  if logic and logic.pendingBattle then return false end
+  if ow.battleActive then return false end
+  if type(ow.busy) == "function" then
+    local ok, busy = pcall(ow.busy, ow)
+    if ok and busy then return false end
+  end
+  if type(ow.scriptRunning) == "function" then
+    local ok, running = pcall(ow.scriptRunning, ow)
+    if ok and running then return false end
+  elseif ow.runner and type(ow.runner.isRunning) == "function" then
+    local ok, running = pcall(ow.runner.isRunning, ow.runner)
+    if ok and running then return false end
+  end
+  if ow.textbox or ow.choicebox then return false end
+  if ow.engaging then return false end
+  local stack = game.stack
+  if stack and type(stack.top) == "function" then
+    local top = stack:top()
+    if top then return false end
+  end
+  return true
+end
+
+function Gen2.catchUiBlocked(game, ow, logic)
+  if not game then return true end
+  if logic and logic.pendingBattle then return true end
+  ow = goldWorld(game, ow)
+  if not ow then return true end
+  if ow.battleActive then return true end
+  if type(ow.busy) == "function" then
+    local ok, busy = pcall(ow.busy, ow)
+    if ok and busy then return true end
+  end
+  if type(ow.scriptRunning) == "function" then
+    local ok, running = pcall(ow.scriptRunning, ow)
+    if ok and running then return true end
+  elseif ow.runner and type(ow.runner.isRunning) == "function" then
+    local ok, running = pcall(ow.runner.isRunning, ow.runner)
+    if ok and running then return true end
+  end
+  if ow.textbox or ow.choicebox then return true end
+  local stack = game.stack
+  if stack and type(stack.top) == "function" then
+    local top = stack:top()
+    if top then return true end
+  end
+  return false
+end
+
 --- Gold bag is still a flat id→count map (src/core/gen2/Save.lua).
 -- PackMenu buckets by item pocket; counts are save.inventory[id].
 function Gen2.ballCount(game, ballType)
@@ -363,28 +449,37 @@ function Gen2.attemptCatch(game, opts)
   return caught, caught and 3 or 1
 end
 
---- Native Gold mon: src.battle.gen2.Mon.new + stampOT.
+--- Native Gold mon: src.battle.gen2.Mon.new(data, species, level, opts) + stampOT.
 -- species is the entity/runtime id, never a Wilds asset id.
+-- Mon.new returns nil when data.pokemon[species] is missing. Do NOT invent a
+-- fake party member — that corrupts Gold party/save data.
 function Gen2.createCaughtPokemon(game, species, level, context)
   context = context or {}
   local Mon = tryRequire("src.battle.gen2.Mon")
-  local newMon
-  if Mon and Mon.new and game and game.data then
-    local ok, mon = pcall(Mon.new, game.data, species, level, {
-      shiny = context.shiny or nil,
-    })
-    if ok then newMon = mon end
+  if not (Mon and Mon.new) then
+    return nil, "no src.battle.gen2.Mon.new"
   end
-  if not newMon then
-    -- Keep the requested species. Never substitute a vanilla mon.
-    newMon = { species = species, level = level, hp = 1, stats = { hp = 1 } }
+  if not (game and game.data) then
+    return nil, "no game.data"
   end
-  if Mon and Mon.stampOT and game and game.save then
-    pcall(Mon.stampOT, game.save, newMon)
+  if not (game.data.pokemon and game.data.pokemon[species]) then
+    return nil, "missing_species_def"
   end
-  if context.shiny then newMon.shiny = true end
-  if context.variant then newMon.variant = context.variant end
-  return newMon
+  local ok, mon = pcall(Mon.new, game.data, species, level, {
+    shiny = context.shiny or nil,
+  })
+  if not ok then
+    return nil, tostring(mon)
+  end
+  if not mon then
+    return nil, "mon_new_returned_nil"
+  end
+  if Mon.stampOT and game.save then
+    pcall(Mon.stampOT, game.save, mon)
+  end
+  if context.shiny then mon.shiny = true end
+  if context.variant then mon.variant = context.variant end
+  return mon
 end
 
 --- Native Gold store: party append, else SendMonIntoBox (insert at head of box).

@@ -4,6 +4,7 @@
 local V = ...
 local Config = V.require("config")
 local CatchMath = V.require("catching/catch_math")
+local GameCompat = V.require("game_compat")
 
 local BallHud = {}
 BallHud.__index = BallHud
@@ -108,7 +109,7 @@ function BallHud:shouldDraw(game, ow)
   end
   if not Config.overworldCatchingEnabled(self.mod) then return false end
   if not Config.isEnabled(self.mod) then return false end
-  if not game or not ow or not ow.player then return false end
+  if not game or not ow or not GameCompat.catchPlayer(game, ow) then return false end
   if self.catching.safariBlocks and self.catching:safariBlocks(game, ow) then
     return false
   end

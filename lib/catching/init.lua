@@ -92,13 +92,16 @@ function OverworldCatching.new(mod, logic)
 end
 
 function OverworldCatching:game()
-  return self.mod.world and self.mod.world.game
+  if self.mod.world and self.mod.world.game then return self.mod.world.game end
+  return self.mod.game
 end
 
 function OverworldCatching:overworld()
-  local world = self.mod.world
-  if not world or not world.overworld then return nil end
-  return world:overworld()
+  return GameCompat.catchWorld(self.mod, self:game())
+end
+
+function OverworldCatching:catchPlayer(game, ow)
+  return GameCompat.catchPlayer(game or self:game(), ow or self:overworld())
 end
 
 function OverworldCatching:registerContent()
@@ -228,33 +231,9 @@ function OverworldCatching:anyBalls(game)
   return false
 end
 
---- Stack / dialogue / battle / script guards.
+--- Stack / dialogue / battle / script guards (generation-specific via GameCompat).
 function OverworldCatching:playerHasControl(game, ow)
-  if not game or not ow or not ow.player then return false end
-  if ow.runner and ow.runner.isRunning and ow.runner:isRunning() then
-    return false
-  end
-  if ow.textbox and ow.textbox.active and ow.textbox:active() then
-    return false
-  end
-  if ow.engaging then return false end
-  if self.logic and self.logic.pendingBattle then return false end
-
-  local stack = game.stack
-  if stack and stack.top then
-    local top = stack:top()
-    if top and top ~= ow then
-      -- Allow only when overworld is top of stack.
-      local opaque = top.isOpaque == true
-        or (type(top.isOpaque) == "function" and top:isOpaque())
-      if opaque or top.battle or top.isBattle then
-        return false
-      end
-      -- Menus / party / PC / options typically sit above overworld.
-      if top ~= ow then return false end
-    end
-  end
-  return true
+  return GameCompat.catchPlayerHasControl(game, ow, self.logic)
 end
 
 function OverworldCatching:safariBlocks(game, ow)
@@ -265,33 +244,14 @@ function OverworldCatching:safariBlocks(game, ow)
 end
 
 function OverworldCatching:isBlockedByUi(game, ow)
-  if not game then return true end
-  if self.logic and self.logic.pendingBattle then return true end
-  if ow and ow.runner and ow.runner.isRunning and ow.runner:isRunning() then
-    return true
-  end
-  if ow and ow.textbox and ow.textbox.active and ow.textbox:active() then
-    return true
-  end
-  local stack = game.stack
-  if stack and stack.top then
-    local top = stack:top()
-    if top and ow and top ~= ow then
-      local opaque = top.isOpaque == true
-        or (type(top.isOpaque) == "function" and top:isOpaque())
-      if opaque or top.battle or top.isBattle then
-        return true
-      end
-      return true
-    end
-  end
-  return false
+  return GameCompat.catchUiBlocked(game, ow, self.logic)
 end
 
 function OverworldCatching:canShowHud(game, ow)
   if not Config.overworldCatchingEnabled(self.mod) then return false end
   if not Config.isEnabled(self.mod) then return false end
-  if not game or not ow or not ow.player then return false end
+  local player = GameCompat.catchPlayer(game, ow)
+  if not game or not ow or not player then return false end
   if self:safariBlocks(game, ow) then return false end
   if self.logic and self.logic.pendingBattle then return false end
   -- Meter / flight / capture must keep HUD+meter visible even if control flickers.
@@ -333,6 +293,77 @@ function OverworldCatching:_catchLog(fmt, ...)
   end
   local ok, msg = pcall(string.format, fmt, ...)
   print("[Wilds][Catch] " .. (ok and msg or tostring(fmt)))
+end
+
+function OverworldCatching:_goldCatchLog(fmt, ...)
+  if not GameCompat.isGen2(self.mod, self:game()) then return end
+  if not (Config.devOverlay(self.mod) or Config.debug(self.mod)) then
+    return
+  end
+  local ok, msg = pcall(string.format, fmt, ...)
+  print("[Wilds][Catch][Gold] " .. (ok and msg or tostring(fmt)))
+end
+
+function OverworldCatching:_catchBlocker(game, ow)
+  if not Config.overworldCatchingEnabled(self.mod) then return "CONFIG_DISABLED" end
+  if not Config.isEnabled(self.mod) then return "WILDS_DISABLED" end
+  if not game then return "NO_GAME" end
+  if not GameCompat.supportsFeature("catching", self.mod, game) then
+    return "CAPABILITY_DISABLED"
+  end
+  if not ow then return "NO_WORLD" end
+  if not GameCompat.catchPlayer(game, ow) then return "NO_PLAYER" end
+  if self:safariBlocks(game, ow) then return "SPECIAL_SESSION" end
+  if self.logic and self.logic.pendingBattle then return "PENDING_BATTLE" end
+  if self.projectile and self.projectile:isBusy() then return "PROJECTILE_BUSY" end
+  if self:isBlockedByUi(game, ow) then return "UI_BLOCKED" end
+  if not self:playerHasControl(game, ow) then return "NO_CONTROL" end
+  return nil
+end
+
+--- Once / on blocker change (throttled). Never per-frame.
+function OverworldCatching:_catchBootLog(game, ow)
+  if not (Config.devOverlay(self.mod) or Config.debug(self.mod)) then
+    return
+  end
+  local blocker = self:_catchBlocker(game, ow)
+  local t = now()
+  if self._bootLogged and self._bootBlocker == blocker then
+    return
+  end
+  if self._bootLogged and (t - (self._bootLogAt or 0)) < 2 then
+    return
+  end
+  self._bootLogged = true
+  self._bootBlocker = blocker
+  self._bootLogAt = t
+
+  local modWorld = self.mod and self.mod.world
+  local apiOw
+  if modWorld and type(modWorld.overworld) == "function" then
+    local ok, result = pcall(modWorld.overworld, modWorld)
+    if ok then apiOw = result end
+  end
+  local worldPlayer = game and game.world and game.world.player
+  local player = GameCompat.catchPlayer(game, ow)
+  print(string.format(
+    "[Wilds][CatchBoot] generation=%s capability=%s owCatch=%s wilds=%s game=%s mod.world=%s mod.world:overworld()=%s game.world=%s ow=%s ow.player=%s game.world.player=%s game.world.playerState=%s canShowHud=%s canAcceptInput=%s blocker=%s",
+    tostring(GameCompat.generation(self.mod, game)),
+    tostring(GameCompat.supportsFeature("catching", self.mod, game)),
+    tostring(Config.overworldCatchingEnabled(self.mod)),
+    tostring(Config.isEnabled(self.mod)),
+    tostring(game ~= nil),
+    tostring(modWorld ~= nil),
+    tostring(apiOw ~= nil),
+    tostring(game and game.world ~= nil),
+    tostring(ow ~= nil),
+    tostring(ow and ow.player ~= nil),
+    tostring(worldPlayer ~= nil),
+    tostring(game and game.world and game.world.playerState),
+    tostring(self:canShowHud(game, ow)),
+    tostring(self:canAcceptInput(game, ow)),
+    tostring(blocker or "NONE")
+  ))
 end
 
 local function inputDown(game, aliases)
@@ -394,6 +425,7 @@ function OverworldCatching:_beginMeter()
   self.meter.power = METER_MIN
   self.meter.rising = true
   self.phase = "metering"
+  self:_catchLog("begin meter")
   self:_catchLog("phase=metering source=%s", tostring(self.meterSource or "desktop"))
 end
 
@@ -535,11 +567,30 @@ function OverworldCatching:_releaseThrow(game, ow)
     return
   end
 
-  local player = ow.player
-  local px, py = player.cellX, player.cellY
+  local player = GameCompat.catchPlayer(game, ow)
+  if not player then
+    self:_catchLog("release aborted NO_PLAYER")
+    self.phase = "idle"
+    return
+  end
+  local px, py = GameCompat.playerCell(game, ow)
+  px, py = px or player.cellX, py or player.cellY
   local hit = Target.scanThrowPath(self.logic, ow, player, power)
   local Hit = Target.HitKind
   local facing = hit.facing or Target.facingOf(player)
+  local wildCount = 0
+  if self.logic and self.logic.entities then
+    for _, ent in pairs(self.logic.entities) do
+      if Target.isCatchableWild(ent) then wildCount = wildCount + 1 end
+    end
+  end
+  self:_catchLog("release")
+  self:_catchLog("player cell=(%s,%s) facing=%s power=%.2f wilds=%d",
+    tostring(px), tostring(py), tostring(facing), power, wildCount)
+  self:_catchLog("target=%s distance=%s kind=%s",
+    tostring(hit.entity and (hit.entity.species or hit.entity.wildSpecies) or "none"),
+    tostring(hit.distance),
+    tostring(hit.kind))
 
   -- Consume on commit (hit, easter egg, or miss).
   if not self:consumeBall(game, ballType) then
@@ -547,6 +598,8 @@ function OverworldCatching:_releaseThrow(game, ow)
     self.phase = "idle"
     return
   end
+  self:_goldCatchLog("consumed=true")
+  self:_goldCatchLog("inventory count=%s", tostring(self:ballCount(game, ballType)))
 
   local landX, landY = Projectile.landCell(px, py, facing, power)
   self:_catchLog("throw released power=%.2f land=(%d,%d) facing=%s first=%s@%s",
@@ -574,6 +627,7 @@ function OverworldCatching:_releaseThrow(game, ow)
         self:_catchLog("miss complete / projectile cleaned")
       end,
     })
+    self:_catchLog("projectile")
     self:_catchLog("projectile started (miss)")
   end
 
@@ -599,6 +653,7 @@ function OverworldCatching:_releaseThrow(game, ow)
         self:_onEasterEggImpact(game, ow, hit.kind, hit.entity)
       end,
     })
+    self:_catchLog("projectile")
     self:_catchLog("projectile started (%s)", tostring(hit.kind))
     return
   end
@@ -678,6 +733,7 @@ function OverworldCatching:_releaseThrow(game, ow)
       self:_onBallImpact(game, ow, proj)
     end,
   })
+  self:_catchLog("projectile")
   self:_catchLog("projectile started (hit)")
 end
 
@@ -718,6 +774,7 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
   local caught, shakes = false, 3
   self:_catchLog("catch attempt ball=%s rate=%s quality=%s",
     tostring(ballType), tostring(rateOverride), tostring(quality))
+  self:_goldCatchLog("inventory count=%s", tostring(self:ballCount(game, ballType)))
   -- Ball multipliers live inside the generation Catching API.
   -- Do not pre-multiply them into rateOverride.
   caught, shakes = GameCompat.attemptCatch(game, {
@@ -730,6 +787,7 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
     level = level,
   })
   self:_catchLog("result caught=%s shakes=%s", tostring(caught), tostring(shakes))
+  self:_goldCatchLog("attempt=%s", tostring(caught == true))
 
   -- Place Ball on the target tile for wobble (even if land cell was rounded nearby).
   local wobX = cap.tx or (proj and proj.targetX) or entity.cellX
@@ -774,39 +832,46 @@ function OverworldCatching:_resolveCapture(game, ow, caught)
     self:_catchLog("resolving success")
     -- Catch SFX already played at SUCCESS_CLICK start.
     -- species is the Wilds entity/record id — never a canonical asset id.
-    local newMon = GameCompat.createCaughtPokemon(game, species, level, {
+    local newMon, createErr = GameCompat.createCaughtPokemon(game, species, level, {
       shiny = entity and entity.shiny,
       variant = entity and entity.variant,
       entity = entity,
     })
     if not newMon then
-      newMon = { species = species, level = level, hp = 1, stats = { hp = 1 } }
-    end
-
-    local msg = "All right!\n" .. tostring(speciesName) .. " was caught!"
-    local result = GameCompat.giveCaughtPokemon(game, newMon, {
-      species = species,
-      entity = entity,
-    }) or {}
-    GameCompat.markSpeciesCaught(game, species, newMon)
-    if result.destination == "box" then
-      if result.boxNum then
-        msg = msg .. "\fTransferred to\nBox " .. tostring(result.boxNum) .. "."
-      elseif result.boxFull then
-        msg = msg .. "\fBox is full!"
-      end
-    end
-
-    -- Stay hidden; despawn via Wilds canonical path (no reappear).
-    if self.logic and entity and entity.id then
-      self.logic:_despawn(entity.id, true)
+      -- Never invent a fake party member. Fail safely and keep the wild.
+      self:_catchLog("create failed err=%s — wild remains", tostring(createErr))
+      self:_goldCatchLog("created species=nil")
     else
-      self:_unlockTarget(entity, { reattach = false, restoreVisible = false })
+      self:_goldCatchLog("created species=%s", tostring(newMon.species or species))
+      local msg = "All right!\n" .. tostring(speciesName) .. " was caught!"
+      local result = GameCompat.giveCaughtPokemon(game, newMon, {
+        species = species,
+        entity = entity,
+      }) or {}
+      local dexOk = GameCompat.markSpeciesCaught(game, species, newMon)
+      self:_goldCatchLog("destination=%s", tostring(result.destination or "none"))
+      self:_goldCatchLog("dex updated=%s", tostring(dexOk == true))
+      if result.destination == "box" then
+        if result.boxNum then
+          msg = msg .. "\fTransferred to\nBox " .. tostring(result.boxNum) .. "."
+        elseif result.boxFull then
+          msg = msg .. "\fBox is full!"
+        end
+      end
+
+      -- Stay hidden; despawn via Wilds canonical path (no reappear).
+      if self.logic and entity and entity.id then
+        self.logic:_despawn(entity.id, true)
+        self:_goldCatchLog("entity removed=true")
+      else
+        self:_unlockTarget(entity, { reattach = false, restoreVisible = false })
+        self:_goldCatchLog("entity removed=true")
+      end
+      self.activeCapture = nil
+      self.phase = "idle"
+      pushText(game, self.mod, msg)
+      return
     end
-    self.activeCapture = nil
-    self.phase = "idle"
-    pushText(game, self.mod, msg)
-    return
   end
 
   -- FAILURE after FAIL_BREAK visuals: Ball already cleaned by Projectile.
@@ -863,7 +928,7 @@ function OverworldCatching:_beginAggroAfterBreak(entity, record)
   entity.visibleSprite = true
 
   local ow = self:overworld()
-  local player = ow and ow.player
+  local player = GameCompat.catchPlayer(self:game(), ow)
   if player and entity.cellX and entity.cellY then
     local fdx = (player.cellX or 0) - entity.cellX
     local fdy = (player.cellY or 0) - entity.cellY
@@ -951,7 +1016,11 @@ function OverworldCatching:pollInput(game, ow, dt)
     self:_updateMeter(dt)
   end
 
-  if not ow or not game then return end
+  if not ow or not game then
+    self:_catchBootLog(game, ow)
+    return
+  end
+  self:_catchBootLog(game, ow)
 
   -- Cycle ball (edge-triggered only). Allowed whenever HUD can show.
   -- Desktop Q path — B+LEFT/RIGHT is handled by catchInput on input.step.
@@ -984,13 +1053,16 @@ function OverworldCatching:pollInput(game, ow, dt)
     return
   end
 
-  if throwDown and not self.throwHeld and self:canAcceptInput(game, ow) then
-    if not self:anyBalls(game) then
-      -- Edge-only feedback (do not spam while held).
-      self:_pushNoBalls(game)
-    else
-      self.meterSource = "desktop"
-      self:_beginMeter()
+  if throwDown and not self.throwHeld then
+    self:_catchLog("input C")
+    if self:canAcceptInput(game, ow) then
+      if not self:anyBalls(game) then
+        -- Edge-only feedback (do not spam while held).
+        self:_pushNoBalls(game)
+      else
+        self.meterSource = "desktop"
+        self:_beginMeter()
+      end
     end
   end
   self.throwHeld = throwDown

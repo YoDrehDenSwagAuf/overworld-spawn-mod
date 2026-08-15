@@ -73,6 +73,9 @@ GameCompat.pickEncounter(game, mapId, kind, ctx)
 GameCompat.startWildBattle(world, species, level, game)
 GameCompat.ballCount / consumeBall / attemptCatch
 GameCompat.createCaughtPokemon / giveCaughtPokemon / markSpeciesCaught
+GameCompat.catchWorld / catchPlayer / playerCell
+GameCompat.catchPlayerHasControl / catchUiBlocked
+GameCompat.attachCatchProjectile
 ```
 
 Detection uses Gen1Recomp `GameVersion.get()` + `GameVersion.generation(id)`

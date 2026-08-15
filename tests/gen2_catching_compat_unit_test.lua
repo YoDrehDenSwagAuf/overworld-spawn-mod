@@ -283,9 +283,11 @@ eq(fake.name, "FAKEMON", "Fakemon name from Gold def")
 check(fake.species ~= "PIDGEY" and fake.species ~= "SENTRET",
       "Fakemon was not rewritten to a vanilla mon")
 
-local unknown = GameCompat.createCaughtPokemon(game, "UNKNOWN_MON", 5)
-eq(unknown.species, "UNKNOWN_MON", "unknown species keeps its id")
-check(unknown.species ~= "PIDGEY", "unknown is not turned into PIDGEY")
+local unknown, unknownErr = GameCompat.createCaughtPokemon(game, "UNKNOWN_MON", 5)
+eq(unknown, nil, "unknown species does not create a fake Gold mon")
+check(unknownErr ~= nil, "unknown species returns an error")
+check(unknownErr == "missing_species_def" or type(unknownErr) == "string",
+      "unknown species error is explicit")
 
 ----------------------------------------------------------------
 -- Special session: Bug Contest blocks OW throws; not treated as Safari

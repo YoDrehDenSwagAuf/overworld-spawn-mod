@@ -174,6 +174,77 @@ function Gen1.applyControlledPokemonSprite(player, renderer, _game)
   return true, "player.sprite"
 end
 
+--- Catching-only world object. EXACT previous OverworldCatching:overworld().
+-- Returns WorldAPI:overworld() → OverworldState. Do not add Gold fallbacks.
+function Gen1.catchWorld(mod, _game)
+  local world = mod and mod.world
+  if not world or not world.overworld then return nil end
+  return world:overworld()
+end
+
+--- Catching-only player. EXACT previous `ow.player` read.
+function Gen1.catchPlayer(_game, ow)
+  return ow and ow.player
+end
+
+function Gen1.playerCell(game, ow)
+  local player = Gen1.catchPlayer(game, ow)
+  if not player then return nil, nil end
+  return player.cellX, player.cellY
+end
+
+--- EXACT previous OverworldCatching:playerHasControl.
+function Gen1.catchPlayerHasControl(game, ow, logic)
+  if not game or not ow or not ow.player then return false end
+  if ow.runner and ow.runner.isRunning and ow.runner:isRunning() then
+    return false
+  end
+  if ow.textbox and ow.textbox.active and ow.textbox:active() then
+    return false
+  end
+  if ow.engaging then return false end
+  if logic and logic.pendingBattle then return false end
+
+  local stack = game.stack
+  if stack and stack.top then
+    local top = stack:top()
+    if top and top ~= ow then
+      local opaque = top.isOpaque == true
+        or (type(top.isOpaque) == "function" and top:isOpaque())
+      if opaque or top.battle or top.isBattle then
+        return false
+      end
+      if top ~= ow then return false end
+    end
+  end
+  return true
+end
+
+--- EXACT previous OverworldCatching:isBlockedByUi.
+function Gen1.catchUiBlocked(game, ow, logic)
+  if not game then return true end
+  if logic and logic.pendingBattle then return true end
+  if ow and ow.runner and ow.runner.isRunning and ow.runner:isRunning() then
+    return true
+  end
+  if ow and ow.textbox and ow.textbox.active and ow.textbox:active() then
+    return true
+  end
+  local stack = game.stack
+  if stack and stack.top then
+    local top = stack:top()
+    if top and ow and top ~= ow then
+      local opaque = top.isOpaque == true
+        or (type(top.isOpaque) == "function" and top:isOpaque())
+      if opaque or top.battle or top.isBattle then
+        return true
+      end
+      return true
+    end
+  end
+  return false
+end
+
 --- Current OW catch inventory read: `game.save.inventory[ballType]`.
 function Gen1.ballCount(game, ballType)
   local inv = game and game.save and game.save.inventory

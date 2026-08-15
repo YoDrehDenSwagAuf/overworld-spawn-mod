@@ -95,6 +95,13 @@
 - Shared `CatchMath` throw-quality / facing / level modifiers stay.
   Ball multipliers and Master Ball remain inside each generation's
   native `Catching.attempt`. Gen1 probabilities are unchanged.
+- Catching no longer assumes Gen1 `mod.world:overworld()` / `ow.player` /
+  `ow.textbox:active()` / stack-top-is-overworld. Gold resolves
+  `GameCompat.catchWorld` → `game.world` and `GameCompat.catchPlayer` →
+  the native Gold Player. Control uses `World:busy` / `textbox` latch /
+  empty-stack free roam. Thrown balls attach to Gold `npcs` so
+  `World:drawPeople` can see them. A failed `Mon.new` now returns nil
+  (no fake party table). Gen1 catching guards are unchanged.
 
 ### Experimental Pokémon Gold foundation
 
