@@ -32,6 +32,8 @@ The mod targets **Gen 1 + Gen 2** in Gen1Recomp's Mod Manager.
 - Red / Blue / Yellow
 - Experimental Pokémon Gold / Gen 2 support (beta) — see below
 - Dramatic Shape Voxel compatibility
+- Stable species-based sprite identity (reordered Pokédex / Fakemon mods
+  keep the correct Wilds art, or the missing-sprite fallback)
 
 ## Compatibility Fixes — v2.1.5
 

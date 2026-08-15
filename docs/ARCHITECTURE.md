@@ -17,6 +17,9 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `lib/json_decode.lua` | Minimal JSON decoder for mappings |
 | `lib/animated_sprites.lua` | Follow-sprite mapping / source atlas helpers |
 | `lib/runtime_sheets.lua` | Resolve build-time 16×96 SpriteRenderer sheets |
+| `lib/species_assets.lua` | Stable species key → canonical Wilds asset ID |
+| `lib/perf_stats.lua` | DEV-only per-second performance snapshot |
+| `lib/wilds_fs.lua` | Sandbox-safe packaged asset / existence / persist |
 | `lib/sprite_providers.lua` | Sprite Style providers (HGSS/PokeMMO / Poke Followers / Pokedex) |
 | `lib/water_shadow_renderer.lua` | Voxel flat underwater shadows for Hidden / Silhouettes |
 | `lib/sprite_style_menu.lua` | Start-menu Sprite Style picker (`ui.start_menu.items`) |

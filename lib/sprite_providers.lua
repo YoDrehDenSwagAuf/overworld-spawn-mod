@@ -139,10 +139,13 @@ local function speciesKeyFromId(speciesId, game, mod)
   if type(speciesId) == "string" and speciesId ~= "" and not tonumber(speciesId) then
     return speciesId
   end
-  local dex = tonumber(speciesId)
-  if not dex then
-    dex = AnimatedSprites.resolveSpeciesId(speciesId, game, mod)
+  -- Prefer stable reverse map (canonical asset id → species) over runtime dex.
+  local okSA, SpeciesAssets = pcall(function() return V.require("species_assets") end)
+  if okSA and SpeciesAssets and SpeciesAssets.speciesFor then
+    local key = SpeciesAssets.speciesFor(speciesId)
+    if key then return key end
   end
+  local dex = tonumber(speciesId)
   if not dex then return nil end
   dex = math.floor(dex)
   local pokemon = game and game.data and game.data.pokemon
@@ -163,19 +166,13 @@ local function speciesKeyFromId(speciesId, game, mod)
   return nil
 end
 
-local function resolveDexId(speciesId, game, mod)
-  local n = tonumber(speciesId)
-  if n and n >= 1 and math.floor(n) == n then
-    return math.floor(n)
+-- Wilds asset identity only. Never uses runtime Pokédex / GameCompat.speciesId.
+local function resolveDexId(speciesId, _game, _mod)
+  local okSA, SpeciesAssets = pcall(function() return V.require("species_assets") end)
+  if okSA and SpeciesAssets and SpeciesAssets.idFor then
+    return SpeciesAssets.idFor(speciesId)
   end
-  local okGC, GameCompat = pcall(function() return V.require("game_compat") end)
-  if okGC and GameCompat and GameCompat.speciesId then
-    local ok, dex = pcall(GameCompat.speciesId, speciesId, game, mod)
-    if ok and type(dex) == "number" and dex >= 1 then
-      return math.floor(dex)
-    end
-  end
-  return AnimatedSprites.resolveSpeciesId(speciesId, game, mod)
+  return nil
 end
 
 ------------------------------------------------------------------------
