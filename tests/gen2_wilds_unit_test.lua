@@ -191,7 +191,7 @@ local GameCompat = mod.exports.gameCompat
 check(GameCompat ~= nil, "exports.gameCompat")
 eq(GameCompat.supportsFeature("encounters", mod, goldGame), true, "encounters on")
 eq(GameCompat.supportsFeature("followers", mod, goldGame), true, "followers on")
-eq(GameCompat.supportsFeature("catching", mod, goldGame), false, "catching off")
+eq(GameCompat.supportsFeature("catching", mod, goldGame), true, "catching on")
 eq(GameCompat.supportsFeature("ambient", mod, goldGame), true, "ambient on")
 eq(GameCompat.supportsFeature("townPokemon", mod, goldGame), true, "townPokemon on")
 eq(GameCompat.supportsFeature("safari", mod, goldGame), false, "safari off")
@@ -208,7 +208,7 @@ check(not wrappedHook("pikachu_follower"), "Yellow Pikachu hook NOT wrapped")
 check(wrappedHook("ui.party.submenu"), "follower party submenu wrapped")
 
 eq(mod.exports.follower._installed, true, "follower hooks install on Gold")
-eq(mod.exports.catching._registered, false, "catching stays off")
+eq(mod.exports.catching._registered, true, "catching registers on Gold")
 eq(mod.exports.ambient._installed, true, "ambient / town Pokémon installed")
 eq(mod.exports.behaviorTick._registered, true, "shared WILDS AI pipeline registered")
 

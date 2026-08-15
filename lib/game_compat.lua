@@ -2,8 +2,8 @@
 --
 -- Shared Wilds systems should ask this module instead of assuming Gen 1.
 -- Gen1 is the full gameplay adapter. Gen2 is a Gold adapter with wild
--- overworld encounters, curated town Pokémon, and shared followers.
--- Catching / safari stay off via capabilities.
+-- overworld encounters, curated town Pokémon, shared followers, and
+-- overworld catching. Safari / special-session compatibility stays off.
 --
 -- Canonical engine source of truth (Gen1Recomp src/core/GameVersion.lua):
 --   GameVersion.get()            → "red"|"blue"|"yellow"|"gold"|…
@@ -232,6 +232,99 @@ function GameCompat.pickEncounter(game, mapId, kind, ctx)
     return adapter.pickEncounter(game, mapId, kind, ctx)
   end
   return nil
+end
+
+local function catchAdapter(game)
+  return GameCompat.current(nil, game) or Gen1
+end
+
+--- Authoritative capture species: entity/record species id, never an asset id.
+function GameCompat.captureSpecies(entity, record)
+  if record and record.species ~= nil then return record.species end
+  if entity then
+    return entity.species or entity.wildSpecies
+  end
+  return nil
+end
+
+function GameCompat.captureLevel(entity, record)
+  if record and record.level ~= nil then return record.level end
+  if entity then
+    return entity.level or entity.wildLevel
+  end
+  return nil
+end
+
+function GameCompat.ballCount(game, ballType)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.ballCount then
+    return adapter.ballCount(game, ballType)
+  end
+  return 0
+end
+
+function GameCompat.consumeBall(game, ballType)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.consumeBall then
+    return adapter.consumeBall(game, ballType) == true
+  end
+  return false
+end
+
+function GameCompat.catchRate(game, species)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.catchRate then
+    return adapter.catchRate(game, species)
+  end
+  return 255, nil
+end
+
+function GameCompat.attemptCatch(game, opts)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.attemptCatch then
+    return adapter.attemptCatch(game, opts)
+  end
+  return Gen1.attemptCatch(game, opts)
+end
+
+function GameCompat.createCaughtPokemon(game, species, level, context)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.createCaughtPokemon then
+    return adapter.createCaughtPokemon(game, species, level, context)
+  end
+  return Gen1.createCaughtPokemon(game, species, level, context)
+end
+
+function GameCompat.giveCaughtPokemon(game, mon, context)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.giveCaughtPokemon then
+    return adapter.giveCaughtPokemon(game, mon, context)
+  end
+  return Gen1.giveCaughtPokemon(game, mon, context)
+end
+
+function GameCompat.markSpeciesCaught(game, species, mon)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.markSpeciesCaught then
+    return adapter.markSpeciesCaught(game, species, mon)
+  end
+  return false
+end
+
+function GameCompat.playerHasPartySpace(game)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.playerHasPartySpace then
+    return adapter.playerHasPartySpace(game) == true
+  end
+  return false
+end
+
+function GameCompat.specialCatchSessionBlocks(game, ow)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.specialCatchSessionBlocks then
+    return adapter.specialCatchSessionBlocks(game, ow) == true
+  end
+  return false
 end
 
 --- Start a wild battle for the visible overworld entity (exact species/level).

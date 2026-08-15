@@ -82,7 +82,8 @@ implementation.
 - Gen2-compatible follower sprite resolution
 - Existing True Size infrastructure where supported
 
-Overworld catching and Safari stay off on Gold.
+Overworld catching uses the same Wilds throw UX on Gold. Safari and
+special engine catch sessions (Bug-Catching Contest) stay off / blocked.
 
 ### Sprites
 

@@ -6,6 +6,7 @@ local Config = V.require("config")
 local Behavior = V.require("behavior")
 local Movement = V.require("movement")
 local SafariCompat = V.require("safari_compat")
+local GameCompat = V.require("game_compat")
 local CatchMath = V.require("catching/catch_math")
 local Target = V.require("catching/target")
 local Projectile = V.require("catching/projectile")
@@ -40,12 +41,6 @@ local BALL_ASSET_SM = {
   MASTER_BALL = "assets/balls/master_ball_sm.png",
 }
 
-local function tryRequire(name)
-  local ok, mod = pcall(require, name)
-  if ok then return mod end
-  return nil
-end
-
 local function now()
   if love and love.timer and love.timer.getTime then
     return love.timer.getTime()
@@ -68,18 +63,8 @@ local function pushText(game, mod, msg, onDone)
     finished = true
     if onDone then onDone() end
   end
-  local TextBox = (mod and mod.ui and mod.ui.TextBox) or tryRequire("src.render.TextBox")
-  if not (TextBox and TextBox.new and game.stack and game.stack.push) then
-    finish()
-    return
-  end
-  local ok, box = pcall(TextBox.new, game, msg, finish)
-  if ok and box then
-    local pushOk = pcall(function() game.stack:push(box) end)
-    if not pushOk then
-      finish()
-    end
-  else
+  local ok = pcall(GameCompat.presentText, mod, game, nil, msg, finish)
+  if not ok then
     finish()
   end
 end
@@ -195,9 +180,7 @@ function OverworldCatching:ballHudImage(ballType)
 end
 
 function OverworldCatching:ballCount(game, ballType)
-  local inv = game and game.save and game.save.inventory
-  if not inv then return 0 end
-  return tonumber(inv[ballType]) or 0
+  return GameCompat.ballCount(game, ballType)
 end
 
 function OverworldCatching:getSelectedBall(game)
@@ -235,18 +218,7 @@ function OverworldCatching:cycleSelectedBall(game, direction)
 end
 
 function OverworldCatching:consumeBall(game, ballType)
-  local Bag = tryRequire("src.inventory.Bag")
-  local save = game and game.save
-  if not save or not save.inventory then return false end
-  if self:ballCount(game, ballType) <= 0 then return false end
-  if Bag and Bag.remove then
-    Bag.remove(save, ballType, 1)
-  else
-    local n = (save.inventory[ballType] or 0) - 1
-    if n <= 0 then save.inventory[ballType] = nil
-    else save.inventory[ballType] = n end
-  end
-  return true
+  return GameCompat.consumeBall(game, ballType)
 end
 
 function OverworldCatching:anyBalls(game)
@@ -288,7 +260,8 @@ end
 function OverworldCatching:safariBlocks(game, ow)
   local mapId = ow and ow.map and ow.map.id
   local status = SafariCompat.status(game, ow, mapId)
-  return status == SafariCompat.STATUS.ACTIVE
+  if status == SafariCompat.STATUS.ACTIVE then return true end
+  return GameCompat.specialCatchSessionBlocks(game, ow) == true
 end
 
 function OverworldCatching:isBlockedByUi(game, ow)
@@ -666,8 +639,8 @@ function OverworldCatching:_releaseThrow(game, ow)
     record = self.logic.spawns and self.logic.spawns[entity.id]
   end
 
-  local species = (record and record.species) or entity.species or entity.wildSpecies or "PIDGEY"
-  local level = (record and record.level) or entity.level or entity.wildLevel or 5
+  local species = GameCompat.captureSpecies(entity, record) or "PIDGEY"
+  local level = GameCompat.captureLevel(entity, record) or 5
 
   if quality == CatchMath.QUALITY.MISS then
     -- Aim too far/short: Ball still travels full power distance; mon unaffected.
@@ -730,10 +703,8 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
   local quality = cap.quality
   local angle = cap.angle
 
-  local Catching = tryRequire("src.battle.Catching")
-  local targetDef = (game.data and game.data.pokemon and game.data.pokemon[species])
-    or { catchRate = 255, name = species }
-  local nativeRate = targetDef.catchRate or 255
+  local nativeRate, targetDef = GameCompat.catchRate(game, species)
+  targetDef = targetDef or { catchRate = nativeRate, name = species }
   local rateOverride = CatchMath.effectiveCatchRate(nativeRate, level, quality, angle)
 
   local maxHp = math.max(1, math.floor(level * 2.5 + 10))
@@ -747,20 +718,17 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
   local caught, shakes = false, 3
   self:_catchLog("catch attempt ball=%s rate=%s quality=%s",
     tostring(ballType), tostring(rateOverride), tostring(quality))
-  if Catching and Catching.attempt then
-    -- Gen1Recomp: Catching.attempt(ballType, mon, pokemonDef, rng[, rateOverride])
-    -- Ball multipliers live inside the API — do not pre-multiply into rateOverride.
-    caught, shakes = Catching.attempt(ballType, tempMon, targetDef, rng, rateOverride)
-  else
-    -- Headless / missing API: Master Ball always; else use rate heuristic.
-    if ballType == "MASTER_BALL" then
-      caught, shakes = true, 3
-    else
-      local roll = rng(0, 255)
-      caught = roll <= rateOverride
-      shakes = caught and 3 or 1
-    end
-  end
+  -- Ball multipliers live inside the generation Catching API.
+  -- Do not pre-multiply them into rateOverride.
+  caught, shakes = GameCompat.attemptCatch(game, {
+    ballType = ballType,
+    mon = tempMon,
+    def = targetDef,
+    rng = rng,
+    rateOverride = rateOverride,
+    species = species,
+    level = level,
+  })
   self:_catchLog("result caught=%s shakes=%s", tostring(caught), tostring(shakes))
 
   -- Place Ball on the target tile for wobble (even if land cell was rounded nearby).
@@ -805,36 +773,27 @@ function OverworldCatching:_resolveCapture(game, ow, caught)
   if caught then
     self:_catchLog("resolving success")
     -- Catch SFX already played at SUCCESS_CLICK start.
-    local Pokemon = tryRequire("src.pokemon.Pokemon")
-    local Party = tryRequire("src.pokemon.Party")
-    local Boxes = tryRequire("src.pokemon.Boxes")
-    local newMon
-    if Pokemon and Pokemon.new and game and game.data then
-      local ok, mon = pcall(Pokemon.new, game.data, species, level)
-      if ok then newMon = mon end
-    end
+    -- species is the Wilds entity/record id — never a canonical asset id.
+    local newMon = GameCompat.createCaughtPokemon(game, species, level, {
+      shiny = entity and entity.shiny,
+      variant = entity and entity.variant,
+      entity = entity,
+    })
     if not newMon then
       newMon = { species = species, level = level, hp = 1, stats = { hp = 1 } }
     end
-    -- Preserve shiny/variant metadata when present and accepted.
-    if entity and entity.shiny then newMon.shiny = true end
-    if entity and entity.variant then newMon.variant = entity.variant end
 
     local msg = "All right!\n" .. tostring(speciesName) .. " was caught!"
-    local added = false
-    if Party and Party.add and game.save and game.save.party then
-      added = Party.add(game.save.party, newMon) == true
-    end
-    if not added and Boxes and Boxes.deposit and game.save then
-      local boxNum = Boxes.deposit(game.save, newMon)
-      if boxNum then
-        msg = msg .. "\fTransferred to\nBox " .. tostring(boxNum) .. "."
-      else
+    local result = GameCompat.giveCaughtPokemon(game, newMon, {
+      species = species,
+      entity = entity,
+    }) or {}
+    GameCompat.markSpeciesCaught(game, species, newMon)
+    if result.destination == "box" then
+      if result.boxNum then
+        msg = msg .. "\fTransferred to\nBox " .. tostring(result.boxNum) .. "."
+      elseif result.boxFull then
         msg = msg .. "\fBox is full!"
-      end
-    elseif not added then
-      if game.save and game.save.party and #(game.save.party) < 6 then
-        table.insert(game.save.party, newMon)
       end
     end
 

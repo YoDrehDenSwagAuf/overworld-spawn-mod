@@ -174,4 +174,128 @@ function Gen1.applyControlledPokemonSprite(player, renderer, _game)
   return true, "player.sprite"
 end
 
+--- Current OW catch inventory read: `game.save.inventory[ballType]`.
+function Gen1.ballCount(game, ballType)
+  local inv = game and game.save and game.save.inventory
+  if not inv or ballType == nil then return 0 end
+  return tonumber(inv[ballType]) or 0
+end
+
+--- Current OW catch consume: Bag.remove(save, ballType, 1), else raw decrement.
+function Gen1.consumeBall(game, ballType)
+  local Bag = tryRequire("src.inventory.Bag")
+  local save = game and game.save
+  if not save or not save.inventory then return false end
+  if Gen1.ballCount(game, ballType) <= 0 then return false end
+  if Bag and Bag.remove then
+    Bag.remove(save, ballType, 1)
+  else
+    local n = (save.inventory[ballType] or 0) - 1
+    if n <= 0 then save.inventory[ballType] = nil
+    else save.inventory[ballType] = n end
+  end
+  return true
+end
+
+--- Species catch-rate byte from game.data.pokemon[species].
+function Gen1.catchRate(game, species)
+  local def = game and game.data and game.data.pokemon and game.data.pokemon[species]
+  if type(def) == "table" and def.catchRate ~= nil then
+    return tonumber(def.catchRate) or 255, def
+  end
+  return 255, def
+end
+
+--- Current OW catch roll: src.battle.Catching.attempt(ball, mon, def, rng, rateOverride).
+-- Returns caught, shakes. Master Ball / missing API fallbacks stay identical.
+function Gen1.attemptCatch(game, opts)
+  opts = opts or {}
+  local ballType = opts.ballType or "POKE_BALL"
+  local mon = opts.mon
+  local def = opts.def or { catchRate = 255, name = opts.species }
+  local rng = opts.rng or (love and love.math and love.math.random) or math.random
+  local rateOverride = opts.rateOverride
+  local Catching = tryRequire("src.battle.Catching")
+  if Catching and Catching.attempt then
+    return Catching.attempt(ballType, mon, def, rng, rateOverride)
+  end
+  if ballType == "MASTER_BALL" then
+    return true, 3
+  end
+  local roll = rng(0, 255)
+  local rate = rateOverride or (def and def.catchRate) or 255
+  local caught = roll <= rate
+  return caught, caught and 3 or 1
+end
+
+--- Current OW catch constructor: src.pokemon.Pokemon.new(data, species, level).
+function Gen1.createCaughtPokemon(game, species, level, context)
+  context = context or {}
+  local Pokemon = tryRequire("src.pokemon.Pokemon")
+  local newMon
+  if Pokemon and Pokemon.new and game and game.data then
+    local ok, mon = pcall(Pokemon.new, game.data, species, level)
+    if ok then newMon = mon end
+  end
+  if not newMon then
+    newMon = { species = species, level = level, hp = 1, stats = { hp = 1 } }
+  end
+  if context.shiny then newMon.shiny = true end
+  if context.variant then newMon.variant = context.variant end
+  return newMon
+end
+
+--- Current OW catch store: Party.add, else Boxes.deposit, else party insert.
+-- Returns { destination = "party"|"box"|nil, boxNum = n?, boxFull = bool? }.
+function Gen1.giveCaughtPokemon(game, mon)
+  if not (game and mon) then return { destination = nil } end
+  local Party = tryRequire("src.pokemon.Party")
+  local Boxes = tryRequire("src.pokemon.Boxes")
+  local added = false
+  if Party and Party.add and game.save and game.save.party then
+    added = Party.add(game.save.party, mon) == true
+  end
+  if added then
+    return { destination = "party" }
+  end
+  if Boxes and Boxes.deposit and game.save then
+    local boxNum = Boxes.deposit(game.save, mon)
+    if boxNum then
+      return { destination = "box", boxNum = boxNum }
+    end
+    return { destination = "box", boxFull = true }
+  end
+  if game.save and game.save.party and #(game.save.party) < 6 then
+    table.insert(game.save.party, mon)
+    return { destination = "party" }
+  end
+  return { destination = nil }
+end
+
+--- Native Gen1 owned/seen stamp (BattleState.markOwned). No-op without a dex.
+function Gen1.markSpeciesCaught(game, species, _mon)
+  local dex = game and game.save and game.save.pokedex
+  if not (dex and species) then return false end
+  dex.seen = dex.seen or {}
+  dex.seen[species] = true
+  if dex.owned ~= nil or dex.caught == nil then
+    dex.owned = dex.owned or {}
+    dex.owned[species] = true
+  else
+    dex.caught[species] = true
+  end
+  return true
+end
+
+function Gen1.playerHasPartySpace(game)
+  local party = Gen1.party(game)
+  if type(party) ~= "table" then return false end
+  return #party < 6
+end
+
+--- Safari is handled by SafariCompat. No extra Gen1 special session.
+function Gen1.specialCatchSessionBlocks(_game, _ow)
+  return false
+end
+
 return Gen1

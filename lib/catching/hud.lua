@@ -118,7 +118,10 @@ function BallHud:shouldDraw(game, ow)
   return true
 end
 
-local function ballCount(game, ballType)
+local function ballCount(catching, game, ballType)
+  if catching and catching.ballCount then
+    return catching:ballCount(game, ballType)
+  end
   local inv = game and game.save and game.save.inventory
   if not inv then return 0 end
   return tonumber(inv[ballType]) or 0
@@ -167,7 +170,7 @@ function BallHud:draw(canvas, ctx)
   local startX = layout.startX
 
   for i, ballType in ipairs(BALL_ORDER) do
-    local count = ballCount(game, ballType)
+    local count = ballCount(catching, game, ballType)
     local bx = startX + (i - 1) * (iconW + gap)
     local selectedHere = ballType == selected
     local alpha = 1.0

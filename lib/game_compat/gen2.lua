@@ -1,11 +1,17 @@
 -- Gen 2 / Pokémon Gold adapter for Wilds game compatibility.
 --
--- Gold adapter: species, party, surf, map, water, wild encounters, followers.
--- Encounter tables live in lib/gen2/encounters.lua (not this file).
--- Catching / safari stay off. Town Pokémon: curated Johto catalog.
+-- Gold adapter: species, party, surf, map, water, wild encounters, followers,
+-- and overworld catching. Encounter tables live in lib/gen2/encounters.lua.
+-- Catching supported. Safari / special-session compatibility remains separate.
+-- Town Pokémon: curated Johto catalog.
 --
 -- Engine pointers (verified against current Gen1Recomp Gold):
 --   party:        game.save.party (src/core/gen2/Save.lua)
+--   inventory:    save.inventory id→count (Bag.remove; PackMenu pockets)
+--   mon:          src.battle.gen2.Mon.new + stampOT
+--   boxes:        src.core.gen2.Boxes.box; SendMonIntoBox inserts at head
+--   dex:          save.pokedex.caught / .seen keyed by species id
+--   catch:        src.battle.gen2.Catching.attempt
 --   world:        game.world (src/world/gen2/World.lua), not Gen1 overworld
 --   map id:       world.map.id (e.g. ROUTE_29)
 --   isSurfing:    src.world.gen2.FieldMoves.isSurfing(playerState)
@@ -31,7 +37,7 @@ Gen2.capabilities = {
   surf = true,
   encounters = true,
   followers = true,
-  catching = false,
+  catching = true,
   ambient = true,
   townPokemon = true,
   safari = false,
@@ -264,6 +270,196 @@ function Gen2.applyControlledPokemonSprite(player, def, _game)
   player.spriteDef = def
   player._pokepcAsPokemon = true
   return true, "player.sprite"
+end
+
+--- Gold bag is still a flat id→count map (src/core/gen2/Save.lua).
+-- PackMenu buckets by item pocket; counts are save.inventory[id].
+function Gen2.ballCount(game, ballType)
+  local inv = game and game.save and game.save.inventory
+  if not inv or ballType == nil then return 0 end
+  return tonumber(inv[ballType]) or 0
+end
+
+--- Consume exactly one ball via Gold Bag.remove (same inventory map).
+function Gen2.consumeBall(game, ballType)
+  local save = game and game.save
+  if not save then return false end
+  save.inventory = save.inventory or {}
+  if Gen2.ballCount(game, ballType) <= 0 then return false end
+  local Bag = tryRequire("src.inventory.Bag")
+  if Bag and Bag.remove then
+    Bag.remove(save, ballType, 1)
+  else
+    local n = (save.inventory[ballType] or 0) - 1
+    if n <= 0 then save.inventory[ballType] = nil
+    else save.inventory[ballType] = n end
+  end
+  return true
+end
+
+function Gen2.catchRate(game, species)
+  local def = pokemonDef(species, game)
+  if type(def) == "table" and def.catchRate ~= nil then
+    return tonumber(def.catchRate) or 255, def
+  end
+  return 255, def
+end
+
+-- Gold Catching.attempt expects a 0-based random(n) → 0..n-1.
+local function goldCatchRandom(rng, n)
+  n = tonumber(n) or 256
+  if type(rng) == "function" then
+    local ok, a = pcall(rng, 0, n - 1)
+    if ok and type(a) == "number" then return a end
+    local ok2, b = pcall(rng, n)
+    if ok2 and type(b) == "number" then
+      if b >= 1 and b <= n then return b - 1 end
+      return b
+    end
+  end
+  if love and love.math and love.math.random then
+    return love.math.random(n) - 1
+  end
+  return math.random(0, n - 1)
+end
+
+--- Gold catch roll: src.battle.gen2.Catching.attempt.
+-- Wilds throw-quality stays in rateOverride (species rate). Ball + HP stay native.
+-- Gen2 returns (caught, rate); shakes are presentation-only so the shared wobble runs.
+function Gen2.attemptCatch(game, opts)
+  opts = opts or {}
+  local ballType = opts.ballType or "POKE_BALL"
+  local mon = opts.mon or {}
+  local def = opts.def
+  local rng = opts.rng or (love and love.math and love.math.random) or math.random
+  local rateOverride = opts.rateOverride
+  local Catching = tryRequire("src.battle.gen2.Catching")
+  if Catching and Catching.attempt then
+    local maxHp = (mon.stats and mon.stats.hp) or mon.maxHp or mon.hp or 1
+    local hp = mon.hp or maxHp
+    local caught, rate = Catching.attempt({
+      ball = ballType,
+      mon = mon,
+      def = def,
+      catchRate = rateOverride or (def and def.catchRate) or 255,
+      hp = hp,
+      maxHp = maxHp,
+      status = mon.status,
+      species = mon.species or opts.species,
+      data = game and game.data,
+      random = function(n) return goldCatchRandom(rng, n) end,
+    })
+    if caught then return true, 3 end
+    local shakes = 1
+    if type(rate) == "number" and rate >= 85 then shakes = 2 end
+    return false, shakes
+  end
+  if ballType == "MASTER_BALL" then
+    return true, 3
+  end
+  local roll = rng(0, 255)
+  local rate = rateOverride or (def and def.catchRate) or 255
+  local caught = roll <= rate
+  return caught, caught and 3 or 1
+end
+
+--- Native Gold mon: src.battle.gen2.Mon.new + stampOT.
+-- species is the entity/runtime id, never a Wilds asset id.
+function Gen2.createCaughtPokemon(game, species, level, context)
+  context = context or {}
+  local Mon = tryRequire("src.battle.gen2.Mon")
+  local newMon
+  if Mon and Mon.new and game and game.data then
+    local ok, mon = pcall(Mon.new, game.data, species, level, {
+      shiny = context.shiny or nil,
+    })
+    if ok then newMon = mon end
+  end
+  if not newMon then
+    -- Keep the requested species. Never substitute a vanilla mon.
+    newMon = { species = species, level = level, hp = 1, stats = { hp = 1 } }
+  end
+  if Mon and Mon.stampOT and game and game.save then
+    pcall(Mon.stampOT, game.save, newMon)
+  end
+  if context.shiny then newMon.shiny = true end
+  if context.variant then newMon.variant = context.variant end
+  return newMon
+end
+
+--- Native Gold store: party append, else SendMonIntoBox (insert at head of box).
+function Gen2.giveCaughtPokemon(game, mon)
+  if not (game and game.save and mon) then return { destination = nil } end
+  local save = game.save
+  save.party = save.party or {}
+  if #save.party < 6 then
+    save.party[#save.party + 1] = mon
+    return { destination = "party" }
+  end
+  local Boxes = tryRequire("src.core.gen2.Boxes")
+  if Boxes and Boxes.box then
+    local start = tonumber(save.currentBox) or 1
+    local num = Boxes.NUM_BOXES or 14
+    for off = 0, num - 1 do
+      local i = ((start - 1 + off) % num) + 1
+      if not (Boxes.isFull and Boxes.isFull(save, i)) then
+        local box = Boxes.box(save, i)
+        -- SendMonIntoBox inserts at the head of the current box.
+        table.insert(box, 1, mon)
+        return { destination = "box", boxNum = i }
+      end
+    end
+    return { destination = "box", boxFull = true }
+  end
+  save.boxes = save.boxes or {}
+  local idx = tonumber(save.currentBox) or 1
+  save.boxes[idx] = save.boxes[idx] or {}
+  if #save.boxes[idx] < 20 then
+    table.insert(save.boxes[idx], 1, mon)
+    return { destination = "box", boxNum = idx }
+  end
+  return { destination = "box", boxFull = true }
+end
+
+--- Native Gold SetSeenAndCaughtMon: pokedex.caught + seen, keyed by species id.
+function Gen2.markSpeciesCaught(game, species, mon)
+  local save = game and game.save
+  if not (save and species) then return false end
+  save.pokedex = save.pokedex or { seen = {}, caught = {} }
+  save.pokedex.seen = save.pokedex.seen or {}
+  save.pokedex.caught = save.pokedex.caught or {}
+  save.pokedex.seen[species] = true
+  save.pokedex.caught[species] = true
+  if mon then
+    local Unown = tryRequire("src.core.gen2.Unown")
+    if Unown and Unown.registerCatch then
+      pcall(Unown.registerCatch, save, mon)
+    end
+  end
+  return true
+end
+
+function Gen2.playerHasPartySpace(game)
+  local party = Gen2.party(game)
+  if type(party) ~= "table" then return false end
+  return #party < 6
+end
+
+--- Bug-Catching Contest (and similar engine-owned catch modes) block OW throws.
+-- Safari stays a separate capability and is not treated as this session.
+function Gen2.specialCatchSessionBlocks(game, _ow)
+  local save = game and game.save
+  if not save then return false end
+  local BugContest = tryRequire("src.core.gen2.BugContest")
+  if BugContest and type(BugContest.isActive) == "function" then
+    local ok, active = pcall(BugContest.isActive, save)
+    if ok and active == true then return true end
+  end
+  local contest = save.bugContest
+  if type(contest) == "table" and contest.active == true then
+    return true
+  end
+  return false
 end
 
 --- Gold restore: World:applyPlayerState picks SPRITE_CHRIS / bike / surf.
