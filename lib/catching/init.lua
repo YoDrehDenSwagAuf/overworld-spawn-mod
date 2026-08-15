@@ -1261,8 +1261,9 @@ function OverworldCatching:installGoldPresentHook(mod)
   return true
 end
 
---- Gold screen-space presentation. HUD in the 160×144 letterbox; range tiles
--- in window space using World camera * zoomScale. Exactly once per render.hud.
+--- Gold screen-space presentation. HUD in logical 160×144 (top-left origin)
+-- projected through Game2:viewport; range tiles in window space using World
+-- camera * zoomScale. Exactly once per render.hud.
 function OverworldCatching:presentGold(game, viewport)
   RangePreview.drawGoldOverlay(self)
   if self.hud then
