@@ -562,11 +562,14 @@ end
 
 --- Insert the thrown Ball into the list the generation actually draws.
 -- Gen1: ow.entities only (previous Projectile:startFlight).
--- Gen2: ow.npcs + ow.entities (World:drawPeople walks npcs).
+-- Gen2: native Gold NPC only, via attachGuestEntity (no adaptWildEntity).
+-- A Gen1-shaped stub without spriteDef must never enter Gold World.
 function GameCompat.attachCatchProjectile(ow, entity, game)
   if not ow or not entity then return "none" end
   if GameCompat.isGen2(nil, game) then
-    GameCompat.adaptWildEntity(entity, game)
+    if not entity.spriteDef then
+      return "none"
+    end
     return GameCompat.attachGuestEntity(ow, entity, game)
   end
   if ow.entities then
@@ -574,6 +577,17 @@ function GameCompat.attachCatchProjectile(ow, entity, game)
     return "entities"
   end
   return "none"
+end
+
+--- Thrown Poké Ball entity. Gen1 keeps historical NPC.new(data, mapId, objDef).
+-- Gen2 builds a native Gold NPC through makeGuestNpc (src.world.gen2.Npc).
+-- Never construct a Gen1 NPC and insert it into Gold World.
+function GameCompat.makeCatchProjectile(game, ow, spec)
+  local adapter = catchAdapter(game)
+  if adapter and type(adapter.makeCatchProjectile) == "function" then
+    return adapter.makeCatchProjectile(game, ow, spec)
+  end
+  return Gen1.makeCatchProjectile(game, ow, spec)
 end
 
 --- Construct a follower/town guest NPC. Gen1 keeps the exact historical

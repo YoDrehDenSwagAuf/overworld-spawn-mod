@@ -22,6 +22,42 @@ package.loaded["src.core.GameVersion"] = {
   generation = function() return 2 end,
 }
 
+package.loaded["src.world.NPC"] = {
+  new = function(data)
+    if type(data) == "table" then
+      error("Gold must not call Gen1 NPC.new(data, mapId, objDef)")
+    end
+    error("poisoned src.world.NPC is not Gold Npc")
+  end,
+}
+package.loaded["src.world.gen2.Npc"] = {
+  MOVE = { STANDING_DOWN = 6 },
+  new = function(mapId, objDef, spriteDef)
+    if type(mapId) == "table" then error("Gen1 arity") end
+    if type(spriteDef) ~= "table" or not spriteDef.image then
+      error("Gold NPC.new requires spriteDef.image")
+    end
+    return {
+      mapId = mapId,
+      def = objDef,
+      spriteDef = spriteDef,
+      cellX = objDef.x, cellY = objDef.y,
+      px = (objDef.x or 0) * 16, py = (objDef.y or 0) * 16,
+      facing = "down",
+      movement = objDef.movement,
+      frozen = false,
+      passable = false,
+      update = function() end,
+      draw = function(self, ox, oy, scale)
+        self._lastGoldDraw = { ox = ox, oy = oy, scale = scale }
+      end,
+      pose = function(self)
+        return self.sprite, self.px, self.py, self.facing, 0, false
+      end,
+    }
+  end,
+}
+
 package.preload["src.inventory.Bag"] = function()
   return {
     remove = function(save, id, qty)
@@ -214,6 +250,7 @@ local logic = {
   _onAggressiveAlert = function() end,
 }
 local catching = OverworldCatching.new(mod, logic)
+catching:registerContent()
 eq(catching:overworld(), goldWorld, "OverworldCatching:overworld() is game.world")
 eq(catching:canShowHud(game, catchOw), true, "GOLD CP1: canShowHud while walking")
 eq(catching:canAcceptInput(game, catchOw), true, "GOLD CP2: canAcceptInput while walking")
@@ -247,8 +284,11 @@ eq(catching.phase, "metering", "GOLD CP2: hold C begins meter")
 eq(catching.meter.active, true, "meter.active after C")
 cDown = false
 catching:pollInput(game, catchOw, 0.016)
-check(catching.phase == "flying" or catching.phase == "idle",
-      "GOLD CP3: release C leaves metering")
+eq(catching.phase, "flying", "GOLD CP3: release C starts native Gold projectile")
+check(catching.projectile._trackedBall
+      and catching.projectile._trackedBall.spriteDef
+      and catching.projectile._trackedBall.spriteDef.image,
+      "C-release ball is a native Gold NPC")
 catching:cancelAll("test reset")
 eq(catching.phase, "idle", "cancel returns to idle before later checks")
 
@@ -277,12 +317,14 @@ eq(hit.entity, caterpie, "target entity is the Wilds CATERPIE")
 eq(hit.distance, 2, "CATERPIE is 2 tiles east")
 
 ----------------------------------------------------------------
--- Projectile attaches to Gold npcs (drawPeople list)
+-- Projectile is a native Gold NPC (not Gen1 NPC.new)
 ----------------------------------------------------------------
 goldWorld.npcs = { caterpie }
 goldWorld.entities = { caterpie }
 local okFlight = catching.projectile:startFlight(game, catchOw, {
   ballType = "POKE_BALL",
+  spriteId = "SPRITE_WILDS_BALL_POKE_BALL",
+  spriteDef = catching:ballSpriteDef("POKE_BALL"),
   startX = 12, startY = 8,
   facing = "right",
   power = 2,
@@ -291,6 +333,9 @@ local okFlight = catching.projectile:startFlight(game, catchOw, {
 check(okFlight, "GOLD CP3/5: startFlight returns")
 local ball = catching.projectile._trackedBall
 check(ball ~= nil, "projectile created a ball entity")
+check(ball.spriteDef and ball.spriteDef.image, "Gold ball has native spriteDef")
+eq(ball._wildsGoldNpcSource, "src.world.gen2.Npc", "Gold ball source is gen2.Npc")
+check(ball._wildsGoldAdapted ~= true, "Gold ball is not Gen1-adapted")
 local membership = GameCompat.containerMembership(catchOw, ball)
 check(membership.npcs == true, "Gold ball is on ow.npcs")
 check(membership.entities == true, "Gold ball is also on ow.entities")

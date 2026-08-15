@@ -250,6 +250,65 @@ function Gen2.makeGuestNpc(game, ow, spec)
   return npc
 end
 
+local function resolveCatchBallSpriteDef(game, spec)
+  spec = spec or {}
+  if type(spec.spriteDef) == "table" and spec.spriteDef.image then
+    return spec.spriteDef
+  end
+  local spriteId = spec.spriteId
+  local data = game and game.data
+  if spriteId and data and type(data.sprites) == "table" then
+    local def = data.sprites[spriteId]
+    if type(def) == "table" and def.image then return def end
+  end
+  local mod = V.mod
+  local sprites = mod and mod.content and mod.content.sprites
+  if spriteId and sprites and type(sprites.get) == "function" then
+    local def = sprites:get(spriteId)
+    if type(def) == "table" and def.image then return def end
+  end
+  if spec.image then
+    return {
+      id = spriteId,
+      image = spec.image,
+      frames = 1,
+      walker = false,
+      trueColor = true,
+    }
+  end
+  return nil
+end
+
+--- Thrown Ball: native Gold NPC only. Never src.world.NPC Gen1 arity.
+-- Reuses Gen2.makeGuestNpc (src.world.gen2.Npc + STANDING_DOWN).
+function Gen2.makeCatchProjectile(game, ow, spec)
+  spec = spec or {}
+  local spriteDef = resolveCatchBallSpriteDef(game, spec)
+  if type(spriteDef) ~= "table" or not spriteDef.image then
+    return nil, "Gold ball requires spriteDef.image"
+  end
+  local ballType = spec.ballType or "POKE_BALL"
+  local npc, err = Gen2.makeGuestNpc(game, ow, {
+    index = spec.index or (480 + math.random(1, 40)),
+    name = spec.name or ("WILDS_BALL_" .. tostring(ballType)),
+    spriteId = spec.spriteId or ("SPRITE_WILDS_BALL_" .. ballType),
+    spriteDef = spriteDef,
+    x = spec.x or spec.cellX or 0,
+    y = spec.y or spec.cellY or 0,
+    facing = spec.facing,
+  })
+  if not npc then
+    return nil, err or "Gold makeGuestNpc failed"
+  end
+  -- STANDING_DOWN already kind=stand; frozen blocks wander if kind is wrong.
+  npc.frozen = true
+  npc.moving = false
+  npc.passable = true
+  npc.blocking = false
+  npc._wildsCatchProjectile = true
+  return npc
+end
+
 --- Gold CONTROL=POKEMON: Player:setSprite(spriteDef). Keeps the same
 -- player object (cell, input, collision, scripts, warps, surf).
 function Gen2.applyControlledPokemonSprite(player, def, _game)

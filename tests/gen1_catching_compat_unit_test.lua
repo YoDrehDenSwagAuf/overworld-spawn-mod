@@ -210,6 +210,32 @@ eq(GameCompat.captureSpecies({ species = "MEWTWO" }, { species = "MEWTWO" }),
 eq(GameCompat.captureSpecies({ species = "MEWTWO", assetId = 150 }, nil),
    "MEWTWO", "captureSpecies ignores assetId field")
 
+local gen1NpcCalls = {}
+package.loaded["src.world.NPC"] = {
+  new = function(data, mapId, objDef)
+    gen1NpcCalls[#gen1NpcCalls + 1] = { data = data, mapId = mapId, objDef = objDef }
+    return {
+      mapId = mapId,
+      def = objDef,
+      cellX = objDef.x, cellY = objDef.y,
+      px = (objDef.x or 0) * 16, py = (objDef.y or 0) * 16,
+      pose = function() return "sprite", 0, 0, "down", 0, false end,
+    }
+  end,
+}
+local gen1Ball = GameCompat.makeCatchProjectile(game, gen1Ow, {
+  ballType = "POKE_BALL",
+  spriteId = "SPRITE_WILDS_BALL_POKE_BALL",
+  x = 5, y = 6,
+})
+check(gen1Ball ~= nil, "Gen1 makeCatchProjectile returns entity")
+eq(#gen1NpcCalls, 1, "Gen1 still uses NPC.new")
+check(gen1NpcCalls[1].data == game.data, "Gen1 NPC.new first arg is data")
+eq(gen1NpcCalls[1].mapId, "ROUTE_1", "Gen1 NPC.new second arg is mapId")
+eq(gen1NpcCalls[1].objDef.sprite, "SPRITE_WILDS_BALL_POKE_BALL", "Gen1 objDef.sprite")
+eq(gen1NpcCalls[1].objDef.movement, "NONE", "Gen1 objDef.movement NONE")
+package.loaded["src.world.NPC"] = nil
+
 local src = assert(io.open("lib/catching/init.lua", "r")):read("*a")
 check(not src:find("generation == 2", 1, true), "catching/init has no generation == 2")
 check(not src:find('if Gold', 1, true), "catching/init has no Gold branch")

@@ -304,6 +304,58 @@ function OverworldCatching:_goldCatchLog(fmt, ...)
   print("[Wilds][Catch][Gold] " .. (ok and msg or tostring(fmt)))
 end
 
+--- Gold crash-bisect stages. Once per throw; not per-frame.
+function OverworldCatching:_goldCatchStage(stage)
+  if not GameCompat.isGen2(self.mod, self:game()) then return end
+  print("[GoldCatch] " .. tostring(stage))
+end
+
+--- Registered *_sm SpriteDef (16×16 canvas, ~6px ball). Never a sprite id only.
+function OverworldCatching:ballSpriteDef(ballType)
+  local id = "SPRITE_WILDS_BALL_" .. tostring(ballType)
+  local sprites = self.mod and self.mod.content and self.mod.content.sprites
+  if sprites and type(sprites.get) == "function" then
+    local def = sprites:get(id)
+    if type(def) == "table" and def.image then return def end
+  end
+  local game = self:game()
+  local dataSprites = game and game.data and game.data.sprites
+  if dataSprites and type(dataSprites[id]) == "table" and dataSprites[id].image then
+    return dataSprites[id]
+  end
+  local rel = BALL_ASSET_SM[ballType] or BALL_ASSET[ballType]
+  local path = self.mod.assets and self.mod.assets.path and self.mod.assets:path(rel) or rel
+  return {
+    id = id,
+    image = path,
+    frames = 1,
+    walker = false,
+    trueColor = true,
+  }
+end
+
+function OverworldCatching:_refundBall(game, ballType)
+  local save = game and game.save
+  if not save or not ballType then return end
+  save.inventory = save.inventory or {}
+  save.inventory[ballType] = (tonumber(save.inventory[ballType]) or 0) + 1
+end
+
+function OverworldCatching:_startCatchProjectile(game, ow, ballType, opts)
+  opts = opts or {}
+  opts.spriteDef = opts.spriteDef or self:ballSpriteDef(ballType)
+  local ok, err = self.projectile:startFlight(game, ow, opts)
+  if ok then return true end
+  self:_goldCatchStage("PROJECTILE_CREATE failed: " .. tostring(err))
+  self:_refundBall(game, ballType)
+  if self.activeCapture and self.activeCapture.entity then
+    self:_unlockTarget(self.activeCapture.entity, { reattach = true, restoreVisible = true })
+  end
+  self.activeCapture = nil
+  self.phase = "idle"
+  return false
+end
+
 function OverworldCatching:_catchBlocker(game, ow)
   if not Config.overworldCatchingEnabled(self.mod) then return "CONFIG_DISABLED" end
   if not Config.isEnabled(self.mod) then return "WILDS_DISABLED" end
@@ -422,6 +474,7 @@ end
 function OverworldCatching:_beginMeter()
   if GameCompat.isGen2(self.mod, self:game()) then
     print("[Wilds][GoldCatch] beginMeter ENTER")
+    self:_goldCatchStage("METER")
   end
   self.meter.active = true
   self.meter.t = 0
@@ -565,6 +618,7 @@ function OverworldCatching:_onEasterEggImpact(game, ow, kind, entity)
 end
 
 function OverworldCatching:_releaseThrow(game, ow)
+  self:_goldCatchStage("RELEASE")
   local power = self.meter.power or METER_MIN
   self:_cancelMeter()
   RangePreview.clear()
@@ -585,6 +639,7 @@ function OverworldCatching:_releaseThrow(game, ow)
   local px, py = GameCompat.playerCell(game, ow)
   px, py = px or player.cellX, py or player.cellY
   local hit = Target.scanThrowPath(self.logic, ow, player, power)
+  self:_goldCatchStage("TARGET_SCAN")
   local Hit = Target.HitKind
   local facing = hit.facing or Target.facingOf(player)
   local wildCount = 0
@@ -609,6 +664,7 @@ function OverworldCatching:_releaseThrow(game, ow)
   end
   self:_goldCatchLog("consumed=true")
   self:_goldCatchLog("inventory count=%s", tostring(self:ballCount(game, ballType)))
+  self:_goldCatchStage("BALL_CONSUMED")
 
   local landX, landY = Projectile.landCell(px, py, facing, power)
   self:_catchLog("throw released power=%.2f land=(%d,%d) facing=%s first=%s@%s",
@@ -619,7 +675,7 @@ function OverworldCatching:_releaseThrow(game, ow)
   local function startMissFlight(feedback)
     self.phase = "flying"
     if feedback then self.hud:showFeedback(feedback, 0.7) end
-    self.projectile:startFlight(game, ow, {
+    if not self:_startCatchProjectile(game, ow, ballType, {
       ballType = ballType,
       spriteId = "SPRITE_WILDS_BALL_" .. ballType,
       image = ballImage,
@@ -635,7 +691,9 @@ function OverworldCatching:_releaseThrow(game, ow)
         self.phase = "idle"
         self:_catchLog("miss complete / projectile cleaned")
       end,
-    })
+    }) then
+      return
+    end
     self:_catchLog("projectile")
     self:_catchLog("projectile started (miss)")
   end
@@ -647,7 +705,7 @@ function OverworldCatching:_releaseThrow(game, ow)
       target = hit.kind, ball = ballType, dist = hit.distance,
       power = string.format("%.2f", power), quality = "easter", angle = nil,
     }
-    self.projectile:startFlight(game, ow, {
+    if not self:_startCatchProjectile(game, ow, ballType, {
       ballType = ballType,
       spriteId = "SPRITE_WILDS_BALL_" .. ballType,
       image = ballImage,
@@ -661,7 +719,9 @@ function OverworldCatching:_releaseThrow(game, ow)
       onImpact = function()
         self:_onEasterEggImpact(game, ow, hit.kind, hit.entity)
       end,
-    })
+    }) then
+      return
+    end
     self:_catchLog("projectile")
     self:_catchLog("projectile started (%s)", tostring(hit.kind))
     return
@@ -729,7 +789,7 @@ function OverworldCatching:_releaseThrow(game, ow)
     landX = landX, landY = landY,
   }
 
-  self.projectile:startFlight(game, ow, {
+  if not self:_startCatchProjectile(game, ow, ballType, {
     ballType = ballType,
     spriteId = "SPRITE_WILDS_BALL_" .. ballType,
     image = ballImage,
@@ -741,7 +801,9 @@ function OverworldCatching:_releaseThrow(game, ow)
     onImpact = function(proj)
       self:_onBallImpact(game, ow, proj)
     end,
-  })
+  }) then
+    return
+  end
   self:_catchLog("projectile")
   self:_catchLog("projectile started (hit)")
 end
@@ -755,6 +817,7 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
   end
 
   self:_catchLog("impact")
+  self:_goldCatchStage("IMPACT")
   local entity = cap.entity
   -- Native POOF_ANIM / Ball_Poof when the mon enters the Ball.
   playCatch(game, "impact")
@@ -771,6 +834,7 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
   local nativeRate, targetDef = GameCompat.catchRate(game, species)
   targetDef = targetDef or { catchRate = nativeRate, name = species }
   local rateOverride = CatchMath.effectiveCatchRate(nativeRate, level, quality, angle)
+  self:_goldCatchStage("CATCH_RATE")
 
   local maxHp = math.max(1, math.floor(level * 2.5 + 10))
   local tempMon = {
@@ -795,6 +859,7 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
     species = species,
     level = level,
   })
+  self:_goldCatchStage("ATTEMPT")
   self:_catchLog("result caught=%s shakes=%s", tostring(caught), tostring(shakes))
   self:_goldCatchLog("attempt=%s", tostring(caught == true))
 
@@ -822,9 +887,11 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
     end,
   })
   self:_catchLog("wobble")
+  self:_goldCatchStage("WOBBLE")
 end
 
 function OverworldCatching:_resolveCapture(game, ow, caught)
+  self:_goldCatchStage("RESOLVE")
   local cap = self.activeCapture
   self.phase = "resolving"
   if not cap then

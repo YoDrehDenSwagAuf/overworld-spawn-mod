@@ -166,6 +166,46 @@ function Gen1.makeGuestNpc(game, ow, spec)
   })
 end
 
+--- Thrown Ball: EXACT previous Projectile.makeBallEntity Gen1 path.
+-- NPC.new(data, mapId, objDef). Headless stub when NPC/data is missing.
+function Gen1.makeCatchProjectile(game, ow, spec)
+  spec = spec or {}
+  local ballType = spec.ballType or "POKE_BALL"
+  local spriteId = spec.spriteId or ("SPRITE_WILDS_BALL_" .. ballType)
+  local cellX = spec.x or spec.cellX or 0
+  local cellY = spec.y or spec.cellY or 0
+  local data = game and game.data
+  local NPC = tryRequire("src.world.NPC")
+  local entity
+  if NPC and NPC.new and data then
+    local ok, created = pcall(NPC.new, data, ow and ow.map and ow.map.id or 1, {
+      index = 480 + math.random(1, 40),
+      name = "WILDS_BALL_" .. tostring(ballType),
+      sprite = spriteId,
+      movement = "NONE",
+      x = cellX,
+      y = cellY,
+    })
+    if ok then entity = created end
+  end
+  if not entity then
+    entity = {
+      cellX = cellX,
+      cellY = cellY,
+      px = cellX * 16,
+      py = cellY * 16,
+      facing = "down",
+      sprite = spriteId,
+      movement = "NONE",
+      passable = true,
+      pose = function(self)
+        return self.sprite, self.px, self.py, self.facing or "down", 0, false
+      end,
+    }
+  end
+  return entity
+end
+
 --- Gen1 CONTROL=POKEMON: assign SpriteRenderer onto player.sprite.
 function Gen1.applyControlledPokemonSprite(player, renderer, _game)
   if not (player and renderer) then return false, "missing player or renderer" end

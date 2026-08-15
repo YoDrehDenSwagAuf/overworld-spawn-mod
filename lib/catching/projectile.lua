@@ -27,14 +27,13 @@ local MISS_LAND_HOLD = 0.18
 local BALL_VISUAL_PX = 6
 local NUDGE_MAX = 2
 
-local function tryRequire(name)
-  local ok, mod = pcall(require, name)
-  if ok then return mod end
-  return nil
-end
-
 local function playCatch(game, role)
   CatchSfx.playNativeCatchSfx(game, role)
+end
+
+local function goldCatchStage(game, stage)
+  if not GameCompat.isGen2(nil, game) then return end
+  print("[GoldCatch] " .. tostring(stage))
 end
 
 local function removeEntityFromOw(ow, entity)
@@ -96,23 +95,36 @@ local function tagBallEntity(entity, ballType, cellX, cellY, spriteId)
   return entity
 end
 
-local function makeBallEntity(game, ow, ballType, cellX, cellY, spriteId, _image)
-  local data = game and game.data
-  local NPC = tryRequire("src.world.NPC")
-  local entity
-  if NPC and NPC.new and data then
-    local ok, created = pcall(NPC.new, data, ow and ow.map and ow.map.id or 1, {
-      index = 480 + math.random(1, 40),
-      name = "WILDS_BALL_" .. tostring(ballType),
-      sprite = spriteId,
-      movement = "NONE",
-      x = cellX,
-      y = cellY,
-    })
-    if ok then entity = created end
+local function wrapGoldDrawTrace(game, entity)
+  if not entity or type(entity.draw) ~= "function" then return end
+  if entity._goldCatchDrawWrapped then return end
+  entity._goldCatchDrawWrapped = true
+  local orig = entity.draw
+  function entity:draw(ox, oy, scale)
+    if not self._goldCatchDrawTraced then
+      self._goldCatchDrawTraced = true
+      goldCatchStage(game, "PROJECTILE_DRAW")
+    end
+    return orig(self, ox, oy, scale)
   end
-  if not entity then
-    -- Test / headless stub. Still exposes a non-nil pose() contract so any
+end
+
+local function makeBallEntity(game, ow, ballType, cellX, cellY, spriteId, image, spriteDef)
+  local entity, err = GameCompat.makeCatchProjectile(game, ow, {
+    ballType = ballType,
+    spriteId = spriteId,
+    spriteDef = spriteDef,
+    image = image,
+    x = cellX,
+    y = cellY,
+  })
+  if GameCompat.isGen2(nil, game) then
+    goldCatchStage(game, "PROJECTILE_CREATE")
+    if not entity then
+      return nil, err or "Gold projectile construction failed"
+    end
+  elseif not entity then
+    -- Gen1 test / headless stub. Still exposes a non-nil pose() contract so
     -- accidental Voxel traversal cannot poison shared billboard lists.
     entity = {
       cellX = cellX,
@@ -220,12 +232,25 @@ function Projectile:startFlight(game, ow, opts)
     endX, endY, travel = Projectile.landCell(startX, startY, facing, power)
   end
 
-  -- image arg intentionally ignored: size comes from SpriteDef *_sm canvas art.
-  local ballEntity = makeBallEntity(game, ow, ballType, startX, startY, spriteId, opts.image)
+  -- image arg is SpriteDef.image fallback on Gold; size stays *_sm canvas art.
+  local ballEntity, createErr = makeBallEntity(
+    game, ow, ballType, startX, startY, spriteId, opts.image, opts.spriteDef)
+  if not ballEntity then
+    return false, createErr
+  end
   if opts.image then ballEntity.image = opts.image end
-  GameCompat.attachCatchProjectile(ow, ballEntity, game)
+  wrapGoldDrawTrace(game, ballEntity)
+  local attached = GameCompat.attachCatchProjectile(ow, ballEntity, game)
+  if GameCompat.isGen2(nil, game) then
+    goldCatchStage(game, "PROJECTILE_ATTACH")
+    if attached == "none" then
+      removeEntityFromOw(ow, ballEntity)
+      return false, "Gold projectile attach failed"
+    end
+  end
   self._trackedBall = ballEntity
   self.phase = "FLYING"
+  self._goldUpdateTraced = nil
 
   local speed = math.max(2.2, 4.2 / (travel * 0.45))
   self.active = {
@@ -364,6 +389,10 @@ function Projectile:update(game, ow, dt, voxel)
 
   if self.active then
     self.phase = "FLYING"
+    if not self._goldUpdateTraced then
+      self._goldUpdateTraced = true
+      goldCatchStage(game, "PROJECTILE_UPDATE")
+    end
     local proj = self.active
     proj.progress = proj.progress + proj.speed * dt
     local p = math.min(1, proj.progress)
