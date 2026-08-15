@@ -102,6 +102,7 @@ function SpawnLogic.new(mod, render)
   self.recentWaterSpecies = {}
   self._lastStepDiag = nil
   self.occupancy = CellOccupancy.new()
+  self._occupancyDirty = true
   self.followersWater = FollowersWaterCompat.new(mod)
   -- Land style resolver bound after self exists (closure over logic).
   self.followersWater.resolveLandSprite = function(speciesId, isShiny, form, opts)
@@ -128,6 +129,10 @@ function SpawnLogic:_ow(game)
   return GameCompat.liveOverworld(self.mod, game or gameOf(self.mod))
 end
 
+function SpawnLogic:markOccupancyDirty()
+  self._occupancyDirty = true
+end
+
 function SpawnLogic:rebuildOccupancy(ow)
   local occupancy = self.occupancy or CellOccupancy.new()
   self.occupancy = occupancy
@@ -139,6 +144,7 @@ function SpawnLogic:rebuildOccupancy(ow)
     logicEntities = self.entities,
     trailers = ow and ow.pokepcTrailers,
   })
+  self._occupancyDirty = false
   return occupancy
 end
 
@@ -224,10 +230,9 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
     style = Config.normalizeSpriteStyle(style)
   end
   local trySubmerged = style == "followers" and function()
-    local dexId = speciesId
-    if type(dexId) ~= "number" then
-      dexId = AnimatedSprites.resolveSpeciesId(speciesId, game, self.mod)
-    end
+    local SpeciesAssets = V.require("species_assets")
+    local assetId = SpeciesAssets.idFor(speciesId)
+    local dexId = assetId
     if not dexId then return nil end
     -- Derive the submerged look from the normal coloured poke_followers
     -- sheet at load — no separate _submerged.png files.  Gen1 non-ADVANCED
@@ -319,10 +324,8 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
 
   -- Prefer registry path for a stable, style-independent water result.
   if reg and reg.isReady and reg:isReady() then
-    local dexId = speciesId
-    if type(dexId) ~= "number" then
-      dexId = AnimatedSprites.resolveSpeciesId(speciesId, game, self.mod)
-    end
+    local SpeciesAssets = V.require("species_assets")
+    local dexId = SpeciesAssets.idFor(speciesId)
     if dexId then
       local preferred = reg:preferredKindFor(dexId)
       local waterDef, waterErr = reg:resolve(dexId, variant, preferred, form)
@@ -365,11 +368,13 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
   end
 
   -- Optional land-style fallback for Wilds water entities only.
+  local SpeciesAssets = V.require("species_assets")
+  local assetId = SpeciesAssets.idFor(speciesId)
   local resolver = render and render.spriteResolver
   if resolver and resolver.resolveWaterSprite then
     local entity = opts.entity or {
-      species = speciesId,
-      enhancedDexId = type(speciesId) == "number" and speciesId or nil,
+      species = type(speciesId) == "string" and speciesId or SpeciesAssets.speciesFor(speciesId),
+      enhancedDexId = assetId,
       shiny = variant == "shiny",
       surface = Surface.WATER,
       form = form,
@@ -377,7 +382,7 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
     local result = resolver:resolveWaterSprite(entity, {
       style = opts.style or Config.spriteStyle(self.mod),
       game = game,
-      speciesId = type(speciesId) == "number" and speciesId or nil,
+      speciesId = type(speciesId) == "string" and speciesId or assetId,
       variant = variant,
       form = form,
     })
@@ -385,7 +390,7 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
        and (result.spriteKind == "swimming" or result.spriteKind == "levitates") then
       return result.def, {
         kind = result.spriteKind,
-        speciesId = speciesId,
+        speciesId = assetId or speciesId,
         variant = variant,
         form = form,
         image = result.def.image,
@@ -396,7 +401,7 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
     if result and result.def and allowLandFallback then
       return result.def, {
         kind = result.spriteKind or result.providerId,
-        speciesId = speciesId,
+        speciesId = assetId or speciesId,
         variant = variant,
         form = form,
         image = result.def.image,
@@ -546,6 +551,7 @@ function SpawnLogic:_clearMap(mapId)
   end
   self.byMap[mapId] = {}
   if self.occupancy then self.occupancy:clear() end
+  self:markOccupancyDirty()
 end
 
 function SpawnLogic:clearAll()
@@ -690,6 +696,7 @@ function SpawnLogic:_onAggressiveAlert(entity, record)
 end
 
 function SpawnLogic:_detachFromWorld(entity)
+  self:markOccupancyDirty()
   if not entity then return end
   local ow = self:_ow()
   if not ow then return end
@@ -904,8 +911,8 @@ function SpawnLogic:_entityHasCompatibleWaterSprite(entity)
   end
   local dexId = entity.enhancedDexId
   if not dexId and entity.species then
-    local game = gameOf(self.mod)
-    dexId = AnimatedSprites.resolveSpeciesId(entity.species, game, self.mod)
+    local SpeciesAssets = V.require("species_assets")
+    dexId = SpeciesAssets.idFor(entity.species)
   end
   if not dexId then
     entity.hasWaterSprite = false
@@ -978,6 +985,7 @@ function SpawnLogic:_computeWaterTarget(waterCells)
 end
 
 function SpawnLogic:_attach(entity)
+  self:markOccupancyDirty()
   local game = gameOf(self.mod)
   local ow = self:_ow(game)
   if not ow then return false, "no overworld" end
@@ -1159,6 +1167,9 @@ function SpawnLogic:reconcileAfterBattle(source)
     end
   end
 
+  -- Always dirty after battle-return membership check. Rebuild immediately
+  -- when guests actually reattached so occupancy is correct this frame.
+  self:markOccupancyDirty()
   if reattached > 0 then
     self:rebuildOccupancy(ow)
   end
@@ -2711,6 +2722,19 @@ function SpawnLogic:onMapEntered(ev)
   self:_clearMap(mapId)
   if self.overlay then self.overlay:clear() end
   self:_restoreVanillaEncounters("map enter before init")
+  self:markOccupancyDirty()
+  if self.behaviorTick then
+    self.behaviorTick._occFp = nil
+    self.behaviorTick._aiAccum = 0
+    if self.behaviorTick.voxel and self.behaviorTick.voxel.refreshPresence then
+      pcall(function()
+        self.behaviorTick.voxel:refreshPresence({ force = true })
+      end)
+      self.behaviorTick._voxelPresenceAt = 0
+    end
+  elseif self.voxel and self.voxel.refreshPresence then
+    pcall(function() self.voxel:refreshPresence({ force = true }) end)
+  end
 
   -- Re-assert style-owned makeEntity wrap before any spawn (Followers may wrap later).
   if self.render and self.render.ensureStyleOwnedMakeEntity then

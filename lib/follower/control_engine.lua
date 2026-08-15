@@ -717,32 +717,19 @@ function ControlEngine:resolveFollowerSprite(opts)
   local sheets = render and render.runtimeSheets
   if sheets then
     if not sheets.ready and sheets.load then pcall(function() sheets:load() end) end
-    local dex = nil
-    if svc and type(svc.dexOf) == "function" then
-      local ok, d = pcall(svc.dexOf, svc, species, opts.game)
-      if ok and d then dex = d end
+    local SpeciesAssets = V.require("species_assets")
+    local assetId = SpeciesAssets.idFor(species)
+    if not assetId then
+      -- Unknown / Fakemon: do not guess via runtime dex or Charmander default.
+      return nil
     end
-    if not dex then
-      local GameCompat = V.require("game_compat")
-      local ok, d = pcall(GameCompat.speciesId, species, opts.game, self.mod)
-      if ok and d then dex = d end
-    end
-    if not dex then
-      local AS
-      pcall(function() AS = V.require("animated_sprites") end)
-      if AS and AS.resolveSpeciesId then
-        local ok, d = pcall(AS.resolveSpeciesId, species, opts.game, self.mod)
-        if ok and d then dex = d end
-      end
-    end
-    dex = dex or 4
     local GameCompat = V.require("game_compat")
     local id = (role == "player_controlled")
       and (GameCompat.isGen2(self.mod, opts.game) and "SPRITE_WILDS_PLAYER_MON"
         or "SPRITE_PLAYER_POKEMON")
       or "SPRITE_WILDS_FOLLOWER_MON"
     if sheets.spriteDef then
-      local ok, def = pcall(sheets.spriteDef, sheets, dex, variant, id)
+      local ok, def = pcall(sheets.spriteDef, sheets, assetId, variant, id)
       if ok and def and def.image then
         return {
           image = def.image,
@@ -750,7 +737,8 @@ function ControlEngine:resolveFollowerSprite(opts)
           walker = def.walker ~= false,
           trueColor = def.trueColor ~= false,
           id = def.id or id,
-          dex = dex,
+          dex = assetId,
+          assetId = assetId,
           fallback = isMissingFallbackImage(def.image),
         }
       end
@@ -890,21 +878,15 @@ function ControlEngine:_speciesIdForTrailSource(source)
       or source._pokepcFollowerSpecies
       or (mon and mon.species)
       or source.species
-    local dex = source._wildsFollowerDex or source.enhancedDexId
-      or (mon and (mon.dex or mon.speciesId))
-    if type(dex) == "number" then return dex end
+    local SpeciesAssets = V.require("species_assets")
     if type(species) == "string" then
-      local GameCompat = V.require("game_compat")
-      local resolved = GameCompat.speciesId(species, self:_game(), self.mod)
-      if type(resolved) == "number" then return resolved end
-      local ok, AS = pcall(function() return V.require("animated_sprites") end)
-      if ok and AS and AS.resolveSpeciesId then
-        resolved = AS.resolveSpeciesId(species, self:_game(), self.mod)
-        if type(resolved) == "number" then return resolved end
-      end
+      local assetId = SpeciesAssets.idFor(species)
+      if type(assetId) == "number" then return assetId end
       return species
     end
-    return dex or species
+    -- Prefer already-canonical enhancedDexId; never mon.dex (runtime).
+    local assetId = SpeciesAssets.idFor(source._wildsFollowerDex or source.enhancedDexId)
+    return assetId or species
   end
   return nil
 end
@@ -1144,6 +1126,7 @@ function ControlEngine:restorePlayerTrainerSprite(game, ow)
     player._pokepcAsPokemon = nil
     player._pokepcControlSpecies = nil
     player._pokepcShiny = nil
+    player._pokepcControlStyle = nil
   end
 end
 
@@ -1174,6 +1157,17 @@ function ControlEngine:applyPlayerAsPokemon(game, ow, force)
   end
   local species = mon and mon.species or "CHARMANDER"
   local shiny = isShinyMon(mon)
+  local Config
+  pcall(function() Config = V.require("config") end)
+  local style = Config and Config.spriteStyle and Config.spriteStyle(self.mod)
+  -- Skip expensive sprite resolution when presentation is unchanged.
+  if not force and player._pokepcAsPokemon and player._pokepcControlSpecies == species
+     and player._pokepcShiny == (shiny and true or false)
+     and player._pokepcControlStyle == style
+     and ((player.sprite and player.sprite.def and player.sprite.def.image)
+          or (player.spriteDef and player.spriteDef.image)) then
+    return
+  end
   local resolved = self:resolveFollowerSprite({
     species = species,
     shiny = shiny,
@@ -1183,13 +1177,10 @@ function ControlEngine:applyPlayerAsPokemon(game, ow, force)
   })
   local path = resolved and resolved.image
   local GameCompat = V.require("game_compat")
-  local dex = (resolved and resolved.dex)
-    or GameCompat.speciesId(species, game, self.mod)
+  local dex = (resolved and (resolved.assetId or resolved.dex))
+    or (V.require("species_assets")).idFor(species)
   local fallback = (resolved and resolved.fallback == true)
     or isMissingFallbackImage(path)
-  local Config
-  pcall(function() Config = V.require("config") end)
-  local style = Config and Config.spriteStyle and Config.spriteStyle(self.mod)
   logGen2(self.mod,
     "[PlayerSprite] species=%s dex=%s style=%s role=player_controlled resolved=%s fallback=%s",
     tostring(species),
@@ -1208,6 +1199,7 @@ function ControlEngine:applyPlayerAsPokemon(game, ow, force)
   end
   if not force and player._pokepcAsPokemon and player._pokepcControlSpecies == species
      and player._pokepcShiny == (shiny and true or false)
+     and player._pokepcControlStyle == style
      and already then
     return
   end
@@ -1233,8 +1225,10 @@ function ControlEngine:applyPlayerAsPokemon(game, ow, force)
       return
     end
     logGen2(self.mod, "player sprite applied via %s", tostring(how))
+    player._pokepcAsPokemon = true
     player._pokepcControlSpecies = species
     player._pokepcShiny = shiny and true or false
+    player._pokepcControlStyle = style
     return
   end
   local SpriteRenderer = tryRequire("src.render.SpriteRenderer")
@@ -1259,6 +1253,7 @@ function ControlEngine:applyPlayerAsPokemon(game, ow, force)
     player._pokepcAsPokemon = true
     player._pokepcControlSpecies = species
     player._pokepcShiny = shiny and true or false
+    player._pokepcControlStyle = style
   end
 end
 
@@ -3157,6 +3152,17 @@ function ControlEngine:update(game, ow, opts)
     return false, "skip"
   end
 
+  local perf = nil
+  local perfStart = nil
+  do
+    local bt = self.mod and self.mod.exports and self.mod.exports.behaviorTick
+    perf = bt and bt.perf
+    if perf and perf.enabled then
+      perfStart = (love and love.timer and love.timer.getTime and love.timer.getTime())
+        or os.clock()
+    end
+  end
+
   self._inControlUpdate = true
   self._lastOw = ow  -- cached for menu-context access (stepper, etc.)
   self.diag.controlUpdateCalls = (self.diag.controlUpdateCalls or 0) + 1
@@ -3232,6 +3238,9 @@ function ControlEngine:update(game, ow, opts)
   end)
 
   self._inControlUpdate = false
+  if perfStart and perf and perf.addMs then
+    perf:addMs("msFollowers", perfStart)
+  end
   if not ok then
     logWarn(self.mod, "ControlEngine:update failed: %s", tostring(err))
     return false, err
@@ -3290,8 +3299,8 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
         -- LAND sheet (follower_NNN_{variant}.png) via LuminanceSheet.submergedFor
         -- — waterline mask + foam/blue water line, cached in the save dir, no
         -- separate _submerged.png files.  Pick the sheet by COLORS mode.
-        local dex = AnimatedSprites and AnimatedSprites.resolveSpeciesId
-          and AnimatedSprites.resolveSpeciesId(species, game, self.mod)
+        local SpeciesAssets = V.require("species_assets")
+        local dex = SpeciesAssets.idFor(species)
         if dex then
           local Config = nil
           pcall(function() Config = V.require("config") end)
@@ -3466,6 +3475,10 @@ function ControlEngine:onBattleEnded(game, ow, ev)
   if prevOw and ow and prevOw ~= ow then
     self:_adoptRememberedTrailers(ow)
     self:_traceBattleReturn("owReplaced", game, ow, { force = true })
+    local logic = self.mod and self.mod.exports and self.mod.exports.logic
+    if logic and logic.markOccupancyDirty then
+      logic:markOccupancyDirty()
+    end
   end
   self._battleReturnOw = ow
   self:_rememberBattleTrailers(ow)
@@ -3527,6 +3540,12 @@ function ControlEngine:onBattleEnded(game, ow, ev)
   self._battleReturnChecks = (self._battleReturnChecks or 0) + 1
   local identityOk = self:_allTrailersIdentityAttached(ow)
     or (want <= 0)
+  if ensured or identityOk then
+    local logic = self.mod and self.mod.exports and self.mod.exports.logic
+    if logic and logic.markOccupancyDirty then
+      logic:markOccupancyDirty()
+    end
+  end
   self:_traceBattleReturn(source, game, ow, {
     ensured = ensured, identityOk = identityOk,
   })

@@ -276,6 +276,7 @@ function Gen2.restoreTrainerSprite(player, game, ow)
       player._pokepcAsPokemon = nil
       player._pokepcControlSpecies = nil
       player._pokepcShiny = nil
+      player._pokepcControlStyle = nil
     end
     return true, "applyPlayerState"
   end

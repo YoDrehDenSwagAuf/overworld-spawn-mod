@@ -288,6 +288,16 @@ function SpawnRender:_warn(fmt, ...)
   self.mod.log:info("[WildsOfKanto][WARN] %s", msg)
 end
 
+-- DEV perf counters (no-op when BehaviorTick / PerfStats are inactive).
+function SpawnRender:_perfCount(name, n)
+  local mod = self.mod
+  local bt = mod and mod.exports and mod.exports.behaviorTick
+  local perf = bt and bt.perf
+  if perf and perf.count then
+    perf:count(name, n or 1)
+  end
+end
+
 function SpawnRender:_modAssetPath(rel)
   -- Always address files under the mod root via the public assets helper.
   if type(rel) ~= "string" or rel == "" then return nil end
@@ -340,7 +350,8 @@ function SpawnRender:assetCandidates(speciesId, game, mon)
     push(self:_modAssetPath(explicit), "explicit_map")
   end
 
-  local padded = mon and dexPadded(mon.dex)
+  local SpeciesAssets = V.require("species_assets")
+  local padded = dexPadded(SpeciesAssets.idFor(speciesId))
   if padded then
     push(self:_modAssetPath("assets/pokemon/" .. padded .. ".png"), "dex_padded")
     push(self:_modAssetPath("assets/pokemon/species_" .. padded .. ".png"), "species_dex")
@@ -584,13 +595,10 @@ function SpawnRender:registerContent()
       local relativePath = nil
       local fallbackReason = nil
 
-      local dexId = nil
-      if def and def.dex ~= nil then
-        dexId = tonumber(def.dex)
-      end
-      if not dexId then
-        dexId = AnimatedSprites.resolveSpeciesId(speciesId, nil, self.mod)
-      end
+      local SpeciesAssets = V.require("species_assets")
+      local assetId = SpeciesAssets.idFor(speciesId)
+      -- Registration uses canonical Wilds asset IDs, never runtime mon.dex.
+      local dexId = assetId
 
       local runtimeLoadPath, usedVariant, runtimeRel, runtimeEntry = nil, nil, nil, nil
       if dexId and self.runtimeSheets and self.runtimeSheets:isReady() then
@@ -1150,13 +1158,10 @@ function Entity.new(game, mod, render, record)
 
   -- Prefer sprite providers (Followers EX / PokeMMO / Pokedex). Same native
   -- SpriteRenderer contract for every style — only the image source changes.
-  local dexId = nil
-  if record.dex ~= nil then
-    dexId = tonumber(record.dex)
-  end
-  if not dexId then
-    dexId = AnimatedSprites.resolveSpeciesId(record.species, game, mod)
-  end
+  local SpeciesAssets = V.require("species_assets")
+  local assetId = SpeciesAssets.idFor(record.species)
+  -- enhancedDexId stores the canonical Wilds asset id (not runtime Pokédex).
+  local dexId = assetId
   local variant = AnimatedSprites.resolveRuntimeVariant(self)
   self.enhancedDexId = dexId
   self.spriteVariant = variant
@@ -1987,9 +1992,10 @@ function SpawnRender:previewImagePath(species, game)
   return self:_placeholderPath(), "placeholder"
 end
 
--- Numeric Pokedex id for atlas mapping (identity). Display names never used.
-function SpawnRender:resolveDexId(speciesKey, game)
-  return AnimatedSprites.resolveSpeciesId(speciesKey, game, self.mod)
+-- Canonical Wilds asset id for sprite sheets (identity). Display names never used.
+function SpawnRender:resolveDexId(speciesKey, _game)
+  local SpeciesAssets = V.require("species_assets")
+  return SpeciesAssets.idFor(speciesKey)
 end
 
 function SpawnRender:animatedEnabled()
@@ -2069,15 +2075,17 @@ function SpawnRender:applyProviderSprite(entity, game)
   -- PaletteFX COLORS mode gate: a flip between ADVANCED (colored art) and
   -- every other mode (luminance -grayscale art) must force a re-resolve
   -- below.
-  local redpp = Config.paletteFxRedpp()
+  local redpp = false
+  if type(Config.paletteFxRedpp) == "function" then
+    redpp = Config.paletteFxRedpp() == true
+  end
   local variant = AnimatedSprites.resolveRuntimeVariant(entity)
-  -- Prefer numeric dex. entity.species is often a name ("ONIX"); passing that
-  -- into VariableSize.applyToDef made packGeometry fail, stripped frame
-  -- geometry, and left the true_size image → SpriteRenderer baked 16×16 quads.
-  local dexId = tonumber(entity.enhancedDexId)
-    or AnimatedSprites.resolveSpeciesId(entity.species, game, self.mod)
-    or tonumber(entity.species)
-  local species = dexId or entity.species or entity.enhancedDexId
+  -- Prefer species → canonical Wilds asset id. Never use runtime mon.dex.
+  local SpeciesAssets = V.require("species_assets")
+  local assetId = SpeciesAssets.idFor(entity.species)
+    or SpeciesAssets.idFor(entity.enhancedDexId)
+  local dexId = assetId
+  local species = entity.species or dexId or entity.enhancedDexId
   local map = game and game.overworld and game.overworld.map
   local WaterDisplay = V.require("water_display")
   local voxelActive = WaterDisplay.isVoxelCameraActive(self.mod)
@@ -2087,6 +2095,33 @@ function SpawnRender:applyProviderSprite(entity, game)
   end
   local WaterShadowRenderer = V.require("water_shadow_renderer")
   local shadowMode = WaterShadowRenderer.shadowModeFor(self.mod, entity, voxelActive)
+  local VariableSize = V.require("variable_size")
+  local effectiveSize = VariableSize.effectiveMode(self.mod, { voxelActive = voxelActive })
+  local surface = entity.surface
+  local spriteState = entity.spriteState
+  local form = entity.spriteForm or entity.formSuffix or entity.form
+
+  -- Cheap presentation gate BEFORE resolve / SpriteRenderer.new.
+  -- Rendering identity only — does NOT prove world attachment.
+  -- Battle-return reattach still runs via _attach / people-list membership.
+  if entity.sprite and entity.sprite.def and entity.sprite.def.image
+     and entity._wildsPresSpecies == species
+     and entity._wildsPresAssetId == assetId
+     and entity._wildsPresVariant == variant
+     and entity._wildsPresStyle == style
+     and entity._wildsPresSurface == surface
+     and entity._wildsPresSpriteState == spriteState
+     and entity._wildsPresForm == form
+     and entity._wildsPresWaterMode == waterMode
+     and entity.waterVoxelActive == voxelActive
+     and entity.paletteRedpp == redpp
+     and entity._wildsEffectiveSize == effectiveSize
+     and entity.requestedSpriteStyle == style then
+    return true
+  end
+
+  self:_perfCount("spriteResolves", 1)
+
   local result
   if self.spriteResolver then
     result = self.spriteResolver:resolveForEntity(entity, {
@@ -2094,7 +2129,7 @@ function SpawnRender:applyProviderSprite(entity, game)
       game = game,
       map = map,
       surface = entity.surface,
-      speciesId = dexId or entity.enhancedDexId or entity.species,
+      speciesId = entity.species or dexId or entity.enhancedDexId,
       variant = variant,
       voxelActive = voxelActive,
       nativeSilhouette = voxelActive
@@ -2129,8 +2164,6 @@ function SpawnRender:applyProviderSprite(entity, game)
     or (result.meta and result.meta.shadowRendererMode)
     or shadowMode
   -- Skip rebuild when the same provider image / surface / water mode is bound.
-  local VariableSize = V.require("variable_size")
-  local effectiveSize = VariableSize.effectiveMode(self.mod, { voxelActive = voxelActive })
   local cur = entity.sprite and entity.sprite.def
   local inst = entity.sprite
   -- Compare BOTH SpriteDef and SpriteRenderer INSTANCE geometry.
@@ -2167,6 +2200,14 @@ function SpawnRender:applyProviderSprite(entity, game)
     entity.waterVoxelActive = voxelActive
     entity._wildsEffectiveSize = effectiveSize
     entity.paletteRedpp = redpp
+    entity._wildsPresSpecies = species
+    entity._wildsPresAssetId = assetId
+    entity._wildsPresVariant = variant
+    entity._wildsPresStyle = style
+    entity._wildsPresSurface = surface
+    entity._wildsPresSpriteState = result.spriteState or spriteState
+    entity._wildsPresForm = form
+    entity._wildsPresWaterMode = waterMode
     if self.spriteResolver then
       self.spriteResolver:applyEntityMeta(entity, result)
     end
@@ -2231,8 +2272,8 @@ function SpawnRender:applyProviderSprite(entity, game)
     end
     local geoInfo
     def, geoInfo = VariableSize.applyToDef(self.mod, def, {
-      -- Always numeric dex when available (never bare species name).
-      speciesId = dexId or entity.enhancedDexId or entity.species,
+      -- Species string or canonical asset id — never runtime mon.dex.
+      speciesId = entity.species or dexId or entity.enhancedDexId,
       game = game,
       style = style,
       variant = variant,
@@ -2287,6 +2328,7 @@ function SpawnRender:applyProviderSprite(entity, game)
       tostring(def.image))
   end
   self._spriteRendererNews = (self._spriteRendererNews or 0) + 1
+  self:_perfCount("spriteRendererNews", 1)
   entity._wildsSpriteRendererNews = (entity._wildsSpriteRendererNews or 0) + 1
   entity._wildsSpriteRendererId = tostring(sprite)
   entity._wildsLastBindReason = "applyProviderSprite"
@@ -2427,6 +2469,16 @@ function SpawnRender:applyProviderSprite(entity, game)
   if entity.sprite and entity.sprite.image and entity.sprite.image.setFilter then
     entity.sprite.image:setFilter("nearest", "nearest")
   end
+  -- Presentation fingerprint for the cheap pre-resolve gate.
+  entity._wildsPresSpecies = species
+  entity._wildsPresAssetId = assetId
+  entity._wildsPresVariant = variant
+  entity._wildsPresStyle = style
+  entity._wildsPresSurface = entity.surface
+  entity._wildsPresSpriteState = result.spriteState or entity.spriteState
+  entity._wildsPresForm = form
+  entity._wildsPresWaterMode = waterMode
+  entity._wildsEffectiveSize = entity._wildsEffectiveSize or effectiveSize
   self:_instrumentResolveImage(entity, entity.sprite)
   self:bindWorldBillboard(entity, true)
   return true

@@ -270,11 +270,21 @@ eq(r.fallbackStep, 1, "followers_ex is first step for followers style")
 r = providers:resolve("followers_ex", "PIKACHU", "normal", nil)
 eq(r.providerId, "followers_ex", "legacy followers_ex value still resolves")
 
--- Missing species in followers -> pokemmo
+-- Missing / unknown species must NOT borrow another mon via runtime dex.
+-- SpeciesAssets.idFor("MISSING") is nil → Wilds numeric sheets skip.
+-- Test harness resolveAsset always returns a path, so pokedex may still
+-- answer; the critical rule is we never open asset 25 (Pikachu) for MISSING.
 r = providers:resolve("followers", "MISSING", "normal", {
   data = { pokemon = { MISSING = { dex = 25 } } },
 })
-eq(r.providerId, "pokemmo", "followers miss with resolvable dex -> pokemmo")
+check(r.providerId ~= "pokemmo" and r.providerId ~= "followers_ex",
+  "unknown species must not use Wilds numeric sheets via runtime dex")
+if r and r.def and r.def.image then
+  local img = tostring(r.def.image)
+  check(img:find("025") == nil and img:find("follower_025") == nil
+     and img:find("/25%-") == nil and img:find("150") == nil,
+    "unknown species image must not be another Pokémon's Wilds asset")
+end
 
 -- Shiny unavailable on followers -> followers normal
 r = providers:resolve("followers", "PIKACHU", "shiny", nil)

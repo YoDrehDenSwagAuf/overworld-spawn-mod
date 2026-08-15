@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+### Species → canonical Wilds asset identity
+
+- Overworld / follower / water / True Size sprite lookup now maps
+  `mon.species` → `SpeciesAssets.idFor` → canonical Wilds asset ID.
+- Runtime Pokédex order (`mon.dex` / `GameCompat.speciesId`) is no longer
+  used as a Wilds sheet index. Reordered Dex mods keep the correct art
+  (MEWTWO → 150, TYRANITAR → 248). Unknown Fakemon use the missing-sprite
+  fallback instead of another Pokémon's sheet.
+- Numeric HGSS / Poké Followers / swimming / levitate / True Size asset
+  layout is unchanged. Gameplay Dex uses (encounters, battles, Pokédex)
+  are unchanged. Sandbox access stays on current `lib/wilds_fs.lua`.
+
+### Measure-driven performance
+
+- AI / occupancy / cave decision work runs at a fixed ~30 Hz. Movement
+  interpolation, spawn FX, animation sync, and battle-return reattach
+  stay per rendered frame so 60/120/144 Hz remains smooth and v2.1.5
+  battle-return is not delayed.
+- Occupancy rebuilds only when dirty or the player/trailer fingerprint
+  changes. Battle-return / follower / ambient / world-replacement
+  reattach still force a rebuild.
+- Voxel presence safety-polls about twice a second; inactive entities
+  take an early-out. Battle Art / Potato / Dramaless adapters are
+  unchanged.
+- Unchanged presentation skips sprite re-resolve and `SpriteRenderer.new`.
+  World attachment is a separate concern from rendering identity.
+- DEV-only `lib/perf_stats.lua` snapshot (no release log spam).
+
 ### Yellow follower freeze without Pikachu
 
 - CONTROL=TRAINER trailers no longer freeze at spawn in Yellow when Pikachu

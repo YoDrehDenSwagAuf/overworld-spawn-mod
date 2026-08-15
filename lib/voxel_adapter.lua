@@ -42,7 +42,29 @@ function VoxelAdapter:attachLogic(logic)
   self.logic = logic
 end
 
-function VoxelAdapter:refreshPresence()
+-- Full mod/renderer scan interval when not forced (presence rarely changes).
+VoxelAdapter.PRESENCE_INTERVAL = 0.5
+
+local function _now()
+  if love and love.timer and love.timer.getTime then
+    return love.timer.getTime()
+  end
+  return os.clock()
+end
+
+function VoxelAdapter:refreshPresence(opts)
+  opts = opts or {}
+  local t = _now()
+  -- Throttle mod/renderer scans unless forced (map enter, options, first call).
+  if not opts.force and self._presenceAt
+     and (t - self._presenceAt) < VoxelAdapter.PRESENCE_INTERVAL then
+    self.voxelActive = self:_probeVoxelActive()
+    return self.present
+  end
+  self._presenceAt = t
+  -- Invalidate cached Voxel.active binder; renderer may have loaded/unloaded.
+  self._voxelActiveFn = nil
+
   local VariableSize = V.require("variable_size")
   local dramatic = select(1, VariableSize.findVoxelRenderer(self.mod))
   self.present = dramatic ~= nil
@@ -69,25 +91,38 @@ end
 
 function VoxelAdapter:isPresent()
   if self.present then return true end
-  return self:refreshPresence()
+  return self:refreshPresence({ force = true })
 end
 
 function VoxelAdapter:_probeVoxelActive()
-  local VariableSize = V.require("variable_size")
-  local ds = select(1, VariableSize.findVoxelRenderer(self.mod))
-  local lib = ds and ds.exports and ds.exports.lib
-  if not lib or type(lib.require) ~= "function" then return false end
-  local ok, Voxel = pcall(lib.require, "VoxelState")
-  if not ok or not Voxel or type(Voxel.active) ~= "function" then
-    return false
+  -- Presence is rare to flip; skip mod scans when we already know Voxel is absent.
+  if self.present == false then return false end
+  local activeFn = self._voxelActiveFn
+  if type(activeFn) ~= "function" then
+    local VariableSize = V.require("variable_size")
+    local ds = select(1, VariableSize.findVoxelRenderer(self.mod))
+    local lib = ds and ds.exports and ds.exports.lib
+    if not lib or type(lib.require) ~= "function" then
+      self.present = self.present or false
+      return false
+    end
+    local ok, Voxel = pcall(lib.require, "VoxelState")
+    if not ok or not Voxel or type(Voxel.active) ~= "function" then
+      return false
+    end
+    self._voxelActiveFn = Voxel.active
+    activeFn = Voxel.active
   end
-  local okActive, active = pcall(Voxel.active)
+  local okActive, active = pcall(activeFn)
   return okActive and active == true
 end
 
 function VoxelAdapter:isVoxelCameraActive()
+  if self.present == false then
+    return false
+  end
   if not self.present then
-    self:refreshPresence()
+    self:refreshPresence({ force = true })
   end
   return self:_probeVoxelActive()
 end
@@ -213,8 +248,13 @@ function VoxelAdapter:updateEntity(entity)
     return false
   end
 
-  local active = self:isVoxelCameraActive()
-  self.voxelActive = active
+  -- Trust the per-frame / throttled presence probe from BehaviorTick when set.
+  -- Avoid re-scanning mods / VoxelState once per entity.
+  local active = self.voxelActive == true
+  if self.present == nil then
+    active = self:isVoxelCameraActive()
+    self.voxelActive = active
+  end
 
   entity.spriteSource2D = entity.spriteSource
     or (entity.usingEnhancedSprite and "FOLLOW_SPRITES")
@@ -222,15 +262,18 @@ function VoxelAdapter:updateEntity(entity)
     or "LEGACY_PNG"
   entity.voxelScale = 1
 
-  -- Voxel Hidden / Silhouettes: native SpriteRenderer sheets drawn as flat
-  -- underwater shadows via WaterShadowRenderer (wraps VoxelScene.drawEntity).
-  -- Flat 2D keeps the circle / tint paths untouched.
-  local WaterDisplay = V.require("water_display")
-  local WaterShadowRenderer = V.require("water_shadow_renderer")
-  WaterShadowRenderer.installDrawHook(self)
-  local waterShadow = WaterDisplay.needsWaterShadowPresentation(self.mod, entity)
-
   if not active then
+    -- Fast path: already flat 2D with no Voxel water sheet to unwind.
+    if entity.pokemonRenderer == "WILDS_2D"
+       and entity.worldRenderer == "GEN1_FLAT"
+       and entity.voxelRegistered == false
+       and entity.waterSilhouetteSheet ~= true
+       and entity.waterHiddenShadow ~= true then
+      entity.voxelUpdateOk = true
+      entity.voxelSource = entity.spriteSource2D
+      return true
+    end
+    local WaterShadowRenderer = V.require("water_shadow_renderer")
     entity.worldRenderer = "GEN1_FLAT"
     entity.pokemonRenderer = "WILDS_2D"
     entity.dramaticBillboardSkipped = false
@@ -250,6 +293,13 @@ function VoxelAdapter:updateEntity(entity)
     end
     return true
   end
+
+  -- Voxel Hidden / Silhouettes: native SpriteRenderer sheets drawn as flat
+  -- underwater shadows via WaterShadowRenderer (wraps VoxelScene.drawEntity).
+  local WaterDisplay = V.require("water_display")
+  local WaterShadowRenderer = V.require("water_shadow_renderer")
+  WaterShadowRenderer.installDrawHook(self)
+  local waterShadow = WaterDisplay.needsWaterShadowPresentation(self.mod, entity)
 
   entity.waterPresentationForced = nil
 

@@ -47,9 +47,16 @@ function SpriteService.new(mod, opts)
 end
 
 function SpriteService:dexOf(species, game)
+  -- Runtime Pokédex identity (gameplay). Do not use for Wilds asset paths.
   local GameCompat = V.require("game_compat")
   game = game or (self.mod and self.mod.world and self.mod.world.game)
   return GameCompat.speciesId(species, game, self.mod)
+end
+
+--- Canonical Wilds asset id for sprite sheets. Never uses runtime Pokédex.
+function SpriteService:assetIdOf(species)
+  local SpeciesAssets = V.require("species_assets")
+  return SpeciesAssets.idFor(species)
 end
 
 function SpriteService:_modAssetPath(rel)
@@ -90,7 +97,8 @@ function SpriteService:resolveFollowerSprite(opts)
   local role = opts.role or "primary"
   local game = opts.game
   local variant = shiny and "shiny" or "normal"
-  local dex = self:dexOf(species, game)
+  local runtimeDex = self:dexOf(species, game)
+  local assetId = self:assetIdOf(species)
   local playerId = playerControlledSpriteId(self.mod, game, role)
 
   -- Water: prefer existing Wilds water resolver (swimming / levitates).
@@ -115,7 +123,8 @@ function SpriteService:resolveFollowerSprite(opts)
         providerId = "water",
         role = role,
         surface = surface,
-        dex = dex,
+        dex = runtimeDex,
+        assetId = assetId,
         fallback = false,
       }
     end
@@ -146,23 +155,24 @@ function SpriteService:resolveFollowerSprite(opts)
         providerId = result.providerId,
         role = role,
         surface = "land",
-        dex = dex,
+        dex = runtimeDex,
+        assetId = assetId,
         fallback = false,
       }
     end
   end
 
   -- Direct runtime sheet lookup (no providers finalized yet).
+  -- Use canonical asset id only — never runtime dex, never Charmander default.
   local sheets = self.render and self.render.runtimeSheets
-  if sheets then
+  if sheets and assetId then
     if not sheets.ready and sheets.load then pcall(function() sheets:load() end) end
-    local sheetDex = dex or 4
-    local def = sheets:spriteDef(sheetDex, variant, playerId or "SPRITE_WILDS_FOLLOWER_MON")
+    local def = sheets:spriteDef(assetId, variant, playerId or "SPRITE_WILDS_FOLLOWER_MON")
     if def and def.image then
       local VariableSize = V.require("variable_size")
       local info
       def, info = VariableSize.applyToDef(self.mod, def, {
-        speciesId = sheetDex,
+        speciesId = assetId,
         style = style,
         variant = variant,
       })
@@ -180,7 +190,8 @@ function SpriteService:resolveFollowerSprite(opts)
         role = role,
         surface = "land",
         variableSize = info and info.applied or false,
-        dex = sheetDex,
+        dex = runtimeDex,
+        assetId = assetId,
         fallback = false,
       }
     end
@@ -195,7 +206,8 @@ function SpriteService:resolveFollowerSprite(opts)
     providerId = "fallback",
     role = role,
     surface = surface,
-    dex = dex,
+    dex = runtimeDex,
+    assetId = assetId,
     fallback = true,
   }
 end
