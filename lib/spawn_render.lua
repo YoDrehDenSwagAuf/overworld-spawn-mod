@@ -65,6 +65,7 @@ local RenderDiagnostics = V.require("render_diagnostics")
 local SpriteProviders = V.require("sprite_providers")
 local WaterSpriteRegistry = V.require("water_sprite_registry")
 local SpriteResolver = V.require("sprite_resolver")
+local WildsFs = V.require("wilds_fs")
 
 local SpawnRender = {}
 SpawnRender.__index = SpawnRender
@@ -110,13 +111,7 @@ local function spriteIdForSpecies(species)
 end
 
 local function fsExists(path)
-  if type(path) ~= "string" or path == "" then return false end
-  local fs = love and love.filesystem
-  if fs and fs.getInfo then
-    local ok, info = pcall(fs.getInfo, path)
-    if ok and info then return true end
-  end
-  return false
+  return WildsFs.pathExists(V.mod, path)
 end
 
 local function isOsAbsolutePath(path)
@@ -185,35 +180,20 @@ local function bakeSheet(species, sourcePath, log)
   local idata = canvas:newImageData()
   canvas:release()
 
-  if not (love.filesystem and idata.encode and love.filesystem.write) then
+  if not (idata and idata.encode) then
     return nil
-  end
-
-  local dirOk, dirErr = pcall(love.filesystem.createDirectory, CACHE_DIR)
-  if not dirOk and log then
-    log("cache dir create failed: %s", tostring(dirErr))
   end
 
   local rel = CACHE_DIR .. "/" .. tostring(species):lower() .. ".png"
-  local fileData = idata:encode("png")
-  if not fileData then return nil end
-
-  local writeOk, writeErr = love.filesystem.write(rel, fileData:getString())
-  if not writeOk then
-    if log then log("cache write failed for %s: %s", tostring(species), tostring(writeErr)) end
+  local persisted = WildsFs.persistImageData(idata, rel)
+  if not persisted then
+    if log then log("cache persist failed for %s", tostring(species)) end
     return nil
   end
 
-  -- Verify via the same API SpriteRenderer / Assets.image will use.
-  if not fsExists(rel) then
-    if log then log("cache write ok but getInfo missing for %s", rel) end
-    return nil
-  end
-
-  -- CRITICAL: return the LÖVE virtual relative path only.
-  -- Never prefix with love.filesystem.getSaveDirectory(); Assets.image and
-  -- love.graphics.newImage reject OS absolute paths.
-  return rel
+  -- Return the engine-virtual relative path only. OS absolute save-dir
+  -- prefixes are rejected by Assets.image / love.graphics.newImage.
+  return persisted
 end
 
 local function probeImageLoad(path)
@@ -221,20 +201,13 @@ local function probeImageLoad(path)
     return false, "empty path", nil, nil
   end
   if isOsAbsolutePath(path) then
-    return false, "OS absolute path rejected (use love.filesystem virtual path): " .. path, nil, nil
+    return false, "OS absolute path rejected (use engine virtual path): " .. path, nil, nil
   end
 
-  local fs = love and love.filesystem
-  local infoKnownMissing = false
-  if fs and fs.getInfo then
-    local okInfo, info = pcall(fs.getInfo, path)
-    if okInfo and info == nil then
-      infoKnownMissing = true
-    end
-  end
+  local knownMissing = not WildsFs.pathExists(V.mod, path)
 
   if not (love and love.graphics and love.graphics.newImage) then
-    if infoKnownMissing then
+    if knownMissing then
       return false, path .. ": Does not exist.", nil, nil
     end
     return true, nil, nil, nil
@@ -242,9 +215,9 @@ local function probeImageLoad(path)
 
   -- Always attempt newImage for non-absolute paths. Real LÖVE fails on
   -- missing files; headless stubs may still construct a stand-in Image.
-  -- When getInfo already reported missing, treat as not loaded so status
-  -- reporting / search order can fall through to the next candidate.
-  if infoKnownMissing then
+  -- When the cached existence probe already reported missing, treat as
+  -- not loaded so search order can fall through to the next candidate.
+  if knownMissing then
     return false, path .. ": Does not exist.", nil, nil
   end
 
@@ -586,7 +559,7 @@ function SpawnRender:registerContent()
   for _, dex in ipairs(probeDex) do
     local probe = self.runtimeSheets:probeRegistration(dex, "normal")
     self:_notice(
-      "RuntimeSheet probe dex=%s key=%s rel=%s load=%s manifest=%s assets=%s dims=%sx%s getInfo(rel)=%s err=%s",
+      "RuntimeSheet probe dex=%s key=%s rel=%s load=%s manifest=%s assets=%s dims=%sx%s packaged(rel)=%s err=%s",
       tostring(probe.speciesId),
       tostring(probe.manifestKey),
       tostring(probe.relativePath),
@@ -595,7 +568,7 @@ function SpawnRender:registerContent()
       tostring(probe.assetsImageOk),
       tostring(probe.imageWidth),
       tostring(probe.imageHeight),
-      tostring(probe.loveGetInfoRelative),
+      tostring(probe.packagedRelative),
       tostring(probe.assetsImageError))
   end
 

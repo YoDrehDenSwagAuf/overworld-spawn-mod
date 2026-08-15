@@ -90,7 +90,9 @@ jobs:
             tests/gen2_wilds_unit_test.lua \
             tests/true_size_gen2_geometry_unit_test.lua \
             tests/manifest_targets_unit_test.lua \
-            tests/gold_boot_unit_test.lua
+            tests/gold_boot_unit_test.lua \
+            tests/sandbox_fs_compat_unit_test.lua \
+            tests/battle_return_reconcile_unit_test.lua
           do
             echo "==> luajit $t"
             luajit "$t"

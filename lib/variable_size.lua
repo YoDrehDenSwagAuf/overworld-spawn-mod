@@ -14,6 +14,7 @@ local V = ...
 local Config = V.require("config")
 local SpeciesGeometry = V.require("species_geometry")
 local DebugLog = V.require("debug_log")
+local WildsFs = V.require("wilds_fs")
 
 local VariableSize = {}
 
@@ -368,18 +369,7 @@ local function modAssetPath(mod, rel)
 end
 
 local function assetPresent(mod, rel)
-  if type(rel) ~= "string" or rel == "" then return false end
-  if mod and type(mod.read) == "function" then
-    local ok, data = pcall(mod.read, mod, rel)
-    if ok and data ~= nil then return true end
-  end
-  local f = io.open(rel, "rb")
-  if f then f:close(); return true end
-  if V.path then
-    f = io.open((V.path or ".") .. "/" .. rel, "rb")
-    if f then f:close(); return true end
-  end
-  return false
+  return WildsFs.assetExists(mod, rel)
 end
 
 function VariableSize.packIdForStyle(style, presentation)

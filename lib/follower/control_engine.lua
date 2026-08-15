@@ -15,6 +15,7 @@
 -- control engine is installed.
 local V = ...
 local Constants = V.require("follower/constants")
+local WildsFs = V.require("wilds_fs")
 
 local DebugLog
 do
@@ -171,6 +172,14 @@ function ControlEngine.new(mod, deps)
   self._restoreState = nil
   self._pendingMapTrailerSync = false
   self._pendingSpawnAtPlayer = false
+  self._pendingBattleReturnSync = false
+  self._battleReturnFlushedOnce = false
+  self._battleReturnPhase = nil
+  self._battleReturnChecks = 0
+  self._battleReturnOw = nil
+  self._battleReturnTrailers = nil
+  self._battleReturnTrailCells = nil
+  self._battleReturnTrailHead = nil
   self._mapExitSnapshot = nil
   self._pendingConnectionHandoff = nil
   self._optCache = {}
@@ -222,6 +231,161 @@ function ControlEngine:_liveOw(game, ow)
   return GameCompat.liveOverworld(self.mod, game)
 end
 
+function ControlEngine:_freshOw(game)
+  local GameCompat = V.require("game_compat")
+  return GameCompat.liveOverworld(self.mod, game or self:_game())
+end
+
+function ControlEngine:_identityInList(list, npc)
+  if type(list) ~= "table" or not npc then return false end
+  for _, e in ipairs(list) do
+    if e == npc then return true end
+  end
+  return false
+end
+
+-- Authoritative visibility: the SAME object is in the current live
+-- draw/entity/NPC containers. Id / pokepcTrailers / registeredInWorld
+-- are not enough — a late people rebuild can drop the object while
+-- those caches still look healthy.
+function ControlEngine:_isTrailerAttached(ow, npc)
+  if not ow or not npc then return false end
+  return self:_identityInList(ow.entities, npc)
+    or self:_identityInList(ow.npcs, npc)
+end
+
+function ControlEngine:_rememberBattleTrailers(ow)
+  local trailers = ow and ow.pokepcTrailers
+  if not (trailers and #trailers > 0) then return end
+  local refs = {}
+  for i, t in ipairs(trailers) do refs[i] = t end
+  self._battleReturnTrailers = refs
+  self._battleReturnTrailCells = ow.pokepcTrailCells
+  self._battleReturnTrailHead = ow.pokepcTrailHead
+end
+
+-- If the engine replaced the overworld object, pokepcTrailers on the
+-- new instance is empty even though we still hold the live NPCs.
+function ControlEngine:_adoptRememberedTrailers(ow)
+  if not ow then return false end
+  local remembered = self._battleReturnTrailers
+  if not remembered or #remembered == 0 then return false end
+  if ow.pokepcTrailers and #ow.pokepcTrailers > 0 then
+    self:_rememberBattleTrailers(ow)
+    return false
+  end
+  ow.pokepcTrailers = remembered
+  if self._battleReturnTrailCells then
+    ow.pokepcTrailCells = self._battleReturnTrailCells
+  end
+  if self._battleReturnTrailHead then
+    ow.pokepcTrailHead = self._battleReturnTrailHead
+  end
+  return true
+end
+
+function ControlEngine:_allTrailersIdentityAttached(ow)
+  local trailers = ow and ow.pokepcTrailers
+  if not trailers or #trailers == 0 then return false end
+  for _, npc in ipairs(trailers) do
+    if not self:_isTrailerAttached(ow, npc) then return false end
+  end
+  return true
+end
+
+-- Reinsert existing trailers into the CURRENT live containers. Does not
+-- recreate sprites, reroll selection, or rebuild pokepcTrailers.
+function ControlEngine:_ensureTrailersAttached(game, ow)
+  game = game or self:_game()
+  local fresh = self:_freshOw(game)
+  if fresh then
+    if ow and fresh ~= ow then
+      self:_traceBattleReturn("ensure.owReplaced", game, fresh)
+    end
+    ow = fresh
+  end
+  if not ow then return false, "no_overworld" end
+  local adopted = self:_adoptRememberedTrailers(ow)
+  local trailers = ow.pokepcTrailers or {}
+  local attached = 0
+  for _, npc in ipairs(trailers) do
+    if npc then
+      if not self:_isTrailerAttached(ow, npc) then
+        self:_attachTrailer(game, ow, npc)
+      end
+      if self:_isTrailerAttached(ow, npc) then
+        attached = attached + 1
+      end
+    end
+  end
+  self:_rememberBattleTrailers(ow)
+  self:_traceBattleReturn("ensureTrailersAttached", game, ow, {
+    attached = attached,
+    desired = #trailers,
+    adopted = adopted,
+  })
+  return attached > 0 and attached == #trailers, attached
+end
+
+function ControlEngine:_battleReturnActive()
+  local phase = self._battleReturnPhase
+  return phase == "pending" or phase == "first_live" or phase == "verify"
+end
+
+function ControlEngine:_clearBattleReturn()
+  self._pendingBattleReturnSync = false
+  self._battleReturnFlushedOnce = false
+  self._battleReturnPhase = nil
+  self._battleReturnChecks = 0
+  self._battleReturnOw = nil
+  self._battleReturnTrailers = nil
+  self._battleReturnTrailCells = nil
+  self._battleReturnTrailHead = nil
+end
+
+function ControlEngine:_traceBattleReturn(tag, game, ow, extra)
+  extra = extra or {}
+  local enabled = DebugLog and DebugLog.enabled and DebugLog.enabled(self.mod)
+  if not enabled and not extra.force then return end
+  local live = self:_freshOw(game)
+  local liveSame = (ow ~= nil and live == ow)
+  local desired = 0
+  pcall(function() desired = self:followerCount(game) or 0 end)
+  local trailers = (ow and ow.pokepcTrailers) or {}
+  logInfo(self.mod,
+    "[BattleReturn][%s] map=%s ow=%s liveOw=%s liveSame=%s battleActive=%s phase=%s pendingSync=%s flushedOnce=%s pendingMap=%s spawnAtPlayer=%s desired=%s trailers=%s entities=%s npcs=%s",
+    tostring(tag),
+    tostring(ow and ow.map and ow.map.id),
+    tostring(ow),
+    tostring(live),
+    tostring(liveSame),
+    tostring(ow and ow.battleActive),
+    tostring(self._battleReturnPhase),
+    tostring(self._pendingBattleReturnSync),
+    tostring(self._battleReturnFlushedOnce),
+    tostring(self._pendingMapTrailerSync),
+    tostring(self._pendingSpawnAtPlayer),
+    tostring(desired),
+    tostring(#trailers),
+    tostring(ow and ow.entities and #ow.entities or 0),
+    tostring(ow and ow.npcs and #ow.npcs or 0))
+  for i, npc in ipairs(trailers) do
+    local inTrailers = self:_identityInList(trailers, npc)
+    logInfo(self.mod,
+      "[BattleReturn][%s] trailer[%d] id=%s obj=%s inTrailers=%s inEntities=%s inNpcs=%s pokepcTrailer=%s kind=%s wildsFollower=%s attached=%s",
+      tostring(tag), i,
+      tostring(npc and npc.id),
+      tostring(npc),
+      tostring(inTrailers),
+      tostring(self:_identityInList(ow and ow.entities, npc)),
+      tostring(self:_identityInList(ow and ow.npcs, npc)),
+      tostring(npc and npc.pokepcTrailer),
+      tostring(npc and npc.pokepcTrailerKind),
+      tostring(npc and npc.wildsFollower),
+      tostring(self:_isTrailerAttached(ow, npc)))
+  end
+end
+
 function ControlEngine:_attachTrailer(game, ow, npc)
   if not (ow and npc) then return end
   local GameCompat = V.require("game_compat")
@@ -233,6 +397,11 @@ function ControlEngine:_attachTrailer(game, ow, npc)
   end
   for _, e in ipairs(ow.entities or {}) do
     if e == npc then inEntities = true break end
+  end
+  if self:_battleReturnActive() then
+    self:_traceBattleReturn("attachTrailer", game, ow, {
+      id = npc.id, inNpcs = inNpcs, inEntities = inEntities,
+    })
   end
   logGen2(self.mod,
     "attached=%s inNpcs=%s inEntities=%s npcs=%s entities=%s id=%s",
@@ -1103,6 +1272,9 @@ end
 
 function ControlEngine:removeTrailers(ow)
   if not ow then return end
+  if self:_battleReturnActive() then
+    self:_traceBattleReturn("removeTrailers", self:_game(), ow)
+  end
   local keepNpcs, keepEnt = {}, {}
   for _, npc in ipairs(ow.npcs or {}) do
     if not npc.pokepcTrailer then keepNpcs[#keepNpcs + 1] = npc end
@@ -1997,10 +2169,16 @@ end
 local function trailersAliveInWorld(ow, trailers)
   if not trailers or #trailers == 0 then return true end
   local ents = ow.entities or {}
+  local npcs = ow.npcs or {}
   for _, t in ipairs(trailers) do
     local found = false
     for _, e in ipairs(ents) do
       if e == t then found = true; break end
+    end
+    if not found then
+      for _, n in ipairs(npcs) do
+        if n == t then found = true; break end
+      end
     end
     if not found then return false end
   end
@@ -2075,6 +2253,9 @@ function ControlEngine:syncTrailers(game, ow, opts)
   -- frame before the new map is fully live), so it keeps the pending
   -- map-entry seed and retries on the next update instead of letting the
   -- pack materialize behind the player.
+  if self:_battleReturnActive() then
+    self:_traceBattleReturn("syncTrailers", game, ow)
+  end
   if not ow or not ow.player or not ow.map then
     local reason = (not ow and "no_world")
       or (not ow.player and "missing player")
@@ -2144,6 +2325,18 @@ function ControlEngine:syncTrailers(game, ow, opts)
   local dirty = compositionDirty(trailers, want)
     or not trailersAliveInWorld(ow, trailers)
     or countChanged
+  -- Late people-list rebuilds drop guests from ow.entities/npcs while
+  -- pokepcTrailers still holds the same objects. Reinsert those objects
+  -- instead of treating the miss as a species-swap (which never attaches).
+  if #trailers > 0 and not trailersAliveInWorld(ow, trailers) then
+    if self:_battleReturnActive() then
+      self:_traceBattleReturn("syncTrailers.missingFromWorld", game, ow)
+    end
+    self:_ensureTrailersAttached(game, ow)
+    dirty = compositionDirty(trailers, want)
+      or not trailersAliveInWorld(ow, trailers)
+      or countChanged
+  end
   if not dirty and not mapEnter and #trailers > 0 then
     self.diag.lastSeed = "kept"
   end
@@ -2948,6 +3141,14 @@ function ControlEngine:update(game, ow, opts)
   if self._inControlUpdate then return false, "reentrant" end
   game = game or self:_game()
   ow = self:_liveOw(game, ow)
+  if self:_battleReturnActive() then
+    local fresh = self:_freshOw(game)
+    if fresh and fresh ~= ow then
+      self:_traceBattleReturn("update.owReplaced", game, fresh)
+      ow = fresh
+    end
+    self:_traceBattleReturn("update", game, ow)
+  end
   -- Always run when a pending sync is queued (stepper menu changed the count
   -- while the world was paused).  Otherwise skip if trailers aren't needed.
   if not self._pendingMapTrailerSync
@@ -2987,6 +3188,12 @@ function ControlEngine:update(game, ow, opts)
         -- World not live yet (transitional frame): keep the pending entry
         -- so the next update still parks the pack at the player instead of
         -- seeding it behind his facing.
+        self._pendingMapTrailerSync = true
+        self._pendingSpawnAtPlayer = spawnAtPlayer
+      elseif self:_battleReturnActive()
+          and not self:_allTrailersIdentityAttached(ow) then
+        -- Battle-return: a late people rebuild may still wipe guests.
+        -- Keep the pending seed until identity is verified.
         self._pendingMapTrailerSync = true
         self._pendingSpawnAtPlayer = spawnAtPlayer
       else
@@ -3117,10 +3324,7 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
               end)
               if ok and type(p) == "string" then loadPath = p end
             end
-            if (love and love.filesystem and love.filesystem.getInfo
-                and love.filesystem.getInfo(loadPath))
-               or (love and love.filesystem and love.filesystem.getInfo
-                   and love.filesystem.getInfo(rel)) then
+            if WildsFs.assetExists(self.mod, rel) then
               local subPath = LuminanceSheet and LuminanceSheet.submergedFor(loadPath)
               if subPath then
                 local luma = useLuma and LuminanceSheet
@@ -3250,6 +3454,113 @@ function ControlEngine:alignSaveFromOptions(game)
   local mode = tostring(self:_opt("control_mode", "follow"))
   if mode == "lead" then mode = "lead_trainer" end
   game.save.pokepcControlMode = mode
+end
+
+function ControlEngine:onBattleEnded(game, ow, ev)
+  game = game or self:_game()
+  local source = ev and ev.source or "battle.ended"
+  -- Always re-resolve the live overworld. A passed-in ow can be the
+  -- pre-rebuild instance the engine is about to replace.
+  local prevOw = self._battleReturnOw
+  ow = self:_freshOw(game) or ow
+  if prevOw and ow and prevOw ~= ow then
+    self:_adoptRememberedTrailers(ow)
+    self:_traceBattleReturn("owReplaced", game, ow, { force = true })
+  end
+  self._battleReturnOw = ow
+  self:_rememberBattleTrailers(ow)
+
+  if source == "battle.ended" then
+    -- Mirror map.entered: mark pending and wait for a STABLE overworld.
+    -- Immediate update() races the engine's post-battle people rebuild.
+    self._battleReturnPhase = "pending"
+    self._battleReturnChecks = 0
+    self._pendingBattleReturnSync = true
+    self._pendingMapTrailerSync = true
+    self._pendingSpawnAtPlayer = true
+    self._battleReturnFlushedOnce = false
+    self:_traceBattleReturn("onBattleEnded", game, ow)
+    if ow and ow.battleActive then
+      return false, "battle_active"
+    end
+    return true, "pending"
+  end
+
+  self._pendingBattleReturnSync = true
+  self._pendingMapTrailerSync = true
+  self._pendingSpawnAtPlayer = true
+  if ow and ow.battleActive then
+    self:_traceBattleReturn(source, game, ow)
+    return false, "battle_active"
+  end
+  if not (ow and ow.map and ow.player) then
+    self:_traceBattleReturn(source, game, ow)
+    return false, "no_overworld"
+  end
+
+  local logic = self.mod and self.mod.exports and self.mod.exports.logic
+  if logic and logic.activeMapId and ow.map.id
+     and logic.activeMapId ~= ow.map.id then
+    self:_traceBattleReturn("map_mismatch", game, ow)
+    self:_clearBattleReturn()
+    return false, "map_mismatch"
+  end
+
+  -- Reattach existing trailer objects to the CURRENT lists first.
+  -- Do not recreate sprites when the same NPCs are still in pokepcTrailers.
+  local ensured = self:_ensureTrailersAttached(game, ow)
+  local want = self:followerCount(game) or 0
+  if (not ow.pokepcTrailers or #ow.pokepcTrailers == 0) and want > 0 then
+    local ok, err = pcall(function()
+      self:update(game, ow, {
+        mapEnter = true,
+        force = true,
+        source = "battle_return",
+      })
+    end)
+    if not ok then
+      logWarn(self.mod, "battle-return follower sync failed: %s", tostring(err))
+    end
+    ensured = self:_allTrailersIdentityAttached(ow)
+  end
+
+  self._battleReturnChecks = (self._battleReturnChecks or 0) + 1
+  local identityOk = self:_allTrailersIdentityAttached(ow)
+    or (want <= 0)
+  self:_traceBattleReturn(source, game, ow, {
+    ensured = ensured, identityOk = identityOk,
+  })
+
+  -- Bounded: pending → first_live (tick) → verify (world.stepped) → complete.
+  -- Ticks must not complete: a late people rebuild can still happen after
+  -- the first successful attach.
+  if identityOk then
+    if source == "world.stepped" then
+      if self._battleReturnPhase == "verify" then
+        self:_clearBattleReturn()
+      else
+        self._battleReturnPhase = "verify"
+      end
+    elseif self._battleReturnPhase == "pending" then
+      self._battleReturnPhase = "first_live"
+    end
+  elseif self._battleReturnChecks >= 3 then
+    self:_clearBattleReturn()
+  else
+    self._battleReturnPhase = self._battleReturnPhase or "pending"
+  end
+
+  local attached = (ow.pokepcTrailers and #ow.pokepcTrailers) or 0
+  logGen2(self.mod,
+    "battleReturn source=%s phase=%s followersDesired=%s followersAttached=%s identity=%s",
+    tostring(source), tostring(self._battleReturnPhase),
+    tostring(want), tostring(attached), tostring(identityOk))
+  return true, {
+    desired = want,
+    attached = attached,
+    identity = identityOk,
+    phase = self._battleReturnPhase,
+  }
 end
 
 function ControlEngine:syncAll(game, ow)

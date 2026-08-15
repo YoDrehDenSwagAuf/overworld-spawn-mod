@@ -473,6 +473,18 @@ function Follower:onMapReloaded(ev)
   engine._pendingSpawnAtPlayer = true
 end
 
+--- Battle → overworld: resync trailers without duplicating them.
+-- Parks the pack at the player (map-enter style) so the trail expands on
+-- the next steps. Does not run if the live map no longer matches.
+function Follower:onBattleEnded(ev)
+  if not self.control or not self.control._installed then return end
+  local engine = self.control
+  local game = ev and ev.game
+    or (self.mod and self.mod.world and self.mod.world.game)
+  -- Never pass a cached ow: engine re-resolves GameCompat.liveOverworld.
+  pcall(function() engine:onBattleEnded(game, nil, ev) end)
+end
+
 function Follower:onSaveLoaded()
   local game = self.mod and self.mod.world and self.mod.world.game
   self.settings:alignSave(game)

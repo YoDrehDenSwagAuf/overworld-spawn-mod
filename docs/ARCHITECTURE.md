@@ -141,8 +141,8 @@ loadPath     = mod.assets:path(relativePath)
 ```
 
 `SpriteRenderer.def.image` and `Assets.image` always use `loadPath`.
-Existence is checked via `mod.read(relative)` / Assets on `loadPath`, never via
-`love.filesystem.getInfo(relative)` alone.
+Existence is checked via `WildsFs` (`mod:read` / engine Assets), never via
+the blocked sandbox filesystem module.
 
 ## Non-negotiables
 

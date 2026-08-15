@@ -374,6 +374,16 @@ function GameCompat.entityInDrawList(ow, entity, game)
   return listHas(ow.entities, entity)
 end
 
+function GameCompat.containerMembership(ow, entity)
+  if not ow or not entity then
+    return { entities = false, npcs = false }
+  end
+  return {
+    entities = listHas(ow.entities, entity),
+    npcs = listHas(ow.npcs, entity),
+  }
+end
+
 --- Insert a follower / town guest without wild-spawn flags.
 -- Gold World:drawPeople / rebuildPeople keep non-map NPCs as guests.
 -- Native Gold NPC:draw already accepts (ox, oy, scale); only wrap guests

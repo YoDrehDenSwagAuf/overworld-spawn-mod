@@ -27,15 +27,16 @@ local savedOpts = {
 }
 local fsPaths = {}
 
-love = love or {}
-love.filesystem = {
-  getInfo = function(path)
-    if fsPaths[path] then return { type = "file" } end
-    local f = io.open(path, "rb") or io.open("./" .. tostring(path), "rb")
-    if f then f:close(); return { type = "file" } end
-    return nil
-  end,
-}
+package.preload["src.render.Assets"] = function()
+  return {
+    exists = function(path)
+      if fsPaths[path] then return true end
+      local f = io.open(path, "rb") or io.open("./" .. tostring(path), "rb")
+      if f then f:close(); return true end
+      return false
+    end,
+  }
+end
 
 -- True Size / swimming luma only run when SpriteRenderer exposes geometry APIs.
 package.preload["src.render.SpriteRenderer"] = function()

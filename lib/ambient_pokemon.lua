@@ -82,6 +82,8 @@ function AmbientPokemon.new(mod, opts)
   self.follower = opts.follower
   self.active = {} -- npc -> true
   self.activeMapId = nil
+  self._pendingBattleReturnReconcile = false
+  self._battleReturnFlushedOnce = false
   self._talkWrapped = false
   self._talkOrig = nil
   self._installed = false
@@ -734,6 +736,8 @@ local function liveOw(self)
 end
 
 function AmbientPokemon:onMapEntered(ev)
+  self._pendingBattleReturnReconcile = false
+  self._battleReturnFlushedOnce = false
   local ow, game = liveOw(self)
   if not ow then return end
   local mapId = ev and (ev.mapId or (ev.map and ev.map.id))
@@ -747,6 +751,61 @@ function AmbientPokemon:onMapExited(ev)
   local ow = liveOw(self)
   self:clearAll(ow)
   self.activeMapId = nil
+  self._pendingBattleReturnReconcile = false
+  self._battleReturnFlushedOnce = false
+end
+
+-- Reattach curated town guests after the engine rebuilds ow.npcs / ow.entities.
+-- Does not roll a new town set when the existing NPCs can be reinserted.
+function AmbientPokemon:reconcileAfterBattle(ow, game, source)
+  ow = ow or select(1, liveOw(self))
+  game = game or (self.mod and self.mod.world and self.mod.world.game)
+  if not ow or not ow.map or not ow.player then
+    return false, "no_overworld"
+  end
+  if ow.battleActive then return false, "battle_active" end
+  if self.activeMapId and self.activeMapId ~= ow.map.id then
+    self._pendingBattleReturnReconcile = false
+    return false, "map_mismatch"
+  end
+  local GameCompat = V.require("game_compat")
+  local missing, reattached = 0, 0
+  for npc in pairs(self.active) do
+    if npc then
+      local attached = GameCompat.entityInDrawList(ow, npc, game)
+      if not attached then
+        missing = missing + 1
+        GameCompat.attachGuestEntity(ow, npc, game)
+        if GameCompat.entityInDrawList(ow, npc, game) then
+          reattached = reattached + 1
+        end
+      end
+    end
+  end
+  if Config.debug(self.mod) then
+    DebugLog.info(self.mod,
+      "[BattleReturn] %s ambientMissing=%d ambientReattached=%d ambient=%d",
+      tostring(source or "reconcile"), missing, reattached, self:countActive())
+  end
+  return true, { missing = missing, reattached = reattached, attached = self:countActive() }
+end
+
+function AmbientPokemon:onBattleEnded(ev)
+  self._pendingBattleReturnReconcile = true
+  local ow, game = liveOw(self)
+  local source = ev and ev.source or "battle.ended"
+  if source ~= "world.stepped" and self._battleReturnFlushedOnce then
+    return true, "already_flushed"
+  end
+  local ok, info = self:reconcileAfterBattle(ow, game, source)
+  if ok then
+    self._battleReturnFlushedOnce = true
+    if source == "world.stepped" then
+      self._pendingBattleReturnReconcile = false
+      self._battleReturnFlushedOnce = false
+    end
+  end
+  return ok, info
 end
 
 function AmbientPokemon:onTownPokemonToggled(on, game)

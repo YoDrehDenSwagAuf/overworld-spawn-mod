@@ -8,6 +8,7 @@
 local V = ...
 local Config = V.require("config")
 local LuminanceSheet = V.require("luminance_sheet")
+local WildsFs = V.require("wilds_fs")
 local EncounterPick = V.require("encounter_pick")
 local EncounterIndex = V.require("encounter_index")
 local Grass = V.require("grass")
@@ -70,6 +71,8 @@ function SpawnLogic.new(mod, render)
   self.stepsOnMap = 0
   self.activeMapId = nil
   self.pendingBattle = nil
+  self._pendingBattleReturnReconcile = false
+  self._battleReturnFlushedOnce = false
   self.nextId = 1
   self.grassCache = nil
   self.eligibleCache = nil
@@ -213,7 +216,7 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
   local game = opts.game or gameOf(self.mod)
 
   -- When the GSC / Poke Followers sprite style is selected, try the
-  -- poke_followers submerged sheet directly (fsExists, no mod:read).
+  -- poke_followers submerged sheet via packaged asset existence (cached).
   -- Otherwise fall through to the swimming/levitates registry so the
   -- selected style (e.g. HGSS) is respected.
   local style = opts.style or Config.spriteStyle(self.mod)
@@ -243,10 +246,7 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
         local ok, p = pcall(function() return self.mod.assets:path(rel) end)
         if ok and type(p) == "string" then loadPath = p end
       end
-      if (love and love.filesystem and love.filesystem.getInfo
-          and love.filesystem.getInfo(loadPath))
-         or (love and love.filesystem and love.filesystem.getInfo
-             and love.filesystem.getInfo(rel)) then
+      if WildsFs.assetExists(self.mod, rel) then
         local subPath = LuminanceSheet.submergedFor(loadPath)
         if subPath then
           local luma = LuminanceSheet.pathFor(subPath)
@@ -285,10 +285,7 @@ function SpawnLogic:resolveWaterSprite(speciesId, isShiny, form, opts)
         local ok, p = pcall(function() return self.mod.assets:path(rel) end)
         if ok and type(p) == "string" then loadPath = p end
       end
-      if (love and love.filesystem and love.filesystem.getInfo
-          and love.filesystem.getInfo(loadPath))
-         or (love and love.filesystem and love.filesystem.getInfo
-             and love.filesystem.getInfo(rel)) then
+      if WildsFs.assetExists(self.mod, rel) then
         local subPath = LuminanceSheet.submergedFor(loadPath)
         if subPath then
           return {
@@ -561,6 +558,8 @@ function SpawnLogic:clearAll()
     self:_clearMap(mapId)
   end
   self.pendingBattle = nil
+  self._pendingBattleReturnReconcile = false
+  self._battleReturnFlushedOnce = false
   self.grassCache = nil
   self.eligibleCache = nil
   self.regions = {}
@@ -1024,6 +1023,179 @@ function SpawnLogic:entityRegisteredInWorld(id)
   local ow = self:_ow(game)
   if GameCompat.entityInDrawList(ow, entity, game) then return true end
   return self.render:isEntityRegistered(ow, entity)
+end
+
+-- Cached registeredInWorld is not authoritative after engine lifecycle
+-- rebuilds (battle return / setMap / rebuildPeople). Identity in the live
+-- draw list is the source of truth.
+function SpawnLogic:_isEntityActuallyAttached(entity, ow, game)
+  if not entity or not ow then return false end
+  game = game or gameOf(self.mod)
+  if GameCompat.entityInDrawList(ow, entity, game) then return true end
+  if self.render and self.render.isEntityRegistered then
+    return self.render:isEntityRegistered(ow, entity) == true
+  end
+  return false
+end
+
+function SpawnLogic:_shouldReattachAfterBattle(entity)
+  if not entity then return false end
+  if entity.state == Config.STATE.REMOVED or entity.removed == true then
+    return false
+  end
+  local record = entity.id and self.spawns[entity.id]
+  if record then
+    if record.state == Config.STATE.REMOVED then return false end
+    if record.state == Config.STATE.ENCOUNTER_STARTING then return false end
+    if record.state == Config.STATE.IN_BATTLE then return false end
+  end
+  -- Hidden / unrevealed bodies stay logical-only (existing _attach rule).
+  if entity.hiddenEncounter or entity.visibleSprite == false then
+    return false
+  end
+  if entity.hiddenBody == true then return false end
+  return true
+end
+
+local function countList(list)
+  if type(list) ~= "table" then return 0 end
+  local n = 0
+  if list[1] ~= nil or #list > 0 then
+    return #list
+  end
+  for _ in pairs(list) do n = n + 1 end
+  return n
+end
+
+function SpawnLogic:_countLogicEntities()
+  local n = 0
+  for _, entity in pairs(self.entities or {}) do
+    if entity then n = n + 1 end
+  end
+  return n
+end
+
+function SpawnLogic:_countAttachedEntities(ow, game)
+  local n = 0
+  for _, entity in pairs(self.entities or {}) do
+    if entity and self:_isEntityActuallyAttached(entity, ow, game) then
+      n = n + 1
+    end
+  end
+  return n
+end
+
+function SpawnLogic:_logBattleReturn(fmt, ...)
+  if not Config.devMode(self.mod) then return end
+  DebugLog.info(self.mod, "[BattleReturn] " .. fmt, ...)
+end
+
+function SpawnLogic:_snapshotBattleReturn(ow, game, tag)
+  if not Config.devMode(self.mod) then return end
+  local followerN = 0
+  if ow and ow.pokepcTrailers then followerN = #ow.pokepcTrailers end
+  local ambient = self.mod and self.mod.exports and self.mod.exports.ambient
+  local ambientN = 0
+  if ambient and ambient.countActive then
+    ambientN = ambient:countActive() or 0
+  end
+  self:_logBattleReturn(
+    "%s map=%s wilds=%d attached=%d ow.entities=%d ow.npcs=%d followers=%d ambient=%d pending=%s",
+    tostring(tag),
+    tostring(ow and ow.map and ow.map.id),
+    self:_countLogicEntities(),
+    self:_countAttachedEntities(ow, game),
+    countList(ow and ow.entities),
+    countList(ow and ow.npcs),
+    followerN,
+    ambientN,
+    tostring(self._pendingBattleReturnReconcile == true))
+end
+
+-- True when the live overworld can accept guest reattachment. Gold sets
+-- battleActive while the battle screen is up; battle.ended fires then.
+function SpawnLogic:_overworldReadyForBattleReturn(ow)
+  if not ow or not ow.map or not ow.player then return false, "no_overworld" end
+  if ow.battleActive then return false, "battle_active" end
+  if self.activeMapId ~= nil and self.activeMapId ~= ow.map.id then
+    return false, "map_mismatch"
+  end
+  return true
+end
+
+-- Reattach surviving Wilds that the engine dropped from ow.entities / ow.npcs.
+-- Does not respawn, reroll, or call onMapEntered.
+function SpawnLogic:reconcileAfterBattle(source)
+  local game = gameOf(self.mod)
+  local ow = self:_ow(game)
+  local ready, why = self:_overworldReadyForBattleReturn(ow)
+  if not ready then
+    return false, why or "not_ready"
+  end
+
+  local missing, reattached = 0, 0
+  for _, entity in pairs(self.entities or {}) do
+    if entity and self:_shouldReattachAfterBattle(entity) then
+      local membership = GameCompat.containerMembership(ow, entity)
+      local attached = self:_isEntityActuallyAttached(entity, ow, game)
+      if Config.devMode(self.mod) then
+        self:_logBattleReturn(
+          "entity id=%s registeredInWorld=%s presentInOwEntities=%s presentInOwNpcs=%s",
+          tostring(entity.id),
+          tostring(entity.registeredInWorld == true),
+          tostring(membership.entities),
+          tostring(membership.npcs))
+      end
+      if not attached then
+        missing = missing + 1
+        -- Stale cache: engine rebuilt people lists without this guest.
+        entity.registeredInWorld = false
+        entity.registered2D = false
+        local ok = self:_attach(entity)
+        if ok and self:_isEntityActuallyAttached(entity, ow, game) then
+          reattached = reattached + 1
+        end
+      end
+    end
+  end
+
+  if reattached > 0 then
+    self:rebuildOccupancy(ow)
+  end
+
+  self:_logBattleReturn(
+    "%s wildsMissing=%d wildsReattached=%d wildsAttached=%d",
+    tostring(source or "reconcile"),
+    missing, reattached, self:_countAttachedEntities(ow, game))
+
+  return true, {
+    missing = missing,
+    reattached = reattached,
+    attached = self:_countAttachedEntities(ow, game),
+  }
+end
+
+function SpawnLogic:flushBattleReturnReconcile(source)
+  if not self._pendingBattleReturnReconcile then return false, "idle" end
+  local ok, info = self:reconcileAfterBattle(source)
+  if ok == false and info == "map_mismatch" then
+    -- Normal map.entered owns the new route. Do not carry old-map Wilds.
+    self._pendingBattleReturnReconcile = false
+    self._battleReturnFlushedOnce = false
+    self:_logBattleReturn("%s skipped map_mismatch", tostring(source))
+    return false, "map_mismatch"
+  end
+  if ok then
+    if source == "world.stepped" then
+      self._pendingBattleReturnReconcile = false
+      self._battleReturnFlushedOnce = false
+      self:_snapshotBattleReturn(self:_ow(), gameOf(self.mod), "AFTER")
+    else
+      self._battleReturnFlushedOnce = true
+    end
+    return true, info
+  end
+  return false, info
 end
 
 function SpawnLogic:_logMapDiagnostics(mapId, game, encDef)
@@ -2533,6 +2705,8 @@ function SpawnLogic:onMapEntered(ev)
   self.targetSpawnCount = 0
   self.surfaceInfo = nil
   self.pendingBattle = nil
+  self._pendingBattleReturnReconcile = false
+  self._battleReturnFlushedOnce = false
 
   self:_clearMap(mapId)
   if self.overlay then self.overlay:clear() end
@@ -2967,6 +3141,12 @@ function SpawnLogic:onStepped(ev)
   self.state.updateCallbackCount = self.state.updateCallbackCount + 1
   self.state.updateCallbackActive = true
 
+  -- Battle return: first valid overworld step after the engine may have
+  -- rebuilt people lists. Event-driven; not a per-frame scan.
+  if self._pendingBattleReturnReconcile then
+    self:flushBattleReturnReconcile("world.stepped")
+  end
+
   -- Flat↔Voxel: rebind True Size ↔ Classic (size follows sprite_style).
   self:_pollTrueSizeEffectiveMode()
 
@@ -3078,7 +3258,23 @@ function SpawnLogic:_logDiag()
 end
 
 function SpawnLogic:onBattleEnded()
+  -- The battled Pokémon was already despawned in _startBattle. Do not
+  -- recreate it. Nearby Wilds / guests may still be in logic.entities with
+  -- a stale registeredInWorld after the engine rebuilds ow.entities/npcs.
   self.pendingBattle = nil
+  self._pendingBattleReturnReconcile = true
+  self._battleReturnFlushedOnce = false
+
+  local game = gameOf(self.mod)
+  local ow = self:_ow(game)
+  self:_snapshotBattleReturn(ow, game, "BEFORE")
+  self:_logBattleReturn("battle.ended pendingReconcile=true")
+
+  -- Gold emits battle.ended while the battle screen is still up
+  -- (ow.battleActive). Gen1 emits it just after pop, before the return fade
+  -- and afterBattle. Never attach here if the live world is not ready; the
+  -- first behavior tick / world.stepped completes reconciliation.
+  self:flushBattleReturnReconcile("battle.ended")
 end
 
 function SpawnLogic:onCollision(allowed, ctx)

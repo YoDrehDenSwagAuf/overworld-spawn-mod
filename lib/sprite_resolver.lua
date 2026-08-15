@@ -9,6 +9,7 @@ local Surface = V.require("surface")
 local AnimatedSprites = V.require("animated_sprites")
 local Behavior = V.require("behavior")
 local LuminanceSheet = V.require("luminance_sheet")
+local WildsFs = V.require("wilds_fs")
 
 local function waterUsesLuminance(mod)
   if Config and type(Config.waterArtUsesLuminance) == "function" then
@@ -268,7 +269,7 @@ function SpriteResolver:resolveWaterSprite(entity, context)
   -- the user's chosen style (e.g. HGSS) is respected.
   -- The submerged look is DERIVED at load from the coloured poke_followers
   -- LAND sheet via LuminanceSheet.submergedFor (waterline mask + foam/blue
-  -- water line, cached in the save dir) — no separate _submerged.png files.
+  -- water line, cached after first derive) — no separate _submerged.png files.
   local useGscSubmerged = false
   if Config and type(Config.normalizeSpriteStyle) == "function" then
     useGscSubmerged = Config.normalizeSpriteStyle(style) == "followers"
@@ -308,10 +309,7 @@ function SpriteResolver:resolveWaterSprite(entity, context)
           local ok, p = pcall(function() return self.mod.assets:path(rel) end)
           if ok and type(p) == "string" then loadPath = p end
         end
-        if (love and love.filesystem and love.filesystem.getInfo
-            and love.filesystem.getInfo(loadPath))
-           or (love and love.filesystem and love.filesystem.getInfo
-               and love.filesystem.getInfo(rel)) then
+        if WildsFs.assetExists(self.mod, rel) then
           local subPath = LuminanceSheet.submergedFor(loadPath)
           if subPath then
             local luma = useLuma and LuminanceSheet.pathFor(subPath) or nil

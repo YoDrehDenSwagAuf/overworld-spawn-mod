@@ -69,6 +69,13 @@
   `GameVersion.generation(id)` when the engine module is present.
 - Gen1 True Size / diagnostic dex cap (`151`) is owned by `Gen1.MAX_SPECIES`.
 
+## 2.1.5
+
+### Compatibility fixes
+
+- Updated compatibility with the newest Gen1Recomp sandbox.
+- Fixed Wilds/followers/town Pokémon disappearing after battles.
+- Fixed follower reattachment after returning to the overworld.
 
 ## 2.0.2
 

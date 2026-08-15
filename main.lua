@@ -214,6 +214,10 @@ return function(mod)
       logic:_restoreVanillaEncounters("map.entered error")
     end
     if supports("followers") then
+      if Config.devMode(mod) then
+        DebugLog.info(mod, "[BattleReturn][map.entered] map=%s",
+          tostring(ev and ev.mapId))
+      end
       pcall(function() follower:onMapEntered(ev) end)
     end
     if supports("ambient") then
@@ -250,6 +254,10 @@ return function(mod)
     -- WIP merge: hide followers during the reload and re-sync them at the
     -- player once the map is live again (healing animation, etc.).
     if supports("followers") then
+      if Config.devMode(mod) then
+        DebugLog.info(mod, "[BattleReturn][map.reloaded] map=%s reason=%s",
+          tostring(ev and ev.mapId), tostring(ev and ev.reason))
+      end
       pcall(function() follower:onMapReloaded(ev) end)
     end
   end)
@@ -278,12 +286,38 @@ return function(mod)
     -- to the first game step so all external mods have loaded.
     if supports("followers") then
       pcall(function() follower:processPendingExternalModCleanup() end)
+      if logic._pendingBattleReturnReconcile
+         or (follower.control and (follower.control._pendingBattleReturnSync
+           or follower.control:_battleReturnActive())) then
+        if Config.devMode(mod) then
+          DebugLog.info(mod, "[BattleReturn][world.stepped] map=%s",
+            tostring(ev and ev.mapId))
+        end
+        pcall(function() follower:onBattleEnded({ source = "world.stepped" }) end)
+      end
     end
+    if supports("ambient") and ambient and ambient._pendingBattleReturnReconcile then
+      pcall(function() ambient:onBattleEnded({ source = "world.stepped" }) end)
+    end
+    pcall(function() logic:rebuildOccupancy() end)
   end)
 
   mod.events:on("battle.ended", function()
-    if not supports("encounters") then return end
-    logic:onBattleEnded()
+    if supports("encounters") then
+      logic:onBattleEnded()
+    end
+    if supports("followers") then
+      if Config.devMode(mod) then
+        DebugLog.info(mod, "[BattleReturn][battle.ended]")
+      end
+      pcall(function() follower:onBattleEnded({ source = "battle.ended" }) end)
+    end
+    if supports("ambient") then
+      pcall(function() ambient:onBattleEnded({ source = "battle.ended" }) end)
+    end
+    if supports("encounters") then
+      pcall(function() logic:rebuildOccupancy() end)
+    end
   end)
 
   mod.events:on("save.loaded", function()
@@ -506,7 +540,7 @@ return function(mod)
 
   -- ------- exports (companion / debug / test surface)
 
-  mod.exports.version = "2.1.0"
+  mod.exports.version = "2.1.5"
   mod.exports.gameCompat = GameCompat
   mod.exports.supportsFeature = function(feature)
     return supports(feature)

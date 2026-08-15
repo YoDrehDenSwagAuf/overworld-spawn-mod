@@ -185,6 +185,23 @@ function BehaviorTick:step(ctx)
     logic.spawnFx:update(dt)
   end
 
+  -- One-shot battle-return reattach when the overworld is live again.
+  -- Gold fires battle.ended while battleActive; skip until that clears.
+  -- world.stepped still runs a second pass and clears the pending flag.
+  if logic._pendingBattleReturnReconcile and not logic._battleReturnFlushedOnce then
+    pcall(function() logic:flushBattleReturnReconcile("tick") end)
+  end
+  local ambient = self.mod.exports and self.mod.exports.ambient
+  if ambient and ambient._pendingBattleReturnReconcile
+     and not ambient._battleReturnFlushedOnce then
+    pcall(function() ambient:onBattleEnded({ source = "tick" }) end)
+  end
+  local follower = logic.follower or (self.mod.exports and self.mod.exports.follower)
+  if follower and follower.control
+     and follower.control._battleReturnPhase == "pending" then
+    pcall(function() follower:onBattleEnded({ source = "tick" }) end)
+  end
+
   local occupancy = logic.rebuildOccupancy and logic:rebuildOccupancy(ow) or logic.occupancy
 
   -- Optional Followers EX water sprite swap (once per state change).

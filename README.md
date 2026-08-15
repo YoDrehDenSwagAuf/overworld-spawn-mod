@@ -33,6 +33,14 @@ The mod targets **Gen 1 + Gen 2** in Gen1Recomp's Mod Manager.
 - Experimental Pokémon Gold / Gen 2 support (beta) — see below
 - Dramatic Shape Voxel compatibility
 
+## Compatibility Fixes — v2.1.5
+
+- Updated Wilds for compatibility with the newest Gen1Recomp mod sandbox.
+- Replaced deprecated/direct filesystem access with the supported mod asset APIs.
+- Fixed Wild Pokémon, town Pokémon and followers disappearing after returning from battle.
+- Improved post-battle follower reattachment so followers return immediately on the same map instead of waiting for the next map transition.
+- No gameplay or sprite behavior changes intended.
+
 ## Pokémon Gold / Gen 2 Support — Beta
 
 Wilds of Kanto now includes experimental support for Pokémon Gold through
@@ -202,6 +210,9 @@ Legacy Followers EX / PokéPC installs are detected only for settings migration.
 - Pokémon Yellow
 - Pokémon Gold (beta)
 - Dramatic Shape Voxel Mod
+
+Updated asset/cache access for compatibility with the newest Gen1Recomp mod
+sandbox.
 
 ## Credits
 
