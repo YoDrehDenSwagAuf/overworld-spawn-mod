@@ -1035,6 +1035,7 @@ end
 
 restoreLandSprite = function(entity, ctx)
   if not entity then return end
+  local oldSurface = entity.surface
   local committed = entity.originSurface or entity.surface or Surface.GRASS
   if committed == Surface.WATER then
     committed = Surface.GRASS
@@ -1060,6 +1061,7 @@ restoreLandSprite = function(entity, ctx)
   elseif entity.render and entity.render.applyProviderSprite then
     pcall(entity.render.applyProviderSprite, entity.render, entity, game)
   end
+  logWaterTransition(entity, "entered_land", oldSurface, committed)
 end
 
 rollbackLandToWaterEntry = function(entity, ctx, reason)
@@ -1186,9 +1188,27 @@ beginLandToWaterChaseStep = function(entity, map, player, nx, ny, ctx, delta)
   return true, "enter_water"
 end
 
+local function logWaterTransition(entity, event, oldSurface, newSurface)
+  local mod = entity and entity.mod
+  if not (mod and Config and Config.debug and Config.debug(mod)) then return end
+  local okLog, DebugLog = pcall(V.require, "debug_log")
+  if not (okLog and DebugLog and DebugLog.info) then return end
+  local SpeciesAssets = V.require("species_assets")
+  local species = entity.species
+  local assetId = SpeciesAssets.idFor(species) or SpeciesAssets.idFor(entity.enhancedDexId)
+  DebugLog.info(mod,
+    "[Wilds][WaterTransition] species=%s assetId=%s oldSurface=%s newSurface=%s event=%s",
+    tostring(species or "?"),
+    tostring(assetId or "?"),
+    tostring(oldSurface or "?"),
+    tostring(newSurface or "?"),
+    tostring(event or "?"))
+end
+
 applyWaterSurfaceTransition = function(entity, ctx)
   if not entity then return end
   local bx = entity.behaviorState
+  local oldSurface = entity.surface
   entity.originSurface = entity.originSurface or entity.surface or Surface.GRASS
   entity.surface = Surface.WATER
   entity.spriteState = "water"
@@ -1223,6 +1243,7 @@ applyWaterSurfaceTransition = function(entity, ctx)
   entity.waterSpriteApplied = true
   entity.waterSpritePrepared = true
   entity.lastSpriteRefreshReason = "entered_water"
+  logWaterTransition(entity, "entered_water", oldSurface, Surface.WATER)
 end
 
 local function landAdjacentToWater(map, x, y)
@@ -2149,6 +2170,29 @@ function Behavior.markChaseReady(entity)
   bx.chasing = true
   bx.leftHome = true
   bx.sightDisabled = true
+end
+
+-- Immediate land↔water presentation on the movement-completion frame.
+-- Does not consume pendingWaterEnter: Behavior.tick still emits entered_water
+-- and must not start a new AI step on the same tick.
+function Behavior.commitPendingSurfaceTransition(entity, ctx)
+  if not entity then return nil end
+  local bx = entity.behaviorState
+  if not bx or not bx.pendingWaterEnter then
+    return nil
+  end
+  if Movement.isBusy(entity) then
+    return nil
+  end
+  local map = ctx and ctx.map
+  if map and map.isWaterCell and entity.cellX ~= nil and entity.cellY ~= nil then
+    local ok, water = pcall(map.isWaterCell, map, entity.cellX, entity.cellY)
+    if ok and not water then
+      return nil
+    end
+  end
+  applyWaterSurfaceTransition(entity, ctx)
+  return "entered_water"
 end
 
 -- Arm overworld Safari flee after the shared emote bubble finishes.

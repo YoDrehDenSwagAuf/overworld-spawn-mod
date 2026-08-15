@@ -88,6 +88,21 @@ local function resolveDex(entity, game, mod)
   return SpeciesAssets.idFor(entity.species)
 end
 
+-- WaterSpriteRegistry keys on numeric Wilds asset IDs (tonumber).
+-- applyProviderSprite may pass mon.species ("RATTATA"); canonicalize first.
+-- Numeric 1..251 stay valid (idFor(19) == 19). Never use runtime mon.dex.
+local function resolveWaterAssetId(context, entity, game, mod)
+  local SpeciesAssets = V.require("species_assets")
+  local raw = context and context.speciesId
+  if raw == nil and entity then
+    raw = entity.species or entity.enhancedDexId
+  end
+  local id = SpeciesAssets.idFor(raw)
+  if id then return id, raw end
+  local fallback = resolveDex(entity, game, mod)
+  return SpeciesAssets.idFor(fallback) or fallback, raw
+end
+
 local function resolveVariant(entity)
   return AnimatedSprites.resolveRuntimeVariant(entity)
 end
@@ -211,7 +226,10 @@ function SpriteResolver:resolveWaterSprite(entity, context)
   context = context or {}
   local style = context.style or Config.spriteStyle(self.mod)
   local game = context.game
+  -- Keep the caller identity (species string or number) for land providers.
+  -- Registry / swimming / levitate sheets must use the canonical numeric id.
   local speciesId = context.speciesId or resolveDex(entity, game, self.mod)
+  local waterAssetId = select(1, resolveWaterAssetId(context, entity, game, self.mod))
   local variant = context.variant or resolveVariant(entity)
   local form = context.form or resolveForm(entity)
   local steps = {}
@@ -291,7 +309,7 @@ function SpriteResolver:resolveWaterSprite(entity, context)
   end
   if useGscSubmerged and not wantSilhouette and not wantHiddenShadow then
     local SpeciesAssets = V.require("species_assets")
-    local dex = SpeciesAssets.idFor(speciesId)
+    local dex = SpeciesAssets.idFor(waterAssetId or speciesId)
     if dex and type(dex) == "number" then
       -- Luminance-based shading: Gen1 non-ADVANCED derives a 3-shade
       -- luminance sheet from the colored submerged art (trueColor=false)
@@ -352,7 +370,7 @@ function SpriteResolver:resolveWaterSprite(entity, context)
               fallbackStep = 1, steps = steps, spriteState = "water",
               spriteKind = "submerged",
             }
-            self:_devLogWaterResolve(result, speciesId or dex, style)
+            self:_devLogWaterResolve(result, waterAssetId or speciesId or dex, style)
             return finish(result)
           end
         end
@@ -435,9 +453,9 @@ function SpriteResolver:resolveWaterSprite(entity, context)
   -- Flat silhouettes keep colour sheets + runtime tint (handled at draw).
   if self.waterRegistry and self.waterRegistry.ready then
     fallbackStep = fallbackStep + 1
-    local preferred = self.waterRegistry:preferredKindFor(speciesId)
+    local preferred = self.waterRegistry:preferredKindFor(waterAssetId)
     local waterDef, waterErr = self.waterRegistry:resolve(
-      speciesId, variant, preferred, form, {
+      waterAssetId, variant, preferred, form, {
         silhouette = wantSilhouette,
         style = styleNorm,
       })
@@ -525,12 +543,29 @@ function SpriteResolver:resolveWaterSprite(entity, context)
       if wildSilo and not waterDef.silhouette then
         self:_applyWildSilhouette(result)
       end
-      self:_devLogWaterResolve(result, speciesId, style)
+      self:_devLogWaterResolve(result, waterAssetId or speciesId, style)
+      self:_devLogWaterTransitionResolve(entity, context, speciesId, waterAssetId,
+        preferred, result, true)
       return result
     end
     steps[#steps + 1] = {
       providerId = "water_registry", ok = false, reason = waterErr or "unavailable",
     }
+    self:_devLogWaterTransitionResolve(entity, context, speciesId, waterAssetId,
+      preferred, {
+        spriteState = "water",
+        spriteKind = nil,
+        def = nil,
+        error = waterErr or "unavailable",
+      }, true)
+  else
+    self:_devLogWaterTransitionResolve(entity, context, speciesId, waterAssetId,
+      nil, {
+        spriteState = "water",
+        spriteKind = nil,
+        def = nil,
+        error = "registry_not_ready",
+      }, false)
   end
 
   -- 4–6) Built-in PokeMMO → Pokedex → black (ignore gold/followers land art).
@@ -570,7 +605,10 @@ end
 -- species+style+kind so HGSS vs Followers art families can be verified in-game.
 function SpriteResolver:_devLogWaterResolve(result, speciesId, style)
   if not result or not result.def then return end
-  if not (Config and Config.debug and Config.debug(self.mod)) then return end
+  if not (Config and ((Config.debug and Config.debug(self.mod))
+      or (Config.devMode and Config.devMode(self.mod)))) then
+    return
+  end
   self._waterDevLogged = self._waterDevLogged or {}
   local def = result.def
   local meta = result.meta or {}
@@ -620,11 +658,51 @@ function SpriteResolver:_devLogWaterResolve(result, speciesId, style)
     tostring(def.frameHeight or "?"))
 end
 
+-- DEV-only land↔water resolve trace (one line per species+style).
+function SpriteResolver:_devLogWaterTransitionResolve(
+    entity, context, speciesId, assetId, preferred, result, registryReady)
+  if not (Config and ((Config.debug and Config.debug(self.mod))
+      or (Config.devMode and Config.devMode(self.mod)))) then
+    return
+  end
+  self._waterTransitionLogged = self._waterTransitionLogged or {}
+  local species = (entity and entity.species) or speciesId or "?"
+  local key = string.format("%s|%s|%s",
+    tostring(species),
+    tostring((context and context.style) or "?"),
+    tostring((result and result.spriteKind) or (result and result.error) or "?"))
+  if self._waterTransitionLogged[key] then return end
+  self._waterTransitionLogged[key] = true
+  local DebugLog = V.require("debug_log")
+  if not (DebugLog and DebugLog.info) then return end
+  local def = result and result.def
+  DebugLog.info(self.mod,
+    "[Wilds][WaterResolve] species=%s assetId=%s style=%s spriteState=%s registryReady=%s preferred=%s resolved=%s image=%s frameWidth=%s frameHeight=%s",
+    tostring(species),
+    tostring(assetId or "?"),
+    tostring((context and context.style) or Config.spriteStyle(self.mod) or "?"),
+    tostring((result and result.spriteState) or "water"),
+    tostring(registryReady == true),
+    tostring(preferred or "?"),
+    tostring((result and (result.spriteKind or result.error)) or "?"),
+    tostring((def and def.image) or "?"),
+    tostring((def and def.frameWidth) or "?"),
+    tostring((def and def.frameHeight) or "?"))
+end
+
 function SpriteResolver:cacheKey(entity, context, state)
   context = context or {}
   local style = tostring(context.style or Config.spriteStyle(self.mod) or "pokemmo")
   local speciesId = context.speciesId or resolveDex(entity, context.game, self.mod)
     or (entity and (entity.species or entity.enhancedDexId)) or "?"
+  -- Water cache keys must use the canonical numeric id so "RATTATA" and 19
+  -- share one entry. Land keys keep the caller identity (species string).
+  if state == "water" then
+    local waterId = select(1, resolveWaterAssetId(context, entity, context.game, self.mod))
+    if waterId ~= nil then
+      speciesId = waterId
+    end
+  end
   local variant = tostring(context.variant or resolveVariant(entity) or "normal")
   local form = tostring(context.form or resolveForm(entity) or "default")
   state = state or "land"
@@ -686,6 +764,7 @@ end
 function SpriteResolver:invalidateCache()
   self.cache = {}
   self._waterDevLogged = {}
+  self._waterTransitionLogged = {}
   if self.waterRegistry and self.waterRegistry.invalidateCache then
     pcall(self.waterRegistry.invalidateCache, self.waterRegistry)
   end

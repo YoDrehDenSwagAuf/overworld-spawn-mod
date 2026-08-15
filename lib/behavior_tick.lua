@@ -525,6 +525,14 @@ function BehaviorTick:step(ctx)
         if done then
           if occupancy then occupancy:commitMove(entity) end
           Movement.refreshGrassFlag(entity, self.mod)
+          -- Surface presentation is immediate. AI planning stays on the
+          -- ~30 Hz path; pendingWaterEnter is left for Behavior.tick.
+          if bx and bx.pendingWaterEnter
+             and Behavior.commitPendingSurfaceTransition then
+            local bctx = self:_fillBehaviorCtx(
+              reuseCtx, ow, game, logic, occupancy, cfg, safariActive, entity, 0)
+            pcall(Behavior.commitPendingSurfaceTransition, entity, bctx)
+          end
         end
       end
 
@@ -570,12 +578,21 @@ function BehaviorTick:step(ctx)
             entity.shoreDistance = record.shoreDistance
             entity.waterZone = record.waterZone
           end
-          if logic.refreshEntitySprite then
+          local alreadyPresented = entity.surface == Surface.WATER
+            and entity.spriteState == "water"
+            and entity._wildsPresSpriteState == "water"
+            and (entity.spriteKind == "swimming"
+              or entity.spriteKind == "levitates"
+              or entity.spriteKind == "levitate"
+              or entity.spriteKind == "submerged"
+              or entity.waterSpriteApplied)
+          if logic.refreshEntitySprite and not alreadyPresented then
             pcall(logic.refreshEntitySprite, logic, entity, {
               reason = "entered_water",
               surface = Surface.WATER,
               spriteState = "water",
               game = game,
+              forcePresentationRefresh = true,
             })
           end
           DebugLog.info(self.mod, "land→water chase id=%s species=%s",

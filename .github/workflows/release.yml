@@ -97,7 +97,8 @@ jobs:
             tests/behavior_tick_perf_unit_test.lua \
             tests/occupancy_dirty_unit_test.lua \
             tests/perf_stats_unit_test.lua \
-            tests/voxel_adapter_perf_unit_test.lua
+            tests/voxel_adapter_perf_unit_test.lua \
+            tests/hgss_water_presentation_perf_unit_test.lua
           do
             echo "==> luajit $t"
             luajit "$t"

@@ -288,7 +288,43 @@ function SpawnRender:_warn(fmt, ...)
   self.mod.log:info("[WildsOfKanto][WARN] %s", msg)
 end
 
+local function isResolvedWaterKind(kind)
+  return kind == "swimming" or kind == "levitates" or kind == "levitate"
+    or kind == "submerged" or kind == "hidden_shadow"
+end
+
+local function shouldLogWaterApply(entity, options)
+  if not entity then return false end
+  local reason = entity.lastSpriteRefreshReason
+  if reason == "entered_water" or reason == "entered_land"
+     or reason == "prepare_water_entry" then
+    return true
+  end
+  return options and options.forcePresentationRefresh == true
+end
+
 -- DEV perf counters (no-op when BehaviorTick / PerfStats are inactive).
+function SpawnRender:_devLogWaterApply(entity, options, fingerprintSkip, oldImage, newImage)
+  if not shouldLogWaterApply(entity, options) then return end
+  if not (Config.debug(self.mod) or (Config.devMode and Config.devMode(self.mod))) then
+    return
+  end
+  self._waterApplyLogged = self._waterApplyLogged or {}
+  local key = string.format("%s|%s|%s",
+    tostring(entity and entity.species or "?"),
+    tostring(entity and entity.lastSpriteRefreshReason or "?"),
+    tostring(fingerprintSkip))
+  if self._waterApplyLogged[key] then return end
+  self._waterApplyLogged[key] = true
+  DebugLog.info(self.mod,
+    "[Wilds][WaterApply] fingerprintSkip=%s oldImage=%s newImage=%s surface=%s spriteState=%s",
+    tostring(fingerprintSkip == true),
+    tostring(oldImage or "?"),
+    tostring(newImage or "?"),
+    tostring(entity and entity.surface or "?"),
+    tostring(entity and entity.spriteState or "?"))
+end
+
 function SpawnRender:_perfCount(name, n)
   local mod = self.mod
   local bt = mod and mod.exports and mod.exports.behaviorTick
@@ -2060,7 +2096,8 @@ end
 -- facing / phase / flip / position / behaviour. No registry mutation.
 -- Land vs water sprite source is selected via SpriteResolver (same native
 -- SpriteRenderer contract either way).
-function SpawnRender:applyProviderSprite(entity, game)
+function SpawnRender:applyProviderSprite(entity, game, options)
+  options = options or {}
   if not entity then return false end
   if entity.hiddenEncounter or entity.visibleSprite == false then
     return false
@@ -2104,7 +2141,8 @@ function SpawnRender:applyProviderSprite(entity, game)
   -- Cheap presentation gate BEFORE resolve / SpriteRenderer.new.
   -- Rendering identity only — does NOT prove world attachment.
   -- Battle-return reattach still runs via _attach / people-list membership.
-  if entity.sprite and entity.sprite.def and entity.sprite.def.image
+  local oldImage = entity.sprite and entity.sprite.def and entity.sprite.def.image
+  local fingerprintHit = entity.sprite and entity.sprite.def and entity.sprite.def.image
      and entity._wildsPresSpecies == species
      and entity._wildsPresAssetId == assetId
      and entity._wildsPresVariant == variant
@@ -2116,8 +2154,17 @@ function SpawnRender:applyProviderSprite(entity, game)
      and entity.waterVoxelActive == voxelActive
      and entity.paletteRedpp == redpp
      and entity._wildsEffectiveSize == effectiveSize
-     and entity.requestedSpriteStyle == style then
-    return true
+     and entity.requestedSpriteStyle == style
+  if fingerprintHit then
+    -- Explicit land↔water transitions may bypass when the fingerprint was
+    -- stamped water but the bound sheet is still land fallback art.
+    local force = options.forcePresentationRefresh == true
+    local wantWater = surface == "WATER" or surface == "water" or spriteState == "water"
+    local staleWaterLand = force and wantWater and not isResolvedWaterKind(entity.spriteKind)
+    if not staleWaterLand then
+      self:_devLogWaterApply(entity, options, true, oldImage, oldImage)
+      return true
+    end
   end
 
   self:_perfCount("spriteResolves", 1)
@@ -2481,6 +2528,8 @@ function SpawnRender:applyProviderSprite(entity, game)
   entity._wildsEffectiveSize = entity._wildsEffectiveSize or effectiveSize
   self:_instrumentResolveImage(entity, entity.sprite)
   self:bindWorldBillboard(entity, true)
+  self:_devLogWaterApply(entity, options, false, oldImage,
+    entity.sprite and entity.sprite.def and entity.sprite.def.image)
   return true
 end
 

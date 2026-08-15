@@ -159,6 +159,14 @@ function SpawnLogic:occupancyContext(ow)
   }
 end
 
+-- Explicit land↔water presentation transitions may request a fingerprint bypass
+-- when a prior prepare stamped water identity onto leftover land art.
+local PRESENTATION_FORCE_REASONS = {
+  entered_water = true,
+  entered_land = true,
+  prepare_water_entry = true,
+}
+
 -- Central per-entity sprite refresh. Replaces SpriteDef / native SpriteRenderer
 -- only; never mutates position, movement, behaviour, battle payload, or voxels.
 function SpawnLogic:refreshEntitySprite(entity, opts)
@@ -185,7 +193,13 @@ function SpawnLogic:refreshEntitySprite(entity, opts)
   if not (render and render.applyProviderSprite) then
     return false, "no_render"
   end
-  local ok, applied = pcall(render.applyProviderSprite, render, entity, game)
+  local force = opts.forcePresentationRefresh
+  if force == nil then
+    force = PRESENTATION_FORCE_REASONS[reason] == true
+  end
+  local ok, applied = pcall(render.applyProviderSprite, render, entity, game, {
+    forcePresentationRefresh = force == true,
+  })
   if not ok then
     self:_warn("refreshEntitySprite failed (%s): %s", tostring(reason), tostring(applied))
     return false, applied
