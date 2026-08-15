@@ -9,7 +9,9 @@
 - Reattach Wilds, followers, and town Pokémon after Battle → Overworld when
   the engine rebuilds `ow.entities` / `ow.npcs`.
 - Follower battle-return waits for a stable live overworld and reinserts the
-  existing trailer by identity after a late people-list rebuild.
+  existing trailer by identity after a late people-list rebuild (or a replaced
+  overworld object). Walking no longer leaves a missing follower until the
+  next map change.
 
 ### Yellow follower freeze without Pikachu
 

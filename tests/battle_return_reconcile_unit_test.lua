@@ -348,6 +348,32 @@ eq(engine._battleReturnPhase, nil, "CASE C: second step completes")
 eq(#ow.pokepcTrailers, 1, "CASE C: still 1 after complete")
 eq(countIdentity(ow.entities, t1), 1, "CASE C: no duplicate identity")
 
+-- CASE C2: engine replaces the overworld OBJECT (stale ow attach).
+optionStore.follower_count = 1
+pack = seedFollowers(1)
+t1 = pack[1]
+engine:onBattleEnded(game, nil, { source = "battle.ended" })
+engine:onBattleEnded(game, nil, { source = "tick" })
+check(engine:_isTrailerAttached(ow, t1), "CASE C2: attached on first live ow")
+local oldOw = ow
+ow = makeOw("ROUTE_1")
+game.overworld = ow
+game.world = ow
+check(oldOw ~= ow, "CASE C2: live overworld object replaced")
+eq(#(ow.pokepcTrailers or {}), 0, "CASE C2: new ow has empty pokepcTrailers")
+check(not engine:_isTrailerAttached(ow, t1),
+      "CASE C2: old trailer not in new lists")
+engine:onBattleEnded(game, nil, { source = "world.stepped" })
+check(t1 == (ow.pokepcTrailers or {})[1],
+      "CASE C2: same trailer transplanted onto the NEW ow")
+check(engine:_isTrailerAttached(ow, t1),
+      "CASE C2: identity attached on the NEW live lists")
+eq(countIdentity(ow.entities, t1), 1, "CASE C2: one identity, no duplicate")
+eq(countIdentity(oldOw.entities, t1) <= 1, true,
+   "CASE C2: did not grow the stale ow")
+engine:onBattleEnded(game, nil, { source = "world.stepped" })
+eq(engine._battleReturnPhase, nil, "CASE C2: completed after verify")
+
 -- CASE D: FOLLOWERS=6 + late rebuild
 optionStore.follower_count = 6
 pack = seedFollowers(6)
