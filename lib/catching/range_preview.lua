@@ -51,17 +51,34 @@ local function owLooksVoxel(ow)
   return false
 end
 
+--- Gold has no OverworldState.drawWorld / worldCanvas pass. Green cells stay
+-- off; HUD meter / throw / catch are independent.
+function RangePreview.groundPreviewSupported(mod, game)
+  if GameCompat.isGen2(mod, game) then
+    return false, "gold_no_world_pass"
+  end
+  return true
+end
+
 function RangePreview.isVoxelActive(mod, ow)
   if owLooksVoxel(ow) then return true end
   if not mod then return false end
   local ok, WaterDisplay = pcall(function() return V.require("water_display") end)
   if ok and WaterDisplay and type(WaterDisplay.isVoxelCameraActive) == "function" then
     local ok2, active = pcall(WaterDisplay.isVoxelCameraActive, mod)
-    if ok2 then return active == true end
+    if ok2 and active == true then return true end
   end
-  local world = mod.world
-  local worldOw = world and world.overworld and world:overworld()
-  return owLooksVoxel(worldOw)
+  -- Do not call mod.world:overworld() here. If `ow` was not supplied, resolve
+  -- through the catching-only abstraction (safe on Gold).
+  if not ow then
+    local game = mod.game or (mod.world and mod.world.game)
+    ow = GameCompat.catchWorld(mod, game)
+  end
+  return owLooksVoxel(ow)
+end
+
+local function goldCatchTrace(msg)
+  print("[Wilds][GoldCatch] " .. tostring(msg))
 end
 
 --- True when a drawWorld pipeline (e.g. Dramatic Shape) owns the displayed world.
@@ -149,11 +166,28 @@ function RangePreview.sync(catching)
   end
   local game = catching.game and catching:game() or nil
   local ow = catching.overworld and catching:overworld() or nil
+  local trace = GameCompat.isGen2(catching.mod, game)
+  if trace and not RangePreview._goldSyncTraced then
+    RangePreview._goldSyncTraced = true
+    goldCatchTrace("rangePreview sync ENTER")
+  end
+  local supported, why = RangePreview.groundPreviewSupported(catching.mod, game)
+  if not supported then
+    RangePreview.clear()
+    RangePreview._unsupportedReason = why or "unsupported"
+    if trace and not RangePreview._goldUnsupportedTraced then
+      RangePreview._goldUnsupportedTraced = true
+      goldCatchTrace("rangePreview unsupported " .. tostring(RangePreview._unsupportedReason))
+    end
+    return nil
+  end
+  RangePreview._unsupportedReason = nil
   local player = GameCompat.catchPlayer(game, ow)
   if not ow or not player then
     RangePreview.clear()
     return nil
   end
+  if trace then goldCatchTrace("rangePreview world resolved") end
   if catching.canShowHud and not catching:canShowHud(game, ow) then
     RangePreview.clear()
     return nil
@@ -161,10 +195,13 @@ function RangePreview.sync(catching)
   local mod = catching.mod
   if RangePreview.isVoxelActive(mod, ow) then
     -- Voxel: no ground preview state. HUD meter is independent.
+    if trace then goldCatchTrace("rangePreview voxel check") end
     RangePreview.clear()
     return nil
   end
+  if trace then goldCatchTrace("rangePreview voxel check") end
   local cells = RangePreview.cells(player, catching.meter.power, catching.logic, ow)
+  if trace then goldCatchTrace("rangePreview cells") end
   RangePreview._pending = {
     cells = cells,
     mod = mod,
@@ -196,11 +233,14 @@ function RangePreview.drawWorldPass(ow, catching)
      or catching.phase ~= "metering" then
     return
   end
+  local game = catching.game and catching:game() or nil
+  if not RangePreview.groundPreviewSupported(catching.mod, game) then
+    return
+  end
   if RangePreview.isVoxelActive(catching.mod, ow) then return end
   if worldOwnedByPipeline() then return end
   if tiltActive() then return end
 
-  local game = catching.game and catching:game() or nil
   if catching.canShowHud and not catching:canShowHud(game, ow) then
     return
   end
@@ -245,6 +285,12 @@ end
 function RangePreview.installFlatWorldHook(catching)
   if type(catching) == "table" then
     RangePreview._catching = catching
+  end
+  local game = catching and catching.game and catching:game() or nil
+  if GameCompat.isGen2(catching and catching.mod, game) then
+    -- Gold composites through World:draw / drawWorldBody, not
+    -- OverworldState.drawWorld. Do not monkey-patch the Gen1 controller.
+    return false
   end
   if RangePreview._worldHookInstalled then
     return true

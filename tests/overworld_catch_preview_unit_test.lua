@@ -113,6 +113,8 @@ catching.phase = "metering"
 RangePreview.sync(catching)
 check(RangePreview._pending ~= nil, "metering sets pending")
 eq(#RangePreview._pending.cells, 3, "pending has 3 cells")
+eq(RangePreview.groundPreviewSupported(V.mod, { ready = true }), true,
+   "Gen1 ground preview stays supported")
 RangePreview.clear()
 check(RangePreview._pending == nil, "clear removes pending")
 

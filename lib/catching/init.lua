@@ -420,13 +420,22 @@ function OverworldCatching:_updateMeter(dt)
 end
 
 function OverworldCatching:_beginMeter()
+  if GameCompat.isGen2(self.mod, self:game()) then
+    print("[Wilds][GoldCatch] beginMeter ENTER")
+  end
   self.meter.active = true
   self.meter.t = 0
   self.meter.power = METER_MIN
   self.meter.rising = true
   self.phase = "metering"
+  RangePreview._goldSyncTraced = nil
+  RangePreview._goldUnsupportedTraced = nil
+  self._goldStepTraced = nil
   self:_catchLog("begin meter")
   self:_catchLog("phase=metering source=%s", tostring(self.meterSource or "desktop"))
+  if GameCompat.isGen2(self.mod, self:game()) then
+    print("[Wilds][GoldCatch] beginMeter OK")
+  end
 end
 
 function OverworldCatching:_cancelMeter()
@@ -1080,7 +1089,12 @@ function OverworldCatching:step(ctx)
     self.hud._frame = (self.hud._frame or 0) + 1
   end
   self:pollInput(game, ow, dt)
+  if self.meter.active and GameCompat.isGen2(self.mod, game) and not self._goldStepTraced then
+    self._goldStepTraced = true
+    print("[Wilds][GoldCatch] step meter active")
+  end
   -- Flat ground preview pending (clears when not metering or when Voxel active).
+  -- Gold: RangePreview.sync is a no-op for green cells (no Gen1 worldCanvas).
   RangePreview.sync(self)
 end
 

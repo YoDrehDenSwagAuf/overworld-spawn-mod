@@ -297,6 +297,40 @@ check(membership.entities == true, "Gold ball is also on ow.entities")
 catching.projectile:cleanup(catchOw)
 
 ----------------------------------------------------------------
+-- Meter activation must not crash (B+A and C both call _beginMeter)
+----------------------------------------------------------------
+local RangePreview = OverworldCatching.RangePreview
+catching:cancelAll("preview test")
+eq(RangePreview.groundPreviewSupported(mod, game), false,
+   "Gold ground preview intentionally unsupported")
+eq(RangePreview.installFlatWorldHook(catching), false,
+   "Gold does not wrap OverworldState.drawWorld")
+
+-- Hostile WorldAPI:overworld() — old isVoxelActive would throw here.
+mod.world.overworld = function()
+  error("mod.world:overworld() is invalid on this Gold fixture")
+end
+local voxelOk, voxelActive = pcall(RangePreview.isVoxelActive, mod, catchOw)
+check(voxelOk, "isVoxelActive does not call exploding overworld() when ow is supplied")
+eq(voxelActive, false, "Gold World is not treated as Voxel")
+
+local stepOk, stepErr = pcall(function()
+  -- B+A owns the meter: missing C must not be treated as a desktop release.
+  catching.meterSource = "modifier"
+  catching:_beginMeter()
+  catching:step({})
+  catching:step({})
+end)
+check(stepOk, "Gold _beginMeter + step does not error: " .. tostring(stepErr))
+eq(catching.meter.active, true, "HUD meter remains active after step")
+eq(catching.phase, "metering", "phase stays metering")
+eq(RangePreview._pending, nil, "Gold ground cells stay disabled")
+eq(RangePreview._unsupportedReason, "gold_no_world_pass",
+   "RangePreview reports unsupported Gold world pass")
+catching:cancelAll("preview test done")
+mod.world.overworld = nil
+
+----------------------------------------------------------------
 -- Fake mon fallback removed
 ----------------------------------------------------------------
 local fake, err = GameCompat.createCaughtPokemon(game, "NOT_A_REAL_MON", 5)

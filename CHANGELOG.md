@@ -102,6 +102,10 @@
   empty-stack free roam. Thrown balls attach to Gold `npcs` so
   `World:drawPeople` can see them. A failed `Mon.new` now returns nil
   (no fake party table). Gen1 catching guards are unchanged.
+- Gold B+A / C meter no longer runs Gen1 RangePreview world lookup
+  (`mod.world:overworld()`) or the `OverworldState.drawWorld` monkey-patch.
+  Green ground cells are disabled on Gold (no worldCanvas pass). HUD meter,
+  throw, and catch stay on. Gen1 ground preview is unchanged.
 
 ### Experimental Pokémon Gold foundation
 
