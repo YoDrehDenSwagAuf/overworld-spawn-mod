@@ -580,6 +580,17 @@ function Diagnostics.hudLines(logic)
     if va and va.hooksInstalled then
       lines[#lines + 1] = "Voxel Pokemon: NATIVE_SPRITE_RENDERER"
     end
+    do
+      local okVS, VariableSize = pcall(V.require, "variable_size")
+      if okVS and VariableSize and VariableSize.diagnosticLines then
+        local okL, sizeLines = pcall(VariableSize.diagnosticLines, logic.mod)
+        if okL and type(sizeLines) == "table" then
+          for _, line in ipairs(sizeLines) do
+            lines[#lines + 1] = line
+          end
+        end
+      end
+    end
     if render.runtimeSheets and render.runtimeSheets:isReady() then
       local rs = render.runtimeSheets:summary()
       lines[#lines + 1] = ("Native runtime sheets: %d"):format(rs.sheetCount or 0)

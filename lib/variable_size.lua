@@ -5,11 +5,11 @@
 -- effectiveMode  = what rendering actually uses (Classic while Voxel + incompatible DS)
 --
 -- Dramatic Shape without variable geometry → effective Classic.
--- Battle Art / Potato / Dramaless: a small in-memory SpriteBillboards.mesh
--- wrap may enable True Size when that provider is the ACTIVE Voxel renderer
--- and exposes exports.lib.require("SpriteBillboards"). Capability is never
--- borrowed from a Voxel mod that is installed but not rendering.
--- Visual only; logical footprint stays one cell.
+-- Battle Art / Potato / Dramaless / Stadium2: a small in-memory
+-- SpriteBillboards.mesh wrap may enable True Size when that provider is
+-- the ACTIVE Voxel renderer and exposes exports.lib.require("SpriteBillboards").
+-- Capability is never borrowed from a Voxel mod that is installed but not
+-- rendering. Visual only; logical footprint stays one cell.
 local V = ...
 local Config = V.require("config")
 local SpeciesGeometry = V.require("species_geometry")
@@ -25,6 +25,7 @@ VariableSize.PROVIDER_DRAMATIC_SHAPE = "DRAMATIC_SHAPE"
 VariableSize.PROVIDER_BATTLE_ART = "BATTLE_ART_VOXEL_FORK"
 VariableSize.PROVIDER_POTATO = "potato_voxel"
 VariableSize.PROVIDER_DRAMALESS = "DRAMALESS_SHAPE"
+VariableSize.PROVIDER_STADIUM2 = "STADIUM2_OVERWORLD_MODELS"
 
 local _loggedFallback = false
 local _cachedEngine = nil
@@ -39,12 +40,14 @@ VariableSize.VOXEL_RENDERER_IDS = {
   "BATTLE_ART_VOXEL_FORK",
   "potato_voxel",
   "DRAMALESS_SHAPE",
+  "STADIUM2_OVERWORLD_MODELS",
 }
 
 local ADAPTER_MODULE = {
   BATTLE_ART_VOXEL_FORK = "compat/battle_art_variable_geometry",
   potato_voxel = "compat/potato_voxel_variable_geometry",
   DRAMALESS_SHAPE = "compat/dramaless_variable_geometry",
+  STADIUM2_OVERWORLD_MODELS = "compat/stadium2_variable_geometry",
 }
 
 local function adapterFor(id)
@@ -638,17 +641,69 @@ function VariableSize.resetEffectiveModePoll()
   _lastProviderId = nil
 end
 
+local function capabilityReason(ds, Adapter)
+  local raw = ds and ds.reason or nil
+  if Adapter and Adapter.supportReason then
+    raw = Adapter.supportReason() or raw
+  end
+  if raw == "wrapped_mesh" or raw == "already_wrapped" or raw == "wilds_adapter" then
+    return "wilds_adapter"
+  end
+  if raw == "exports_flag" or raw == "sprite_billboards_geometry_api"
+      or raw == "native_variable_geometry" then
+    return "native_variable_geometry"
+  end
+  return raw
+end
+
 function VariableSize.summary(mod)
   local requested = VariableSize.requestedMode(mod)
   local effective, why = VariableSize.effectiveMode(mod)
+  local ds = VariableSize.probeDramaticShape(mod)
+  local _, providerId, providerWhy = VariableSize.activeVoxelProvider(mod)
+  local Adapter = adapterFor(providerId)
+  local adapterState = Adapter and Adapter.state and Adapter.state() or nil
+  local native = adapterState == "native"
+    or (ds and (ds.reason == "exports_flag"
+      or ds.reason == "sprite_billboards_geometry_api"))
+  local supports = ds and ds.supportsVariableGeometry == true
+  local capReason = capabilityReason(ds, Adapter)
   return {
     requestedMode = requested,
     effectiveMode = effective,
     reason = why,
+    provider = providerId,
+    providerWhy = providerWhy,
+    providerDetected = ds and ds.present == true,
+    adapterInstalled = adapterState == "installed",
+    adapterState = adapterState,
+    native = native == true,
+    supportsVariableGeometry = supports,
+    capabilityReason = supports and capReason or nil,
+    fallbackReason = (effective ~= VariableSize.MODE_TRUE_SIZE) and why or nil,
     engine = VariableSize.probeEngineApi(),
-    dramaticShape = VariableSize.probeDramaticShape(mod),
+    dramaticShape = ds,
     voxelActive = VariableSize.isVoxelActive(mod),
     geometry = SpeciesGeometry.summary(mod),
+  }
+end
+
+--- Compact HUD / log lines for requested vs effective True Size + Voxel provider.
+function VariableSize.diagnosticLines(mod)
+  local s = VariableSize.summary(mod)
+  local geomLabel
+  if s.supportsVariableGeometry then
+    geomLabel = "YES (" .. tostring(s.capabilityReason or "?") .. ")"
+  else
+    geomLabel = "NO (" .. tostring(s.fallbackReason or s.reason or "?") .. ")"
+  end
+  return {
+    ("Size requested: %s"):format(tostring(s.requestedMode)),
+    ("Size effective: %s"):format(tostring(s.effectiveMode)),
+    ("Voxel provider: %s"):format(tostring(s.provider or "none")),
+    ("Voxel provider detected: %s"):format(s.providerDetected and "YES" or "NO"),
+    ("Variable geometry: %s"):format(geomLabel),
+    ("Voxel adapter: %s"):format(tostring(s.adapterState or "none")),
   }
 end
 

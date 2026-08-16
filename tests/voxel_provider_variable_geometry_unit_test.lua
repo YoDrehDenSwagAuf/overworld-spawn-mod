@@ -194,11 +194,13 @@ local VariableSize = V.require("variable_size")
 local BattleArt = V.require("compat/battle_art_variable_geometry")
 local Potato = V.require("compat/potato_voxel_variable_geometry")
 local Dramaless = V.require("compat/dramaless_variable_geometry")
+local Stadium2 = V.require("compat/stadium2_variable_geometry")
 
 local function resetAll()
   BattleArt.reset()
   Potato.reset()
   Dramaless.reset()
+  Stadium2.reset()
   VariableSize.clearCaches()
   VariableSize.resetEffectiveModePoll()
   installed = {}
@@ -497,5 +499,24 @@ eq(noneId, nil, "multi none-active: no capability provider")
 eq(noneWhy, "multiple_installed_none_active", "multi none-active reason")
 eq(VariableSize.effectiveMode(mod, { voxelActive = true }), "classic",
   "multi none-active voxel → Classic")
+
+-- ------------------------------------------------------------------ Stadium2 discovery (Gen 2 voxel)
+resetAll()
+local stadiumPub = makeProvider({
+  version = "gen2",
+  shadowBlob = false,
+  voxelState = makeVoxelState(true),
+})
+installed.STADIUM2_OVERWORLD_MODELS = stadiumPub
+local okSt, whySt = Stadium2.install(mod)
+check(okSt, "stadium2 install: " .. tostring(whySt))
+eq(Stadium2.supportReason(), "wrapped_mesh", "stadium2 wrapped_mesh")
+check(Stadium2.supportsVariableGeometry(), "stadium2 supports")
+eq(stadiumPub.sb.mesh(onixDef, 0).kind, "variable", "stadium2 Onix variable")
+eq(stadiumPub.sb.shadowQuad(onixDef, 0).kind, "variable", "stadium2 shadowQuad")
+local _, stadiumId = VariableSize.activeVoxelProvider(mod)
+eq(stadiumId, "STADIUM2_OVERWORLD_MODELS", "active provider Stadium2")
+eq(VariableSize.effectiveMode(mod, { voxelActive = true }), "true_size",
+  "stadium2 HGSS True Size")
 
 print("PASS voxel_provider_variable_geometry_unit_test")
