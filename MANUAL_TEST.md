@@ -30,15 +30,16 @@
 ## Overworld Catch (optional)
 
 1. With OW Catch **ON**, confirm a small Ball HUD in the top-right on a grass route.
-2. Hold **C** to charge the power meter (vertical 1–6 + green ground tiles); release to throw; **Q** cycles Balls.
+2. Hold **C** (default Catch Key) to charge the power meter (vertical 1–6 + green ground tiles); release to throw; **Q** (default Ball Switch Key) cycles Balls. Bindings can be changed in Wilds settings.
 2b. With Dramatic Shape on: hold C, mouse-wheel zoom in/out — green markers stay on the same world cells.
 2c. Force fail: Ball break → mon reappears → `!` → aggressive; with distance, throw again at the same mon before contact battle.
 2d. Throw at a human NPC → `"Ouch, yo, WTF"`; at a Town Pokémon → `"Grrrr..."` (no catch).
-2e. Mobile/controller alternative (TouchControls or gamepad logical A/B/D-Pad):
+2e. Mobile/controller alternative (TouchControls or gamepad logical A/B/D-Pad; default Catch Combo **B+A**, Switch Combo **B+Left/Right**):
     - Tap **B** alone → normal vanilla B (no meter / no Ball cycle).
     - Hold **B** + tap **RIGHT** / **LEFT** → next / previous Ball; player must not walk.
     - Hold **B** + hold **A** → same meter + green preview; release **A** → throw.
     - While charging, release **B** first → cancel (no Ball consumed).
+    - Optional presets: Select+A / Select+Left/Right. Select alone stays native Select. Start+Select is never catch input.
     - OW CATCH **OFF**, START menu, dialogue, battle: A/B/D-Pad stay 100% vanilla.
 3. Face a wild mon 1–6 tiles ahead — hit wobbles; miss still consumes a Ball.
 4. Failed catch: mon breaks free → `!` → aggressive → normal Wilds battle.

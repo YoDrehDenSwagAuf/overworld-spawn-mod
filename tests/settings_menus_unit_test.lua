@@ -245,7 +245,23 @@ check(wjoin:find("SPRITE FADE", 1, true), "wilds menu has Sprite Fade")
 check(wjoin:find("POKEMON SIZE", 1, true), "wilds menu has Pokémon Size")
 check(wjoin:find("TOWN POKEMON", 1, true), "wilds menu has Town Pokémon")
 check(wjoin:find("OW CATCH", 1, true), "wilds menu has OW Catch")
+check(wjoin:find("CATCH KEY", 1, true), "wilds menu has Catch Key")
+check(wjoin:find("BALL SWITCH", 1, true), "wilds menu has Ball Switch")
+check(wjoin:find("CATCH COMBO", 1, true), "wilds menu has Catch Combo")
+check(wjoin:find("SWITCH COMBO", 1, true), "wilds menu has Switch Combo")
 check(wjoin:find("CATCH HUD", 1, true), "wilds menu has Catch HUD")
+check(wjoin:find("OW CATCH,CATCH KEY,BALL SWITCH,CATCH COMBO,SWITCH COMBO,CATCH HUD", 1, true)
+      or (wjoin:find("OW CATCH", 1, true) and wjoin:find("CATCH KEY", 1, true)
+          and wjoin:find("CATCH HUD", 1, true)
+          and wjoin:find("OW CATCH") < wjoin:find("CATCH KEY")
+          and wjoin:find("CATCH KEY") < wjoin:find("CATCH HUD")),
+      "catch binding rows sit between OW Catch and Catch HUD")
+for _, it in ipairs(wildsRoot.items) do
+  if it.label == "CATCH KEY" or it.label == "BALL SWITCH"
+     or it.label == "CATCH COMBO" or it.label == "SWITCH COMBO" then
+    check(#it.label <= 14, it.label .. " ≤14")
+  end
+end
 check(not wjoin:find("CONTROL", 1, true) or wjoin:find("OW CATCH", 1, true), "wilds menu intact")
 check(not fjoin:find("SHOW WILD MONS", 1, true), "no wilds rows in followers menu")
 

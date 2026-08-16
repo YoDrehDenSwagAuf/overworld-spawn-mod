@@ -73,6 +73,11 @@ Config.DEFAULTS = {
   wild_silhouettes = false,
   -- Optional overworld Poké Ball throws at visible wilds (default ON).
   overworld_catching = true,
+  -- Catch input (live). Defaults match the original hardcoded C / Q / B+A / B+Dpad.
+  catch_throw_key = "c",
+  catch_cycle_key = "q",
+  catch_throw_combo = "b_a",
+  catch_cycle_combo = "b_dpad",
   -- Top-screen Ball inventory HUD size (1–10). Live; UI-only (not projectiles).
   catch_hud_size = 5,
   enable_idle = true,

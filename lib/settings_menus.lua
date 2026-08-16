@@ -588,6 +588,97 @@ function SettingsMenus:_openWildsRoot(game)
       end,
     },
     (function()
+      local throwKey = tostring(optGet(mod, "catch_throw_key", "c") or "c")
+      local throwChoices = {
+        { label = "C", value = "c" },
+        { label = "V", value = "v" },
+        { label = "F", value = "f" },
+        { label = "G", value = "g" },
+        { label = "R", value = "r" },
+        { label = "T", value = "t" },
+      }
+      local throwRight = string.upper(throwKey)
+      return {
+        label = "CATCH KEY",
+        stepper = true,
+        wrap = true,
+        choices = throwChoices,
+        current = throwKey,
+        right = throwRight,
+        apply = function(v)
+          menus:_setOption("catch_throw_key", tostring(v or "c"))
+        end,
+      }
+    end)(),
+    (function()
+      local cycleKey = tostring(optGet(mod, "catch_cycle_key", "q") or "q")
+      local cycleChoices = {
+        { label = "Q", value = "q" },
+        { label = "E", value = "e" },
+        { label = "R", value = "r" },
+        { label = "F", value = "f" },
+        { label = "G", value = "g" },
+        { label = "T", value = "t" },
+      }
+      return {
+        label = "BALL SWITCH",
+        stepper = true,
+        wrap = true,
+        choices = cycleChoices,
+        current = cycleKey,
+        right = string.upper(cycleKey),
+        apply = function(v)
+          menus:_setOption("catch_cycle_key", tostring(v or "q"))
+        end,
+      }
+    end)(),
+    (function()
+      local throwCombo = tostring(optGet(mod, "catch_throw_combo", "b_a") or "b_a")
+      local comboRight = ({
+        b_a = "B+A",
+        select_a = "SEL+A",
+        disabled = "OFF",
+      })[throwCombo] or "B+A"
+      return {
+        label = "CATCH COMBO",
+        stepper = true,
+        wrap = true,
+        choices = {
+          { label = "B+A", value = "b_a" },
+          { label = "SEL+A", value = "select_a" },
+          { label = "OFF", value = "disabled" },
+        },
+        current = throwCombo,
+        right = comboRight,
+        apply = function(v)
+          menus:_setOption("catch_throw_combo", tostring(v or "b_a"))
+        end,
+      }
+    end)(),
+    (function()
+      local cycleCombo = tostring(optGet(mod, "catch_cycle_combo", "b_dpad") or "b_dpad")
+      local comboRight = ({
+        b_dpad = "B+L/R",
+        select_dpad = "SEL+L/R",
+        disabled = "OFF",
+      })[cycleCombo] or "B+L/R"
+      return {
+        label = "SWITCH COMBO",
+        stepper = true,
+        wrap = true,
+        choices = {
+          { label = "B+L/R", value = "b_dpad" },
+          { label = "SEL+L/R", value = "select_dpad" },
+          { label = "OFF", value = "disabled" },
+        },
+        current = cycleCombo,
+        right = comboRight,
+        apply = function(v)
+          menus:_setOption("catch_cycle_combo", tostring(v or "b_dpad"))
+        end,
+      }
+    end)(),
+    (function()
       local hudSize = Config.catchHudSize(mod)
       local hudChoices = {}
       for i = 1, 10 do
@@ -865,6 +956,56 @@ function SettingsMenus:register()
       end)
     end,
   })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":catch_key", {
+    new = function(game)
+      return menus:_openChoice(game, "CATCH KEY", {
+        { label = "C", value = "c" },
+        { label = "V", value = "v" },
+        { label = "F", value = "f" },
+        { label = "G", value = "g" },
+        { label = "R", value = "r" },
+        { label = "T", value = "t" },
+      }, tostring(optGet(mod, "catch_throw_key", "c") or "c"), function(v)
+        menus:_setOption("catch_throw_key", tostring(v or "c"), game)
+      end)
+    end,
+  })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":ball_key", {
+    new = function(game)
+      return menus:_openChoice(game, "BALL SWITCH", {
+        { label = "Q", value = "q" },
+        { label = "E", value = "e" },
+        { label = "R", value = "r" },
+        { label = "F", value = "f" },
+        { label = "G", value = "g" },
+        { label = "T", value = "t" },
+      }, tostring(optGet(mod, "catch_cycle_key", "q") or "q"), function(v)
+        menus:_setOption("catch_cycle_key", tostring(v or "q"), game)
+      end)
+    end,
+  })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":catch_combo", {
+    new = function(game)
+      return menus:_openChoice(game, "CATCH COMBO", {
+        { label = "B+A", value = "b_a" },
+        { label = "SEL+A", value = "select_a" },
+        { label = "OFF", value = "disabled" },
+      }, tostring(optGet(mod, "catch_throw_combo", "b_a") or "b_a"), function(v)
+        menus:_setOption("catch_throw_combo", tostring(v or "b_a"), game)
+      end)
+    end,
+  })
+  mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":switch_combo", {
+    new = function(game)
+      return menus:_openChoice(game, "SWITCH COMBO", {
+        { label = "B+L/R", value = "b_dpad" },
+        { label = "SEL+L/R", value = "select_dpad" },
+        { label = "OFF", value = "disabled" },
+      }, tostring(optGet(mod, "catch_cycle_combo", "b_dpad") or "b_dpad"), function(v)
+        menus:_setOption("catch_cycle_combo", tostring(v or "b_dpad"), game)
+      end)
+    end,
+  })
   mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":catch_hud", {
     new = function(game)
       local choices = {}
@@ -1050,7 +1191,9 @@ SettingsMenus.FOLLOWERS_OPTION_KEYS = {
 SettingsMenus.WILDS_OPTION_KEYS = {
   "enabled", "spawn_density", "random_encounters", "water_spawns",
   "cave_spawns", "sprite_style", "sprite_fade", "town_pokemon",
-  "pokemon_grass_render_mode", "overworld_catching", "catch_hud_size",
+  "pokemon_grass_render_mode", "overworld_catching",
+  "catch_throw_key", "catch_cycle_key", "catch_throw_combo", "catch_cycle_combo",
+  "catch_hud_size",
   "enable_idle", "enable_wander", "enable_aggressive", "enable_hidden",
   "dev_overlay",
 }

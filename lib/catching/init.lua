@@ -13,6 +13,7 @@ local Projectile = V.require("catching/projectile")
 local RangePreview = V.require("catching/range_preview")
 local BallHud = V.require("catching/hud")
 local CatchInput = V.require("catching/input")
+local CatchBindings = V.require("catching/bindings")
 local CatchSfx = V.require("catching/catch_sfx")
 local DebugLog = V.require("debug_log")
 
@@ -440,15 +441,14 @@ local function inputDown(game, aliases)
   return false
 end
 
--- Throw: hold C. Cycle: Q (NOT E).
--- Binding audit vs Gen1Recomp defaults + Wilds:
---   Move WASD/arrows | A=Z/Enter/Space | B=X/Backspace | Start=Esc | Select=Tab/Shift
---   Hotkeys 2–5, -/=, F1/F2/F10 | Throw=C (OW Catch)
---   E rejected by requirement; Q unused in engine CONTROLS and this mod.
--- Gen1Recomp OPTIONS→CONTROLS only rebinds stock actions; no safe custom-action
--- registration API was found, so Throw/Cycle stay hardcoded defaults.
-local THROW_KEYS = { "c", "throw_ball", "ow_catch_throw" }
-local CYCLE_KEYS = { "q", "cycle_ball", "ow_catch_cycle" }
+-- Desktop throw/cycle keys come from CatchBindings (defaults C / Q).
+-- Engine/mod aliases stay as fallbacks so existing mappings still work.
+-- Logical controller/touch combos live in CatchInput (defaults B+A / B+Dpad).
+local THROW_ALIASES = { "throw_ball", "ow_catch_throw" }
+local CYCLE_ALIASES = { "cycle_ball", "ow_catch_cycle" }
+-- Compat: default desktop aliases (tests / docs). Live keys are resolved below.
+local THROW_KEYS = { CatchBindings.DEFAULT_THROW_KEY, "throw_ball", "ow_catch_throw" }
+local CYCLE_KEYS = { CatchBindings.DEFAULT_CYCLE_KEY, "cycle_ball", "ow_catch_cycle" }
 
 function OverworldCatching:_updateMeter(dt)
   local m = self.meter
@@ -1074,6 +1074,18 @@ function OverworldCatching:onOptionsChanged(payload)
     end
   elseif payload.key == "enabled" and payload.value == false then
     self:cancelAll("wilds off")
+  elseif CatchBindings.isBindingOption(payload.key) then
+    -- Live rebind: drop an in-progress meter/preview without consuming a Ball.
+    if self.meter and self.meter.active then
+      self:_cancelMeter()
+    end
+    self:_clearPreview()
+    self.meterSource = nil
+    self.throwHeld = false
+    self.cycleHeld = false
+    if self.catchInput then
+      self.catchInput:reset("options_changed", false)
+    end
   end
 end
 
@@ -1103,8 +1115,10 @@ function OverworldCatching:pollInput(game, ow, dt)
   self:_catchBootLog(game, ow)
 
   -- Cycle ball (edge-triggered only). Allowed whenever HUD can show.
-  -- Desktop Q path — B+LEFT/RIGHT is handled by catchInput on input.step.
-  local cycleDown = inputDown(game, CYCLE_KEYS)
+  -- Desktop key path — logical LEFT/RIGHT combos are handled by catchInput.
+  -- Resolve live so Catch Key / Ball Switch Key apply without restart.
+  local cycleKey = CatchBindings.keyboardCycle(self.mod)
+  local cycleDown = inputDown(game, { cycleKey, CYCLE_ALIASES[1], CYCLE_ALIASES[2] })
   if cycleDown and not self.cycleHeld then
     if self:canShowHud(game, ow) and (self.phase == "idle" or self.phase == "metering") then
       self:cycleSelectedBall(game, 1)
@@ -1112,7 +1126,8 @@ function OverworldCatching:pollInput(game, ow, dt)
   end
   self.cycleHeld = cycleDown
 
-  local throwDown = inputDown(game, THROW_KEYS)
+  local throwKey = CatchBindings.keyboardThrow(self.mod)
+  local throwDown = inputDown(game, { throwKey, THROW_ALIASES[1], THROW_ALIASES[2] })
 
   -- Modifier (B+A) owns release/cancel on input.step — do not treat missing C
   -- as a throw release while that path is metering.
@@ -1134,7 +1149,7 @@ function OverworldCatching:pollInput(game, ow, dt)
   end
 
   if throwDown and not self.throwHeld then
-    self:_catchLog("input C")
+    self:_catchLog("input desktop throw")
     if self:canAcceptInput(game, ow) then
       if not self:anyBalls(game) then
         -- Edge-only feedback (do not spam while held).
@@ -1360,6 +1375,7 @@ OverworldCatching.Target = Target
 OverworldCatching.CatchMath = CatchMath
 OverworldCatching.RangePreview = RangePreview
 OverworldCatching.CatchInput = CatchInput
+OverworldCatching.CatchBindings = CatchBindings
 OverworldCatching.THROW_KEYS = THROW_KEYS
 OverworldCatching.CYCLE_KEYS = CYCLE_KEYS
 OverworldCatching.METER_CYCLE_SECONDS = METER_CYCLE_SECONDS
