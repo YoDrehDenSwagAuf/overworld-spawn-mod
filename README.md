@@ -35,6 +35,15 @@ The mod targets **Gen 1 + Gen 2** in Gen1Recomp's Mod Manager.
 - Stable species-based sprite identity (reordered Pokédex / Fakemon mods
   keep the correct Wilds art, or the missing-sprite fallback)
 
+## What's new — v2.1.6
+
+- Sprite identity is species-based: reordered Pokédex / Fakemon mods keep
+  the correct Wilds art, or the missing-sprite fallback.
+- AI / occupancy work is capped at ~30 Hz so high refresh rates stay
+  smooth without delaying battle-return reattach.
+- Gold overworld catch HUD sits in the 160×144 playfield; meter tick and
+  Flat range preview are fixed. Gen1 catching is unchanged.
+
 ## Compatibility Fixes — v2.1.5
 
 - Updated Wilds for compatibility with the newest Gen1Recomp mod sandbox.

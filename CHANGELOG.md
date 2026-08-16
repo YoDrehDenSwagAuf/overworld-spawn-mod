@@ -125,6 +125,33 @@
   `GameVersion.generation(id)` when the engine module is present.
 - Gen1 True Size / diagnostic dex cap (`151`) is owned by `Gen1.MAX_SPECIES`.
 
+## 2.1.6
+
+### Species → canonical Wilds asset identity
+
+- Overworld / follower / water / True Size sprite lookup now maps
+  `mon.species` → `SpeciesAssets.idFor` → canonical Wilds asset ID.
+- Runtime Pokédex order (`mon.dex` / `GameCompat.speciesId`) is no longer
+  used as a Wilds sheet index. Reordered Dex mods keep the correct art
+  (MEWTWO → 150, TYRANITAR → 248). Unknown Fakemon use the missing-sprite
+  fallback instead of another Pokémon's sheet.
+
+### Measure-driven performance
+
+- AI / occupancy / cave decision work runs at a fixed ~30 Hz. Movement
+  interpolation, spawn FX, animation sync, and battle-return reattach
+  stay per rendered frame so 60/120/144 Hz remains smooth and v2.1.5
+  battle-return is not delayed.
+- Occupancy rebuilds only when dirty or the player/trailer fingerprint
+  changes. Unchanged presentation skips sprite re-resolve.
+
+### Gold catch HUD
+
+- Gold catch HUD is pinned to the 160×144 playfield corner.
+- Catch meter ticks on the shared input step; Flat range preview uses
+  World camera × zoom. Voxel Gold still skips ground tiles. Gen1 layout
+  is unchanged.
+
 ## 2.1.5
 
 ### Compatibility fixes
