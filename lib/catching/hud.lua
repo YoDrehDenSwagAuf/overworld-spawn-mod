@@ -144,6 +144,8 @@ end
 
 function BallHud:shouldDraw(game, ow)
   if not self.catching then return false end
+  -- Size 0 hides this HUD only. Catching / meter / range tiles stay active.
+  if not Config.catchHudEnabled(self.mod) then return false end
   if self.catching.canShowHud then
     return self.catching:canShowHud(game, ow) == true
   end
@@ -179,6 +181,12 @@ end
 
 function BallHud:draw(canvas, ctx, opts)
   opts = opts or {}
+  -- Hidden HUD: skip layout / images / meter / feedback before any draw work.
+  if not Config.catchHudEnabled(self.mod) then return canvas end
+  local catching = self.catching
+  local game = catching and catching.game and catching:game()
+  local ow = catching and catching.overworld and catching:overworld()
+  if not self:shouldDraw(game, ow) then return canvas end
   if not (love and love.graphics) then return canvas end
   -- Dedup when both owwild_catching_tick and owwild_ball_hud present run.
   local frame = self._frame or 0
@@ -187,11 +195,6 @@ function BallHud:draw(canvas, ctx, opts)
   end
   self._drawnFrame = frame
   self._hudDrawCount = (self._hudDrawCount or 0) + 1
-
-  local catching = self.catching
-  local game = catching and catching:game()
-  local ow = catching and catching:overworld()
-  if not self:shouldDraw(game, ow) then return canvas end
 
   local lg = love.graphics
   local Font = self.mod.ui and self.mod.ui.Font
@@ -329,6 +332,11 @@ end
 --- Gold screen-space HUD. Logical 160×144, top-left origin, then projected
 -- through Game2:viewport (gameX/gameY/scale). render.hud is window-space.
 function BallHud:drawScreen(viewport)
+  if not Config.catchHudEnabled(self.mod) then return end
+  local catching = self.catching
+  local game = catching and catching.game and catching:game()
+  local ow = catching and catching.overworld and catching:overworld()
+  if not self:shouldDraw(game, ow) then return end
   if not (love and love.graphics) then return end
   viewport = viewport or {}
   local layout = BallHud.layout(self.mod, 160, "topleft")

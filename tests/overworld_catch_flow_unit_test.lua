@@ -619,6 +619,52 @@ eq(CatchSfx.keyFor("throw"), "Ball_Toss", "native throw SFX key")
 eq(CatchSfx.keyFor("caught"), "Caught_Mon", "native caught fanfare key")
 check(byKey.catch_hud_size ~= nil, "catch_hud_size in schema")
 eq(byKey.catch_hud_size.default, 5, "catch_hud_size default")
+eq(byKey.catch_hud_size.min, 0, "catch_hud_size min 0")
+
+-- ---- Catch HUD Size 0: hidden presentation, catching still works ----
+do
+  game.save.inventory = {
+    POKE_BALL = 5, GREAT_BALL = 2, ULTRA_BALL = 1, MASTER_BALL = 1,
+  }
+  catching.selectedBallIndex = 1
+  optionStore.catch_hud_size = 5
+  catching:cancelAll("hud-hidden setup")
+  game.stack._top = ow
+  eq(catching.hud:shouldDraw(game, ow), true, "CASE A: BallHud draws at size 5")
+  optionStore.catch_hud_size = 0
+  check(catching:canAcceptInput(game, ow), "size 0 still accepts catch input")
+  check(catching:canShowHud(game, ow), "size 0 canShowHud stays true (cycle/range)")
+  eq(catching.hud:shouldDraw(game, ow), false, "CASE B: BallHud hidden at size 0")
+
+  catching:_beginMeter()
+  eq(catching.phase, "metering", "CASE C: meter starts with HUD hidden")
+  eq(catching.meter.active, true, "CASE C: meter.active remains true")
+  local hiddenPower = catching.meter.power
+  catching:_updateMeter(0.4)
+  check(catching.meter.power > hiddenPower, "CASE C: meter power still updates")
+  eq(catching.hud:shouldDraw(game, ow), false, "CASE C: HUD stays hidden while charging")
+
+  local beforeIdx = catching.selectedBallIndex
+  local cycled = catching:cycleSelectedBall(game, 1)
+  eq(cycled, "GREAT_BALL", "CASE D: cycle still changes selection")
+  check(catching.selectedBallIndex ~= beforeIdx, "CASE D: selectedBallIndex changes")
+
+  local selected = catching:getSelectedBall(game)
+  local ballsBefore = catching:ballCount(game, selected)
+  catching:_releaseThrow(game, ow)
+  eq(catching.phase, "flying", "CASE E: release throw starts projectile")
+  eq(catching:ballCount(game, selected), ballsBefore - 1, "CASE E: throw consumed a ball")
+  catching:cancelAll("hud-hidden throw cleanup")
+
+  optionStore.catch_hud_size = 5
+  eq(catching.hud:shouldDraw(game, ow), true, "CASE F: live 0→5 HUD draws again")
+  optionStore.catch_hud_size = 0
+  catching:_beginMeter()
+  eq(catching.hud:shouldDraw(game, ow), false, "live 5→0 hides HUD while charging")
+  eq(catching.meter.active, true, "live 5→0 meter continues")
+  catching:cancelAll("hud-hidden live cleanup")
+  optionStore.catch_hud_size = 5
+end
 
 -- Ball entity must keep a valid pose() contract (never nil for Voxel / DS).
 logic.entities = {}

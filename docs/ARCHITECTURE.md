@@ -30,6 +30,7 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `lib/followers_water_compat.lua` | Optional Followers EX water sprite swaps |
 | `lib/follower/` | Standalone follower core (selection, control engine, trailers) |
 | `lib/catching/` | Optional overworld Poké Ball throw / catch (HUD, meter, projectile) |
+| `lib/catching/bindings.lua` | Catch Key / combo configuration (defaults C / Q / B+A / B+Dpad) |
 | `lib/grass_occlusion.lua` | Flat feet-overdraw + above-lift helpers |
 | `lib/voxel_adapter.lua` | DS hooks; emergency overlay filter |
 | `lib/surface.lua` | GRASS / CAVE / WATER surface resolve |

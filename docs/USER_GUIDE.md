@@ -132,6 +132,12 @@ Gameplay settings live in **Mod Settings** only (not duplicated in the Start men
 | Roam Mons | `enable_wander` | true | on/off | Allow Wander |
 | Chase Mons | `enable_aggressive` | true | on/off | Allow Aggressive |
 | Hidden Mons | `enable_hidden` | true | on/off | Allow Hidden markers |
+| OW Catch | `overworld_catching` | true | on/off | Direct Poké Ball throws at visible wilds |
+| Catch Key | `catch_throw_key` | c | C / V / F / G / R / T | Desktop charge/throw key |
+| Ball Switch Key | `catch_cycle_key` | q | Q / E / R / F / G / T | Desktop Ball-cycle key |
+| Catch Combo | `catch_throw_combo` | b_a | B+A / Select+A / Disabled | Controller/touch throw combo |
+| Switch Combo | `catch_cycle_combo` | b_dpad | B+Left/Right / Select+Left/Right / Disabled | Controller/touch cycle combo |
+| Catch HUD Size | `catch_hud_size` | 5 | 0–10 | Top-screen Ball HUD size (0 = hidden; catching stays on) |
 | Dev Overlay | `dev_overlay` | false | on/off | Behaviour + facing labels above wild Pokémon |
 
 **Test Spawn** is an OPTIONS activate row (no schema button type) that opens the

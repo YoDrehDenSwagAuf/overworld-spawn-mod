@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### Catch HUD Size 0 = hidden
+
+- **Catch HUD Size** now allows **0–10**. **0** hides the Catch HUD only;
+  Overworld Catching, meter, range tiles, ball switching, and throws stay
+  active. Default remains **5**.
+
+### Configurable Overworld Catch controls
+
+- New Wilds settings: **Catch Key**, **Ball Switch Key**, **Catch Combo**,
+  **Switch Combo**. Defaults stay **C** / **Q** / **B+A** / **B+Left/Right**.
+- Bindings live in `lib/catching/bindings.lua`. Catch timing, meter, HUD,
+  projectile, and TouchControls are unchanged.
+- Desktop keys and logical Game Boy combos remain parallel. Controller/touch
+  presets use logical `a` / `b` / `select` / `left` / `right`.
+- Changing a Catch binding live-cancels an in-progress meter (no Ball consumed).
+- If Catch Key equals Ball Switch Key, throw wins and cycle falls back to Q
+  (or E when Catch Key is Q).
+
 ### Species → canonical Wilds asset identity
 
 - Overworld / follower / water / True Size sprite lookup now maps

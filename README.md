@@ -186,6 +186,11 @@ There is no second settings store.
 | Chase Mons | On / Off | On | Allow aggressive chase behaviour. |
 | Hidden Mons | On / Off | On | Allow hidden grass / cave markers. |
 | OW Catch | On / Off | On | Enables direct Poké Ball throws at visible wild Pokémon. |
+| Catch Key | C / V / F / G / R / T | C | Desktop key that charges and throws. |
+| Ball Switch Key | Q / E / R / F / G / T | Q | Desktop key that cycles Balls. |
+| Catch Combo | B + A / Select + A / Disabled | B + A | Controller/touch charge-and-throw combo. |
+| Switch Combo | B + Left/Right / Select + Left/Right / Disabled | B + Left/Right | Controller/touch Ball-switch combo. |
+| Catch HUD Size | 0–10 | 5 | Size of the top-screen Ball HUD. 0 = Hidden; 1–10 = size. Hiding the HUD does not disable catching. |
 | Dev Overlay | On / Off | Off | Show behaviour labels above Pokémon. |
 
 **Test Spawn** remains available from OPTIONS / Mod Settings as an OPEN row.
@@ -196,11 +201,13 @@ When **OW Catch** is ON (and not in Safari / menus / battle):
 
 | Input | Action |
 |-------|--------|
-| Hold **C** | Charge throw power (1–6 tiles); green ground preview shows range |
-| Release **C** | Throw the selected Ball |
-| **Q** | Cycle Ball type (Poké → Great → Ultra → Master; skips empty) |
-| Hold **B** + **LEFT** / **RIGHT** | Previous / next Ball (TouchControls / controller / logical D-Pad) |
-| Hold **B** + hold **A**, release **A** | Same charge meter / throw (mobile-friendly; short **B** stays vanilla) |
+| Hold **Catch Key** (default **C**) | Charge throw power (1–6 tiles); green ground preview shows range |
+| Release **Catch Key** | Throw the selected Ball |
+| **Ball Switch Key** (default **Q**) | Cycle Ball type (Poké → Great → Ultra → Master; skips empty) |
+| **Catch Combo** (default **B** + **A**) | Same charge meter / throw on controller, touch, or logical GB buttons |
+| **Switch Combo** (default **B** + **LEFT** / **RIGHT**) | Previous / next Ball on controller, touch, or logical D-Pad |
+
+Defaults: **C** = Catch, **Q** = Switch Ball, **B+A** = Catch (controller/touch), **B+Left/Right** = Switch Ball. Controls can be changed in Wilds settings. Desktop keys and controller/touch combos stay active together.
 
 Throws only hit battleable wilds directly ahead (max 6 tiles). A miss still consumes a Ball. Failed catches make the Pokémon aggressive through the normal Wilds `!` → chase → battle flow (battle starts on contact, so another Ball can be thrown if there is still distance). Safari sessions disable overworld throws so native Safari catching is not bypassed.
 
