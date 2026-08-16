@@ -82,6 +82,14 @@ local sx2, sy2 = RangePreview.worldToScreenFlat(10, 10, cam)
 eq(sx2, sx, "flat transform stable without scale")
 eq(sy2, sy, "flat transform stable without scale y")
 
+-- Gold window-space: floor((0-cam)*s) + cell*16*s (World:drawGround).
+local gsx, gsy, gw, gh = RangePreview.worldToScreenGold(10, 10, cam, 2)
+eq(gsx, math.floor((0 - 32) * 2) + 10 * 16 * 2, "gold sx matches World map blit")
+eq(gsy, math.floor((0 - 16) * 2) + 10 * 16 * 2, "gold sy matches World map blit")
+eq(gw, 32, "gold cell width is 16*scale")
+eq(gh, 32, "gold cell height is 16*scale")
+check(gsx ~= sx, "Gold projection is not Gen1 worldCanvas math")
+
 -- Projected path uses project exclusively.
 local calls = 0
 local function fakeProject(wx, wy)
@@ -113,6 +121,8 @@ catching.phase = "metering"
 RangePreview.sync(catching)
 check(RangePreview._pending ~= nil, "metering sets pending")
 eq(#RangePreview._pending.cells, 3, "pending has 3 cells")
+eq(RangePreview.groundPreviewSupported(V.mod, { ready = true }), true,
+   "Gen1 ground preview stays supported")
 RangePreview.clear()
 check(RangePreview._pending == nil, "clear removes pending")
 

@@ -22,6 +22,9 @@
 --   separate touch ids for d-pad vs face buttons; A and B are distinct controls;
 --   B held + A held and B held + d-pad direction are supported without engine changes.
 
+local V = ...
+local GameCompat = V.require("game_compat")
+
 local CatchInput = {}
 CatchInput.__index = CatchInput
 
@@ -192,7 +195,7 @@ function CatchInput:onInputStep(game, _dt)
   -- the run button in many setups (running-shoes / Runner mods), so firing
   -- the combo mid-run eats left/right and the player cannot steer while
   -- running.  The combo re-arms once the player stands still.
-  local player = ow and ow.player
+  local player = GameCompat.catchPlayer(game, ow)
   if player and player.moving == true then
     self._moveCooldown = CATCH_COMBO_MOVE_WINDOW
   else

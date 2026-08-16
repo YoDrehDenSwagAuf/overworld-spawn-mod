@@ -174,8 +174,8 @@ if GameCompat then
      "encounters capability true")
   eq(GameCompat.supportsFeature("followers", mod, goldGame), true,
      "followers capability true")
-  eq(GameCompat.supportsFeature("catching", mod, goldGame), false,
-     "catching capability false")
+  eq(GameCompat.supportsFeature("catching", mod, goldGame), true,
+     "catching capability true")
   eq(GameCompat.supportsFeature("ambient", mod, goldGame), true,
      "ambient capability true")
   eq(GameCompat.supportsFeature("safari", mod, goldGame), false,
@@ -207,9 +207,9 @@ if follower then
 end
 
 local catching = mod.exports.catching
-check(catching ~= nil, "catching object exists (construct only)")
+check(catching ~= nil, "catching object exists")
 if catching then
-  eq(catching._registered, false, "catching hooks NOT registered")
+  eq(catching._registered, true, "catching hooks registered on Gold")
 end
 
 local ambient = mod.exports.ambient
@@ -262,7 +262,7 @@ check(modsOk, "mods.loaded on Gold does not throw (" .. tostring(modsErr) .. ")"
 eq(wrappedHook("encounter.roll"), true, "map.entered keeps encounter.roll wrap")
 eq(follower._installed, true, "map.entered keeps followers installed")
 eq(ambient._installed, true, "map.entered keeps ambient installed")
-eq(catching._registered, false, "map.entered still did not register catching")
+eq(catching._registered, true, "map.entered keeps catching registered")
 
 if failures > 0 then
   io.stderr:write(string.format("\n%d failure(s)\n", failures))

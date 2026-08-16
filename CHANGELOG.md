@@ -65,8 +65,7 @@
   / hidden silhouettes still black-out. Gen1 water luminance is unchanged.
 
 - Touching a visible wild starts a **normal Gold wild battle**
-  (`start_battle` / `wild` / species / level) exactly once. Overworld
-  Catching stays off.
+  (`start_battle` / `wild` / species / level) exactly once.
 - Aggressive Wilds on Gold use the **Gold World emote contract**
   (`{ image, entity, left }`). Writing the Gen1 `{ npc, frames, onDone }`
   bubble onto Gold World was crashing in `World:update` when a spawned
@@ -77,7 +76,36 @@
   Cianwood, Mahogany, and Blackthorn.
 - HGSS True Size / runtime sprite generation range extends to **251**.
   Existing 1..151 geometry is unchanged.
-- Catching and Safari stay **off** on Gold.
+- Safari stays **off** on Gold. Bug-Catching Contest / special engine
+  catch sessions disable overworld throws.
+
+### Gold overworld catching
+
+- Gold uses the **shared** Wilds catching UX (HUD, selected ball, power
+  meter, projectile, targeting, hit detection, success/failure, input).
+- Engine-specific inventory, Mon construction, party/box, Pokédex, and
+  catch-rate/ball rules go through `GameCompat` → `Gen1` / `Gen2`.
+- Gen1 Red / Blue / Yellow catching is a behavior-preserving wrap of the
+  previous `Bag` / `Pokemon.new` / `Party.add` / `Boxes.deposit` path.
+- Gold consume uses the native bag (`save.inventory` + `Bag.remove`).
+  A successful catch builds a real Gold mon via `src.battle.gen2.Mon.new`,
+  adds it to `save.party` or the current Gold PC box, and stamps
+  `pokedex.caught` / `pokedex.seen` with the entity species id (never a
+  Wilds asset id).
+- Shared `CatchMath` throw-quality / facing / level modifiers stay.
+  Ball multipliers and Master Ball remain inside each generation's
+  native `Catching.attempt`. Gen1 probabilities are unchanged.
+- Catching no longer assumes Gen1 `mod.world:overworld()` / `ow.player` /
+  `ow.textbox:active()` / stack-top-is-overworld. Gold resolves
+  `GameCompat.catchWorld` → `game.world` and `GameCompat.catchPlayer` →
+  the native Gold Player. Control uses `World:busy` / `textbox` latch /
+  empty-stack free roam. Thrown balls attach to Gold `npcs` so
+  `World:drawPeople` can see them. A failed `Mon.new` now returns nil
+  (no fake party table). Gen1 catching guards are unchanged.
+- Gold B+A / C meter no longer runs Gen1 RangePreview world lookup
+  (`mod.world:overworld()`) or the `OverworldState.drawWorld` monkey-patch.
+  Green ground cells are disabled on Gold (no worldCanvas pass). HUD meter,
+  throw, and catch stay on. Gen1 ground preview is unchanged.
 
 ### Experimental Pokémon Gold foundation
 

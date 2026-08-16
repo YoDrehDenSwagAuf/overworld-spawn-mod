@@ -4,6 +4,7 @@
 local V = ...
 local Config = V.require("config")
 local CatchMath = V.require("catching/catch_math")
+local GameCompat = V.require("game_compat")
 
 local BallHud = {}
 BallHud.__index = BallHud
@@ -13,6 +14,9 @@ BallHud.PIPELINE_ID = "owwild_ball_hud"
 BallHud.ICON_PX = 15
 BallHud.ICON_PX_MIN = 8
 BallHud.ICON_PX_MAX = 24
+-- Gold-only logical origin (160×144). Gen1 keeps the historic top-right row.
+BallHud.GOLD_LOGICAL_X = 4
+BallHud.GOLD_LOGICAL_Y = 2
 
 local BALL_ORDER = { "POKE_BALL", "GREAT_BALL", "ULTRA_BALL", "MASTER_BALL" }
 local BALL_SHORT = {
@@ -38,7 +42,10 @@ end
 
 --- Layout metrics for the current Catch HUD Size (nearest-neighbor icons).
 --- Scales the compact HUD as one component: icons, gaps, quantity, meter Y.
-function BallHud.layout(mod, canvasW)
+--- Optional `anchor`:
+---   nil / "topright" — Gen1: row against the right edge of the 160px canvas
+---   "topleft"        — Gold: same component, origin at GOLD_LOGICAL_X/Y
+function BallHud.layout(mod, canvasW, anchor)
   canvasW = canvasW or 160
   if canvasW > 200 then canvasW = 160 end
   local scale = Config.catchHudScale(mod)
@@ -72,7 +79,19 @@ function BallHud.layout(mod, canvasW)
   local qtyY = iconY + iconW + qtyPad
   -- Power meter sits below icons + quantity line; modest spacing with scale.
   local meterY = qtyY + math.max(8, math.floor(10 * scale + 0.5))
+  local meterX = canvasW - 22
   local border = iconW + 2
+  -- Gold: translate the whole block (icons + qty + meter) to the top-left
+  -- logical origin. Do not re-layout pieces independently.
+  if anchor == "topleft" then
+    local dx = BallHud.GOLD_LOGICAL_X - startX
+    local dy = BallHud.GOLD_LOGICAL_Y - iconY
+    startX = startX + dx
+    iconY = iconY + dy
+    qtyY = qtyY + dy
+    meterY = meterY + dy
+    meterX = meterX + dx
+  end
   return {
     canvasW = canvasW,
     scale = scale,
@@ -82,8 +101,30 @@ function BallHud.layout(mod, canvasW)
     iconY = iconY,
     qtyY = qtyY,
     meterY = meterY,
+    meterX = meterX,
+    hudOriginX = startX,
+    hudOriginY = iconY,
     selectedBorder = border,
+    anchor = anchor or "topright",
   }
+end
+
+--- Gold render.hud is window-space. Reuse Game2:viewport letterbox fields
+--- (gameX / gameY / scale) rather than re-deriving Chrome.fitScale.
+function BallHud.playfieldTransform(viewport)
+  viewport = viewport or {}
+  return {
+    x = viewport.gameX or 0,
+    y = viewport.gameY or 0,
+    scale = viewport.scale or 1,
+    logicalW = 160,
+    logicalH = 144,
+  }
+end
+
+function BallHud.projectLogical(viewport, logicalX, logicalY)
+  local t = BallHud.playfieldTransform(viewport)
+  return t.x + (logicalX or 0) * t.scale, t.y + (logicalY or 0) * t.scale
 end
 
 function BallHud.new(mod, catching)
@@ -108,7 +149,7 @@ function BallHud:shouldDraw(game, ow)
   end
   if not Config.overworldCatchingEnabled(self.mod) then return false end
   if not Config.isEnabled(self.mod) then return false end
-  if not game or not ow or not ow.player then return false end
+  if not game or not ow or not GameCompat.catchPlayer(game, ow) then return false end
   if self.catching.safariBlocks and self.catching:safariBlocks(game, ow) then
     return false
   end
@@ -118,7 +159,10 @@ function BallHud:shouldDraw(game, ow)
   return true
 end
 
-local function ballCount(game, ballType)
+local function ballCount(catching, game, ballType)
+  if catching and catching.ballCount then
+    return catching:ballCount(game, ballType)
+  end
   local inv = game and game.save and game.save.inventory
   if not inv then return 0 end
   return tonumber(inv[ballType]) or 0
@@ -133,14 +177,16 @@ local function drawText(Font, lg, text, x, y)
   end
 end
 
-function BallHud:draw(canvas, ctx)
+function BallHud:draw(canvas, ctx, opts)
+  opts = opts or {}
   if not (love and love.graphics) then return canvas end
   -- Dedup when both owwild_catching_tick and owwild_ball_hud present run.
   local frame = self._frame or 0
-  if self._drawnFrame == frame and frame > 0 then
+  if not opts.force and self._drawnFrame == frame and frame > 0 then
     return canvas
   end
   self._drawnFrame = frame
+  self._hudDrawCount = (self._hudDrawCount or 0) + 1
 
   local catching = self.catching
   local game = catching and catching:game()
@@ -151,23 +197,28 @@ function BallHud:draw(canvas, ctx)
   local Font = self.mod.ui and self.mod.ui.Font
   local selected = catching:getSelectedBall(game)
 
-  lg.push("all")
-  if canvas then
+  if not opts.skipPush then
+    lg.push("all")
+  end
+  if canvas and not opts.skipCanvas then
     lg.setCanvas(canvas)
   end
-  lg.origin()
+  if not opts.skipOrigin then
+    lg.origin()
+  end
   lg.setColor(1, 1, 1, 1)
 
-  -- Top-right of the 160×144 Game Boy canvas. Size reads catch_hud_size live.
+  -- Top-right of the 160×144 Game Boy canvas (Gen1). Gold drawScreen
+  -- passes anchor="topleft" so the same component sits at GOLD_LOGICAL_*.
   local canvasW = (ctx and ctx.width) or 160
-  local layout = BallHud.layout(self.mod, canvasW)
+  local layout = opts.layout or BallHud.layout(self.mod, canvasW, opts.anchor)
   local y = layout.iconY
   local iconW = layout.iconW
   local gap = layout.gap
   local startX = layout.startX
 
   for i, ballType in ipairs(BALL_ORDER) do
-    local count = ballCount(game, ballType)
+    local count = ballCount(catching, game, ballType)
     local bx = startX + (i - 1) * (iconW + gap)
     local selectedHere = ballType == selected
     local alpha = 1.0
@@ -206,7 +257,7 @@ function BallHud:draw(canvas, ctx)
   -- Power / distance meter: readable 1–6 ladder while charging.
   local meter = catching:meterState()
   if meter and meter.active then
-    local mx = canvasW - 22
+    local mx = layout.meterX or (canvasW - 22)
     local my = layout.meterY
     local rowH = 9
     local power = meter.power or 1
@@ -269,8 +320,56 @@ function BallHud:draw(canvas, ctx)
     end
   end
 
-  lg.pop()
+  if not opts.skipPush then
+    lg.pop()
+  end
   return canvas
+end
+
+--- Gold screen-space HUD. Logical 160×144, top-left origin, then projected
+-- through Game2:viewport (gameX/gameY/scale). render.hud is window-space.
+function BallHud:drawScreen(viewport)
+  if not (love and love.graphics) then return end
+  viewport = viewport or {}
+  local layout = BallHud.layout(self.mod, 160, "topleft")
+  self:_logGoldHudSpace(viewport, layout)
+  local t = BallHud.playfieldTransform(viewport)
+  local lg = love.graphics
+  lg.push("all")
+  lg.origin()
+  lg.translate(t.x, t.y)
+  lg.scale(t.scale, t.scale)
+  self:draw(nil, { width = 160, height = 144 }, {
+    skipPush = true,
+    skipOrigin = true,
+    skipCanvas = true,
+    anchor = "topleft",
+    layout = layout,
+  })
+  lg.pop()
+end
+
+function BallHud:_logGoldHudSpace(viewport, layout)
+  if self._goldHudSpaceLogged then return end
+  if not Config.devOverlay(self.mod) then return end
+  self._goldHudSpaceLogged = true
+  local lg = love and love.graphics
+  local loveW = (lg and lg.getWidth) and lg.getWidth() or nil
+  local loveH = (lg and lg.getHeight) and lg.getHeight() or nil
+  local canvasW, canvasH = "n/a", "n/a"
+  print(string.format(
+    "[Wilds][Catch][Gold][HUD] ctx.width=%s ctx.height=%s canvas:getWidth=%s canvas:getHeight=%s love.graphics.getWidth=%s love.graphics.getHeight=%s layout.canvasW=%s startX=%s iconY=%s hudOrigin=(%s,%s) meterX=%s viewport.gameX=%s gameY=%s scale=%s",
+    tostring(viewport and viewport.width),
+    tostring(viewport and viewport.height),
+    tostring(canvasW), tostring(canvasH),
+    tostring(loveW), tostring(loveH),
+    tostring(layout.canvasW), tostring(layout.startX), tostring(layout.iconY),
+    tostring(layout.hudOriginX), tostring(layout.hudOriginY),
+    tostring(layout.meterX),
+    tostring(viewport and viewport.gameX),
+    tostring(viewport and viewport.gameY),
+    tostring(viewport and viewport.scale)
+  ))
 end
 
 function BallHud:register()
@@ -290,6 +389,11 @@ function BallHud:register()
         and Config.isEnabled(mod) == true
     end,
     present = function(canvas, ctx)
+      -- Gold HUD is render.hud (screen-space). Do not also paint present.
+      local catching = hud.catching
+      if catching and GameCompat.isGen2(catching.mod, catching:game()) then
+        return canvas
+      end
       return hud:draw(canvas, ctx)
     end,
   })

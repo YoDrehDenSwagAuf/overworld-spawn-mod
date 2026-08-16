@@ -6,6 +6,7 @@ local Config = V.require("config")
 local Behavior = V.require("behavior")
 local Movement = V.require("movement")
 local SafariCompat = V.require("safari_compat")
+local GameCompat = V.require("game_compat")
 local CatchMath = V.require("catching/catch_math")
 local Target = V.require("catching/target")
 local Projectile = V.require("catching/projectile")
@@ -40,12 +41,6 @@ local BALL_ASSET_SM = {
   MASTER_BALL = "assets/balls/master_ball_sm.png",
 }
 
-local function tryRequire(name)
-  local ok, mod = pcall(require, name)
-  if ok then return mod end
-  return nil
-end
-
 local function now()
   if love and love.timer and love.timer.getTime then
     return love.timer.getTime()
@@ -68,18 +63,8 @@ local function pushText(game, mod, msg, onDone)
     finished = true
     if onDone then onDone() end
   end
-  local TextBox = (mod and mod.ui and mod.ui.TextBox) or tryRequire("src.render.TextBox")
-  if not (TextBox and TextBox.new and game.stack and game.stack.push) then
-    finish()
-    return
-  end
-  local ok, box = pcall(TextBox.new, game, msg, finish)
-  if ok and box then
-    local pushOk = pcall(function() game.stack:push(box) end)
-    if not pushOk then
-      finish()
-    end
-  else
+  local ok = pcall(GameCompat.presentText, mod, game, nil, msg, finish)
+  if not ok then
     finish()
   end
 end
@@ -107,13 +92,16 @@ function OverworldCatching.new(mod, logic)
 end
 
 function OverworldCatching:game()
-  return self.mod.world and self.mod.world.game
+  if self.mod.world and self.mod.world.game then return self.mod.world.game end
+  return self.mod.game
 end
 
 function OverworldCatching:overworld()
-  local world = self.mod.world
-  if not world or not world.overworld then return nil end
-  return world:overworld()
+  return GameCompat.catchWorld(self.mod, self:game())
+end
+
+function OverworldCatching:catchPlayer(game, ow)
+  return GameCompat.catchPlayer(game or self:game(), ow or self:overworld())
 end
 
 function OverworldCatching:registerContent()
@@ -195,9 +183,7 @@ function OverworldCatching:ballHudImage(ballType)
 end
 
 function OverworldCatching:ballCount(game, ballType)
-  local inv = game and game.save and game.save.inventory
-  if not inv then return 0 end
-  return tonumber(inv[ballType]) or 0
+  return GameCompat.ballCount(game, ballType)
 end
 
 function OverworldCatching:getSelectedBall(game)
@@ -235,18 +221,7 @@ function OverworldCatching:cycleSelectedBall(game, direction)
 end
 
 function OverworldCatching:consumeBall(game, ballType)
-  local Bag = tryRequire("src.inventory.Bag")
-  local save = game and game.save
-  if not save or not save.inventory then return false end
-  if self:ballCount(game, ballType) <= 0 then return false end
-  if Bag and Bag.remove then
-    Bag.remove(save, ballType, 1)
-  else
-    local n = (save.inventory[ballType] or 0) - 1
-    if n <= 0 then save.inventory[ballType] = nil
-    else save.inventory[ballType] = n end
-  end
-  return true
+  return GameCompat.consumeBall(game, ballType)
 end
 
 function OverworldCatching:anyBalls(game)
@@ -256,69 +231,27 @@ function OverworldCatching:anyBalls(game)
   return false
 end
 
---- Stack / dialogue / battle / script guards.
+--- Stack / dialogue / battle / script guards (generation-specific via GameCompat).
 function OverworldCatching:playerHasControl(game, ow)
-  if not game or not ow or not ow.player then return false end
-  if ow.runner and ow.runner.isRunning and ow.runner:isRunning() then
-    return false
-  end
-  if ow.textbox and ow.textbox.active and ow.textbox:active() then
-    return false
-  end
-  if ow.engaging then return false end
-  if self.logic and self.logic.pendingBattle then return false end
-
-  local stack = game.stack
-  if stack and stack.top then
-    local top = stack:top()
-    if top and top ~= ow then
-      -- Allow only when overworld is top of stack.
-      local opaque = top.isOpaque == true
-        or (type(top.isOpaque) == "function" and top:isOpaque())
-      if opaque or top.battle or top.isBattle then
-        return false
-      end
-      -- Menus / party / PC / options typically sit above overworld.
-      if top ~= ow then return false end
-    end
-  end
-  return true
+  return GameCompat.catchPlayerHasControl(game, ow, self.logic)
 end
 
 function OverworldCatching:safariBlocks(game, ow)
   local mapId = ow and ow.map and ow.map.id
   local status = SafariCompat.status(game, ow, mapId)
-  return status == SafariCompat.STATUS.ACTIVE
+  if status == SafariCompat.STATUS.ACTIVE then return true end
+  return GameCompat.specialCatchSessionBlocks(game, ow) == true
 end
 
 function OverworldCatching:isBlockedByUi(game, ow)
-  if not game then return true end
-  if self.logic and self.logic.pendingBattle then return true end
-  if ow and ow.runner and ow.runner.isRunning and ow.runner:isRunning() then
-    return true
-  end
-  if ow and ow.textbox and ow.textbox.active and ow.textbox:active() then
-    return true
-  end
-  local stack = game.stack
-  if stack and stack.top then
-    local top = stack:top()
-    if top and ow and top ~= ow then
-      local opaque = top.isOpaque == true
-        or (type(top.isOpaque) == "function" and top:isOpaque())
-      if opaque or top.battle or top.isBattle then
-        return true
-      end
-      return true
-    end
-  end
-  return false
+  return GameCompat.catchUiBlocked(game, ow, self.logic)
 end
 
 function OverworldCatching:canShowHud(game, ow)
   if not Config.overworldCatchingEnabled(self.mod) then return false end
   if not Config.isEnabled(self.mod) then return false end
-  if not game or not ow or not ow.player then return false end
+  local player = GameCompat.catchPlayer(game, ow)
+  if not game or not ow or not player then return false end
   if self:safariBlocks(game, ow) then return false end
   if self.logic and self.logic.pendingBattle then return false end
   -- Meter / flight / capture must keep HUD+meter visible even if control flickers.
@@ -360,6 +293,129 @@ function OverworldCatching:_catchLog(fmt, ...)
   end
   local ok, msg = pcall(string.format, fmt, ...)
   print("[Wilds][Catch] " .. (ok and msg or tostring(fmt)))
+end
+
+function OverworldCatching:_goldCatchLog(fmt, ...)
+  if not GameCompat.isGen2(self.mod, self:game()) then return end
+  if not (Config.devOverlay(self.mod) or Config.debug(self.mod)) then
+    return
+  end
+  local ok, msg = pcall(string.format, fmt, ...)
+  print("[Wilds][Catch][Gold] " .. (ok and msg or tostring(fmt)))
+end
+
+--- Gold crash-bisect stages. Once per throw; not per-frame.
+function OverworldCatching:_goldCatchStage(stage)
+  if not GameCompat.isGen2(self.mod, self:game()) then return end
+  print("[GoldCatch] " .. tostring(stage))
+end
+
+--- Registered *_sm SpriteDef (16×16 canvas, ~6px ball). Never a sprite id only.
+function OverworldCatching:ballSpriteDef(ballType)
+  local id = "SPRITE_WILDS_BALL_" .. tostring(ballType)
+  local sprites = self.mod and self.mod.content and self.mod.content.sprites
+  if sprites and type(sprites.get) == "function" then
+    local def = sprites:get(id)
+    if type(def) == "table" and def.image then return def end
+  end
+  local game = self:game()
+  local dataSprites = game and game.data and game.data.sprites
+  if dataSprites and type(dataSprites[id]) == "table" and dataSprites[id].image then
+    return dataSprites[id]
+  end
+  local rel = BALL_ASSET_SM[ballType] or BALL_ASSET[ballType]
+  local path = self.mod.assets and self.mod.assets.path and self.mod.assets:path(rel) or rel
+  return {
+    id = id,
+    image = path,
+    frames = 1,
+    walker = false,
+    trueColor = true,
+  }
+end
+
+function OverworldCatching:_refundBall(game, ballType)
+  local save = game and game.save
+  if not save or not ballType then return end
+  save.inventory = save.inventory or {}
+  save.inventory[ballType] = (tonumber(save.inventory[ballType]) or 0) + 1
+end
+
+function OverworldCatching:_startCatchProjectile(game, ow, ballType, opts)
+  opts = opts or {}
+  opts.spriteDef = opts.spriteDef or self:ballSpriteDef(ballType)
+  local ok, err = self.projectile:startFlight(game, ow, opts)
+  if ok then return true end
+  self:_goldCatchStage("PROJECTILE_CREATE failed: " .. tostring(err))
+  self:_refundBall(game, ballType)
+  if self.activeCapture and self.activeCapture.entity then
+    self:_unlockTarget(self.activeCapture.entity, { reattach = true, restoreVisible = true })
+  end
+  self.activeCapture = nil
+  self.phase = "idle"
+  return false
+end
+
+function OverworldCatching:_catchBlocker(game, ow)
+  if not Config.overworldCatchingEnabled(self.mod) then return "CONFIG_DISABLED" end
+  if not Config.isEnabled(self.mod) then return "WILDS_DISABLED" end
+  if not game then return "NO_GAME" end
+  if not GameCompat.supportsFeature("catching", self.mod, game) then
+    return "CAPABILITY_DISABLED"
+  end
+  if not ow then return "NO_WORLD" end
+  if not GameCompat.catchPlayer(game, ow) then return "NO_PLAYER" end
+  if self:safariBlocks(game, ow) then return "SPECIAL_SESSION" end
+  if self.logic and self.logic.pendingBattle then return "PENDING_BATTLE" end
+  if self.projectile and self.projectile:isBusy() then return "PROJECTILE_BUSY" end
+  if self:isBlockedByUi(game, ow) then return "UI_BLOCKED" end
+  if not self:playerHasControl(game, ow) then return "NO_CONTROL" end
+  return nil
+end
+
+--- Once / on blocker change (throttled). Never per-frame.
+function OverworldCatching:_catchBootLog(game, ow)
+  if not (Config.devOverlay(self.mod) or Config.debug(self.mod)) then
+    return
+  end
+  local blocker = self:_catchBlocker(game, ow)
+  local t = now()
+  if self._bootLogged and self._bootBlocker == blocker then
+    return
+  end
+  if self._bootLogged and (t - (self._bootLogAt or 0)) < 2 then
+    return
+  end
+  self._bootLogged = true
+  self._bootBlocker = blocker
+  self._bootLogAt = t
+
+  local modWorld = self.mod and self.mod.world
+  local apiOw
+  if modWorld and type(modWorld.overworld) == "function" then
+    local ok, result = pcall(modWorld.overworld, modWorld)
+    if ok then apiOw = result end
+  end
+  local worldPlayer = game and game.world and game.world.player
+  local player = GameCompat.catchPlayer(game, ow)
+  print(string.format(
+    "[Wilds][CatchBoot] generation=%s capability=%s owCatch=%s wilds=%s game=%s mod.world=%s mod.world:overworld()=%s game.world=%s ow=%s ow.player=%s game.world.player=%s game.world.playerState=%s canShowHud=%s canAcceptInput=%s blocker=%s",
+    tostring(GameCompat.generation(self.mod, game)),
+    tostring(GameCompat.supportsFeature("catching", self.mod, game)),
+    tostring(Config.overworldCatchingEnabled(self.mod)),
+    tostring(Config.isEnabled(self.mod)),
+    tostring(game ~= nil),
+    tostring(modWorld ~= nil),
+    tostring(apiOw ~= nil),
+    tostring(game and game.world ~= nil),
+    tostring(ow ~= nil),
+    tostring(ow and ow.player ~= nil),
+    tostring(worldPlayer ~= nil),
+    tostring(game and game.world and game.world.playerState),
+    tostring(self:canShowHud(game, ow)),
+    tostring(self:canAcceptInput(game, ow)),
+    tostring(blocker or "NONE")
+  ))
 end
 
 local function inputDown(game, aliases)
@@ -416,12 +472,27 @@ function OverworldCatching:_updateMeter(dt)
 end
 
 function OverworldCatching:_beginMeter()
+  if GameCompat.isGen2(self.mod, self:game()) then
+    print("[Wilds][GoldCatch] beginMeter ENTER")
+    self:_goldCatchStage("METER")
+    self:_goldCatchFrameLog("beginMeter")
+  end
   self.meter.active = true
   self.meter.t = 0
   self.meter.power = METER_MIN
   self.meter.rising = true
   self.phase = "metering"
+  RangePreview._goldSyncTraced = nil
+  RangePreview._goldUnsupportedTraced = nil
+  RangePreview._goldWorldTraced = nil
+  RangePreview._goldVoxelTraced = nil
+  RangePreview._goldCellsTraced = nil
+  self._goldStepTraced = nil
+  self:_catchLog("begin meter")
   self:_catchLog("phase=metering source=%s", tostring(self.meterSource or "desktop"))
+  if GameCompat.isGen2(self.mod, self:game()) then
+    print("[Wilds][GoldCatch] beginMeter OK")
+  end
 end
 
 function OverworldCatching:_cancelMeter()
@@ -551,6 +622,7 @@ function OverworldCatching:_onEasterEggImpact(game, ow, kind, entity)
 end
 
 function OverworldCatching:_releaseThrow(game, ow)
+  self:_goldCatchStage("RELEASE")
   local power = self.meter.power or METER_MIN
   self:_cancelMeter()
   RangePreview.clear()
@@ -562,11 +634,31 @@ function OverworldCatching:_releaseThrow(game, ow)
     return
   end
 
-  local player = ow.player
-  local px, py = player.cellX, player.cellY
+  local player = GameCompat.catchPlayer(game, ow)
+  if not player then
+    self:_catchLog("release aborted NO_PLAYER")
+    self.phase = "idle"
+    return
+  end
+  local px, py = GameCompat.playerCell(game, ow)
+  px, py = px or player.cellX, py or player.cellY
   local hit = Target.scanThrowPath(self.logic, ow, player, power)
+  self:_goldCatchStage("TARGET_SCAN")
   local Hit = Target.HitKind
   local facing = hit.facing or Target.facingOf(player)
+  local wildCount = 0
+  if self.logic and self.logic.entities then
+    for _, ent in pairs(self.logic.entities) do
+      if Target.isCatchableWild(ent) then wildCount = wildCount + 1 end
+    end
+  end
+  self:_catchLog("release")
+  self:_catchLog("player cell=(%s,%s) facing=%s power=%.2f wilds=%d",
+    tostring(px), tostring(py), tostring(facing), power, wildCount)
+  self:_catchLog("target=%s distance=%s kind=%s",
+    tostring(hit.entity and (hit.entity.species or hit.entity.wildSpecies) or "none"),
+    tostring(hit.distance),
+    tostring(hit.kind))
 
   -- Consume on commit (hit, easter egg, or miss).
   if not self:consumeBall(game, ballType) then
@@ -574,6 +666,9 @@ function OverworldCatching:_releaseThrow(game, ow)
     self.phase = "idle"
     return
   end
+  self:_goldCatchLog("consumed=true")
+  self:_goldCatchLog("inventory count=%s", tostring(self:ballCount(game, ballType)))
+  self:_goldCatchStage("BALL_CONSUMED")
 
   local landX, landY = Projectile.landCell(px, py, facing, power)
   self:_catchLog("throw released power=%.2f land=(%d,%d) facing=%s first=%s@%s",
@@ -584,7 +679,7 @@ function OverworldCatching:_releaseThrow(game, ow)
   local function startMissFlight(feedback)
     self.phase = "flying"
     if feedback then self.hud:showFeedback(feedback, 0.7) end
-    self.projectile:startFlight(game, ow, {
+    if not self:_startCatchProjectile(game, ow, ballType, {
       ballType = ballType,
       spriteId = "SPRITE_WILDS_BALL_" .. ballType,
       image = ballImage,
@@ -600,7 +695,10 @@ function OverworldCatching:_releaseThrow(game, ow)
         self.phase = "idle"
         self:_catchLog("miss complete / projectile cleaned")
       end,
-    })
+    }) then
+      return
+    end
+    self:_catchLog("projectile")
     self:_catchLog("projectile started (miss)")
   end
 
@@ -611,7 +709,7 @@ function OverworldCatching:_releaseThrow(game, ow)
       target = hit.kind, ball = ballType, dist = hit.distance,
       power = string.format("%.2f", power), quality = "easter", angle = nil,
     }
-    self.projectile:startFlight(game, ow, {
+    if not self:_startCatchProjectile(game, ow, ballType, {
       ballType = ballType,
       spriteId = "SPRITE_WILDS_BALL_" .. ballType,
       image = ballImage,
@@ -625,7 +723,10 @@ function OverworldCatching:_releaseThrow(game, ow)
       onImpact = function()
         self:_onEasterEggImpact(game, ow, hit.kind, hit.entity)
       end,
-    })
+    }) then
+      return
+    end
+    self:_catchLog("projectile")
     self:_catchLog("projectile started (%s)", tostring(hit.kind))
     return
   end
@@ -666,8 +767,8 @@ function OverworldCatching:_releaseThrow(game, ow)
     record = self.logic.spawns and self.logic.spawns[entity.id]
   end
 
-  local species = (record and record.species) or entity.species or entity.wildSpecies or "PIDGEY"
-  local level = (record and record.level) or entity.level or entity.wildLevel or 5
+  local species = GameCompat.captureSpecies(entity, record) or "PIDGEY"
+  local level = GameCompat.captureLevel(entity, record) or 5
 
   if quality == CatchMath.QUALITY.MISS then
     -- Aim too far/short: Ball still travels full power distance; mon unaffected.
@@ -692,7 +793,7 @@ function OverworldCatching:_releaseThrow(game, ow)
     landX = landX, landY = landY,
   }
 
-  self.projectile:startFlight(game, ow, {
+  if not self:_startCatchProjectile(game, ow, ballType, {
     ballType = ballType,
     spriteId = "SPRITE_WILDS_BALL_" .. ballType,
     image = ballImage,
@@ -704,7 +805,10 @@ function OverworldCatching:_releaseThrow(game, ow)
     onImpact = function(proj)
       self:_onBallImpact(game, ow, proj)
     end,
-  })
+  }) then
+    return
+  end
+  self:_catchLog("projectile")
   self:_catchLog("projectile started (hit)")
 end
 
@@ -717,6 +821,7 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
   end
 
   self:_catchLog("impact")
+  self:_goldCatchStage("IMPACT")
   local entity = cap.entity
   -- Native POOF_ANIM / Ball_Poof when the mon enters the Ball.
   playCatch(game, "impact")
@@ -730,11 +835,10 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
   local quality = cap.quality
   local angle = cap.angle
 
-  local Catching = tryRequire("src.battle.Catching")
-  local targetDef = (game.data and game.data.pokemon and game.data.pokemon[species])
-    or { catchRate = 255, name = species }
-  local nativeRate = targetDef.catchRate or 255
+  local nativeRate, targetDef = GameCompat.catchRate(game, species)
+  targetDef = targetDef or { catchRate = nativeRate, name = species }
   local rateOverride = CatchMath.effectiveCatchRate(nativeRate, level, quality, angle)
+  self:_goldCatchStage("CATCH_RATE")
 
   local maxHp = math.max(1, math.floor(level * 2.5 + 10))
   local tempMon = {
@@ -747,21 +851,21 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
   local caught, shakes = false, 3
   self:_catchLog("catch attempt ball=%s rate=%s quality=%s",
     tostring(ballType), tostring(rateOverride), tostring(quality))
-  if Catching and Catching.attempt then
-    -- Gen1Recomp: Catching.attempt(ballType, mon, pokemonDef, rng[, rateOverride])
-    -- Ball multipliers live inside the API — do not pre-multiply into rateOverride.
-    caught, shakes = Catching.attempt(ballType, tempMon, targetDef, rng, rateOverride)
-  else
-    -- Headless / missing API: Master Ball always; else use rate heuristic.
-    if ballType == "MASTER_BALL" then
-      caught, shakes = true, 3
-    else
-      local roll = rng(0, 255)
-      caught = roll <= rateOverride
-      shakes = caught and 3 or 1
-    end
-  end
+  self:_goldCatchLog("inventory count=%s", tostring(self:ballCount(game, ballType)))
+  -- Ball multipliers live inside the generation Catching API.
+  -- Do not pre-multiply them into rateOverride.
+  caught, shakes = GameCompat.attemptCatch(game, {
+    ballType = ballType,
+    mon = tempMon,
+    def = targetDef,
+    rng = rng,
+    rateOverride = rateOverride,
+    species = species,
+    level = level,
+  })
+  self:_goldCatchStage("ATTEMPT")
   self:_catchLog("result caught=%s shakes=%s", tostring(caught), tostring(shakes))
+  self:_goldCatchLog("attempt=%s", tostring(caught == true))
 
   -- Place Ball on the target tile for wobble (even if land cell was rounded nearby).
   local wobX = cap.tx or (proj and proj.targetX) or entity.cellX
@@ -787,9 +891,11 @@ function OverworldCatching:_onBallImpact(game, ow, proj)
     end,
   })
   self:_catchLog("wobble")
+  self:_goldCatchStage("WOBBLE")
 end
 
 function OverworldCatching:_resolveCapture(game, ow, caught)
+  self:_goldCatchStage("RESOLVE")
   local cap = self.activeCapture
   self.phase = "resolving"
   if not cap then
@@ -805,49 +911,47 @@ function OverworldCatching:_resolveCapture(game, ow, caught)
   if caught then
     self:_catchLog("resolving success")
     -- Catch SFX already played at SUCCESS_CLICK start.
-    local Pokemon = tryRequire("src.pokemon.Pokemon")
-    local Party = tryRequire("src.pokemon.Party")
-    local Boxes = tryRequire("src.pokemon.Boxes")
-    local newMon
-    if Pokemon and Pokemon.new and game and game.data then
-      local ok, mon = pcall(Pokemon.new, game.data, species, level)
-      if ok then newMon = mon end
-    end
+    -- species is the Wilds entity/record id — never a canonical asset id.
+    local newMon, createErr = GameCompat.createCaughtPokemon(game, species, level, {
+      shiny = entity and entity.shiny,
+      variant = entity and entity.variant,
+      entity = entity,
+    })
     if not newMon then
-      newMon = { species = species, level = level, hp = 1, stats = { hp = 1 } }
-    end
-    -- Preserve shiny/variant metadata when present and accepted.
-    if entity and entity.shiny then newMon.shiny = true end
-    if entity and entity.variant then newMon.variant = entity.variant end
-
-    local msg = "All right!\n" .. tostring(speciesName) .. " was caught!"
-    local added = false
-    if Party and Party.add and game.save and game.save.party then
-      added = Party.add(game.save.party, newMon) == true
-    end
-    if not added and Boxes and Boxes.deposit and game.save then
-      local boxNum = Boxes.deposit(game.save, newMon)
-      if boxNum then
-        msg = msg .. "\fTransferred to\nBox " .. tostring(boxNum) .. "."
-      else
-        msg = msg .. "\fBox is full!"
-      end
-    elseif not added then
-      if game.save and game.save.party and #(game.save.party) < 6 then
-        table.insert(game.save.party, newMon)
-      end
-    end
-
-    -- Stay hidden; despawn via Wilds canonical path (no reappear).
-    if self.logic and entity and entity.id then
-      self.logic:_despawn(entity.id, true)
+      -- Never invent a fake party member. Fail safely and keep the wild.
+      self:_catchLog("create failed err=%s — wild remains", tostring(createErr))
+      self:_goldCatchLog("created species=nil")
     else
-      self:_unlockTarget(entity, { reattach = false, restoreVisible = false })
+      self:_goldCatchLog("created species=%s", tostring(newMon.species or species))
+      local msg = "All right!\n" .. tostring(speciesName) .. " was caught!"
+      local result = GameCompat.giveCaughtPokemon(game, newMon, {
+        species = species,
+        entity = entity,
+      }) or {}
+      local dexOk = GameCompat.markSpeciesCaught(game, species, newMon)
+      self:_goldCatchLog("destination=%s", tostring(result.destination or "none"))
+      self:_goldCatchLog("dex updated=%s", tostring(dexOk == true))
+      if result.destination == "box" then
+        if result.boxNum then
+          msg = msg .. "\fTransferred to\nBox " .. tostring(result.boxNum) .. "."
+        elseif result.boxFull then
+          msg = msg .. "\fBox is full!"
+        end
+      end
+
+      -- Stay hidden; despawn via Wilds canonical path (no reappear).
+      if self.logic and entity and entity.id then
+        self.logic:_despawn(entity.id, true)
+        self:_goldCatchLog("entity removed=true")
+      else
+        self:_unlockTarget(entity, { reattach = false, restoreVisible = false })
+        self:_goldCatchLog("entity removed=true")
+      end
+      self.activeCapture = nil
+      self.phase = "idle"
+      pushText(game, self.mod, msg)
+      return
     end
-    self.activeCapture = nil
-    self.phase = "idle"
-    pushText(game, self.mod, msg)
-    return
   end
 
   -- FAILURE after FAIL_BREAK visuals: Ball already cleaned by Projectile.
@@ -904,7 +1008,7 @@ function OverworldCatching:_beginAggroAfterBreak(entity, record)
   entity.visibleSprite = true
 
   local ow = self:overworld()
-  local player = ow and ow.player
+  local player = GameCompat.catchPlayer(self:game(), ow)
   if player and entity.cellX and entity.cellY then
     local fdx = (player.cellX or 0) - entity.cellX
     local fdy = (player.cellY or 0) - entity.cellY
@@ -992,7 +1096,11 @@ function OverworldCatching:pollInput(game, ow, dt)
     self:_updateMeter(dt)
   end
 
-  if not ow or not game then return end
+  if not ow or not game then
+    self:_catchBootLog(game, ow)
+    return
+  end
+  self:_catchBootLog(game, ow)
 
   -- Cycle ball (edge-triggered only). Allowed whenever HUD can show.
   -- Desktop Q path — B+LEFT/RIGHT is handled by catchInput on input.step.
@@ -1025,32 +1133,147 @@ function OverworldCatching:pollInput(game, ow, dt)
     return
   end
 
-  if throwDown and not self.throwHeld and self:canAcceptInput(game, ow) then
-    if not self:anyBalls(game) then
-      -- Edge-only feedback (do not spam while held).
-      self:_pushNoBalls(game)
-    else
-      self.meterSource = "desktop"
-      self:_beginMeter()
+  if throwDown and not self.throwHeld then
+    self:_catchLog("input C")
+    if self:canAcceptInput(game, ow) then
+      if not self:anyBalls(game) then
+        -- Edge-only feedback (do not spam while held).
+        self:_pushNoBalls(game)
+      else
+        self.meterSource = "desktop"
+        self:_beginMeter()
+      end
     end
   end
   self.throwHeld = throwDown
 end
 
-function OverworldCatching:step(ctx)
-  local game = self:game()
-  local ow = self:overworld()
-  local t = now()
-  local dt = t - (self._lastT or t)
+function OverworldCatching:pipelineSnapshot()
+  local snap = { level = nil, eligible = nil }
+  local ok, Pipelines = pcall(require, "src.render.Pipelines")
+  if ok and type(Pipelines) == "table" then
+    if type(Pipelines.level) == "function" then
+      local okL, level = pcall(Pipelines.level, OverworldCatching.PIPELINE_ID)
+      if okL then snap.level = level end
+    end
+    if type(Pipelines.eligible) == "function" then
+      local okE, elig = pcall(Pipelines.eligible, OverworldCatching.PIPELINE_ID)
+      if okE then snap.eligible = elig end
+    end
+  end
+  return snap
+end
+
+function OverworldCatching:_goldCatchFrameLog(reason)
+  if not GameCompat.isGen2(self.mod, self:game()) then return end
+  local pipe = self:pipelineSnapshot()
+  print(string.format(
+    "[Wilds][GoldCatchFrame] %s pipelineLevel=%s pipelineEligible=%s catchStepFrames=%s hudDrawFrames=%s meterPower=%s phase=%s",
+    tostring(reason or "tick"),
+    tostring(pipe.level),
+    tostring(pipe.eligible),
+    tostring(self._catchUpdateCount or 0),
+    tostring(self.hud and self.hud._hudDrawCount or 0),
+    tostring(self.meter and self.meter.power),
+    tostring(self.phase)))
+end
+
+--- One owner for meter / projectile / wobble / desktop C. Not the render pipeline.
+-- input.step is the shared Gen1+Gold fixed-step seam. Pipeline present may
+-- call this as a fallback; the tick guard prevents double-speed.
+function OverworldCatching:update(dt, source)
+  source = source or "unknown"
+  if source == "input.step" then
+    self._logicTick = (self._logicTick or 0) + 1
+  end
+  local tick = self._logicTick or 0
+  if tick > 0 and self._lastLogicTick == tick then
+    self._skippedDoubleUpdate = (self._skippedDoubleUpdate or 0) + 1
+    return false
+  end
+  if tick > 0 then
+    self._lastLogicTick = tick
+  end
+
+  if dt == nil then
+    local t = now()
+    dt = t - (self._lastT or t)
+    self._lastT = t
+  else
+    self._lastT = now()
+  end
   if dt < 0 then dt = 0 end
   if dt > 0.1 then dt = 0.1 end
-  self._lastT = t
+
+  self._catchUpdateCount = (self._catchUpdateCount or 0) + 1
   if self.hud then
     self.hud._frame = (self.hud._frame or 0) + 1
   end
+
+  local game = self:game()
+  local ow = self:overworld()
   self:pollInput(game, ow, dt)
-  -- Flat ground preview pending (clears when not metering or when Voxel active).
   RangePreview.sync(self)
+
+  if self.meter.active and GameCompat.isGen2(self.mod, game) then
+    if not self._goldStepTraced then
+      self._goldStepTraced = true
+      print("[Wilds][GoldCatch] step meter active")
+    end
+    local t = now()
+    if not self._goldFrameLogAt or (t - self._goldFrameLogAt) >= 1 then
+      self._goldFrameLogAt = t
+      self:_goldCatchFrameLog("meter")
+    end
+  end
+  return true
+end
+
+function OverworldCatching:installUpdateHook(mod)
+  if self._updateHookInstalled then return true end
+  if not (mod and mod.hooks and mod.hooks.wrap) then
+    return false
+  end
+  local catching = self
+  -- Outer wrap: CatchInput (B+A) runs inside nextFn, then logic advances once.
+  mod.hooks:wrap("input.step", function(nextFn, game, dt)
+    if nextFn then nextFn(game, dt) end
+    catching:update(dt or (1 / 60), "input.step")
+  end)
+  self._updateHookInstalled = true
+  return true
+end
+
+function OverworldCatching:installGoldPresentHook(mod)
+  if self._goldPresentHookInstalled then return true end
+  if not (mod and mod.hooks and mod.hooks.wrap) then
+    return false
+  end
+  local catching = self
+  mod.hooks:wrap("render.hud", function(nextFn, game, viewport)
+    if nextFn then nextFn(game, viewport) end
+    if not GameCompat.isGen2(catching.mod, game or catching:game()) then
+      return
+    end
+    catching:presentGold(game, viewport)
+  end)
+  self._goldPresentHookInstalled = true
+  return true
+end
+
+--- Gold screen-space presentation. HUD in logical 160×144 (top-left origin)
+-- projected through Game2:viewport; range tiles in window space using World
+-- camera * zoomScale. Exactly once per render.hud.
+function OverworldCatching:presentGold(game, viewport)
+  RangePreview.drawGoldOverlay(self)
+  if self.hud then
+    self.hud:drawScreen(viewport)
+  end
+end
+
+function OverworldCatching:step(ctx)
+  -- Fallback for unit tests / Gen1 present if input.step has not run.
+  self:update(nil, "pipeline")
 end
 
 function OverworldCatching:register()
@@ -1062,6 +1285,10 @@ function OverworldCatching:register()
   if self.catchInput then
     self.catchInput:installHook(mod)
   end
+  -- Catch logic (meter / projectile / wobble) also lives on input.step so a
+  -- Gold pipeline reset cannot freeze power at 1.
+  self:installUpdateHook(mod)
+  self:installGoldPresentHook(mod)
 
   if not (mod.content and mod.content.render_pipelines
           and mod.content.render_pipelines.register) then
@@ -1081,6 +1308,10 @@ function OverworldCatching:register()
     end,
     present = function(canvas, ctx)
       catching:step(ctx)
+      if GameCompat.isGen2(catching.mod, catching:game()) then
+        -- Gold HUD + range overlay are render.hud, not this present pass.
+        return canvas
+      end
       -- Reassert world-pass hook (mods / reloads); do not draw tiles here.
       RangePreview.installFlatWorldHook(catching)
       -- Ball HUD stays on present (UI/screen space, not world tiles).

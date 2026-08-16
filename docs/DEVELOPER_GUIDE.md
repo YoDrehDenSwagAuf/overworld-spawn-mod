@@ -63,8 +63,8 @@ See `docs/ANIMATED_SPRITE_FORMAT.md`.
 
 Generation gate: `GameCompat.supportsFeature` decides which subsystems
 install. Red / Blue / Yellow keep full Gen1 capabilities. Gold installs
-wild encounters and the New Bark town Pokémon; followers / catching /
-safari stay off. Content registration and the options schema still run.
+wild encounters, followers, overworld catching, and the New Bark town
+Pokémon; Safari stays off. Content registration and the options schema still run.
 
 Gen1Recomp freezes content registries after all mods load.
 `GameVersion.set()` runs in `bootGame` before `Loader:load`, so

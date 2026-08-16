@@ -2,8 +2,8 @@
 --
 -- Shared Wilds systems should ask this module instead of assuming Gen 1.
 -- Gen1 is the full gameplay adapter. Gen2 is a Gold adapter with wild
--- overworld encounters, curated town Pokémon, and shared followers.
--- Catching / safari stay off via capabilities.
+-- overworld encounters, curated town Pokémon, shared followers, and
+-- overworld catching. Safari / special-session compatibility stays off.
 --
 -- Canonical engine source of truth (Gen1Recomp src/core/GameVersion.lua):
 --   GameVersion.get()            → "red"|"blue"|"yellow"|"gold"|…
@@ -234,6 +234,152 @@ function GameCompat.pickEncounter(game, mapId, kind, ctx)
   return nil
 end
 
+local function catchAdapter(game)
+  return GameCompat.current(nil, game) or Gen1
+end
+
+--- Authoritative capture species: entity/record species id, never an asset id.
+function GameCompat.captureSpecies(entity, record)
+  if record and record.species ~= nil then return record.species end
+  if entity then
+    return entity.species or entity.wildSpecies
+  end
+  return nil
+end
+
+function GameCompat.captureLevel(entity, record)
+  if record and record.level ~= nil then return record.level end
+  if entity then
+    return entity.level or entity.wildLevel
+  end
+  return nil
+end
+
+function GameCompat.ballCount(game, ballType)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.ballCount then
+    return adapter.ballCount(game, ballType)
+  end
+  return 0
+end
+
+function GameCompat.consumeBall(game, ballType)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.consumeBall then
+    return adapter.consumeBall(game, ballType) == true
+  end
+  return false
+end
+
+function GameCompat.catchRate(game, species)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.catchRate then
+    return adapter.catchRate(game, species)
+  end
+  return 255, nil
+end
+
+function GameCompat.attemptCatch(game, opts)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.attemptCatch then
+    return adapter.attemptCatch(game, opts)
+  end
+  return Gen1.attemptCatch(game, opts)
+end
+
+function GameCompat.createCaughtPokemon(game, species, level, context)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.createCaughtPokemon then
+    return adapter.createCaughtPokemon(game, species, level, context)
+  end
+  return Gen1.createCaughtPokemon(game, species, level, context)
+end
+
+--- Catching-only live world. Gen1: exact previous `mod.world:overworld()`.
+-- Gen2: `game.world` (src/world/gen2/World.lua). Does not change liveOverworld.
+function GameCompat.catchWorld(mod, game)
+  game = game or (mod and (mod.game or (mod.world and mod.world.game)))
+  local adapter = GameCompat.current(mod, game)
+  if adapter and adapter.catchWorld then
+    local ow = adapter.catchWorld(mod, game)
+    if ow then return ow end
+  end
+  local gen1Ow = Gen1.catchWorld(mod, game)
+  if gen1Ow then return gen1Ow end
+  -- Gold last resort when generation detection missed: Gen1 has no game.world.
+  if game and game.world and game.world.player then
+    return game.world
+  end
+  return nil
+end
+
+--- Catching-only native player object. Gen1: ow.player. Gen2: World.player.
+function GameCompat.catchPlayer(game, ow)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.catchPlayer then
+    return adapter.catchPlayer(game, ow)
+  end
+  return ow and ow.player
+end
+
+function GameCompat.playerCell(game, ow)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.playerCell then
+    return adapter.playerCell(game, ow)
+  end
+  local player = GameCompat.catchPlayer(game, ow)
+  if not player then return nil, nil end
+  return player.cellX, player.cellY
+end
+
+function GameCompat.catchPlayerHasControl(game, ow, logic)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.catchPlayerHasControl then
+    return adapter.catchPlayerHasControl(game, ow, logic) == true
+  end
+  return Gen1.catchPlayerHasControl(game, ow, logic) == true
+end
+
+function GameCompat.catchUiBlocked(game, ow, logic)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.catchUiBlocked then
+    return adapter.catchUiBlocked(game, ow, logic) == true
+  end
+  return Gen1.catchUiBlocked(game, ow, logic) == true
+end
+
+function GameCompat.giveCaughtPokemon(game, mon, context)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.giveCaughtPokemon then
+    return adapter.giveCaughtPokemon(game, mon, context)
+  end
+  return Gen1.giveCaughtPokemon(game, mon, context)
+end
+
+function GameCompat.markSpeciesCaught(game, species, mon)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.markSpeciesCaught then
+    return adapter.markSpeciesCaught(game, species, mon)
+  end
+  return false
+end
+
+function GameCompat.playerHasPartySpace(game)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.playerHasPartySpace then
+    return adapter.playerHasPartySpace(game) == true
+  end
+  return false
+end
+
+function GameCompat.specialCatchSessionBlocks(game, ow)
+  local adapter = catchAdapter(game)
+  if adapter and adapter.specialCatchSessionBlocks then
+    return adapter.specialCatchSessionBlocks(game, ow) == true
+  end
+  return false
+end
+
 --- Start a wild battle for the visible overworld entity (exact species/level).
 function GameCompat.startWildBattle(world, species, level, game)
   local adapter = GameCompat.current(nil, game)
@@ -412,6 +558,36 @@ end
 
 function GameCompat.detachGuestEntity(ow, entity)
   return GameCompat.detachWildEntity(ow, entity)
+end
+
+--- Insert the thrown Ball into the list the generation actually draws.
+-- Gen1: ow.entities only (previous Projectile:startFlight).
+-- Gen2: native Gold NPC only, via attachGuestEntity (no adaptWildEntity).
+-- A Gen1-shaped stub without spriteDef must never enter Gold World.
+function GameCompat.attachCatchProjectile(ow, entity, game)
+  if not ow or not entity then return "none" end
+  if GameCompat.isGen2(nil, game) then
+    if not entity.spriteDef then
+      return "none"
+    end
+    return GameCompat.attachGuestEntity(ow, entity, game)
+  end
+  if ow.entities then
+    listInsert(ow.entities, entity)
+    return "entities"
+  end
+  return "none"
+end
+
+--- Thrown Poké Ball entity. Gen1 keeps historical NPC.new(data, mapId, objDef).
+-- Gen2 builds a native Gold NPC through makeGuestNpc (src.world.gen2.Npc).
+-- Never construct a Gen1 NPC and insert it into Gold World.
+function GameCompat.makeCatchProjectile(game, ow, spec)
+  local adapter = catchAdapter(game)
+  if adapter and type(adapter.makeCatchProjectile) == "function" then
+    return adapter.makeCatchProjectile(game, ow, spec)
+  end
+  return Gen1.makeCatchProjectile(game, ow, spec)
 end
 
 --- Construct a follower/town guest NPC. Gen1 keeps the exact historical

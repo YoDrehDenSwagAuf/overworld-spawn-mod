@@ -53,7 +53,7 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 `GameCompat` is a small facade so shared Wilds systems do not own Gen1-only
 assumptions. Gold is an **experimental gameplay target**: visible wild
 encounters reuse the shared Wilds entity/AI layer with a separate Gen2
-encounter provider. Followers are on; catching and Safari stay off.
+encounter provider. Followers and overworld catching are on; Safari stays off.
 
 ```text
 GameCompat.current(mod, game)      → Gen1 or Gen2 adapter or nil
@@ -71,12 +71,17 @@ GameCompat.currentMapId(game, ow)
 GameCompat.encountersForMap(game, mapId, ctx)
 GameCompat.pickEncounter(game, mapId, kind, ctx)
 GameCompat.startWildBattle(world, species, level, game)
+GameCompat.ballCount / consumeBall / attemptCatch
+GameCompat.createCaughtPokemon / giveCaughtPokemon / markSpeciesCaught
+GameCompat.catchWorld / catchPlayer / playerCell
+GameCompat.catchPlayerHasControl / catchUiBlocked
+GameCompat.attachCatchProjectile
 ```
 
 Detection uses Gen1Recomp `GameVersion.get()` + `GameVersion.generation(id)`
 (set in `bootGame` before mod entry). Gold is generation 2 and uses the Gen2
 adapter. `isSupported` is **not** permission to install every subsystem:
-Gen2 capabilities keep followers / catching / safari off.
+Gen2 capabilities keep safari off. Catching is on via GameCompat.
 
 Production `manifest.json` claims `"games": ["gen1", "gen2"]`
 (Mod Manager: **Gen 1+2**). See `docs/analysis/GEN2_PREPARATION.md`.

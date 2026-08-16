@@ -116,6 +116,15 @@ check(L10.meterY > L10.qtyY, "large HUD meter below quantity")
 check(L10.meterY > L5.meterY, "meter Y moves down with larger HUD")
 eq(L5.selectedBorder, L5.iconW + 2, "selected border follows icon size (5)")
 eq(L10.selectedBorder, L10.iconW + 2, "selected border follows icon size (10)")
+-- Gen1 coordinates must stay exactly the historic top-right row.
+eq(L1.startX, 106, "Gen1 size 1 startX unchanged")
+eq(L5.startX, 87, "Gen1 size 5 startX unchanged")
+eq(L10.startX, 69, "Gen1 size 10 startX unchanged")
+eq(L1.iconY, 2, "Gen1 size 1 iconY unchanged")
+eq(L5.iconY, 2, "Gen1 size 5 iconY unchanged")
+eq(L10.iconY, 2, "Gen1 size 10 iconY unchanged")
+eq(L5.meterX, 138, "Gen1 meter stays at canvasW-22")
+eq(L1.anchor, "topright", "default layout anchor is topright")
 
 -- Live: changing option updates layout without re-register
 optionStore.catch_hud_size = 3

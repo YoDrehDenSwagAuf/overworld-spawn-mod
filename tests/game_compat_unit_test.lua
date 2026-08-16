@@ -135,7 +135,7 @@ do
   eq(GameCompat.supportsFeature("species", nil, {}), true, "gold species capability")
   eq(GameCompat.supportsFeature("encounters", nil, {}), true, "gold encounters on")
   eq(GameCompat.supportsFeature("followers", nil, {}), true, "gold followers on")
-  eq(GameCompat.supportsFeature("catching", nil, {}), false, "gold catching off")
+  eq(GameCompat.supportsFeature("catching", nil, {}), true, "gold catching on")
   eq(GameCompat.supportsFeature("ambient", nil, {}), true, "gold ambient/town on")
   eq(GameCompat.supportsFeature("townPokemon", nil, {}), true, "gold townPokemon on")
   eq(GameCompat.supportsFeature("safari", nil, {}), false, "gold safari off")
@@ -470,6 +470,16 @@ do
         "Gen2.pickEncounter exists")
   check(type(GameCompat.Gen2.startWildBattle) == "function",
         "Gen2.startWildBattle exists")
+  check(type(GameCompat.Gen2.ballCount) == "function", "Gen2.ballCount exists")
+  check(type(GameCompat.Gen2.consumeBall) == "function", "Gen2.consumeBall exists")
+  check(type(GameCompat.Gen2.createCaughtPokemon) == "function",
+        "Gen2.createCaughtPokemon exists")
+  check(type(GameCompat.Gen2.giveCaughtPokemon) == "function",
+        "Gen2.giveCaughtPokemon exists")
+  check(type(GameCompat.Gen2.markSpeciesCaught) == "function",
+        "Gen2.markSpeciesCaught exists")
+  check(type(GameCompat.ballCount) == "function", "GameCompat.ballCount exists")
+  check(type(GameCompat.attemptCatch) == "function", "GameCompat.attemptCatch exists")
   check(type(GameCompat.showWildAlertEmote) == "function",
         "showWildAlertEmote exists")
   check(type(GameCompat.pollWildAlertEmote) == "function",
