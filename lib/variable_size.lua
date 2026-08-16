@@ -656,9 +656,10 @@ local function capabilityReason(ds, Adapter)
   return raw
 end
 
-function VariableSize.summary(mod)
+function VariableSize.summary(mod, opts)
+  opts = opts or {}
   local requested = VariableSize.requestedMode(mod)
-  local effective, why = VariableSize.effectiveMode(mod)
+  local effective, why = VariableSize.effectiveMode(mod, opts)
   local ds = VariableSize.probeDramaticShape(mod)
   local _, providerId, providerWhy = VariableSize.activeVoxelProvider(mod)
   local Adapter = adapterFor(providerId)
@@ -668,6 +669,10 @@ function VariableSize.summary(mod)
       or ds.reason == "sprite_billboards_geometry_api"))
   local supports = ds and ds.supportsVariableGeometry == true
   local capReason = capabilityReason(ds, Adapter)
+  local voxelActive = opts.voxelActive
+  if voxelActive == nil then
+    voxelActive = VariableSize.isVoxelActive(mod)
+  end
   return {
     requestedMode = requested,
     effectiveMode = effective,
@@ -683,14 +688,14 @@ function VariableSize.summary(mod)
     fallbackReason = (effective ~= VariableSize.MODE_TRUE_SIZE) and why or nil,
     engine = VariableSize.probeEngineApi(),
     dramaticShape = ds,
-    voxelActive = VariableSize.isVoxelActive(mod),
+    voxelActive = voxelActive == true,
     geometry = SpeciesGeometry.summary(mod),
   }
 end
 
 --- Compact HUD / log lines for requested vs effective True Size + Voxel provider.
-function VariableSize.diagnosticLines(mod)
-  local s = VariableSize.summary(mod)
+function VariableSize.diagnosticLines(mod, opts)
+  local s = VariableSize.summary(mod, opts)
   local geomLabel
   if s.supportsVariableGeometry then
     geomLabel = "YES (" .. tostring(s.capabilityReason or "?") .. ")"

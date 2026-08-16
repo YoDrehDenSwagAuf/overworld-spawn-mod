@@ -401,7 +401,7 @@ check(tostring(whyBroken):find("exports.lib.require missing", 1, true),
   "missing public accessor")
 eq(VariableSize.effectiveMode(mod, { voxelActive = true }), "classic",
   "broken Stadium2 → Classic")
-local sumFail = VariableSize.summary(mod)
+local sumFail = VariableSize.summary(mod, { voxelActive = true })
 eq(sumFail.effectiveMode, "classic", "summary classic on failure")
 check(sumFail.fallbackReason ~= nil, "honest fallback reason")
 check(sumFail.supportsVariableGeometry ~= true, "no silent support claim")

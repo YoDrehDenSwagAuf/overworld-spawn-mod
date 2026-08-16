@@ -583,7 +583,11 @@ function Diagnostics.hudLines(logic)
     do
       local okVS, VariableSize = pcall(V.require, "variable_size")
       if okVS and VariableSize and VariableSize.diagnosticLines then
-        local okL, sizeLines = pcall(VariableSize.diagnosticLines, logic.mod)
+        local voxelOpts = nil
+        if va and va.voxelActive ~= nil then
+          voxelOpts = { voxelActive = va.voxelActive == true }
+        end
+        local okL, sizeLines = pcall(VariableSize.diagnosticLines, logic.mod, voxelOpts)
         if okL and type(sizeLines) == "table" then
           for _, line in ipairs(sizeLines) do
             lines[#lines + 1] = line
