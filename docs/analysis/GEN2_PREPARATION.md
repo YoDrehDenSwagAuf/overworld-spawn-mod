@@ -154,7 +154,7 @@ HGSS source `assets/enhanced_overworld/followsprites/` includes National Dex **1
 
 Poke Followers / GSC art covers **1..251**. Water swimming/levitate sheets exist for a subset of Gen2 ids; missing water art uses the existing Wilds fallback (do not mix HGSS and Poke Followers families).
 
-Voxel consumes `frameWidth` / `frameHeight` / `anchorX` / `anchorY` the same way. No Gen2-specific Voxel code.
+Voxel consumes `frameWidth` / `frameHeight` / `anchorX` / `anchorY` the same way. No Gen2-specific Voxel renderer lives in Wilds. When `STADIUM2_OVERWORLD_MODELS` is the active Voxel provider, the shared SpriteBillboards adapter (`lib/compat/stadium2_variable_geometry.lua`) wraps that renderer’s `mesh` / `shadowQuad` so HGSS True Size keeps SpeciesGeometry instead of collapsing to 16×16. That is renderer compatibility only.
 
 ---
 

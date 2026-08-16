@@ -2,9 +2,9 @@
 -- the same public module table Battle Art does: exports.lib.require.
 --
 -- Battle Art keeps its own adapter (lib/compat/battle_art_variable_geometry.lua)
--- and is not routed through this factory. Potato / Dramaless use this so
--- their wrap contract stays aligned without touching the known-good Battle
--- Art path.
+-- and is not routed through this factory. Potato / Dramaless / Stadium2 use
+-- this so their wrap contract stays aligned without touching the known-good
+-- Battle Art path.
 --
 -- Wilds does NOT copy VoxelScene, shaders, camera, or mesher code.
 -- Vanilla 16×16 defs call the original mesh() unchanged.

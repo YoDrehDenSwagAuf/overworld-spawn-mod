@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Stadium2 Voxel — HGSS True Size billboards
+
+- HGSS True Size no longer falls back to Classic 16×16 when
+  **STADIUM2_OVERWORLD_MODELS** (Gen 2 voxel renderer) is the **active**
+  Voxel renderer. Wilds installs
+  `lib/compat/stadium2_variable_geometry.lua` through the existing
+  SpriteBillboards factory (same wrap as Potato / Dramaless): `mesh` /
+  `shadowQuad` consume `frameWidth` / `frameHeight` / `anchorX` /
+  `anchorY`. Vanilla 16×16 characters stay on the original mesh.
+- Native Stadium2 variable-geometry support (export flags or
+  `SpriteBillboards` using `frameWidth` / `getFrameGeometry`) is detected
+  and is **not** double-wrapped.
+- Missing / broken Stadium2 lib stays Classic with an honest fallback
+  reason. Wilds does not copy Stadium2 source or patch its files on disk.
+- This is **renderer** compatibility (Wilds SpriteDef → Stadium2
+  billboards) for wilds, followers, ambient, and water sprites. It does
+  not claim complete Gen 2 gameplay compatibility.
+- If a Stadium2 build embeds its own Wilds runtime, coexistence must be
+  fixed in that repository. Wilds only probes public exports; it does
+  not disable Stadium2 event handlers.
+
 ### Catch HUD Size 0 = hidden
 
 - **Catch HUD Size** now allows **0–10**. **0** hides the Catch HUD only;

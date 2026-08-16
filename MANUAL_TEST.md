@@ -234,6 +234,63 @@ existing follower and town-talk behaviour from the sections above.
 25. No battle.
 26. Normal nearby NPC still talks normally.
 
+## Gen 2 Stadium2 Voxel + True Size (renderer)
+
+Requires **STADIUM2_OVERWORLD_MODELS** as the **active** Voxel renderer
+(not merely installed next to another Voxel mod). This matrix checks
+billboard geometry only. Logical footprint stays **one cell**. Complete
+Gen 2 gameplay compatibility is a separate concern.
+
+Dev Overlay should report something like:
+
+```text
+Size requested: true_size
+Size effective: true_size
+Voxel provider: STADIUM2_OVERWORLD_MODELS
+Variable geometry: YES (wilds_adapter)
+```
+
+or `YES (native_variable_geometry)` on a future Stadium2 that already
+consumes `frameWidth`. On adapter failure: `Size effective: classic`
+with an honest reason.
+
+### GSC / Classic (Sprite Style = Poké Followers or GSC)
+
+| Entity | Check |
+| --- | --- |
+| Wild | 16×16 billboard, feet on the cell, walk frames, shadow |
+| Follower | same 16×16; land↔water transition keeps Classic |
+| Water | Swim Sprites / Hid Silhouette / Silhouettes / Classic Enc / Disabled unchanged |
+
+### HGSS True Size (Sprite Style = HGSS / PokeMMO)
+
+Use current SpeciesGeometry sizes (do not hardcode). Typical examples:
+Rattata small, Pikachu small/medium, Blastoise large, Onix very large/tall.
+
+| Species | Wild | Follower | Water |
+| --- | --- | --- | --- |
+| Small (e.g. Rattata) | visibly smaller than Classic 16×16 stretch; feet on cell | same | swimming SpriteDef keeps its pack geometry |
+| Medium (e.g. Pikachu) | between small and large | same | same |
+| Large (e.g. Blastoise) | larger billboard; still 1-cell collision | same | same |
+| Extreme (Onix) | tall/wide billboard; still 1-cell collision / encounter | same | swimming Onix stays large, not 16×16 |
+
+For each cell above, check:
+
+1. Scale matches SpeciesGeometry (not collapsed to 16×16)
+2. Feet / pivot sit on the cell (anchor on Stadium2’s classic +8 / −8 pivot)
+3. Walking animation + mirrored facing
+4. Depth occlusion (behind buildings, tall grass)
+5. Shadow / ghost silhouette matches the visible quad
+6. Water modes still work (no separate Stadium2 water renderer)
+7. Follower count / land↔water / map transitions do not drop geometry
+8. Ambient / town Pokémon use the same SpriteDef path (no wild-only special case)
+
+Large Pokémon must look larger **without** occupying extra map cells.
+
+If two Wilds runtimes appear (Stadium2 embedded Wilds + this mod), that is
+an external Stadium2 coexistence issue — do not expect Wilds to disable
+the other copy.
+
 ### Gen1 regression
 
 27. Boot Red — existing follower works.

@@ -7,6 +7,7 @@ and Wilds can wrap `mesh()` in-memory:
 - Battle Art: `lib/compat/battle_art_variable_geometry.lua` (unchanged)
 - Potato Voxel: `lib/compat/potato_voxel_variable_geometry.lua`
 - Dramaless: `lib/compat/dramaless_variable_geometry.lua`
+- Stadium2: `lib/compat/stadium2_variable_geometry.lua`
 
 Original Dramatic Shape 1.7.9 remains Classic in Voxel unless it ships native
 variable geometry. Potato’s `shadowBlob()` contact shadow is not scaled.
