@@ -681,8 +681,11 @@ function SettingsMenus:_openWildsRoot(game)
     (function()
       local hudSize = Config.catchHudSize(mod)
       local hudChoices = {}
-      for i = 1, 10 do
-        hudChoices[#hudChoices + 1] = { label = tostring(i), value = i }
+      for i = 0, 10 do
+        hudChoices[#hudChoices + 1] = {
+          label = (i == 0) and "HIDDEN" or tostring(i),
+          value = i,
+        }
       end
       return {
         label = "CATCH HUD",
@@ -690,10 +693,10 @@ function SettingsMenus:_openWildsRoot(game)
         wrap = true,
         choices = hudChoices,
         current = hudSize,
-        right = tostring(hudSize),
+        right = (hudSize == 0) and "HIDDEN" or tostring(hudSize),
         apply = function(v)
           local n = tonumber(v) or 5
-          if n < 1 then n = 1 end
+          if n < 0 then n = 0 end
           if n > 10 then n = 10 end
           n = math.floor(n)
           -- Canonical bucket write + shared options-changed handler (live).
@@ -1009,13 +1012,16 @@ function SettingsMenus:register()
   mod.content.screens:register(SettingsMenus.SCREEN_WILDS .. ":catch_hud", {
     new = function(game)
       local choices = {}
-      for i = 1, 10 do
-        choices[#choices + 1] = { label = tostring(i), value = i }
+      for i = 0, 10 do
+        choices[#choices + 1] = {
+          label = (i == 0) and "HIDDEN" or tostring(i),
+          value = i,
+        }
       end
       return menus:_openChoice(game, "CATCH HUD", choices,
         Config.catchHudSize(mod), function(v)
           local n = tonumber(v) or 5
-          if n < 1 then n = 1 end
+          if n < 0 then n = 0 end
           if n > 10 then n = 10 end
           menus:_setOption("catch_hud_size", math.floor(n), game)
         end)

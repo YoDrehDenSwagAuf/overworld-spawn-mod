@@ -190,7 +190,7 @@ There is no second settings store.
 | Ball Switch Key | Q / E / R / F / G / T | Q | Desktop key that cycles Balls. |
 | Catch Combo | B + A / Select + A / Disabled | B + A | Controller/touch charge-and-throw combo. |
 | Switch Combo | B + Left/Right / Select + Left/Right / Disabled | B + Left/Right | Controller/touch Ball-switch combo. |
-| Catch HUD Size | 1–10 | 5 | Size of the top-screen Ball inventory HUD. |
+| Catch HUD Size | 0–10 | 5 | Size of the top-screen Ball HUD. 0 = Hidden; 1–10 = size. Hiding the HUD does not disable catching. |
 | Dev Overlay | On / Off | Off | Show behaviour labels above Pokémon. |
 
 **Test Spawn** remains available from OPTIONS / Mod Settings as an OPEN row.

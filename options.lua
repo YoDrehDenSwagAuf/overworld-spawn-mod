@@ -232,9 +232,9 @@ return {
     label = "Catch HUD Size",
     type = "number",
     default = 5,
-    min = 1,
+    min = 0,
     max = 10,
-    description = "Size of the top-screen Poké Ball inventory HUD (1 = compact, 5 = default, 10 = large). Scales HUD icons and layout only — does not change thrown Ball size.",
+    description = "Size of the Poké Ball catching HUD. 0 = hidden, 1 = compact, 5 = default, 10 = large. Hiding the HUD does not disable Overworld Catching.",
   },
   {
     key = "enable_idle",

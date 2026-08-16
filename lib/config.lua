@@ -200,9 +200,9 @@ function Config.overworldCatchingEnabled(mod)
   return Config.get(mod, "overworld_catching") ~= false
 end
 
---- Catch HUD size setting (1–10). Clamped; falls back to 5.
---- Prefer the saved/loader option bucket (same path menus write) so live
---- Catch HUD Size changes are visible immediately without restart.
+--- Catch HUD size setting (0–10). Clamped; falls back to 5.
+--- 0 = hidden (catching stays active). Prefer the saved/loader option bucket
+--- (same path menus write) so live Catch HUD Size changes apply immediately.
 function Config.catchHudSize(mod)
   local n = nil
   local raw, present = Config.peekSavedOption(mod, "catch_hud_size")
@@ -213,15 +213,25 @@ function Config.catchHudSize(mod)
     n = tonumber(Config.get(mod, "catch_hud_size"))
   end
   if n == nil then n = 5 end
-  if n < 1 then n = 1 end
+  if n < 0 then n = 0 end
   if n > 10 then n = 10 end
   return math.floor(n)
 end
 
+--- Whether the Catch HUD should be drawn. Size 0 hides presentation only;
+--- Overworld Catching, meter, range tiles, and throws stay active.
+function Config.catchHudEnabled(mod)
+  return Config.catchHudSize(mod) > 0
+end
+
 --- Normalized Catch HUD scale. Size 1≈0.75×, 5≈1.08×, 10=1.50×.
 --- UI-only — never used by thrown Ball / projectile code.
+--- Size 0 is hidden (see catchHudEnabled); do not return a zero scale.
 function Config.catchHudScale(mod)
   local size = Config.catchHudSize(mod)
+  if size <= 0 then
+    return 1
+  end
   return 0.75 + (size - 1) * (0.75 / 9)
 end
 

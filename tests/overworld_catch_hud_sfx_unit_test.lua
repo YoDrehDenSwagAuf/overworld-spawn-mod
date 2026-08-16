@@ -60,9 +60,14 @@ local CatchSfx = V.require("catching/catch_sfx")
 optionStore.catch_hud_size = nil
 eq(Config.catchHudSize(V.mod), 5, "nil -> 5")
 optionStore.catch_hud_size = 0
-eq(Config.catchHudSize(V.mod), 1, "0 -> 1")
+eq(Config.catchHudSize(V.mod), 0, "0 -> 0 (hidden)")
+eq(Config.catchHudEnabled(V.mod), false, "size 0 → HUD disabled")
+eq(Config.catchHudScale(V.mod), 1, "size 0 scale is unused 1, not 0")
+optionStore.catch_hud_size = -3
+eq(Config.catchHudSize(V.mod), 0, "-3 -> 0")
 optionStore.catch_hud_size = 1
 eq(Config.catchHudSize(V.mod), 1, "1 -> 1")
+eq(Config.catchHudEnabled(V.mod), true, "size 1 → HUD enabled")
 optionStore.catch_hud_size = 5
 eq(Config.catchHudSize(V.mod), 5, "5 -> 5")
 optionStore.catch_hud_size = 10
@@ -162,7 +167,7 @@ for _, row in ipairs(schema) do byKey[row.key] = row end
 check(byKey.catch_hud_size ~= nil, "catch_hud_size in schema")
 eq(byKey.catch_hud_size.type, "number", "number type")
 eq(byKey.catch_hud_size.default, 5, "default 5")
-eq(byKey.catch_hud_size.min, 1, "min 1")
+eq(byKey.catch_hud_size.min, 0, "min 0")
 eq(byKey.catch_hud_size.max, 10, "max 10")
 eq(Config.DEFAULTS.catch_hud_size, 5, "DEFAULTS.catch_hud_size")
 
@@ -237,6 +242,21 @@ check(#fileBytes("assets/balls/poke_ball.png") > 0, "full poke_ball asset presen
 check(#fileBytes("assets/balls/poke_ball_sm.png") > 0, "sm poke_ball asset present")
 check(fileBytes("assets/balls/poke_ball.png") ~= fileBytes("assets/balls/poke_ball_sm.png"),
   "HUD full asset differs from world sm asset")
+
+-- ---- shouldDraw: size 0 hides HUD; 1–10 still draw when catching allows ----
+do
+  local hud = BallHud.new(V.mod, {
+    canShowHud = function() return true end,
+  })
+  optionStore.catch_hud_size = 5
+  eq(hud:shouldDraw({}, {}), true, "CASE A: size 5 shouldDraw")
+  optionStore.catch_hud_size = 0
+  eq(hud:shouldDraw({}, {}), false, "CASE B: size 0 shouldDraw")
+  optionStore.catch_hud_size = 5
+  eq(hud:shouldDraw({}, {}), true, "CASE F: live 0→5 shouldDraw again")
+  optionStore.catch_hud_size = 0
+  eq(hud:draw("canvas", {}), "canvas", "size 0 draw early-outs")
+end
 
 -- Settings menu lists CATCH HUD near OW CATCH
 local SettingsMenus = V.require("settings_menus")
