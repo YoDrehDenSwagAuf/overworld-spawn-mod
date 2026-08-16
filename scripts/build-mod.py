@@ -59,6 +59,7 @@ FORBIDDEN_PREFIXES = (
     ".github/",
     "tests/",
     "scripts/",
+    "tools/",
     "mods/",
     "__pycache__/",
     ".deps/",
@@ -72,6 +73,20 @@ FORBIDDEN_NAMES = {
     ".gitignore",
     ".DS_Store",
     ".modkitignore",
+}
+# Authoring / host scripts are never runtime content. A GitHub source archive
+# that includes these is not a Wilds release ZIP.
+FORBIDDEN_EXTENSIONS = {
+    ".ps1",
+    ".py",
+    ".sh",
+    ".bat",
+    ".cmd",
+    ".exe",
+    ".dll",
+    ".vbs",
+    ".js",
+    ".jar",
 }
 FORBIDDEN_EXACT = {
     "scripts/bootstrap.sh",
@@ -172,6 +187,9 @@ def run_modkit(*args: str) -> bool:
 def should_include(rel: str) -> bool:
     name = Path(rel).name
     if name in FORBIDDEN_NAMES or rel in FORBIDDEN_EXACT:
+        return False
+    suffix = Path(rel).suffix.lower()
+    if suffix in FORBIDDEN_EXTENSIONS:
         return False
     for prefix in FORBIDDEN_PREFIXES:
         if rel == prefix.rstrip("/") or rel.startswith(prefix):
@@ -276,11 +294,17 @@ def verify_zip(out_zip: Path, manifest: dict) -> None:
         base = Path(rel).name
         if base in FORBIDDEN_NAMES:
             fail(f"ZIP contains forbidden path: {name}")
+        suffix = Path(rel).suffix.lower()
+        if suffix in FORBIDDEN_EXTENSIONS:
+            fail(f"ZIP contains forbidden authoring/host script: {name}")
         for prefix in FORBIDDEN_PREFIXES:
             if rel == prefix.rstrip("/") or rel.startswith(prefix):
                 fail(f"ZIP contains forbidden path: {name}")
         if rel in FORBIDDEN_EXACT:
             fail(f"ZIP contains forbidden path: {name}")
+        # GitHub "Code > Download ZIP" wraps the tree in overworld-spawn-mod-main/.
+        if rel.startswith("overworld-spawn-mod-") or "/overworld-spawn-mod-" in rel:
+            fail(f"ZIP looks like a GitHub source archive, not a packed mod: {name}")
         # Allow docs/ARCHITECTURE.md; forbid only the root pointer file.
         # Nested repo layout leftovers
         if "/mods/" in f"/{rel}/" or rel.startswith("mods/"):

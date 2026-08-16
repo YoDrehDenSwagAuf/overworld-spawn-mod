@@ -1,23 +1,91 @@
 # Exact relative paths excluded from the distributed package.
 # modkit matches literally (no globs). See Gen1Recomp CONTRIBUTING-mods.md.
 # Mirrors DramaticShapeVoxelMod: keep tests/tools in the repo, out of the ZIP.
+# scripts/build-mod.py verify_zip is the backstop if a path is missing here.
 
 # Unit tests - require the engine test harness, not the shipped archive.
-tests/overworld_wild_spawns_test.lua
-tests/voxel_aggressive_compat_test.lua
+tests/ambient_pokemon_unit_test.lua
 tests/animated_sprites_unit_test.lua
+tests/battle_art_variable_geometry_unit_test.lua
+tests/battle_return_reconcile_unit_test.lua
+tests/behavior_tick_perf_unit_test.lua
+tests/cave_reachability_mixed_unit_test.lua
+tests/cell_occupancy_unit_test.lua
 tests/enhanced_world_sprite_unit_test.lua
+tests/follower_connection_handoff_unit_test.lua
+tests/follower_control_update_unit_test.lua
+tests/follower_core_unit_test.lua
+tests/follower_menu_options_path_unit_test.lua
+tests/follower_standalone_boot_test.lua
+tests/follower_surface_sprite_unit_test.lua
+tests/followers_water_compat_unit_test.lua
+tests/follower_trail_spacing_unit_test.lua
+tests/follower_water_movement_unit_test.lua
+tests/game_compat_unit_test.lua
+tests/gen1_catching_compat_unit_test.lua
+tests/gen2_aggro_unit_test.lua
+tests/gen2_catch_frame_unit_test.lua
+tests/gen2_catch_hud_layout_unit_test.lua
+tests/gen2_catching_compat_unit_test.lua
+tests/gen2_catch_projectile_unit_test.lua
+tests/gen2_catch_runtime_unit_test.lua
+tests/gen2_encounters_unit_test.lua
+tests/gen2_follower_runtime_unit_test.lua
+tests/gen2_followers_unit_test.lua
+tests/gen2_npc_contract_unit_test.lua
+tests/gen2_party_follow_unit_test.lua
+tests/gen2_runtime_integration_unit_test.lua
+tests/gen2_sprite_color_unit_test.lua
+tests/gen2_town_talk_unit_test.lua
+tests/gen2_wilds_unit_test.lua
+tests/gold_boot_unit_test.lua
 tests/grass_occlusion_unit_test.lua
+tests/hgss_runtime_quality_unit_test.lua
+tests/hgss_water_presentation_perf_unit_test.lua
+tests/land_to_water_chase_unit_test.lua
+tests/manifest_targets_unit_test.lua
+tests/native_hgss_prototype_unit_test.lua
 tests/native_sprite_sheets_unit_test.lua
-tests/render_diagnostics_unit_test.lua
-tests/voxel_overlay_unit_test.lua
-tests/sprite_providers_unit_test.lua
-tests/follower_slingshot_unit_test.lua
-tests/follower_submerged_luminance_unit_test.lua
-tests/true_size_luminance_unit_test.lua
-tests/water_sprites_unit_test.lua
+tests/occupancy_dirty_unit_test.lua
+tests/overworld_catch_easter_unit_test.lua
+tests/overworld_catch_flow_unit_test.lua
+tests/overworld_catch_hud_sfx_unit_test.lua
+tests/overworld_catch_input_unit_test.lua
+tests/overworld_catch_math_unit_test.lua
+tests/overworld_catch_preview_unit_test.lua
+tests/overworld_catch_target_unit_test.lua
+tests/overworld_wild_spawns_test.lua
+tests/perf_bench_harness.lua
+tests/perf_stats_unit_test.lua
+tests/poke_followers_assets_unit_test.lua
 tests/random_enc_unit_test.lua
+tests/render_diagnostics_unit_test.lua
+tests/runtime_sheet_walk_frames_unit_test.lua
+tests/safari_compat_unit_test.lua
+tests/sandbox_fs_compat_unit_test.lua
+tests/settings_cave_water_overlay_unit_test.lua
+tests/settings_menus_follower_options_unit_test.lua
+tests/settings_menus_listmenu_path_unit_test.lua
+tests/settings_menus_unit_test.lua
+tests/species_assets_unit_test.lua
+tests/sprite_fade_color_unit_test.lua
+tests/sprite_providers_unit_test.lua
+tests/sprite_swap_anim_unit_test.lua
+tests/stadium2_variable_geometry_unit_test.lua
+tests/true_size_def_geometry_unit_test.lua
+tests/true_size_gen2_geometry_unit_test.lua
+tests/true_size_grass_scale_unit_test.lua
+tests/true_size_water_height_unit_test.lua
 tests/variable_size_unit_test.lua
+tests/voxel_adapter_perf_unit_test.lua
+tests/voxel_aggressive_compat_test.lua
+tests/voxel_overlay_unit_test.lua
+tests/voxel_provider_variable_geometry_unit_test.lua
+tests/water_display_modes_unit_test.lua
+tests/water_shadow_unit_test.lua
+tests/water_spawn_unit_test.lua
+tests/water_sprites_unit_test.lua
+tests/wild_rebind_geometry_unit_test.lua
 
 # Repo / authoring tooling (not runtime).
 scripts/bootstrap.sh
@@ -27,6 +95,8 @@ scripts/validate-manager-ascii.py
 # Root pointer only; full overview ships as docs/ARCHITECTURE.md.
 ARCHITECTURE.md
 .gitignore
+.modkitignore
+.github/workflows/release.yml
 
 # Local inspect crops (authoring only).
 assets/_inspect/char_001_block.png
@@ -36,15 +106,19 @@ assets/_inspect/char_001_block_x4.png
 assets/enhanced_overworld/Pokemon_Sprites/POKEMON 1.png
 
 # Mapping / sheet generators (repo tooling only; generated assets ship).
+tools/gen1_heights.json
 tools/generate_followsprites_mapping.ps1
+tools/generate_hidden_water_shadow.py
 tools/generate_runtime_sprite_sheets.ps1
 tools/generate_runtime_sprite_sheets.py
-tools/generate_variable_size_prototype.py
 tools/generate_true_size_runtime.py
+tools/generate_variable_size_prototype.py
 tools/generate_water_runtime_sheets.ps1
 tools/generate_water_runtime_sheets.py
-tools/validate_water_sprites.ps1
-tools/validate_water_sprites.py
+tools/generate_water_silhouette_sheets.py
 tools/validate_option_labels.py
 tools/validate_release_version.py
 tools/validate_release_version.ps1
+tools/validate_release_zip_hygiene.py
+tools/validate_water_sprites.ps1
+tools/validate_water_sprites.py

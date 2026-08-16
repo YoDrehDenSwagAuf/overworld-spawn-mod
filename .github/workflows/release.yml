@@ -141,6 +141,11 @@ jobs:
           print(f"  files: {len(names)}")
           PY
 
+      - name: Reject authoring scripts in release ZIP
+        env:
+          ZIP_NAME: ${{ steps.ver.outputs.zip }}
+        run: python3 tools/validate_release_zip_hygiene.py "dist/${ZIP_NAME}"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:

@@ -215,6 +215,8 @@ Throws only hit battleable wilds directly ahead (max 6 tiles). A miss still cons
 
 1. Install the latest release from
    [GitHub Releases](https://github.com/YoDrehDenSwagAuf/overworld-spawn-mod/releases).
+   Use the packed `wilds-of-kanto-v*.zip` (manifest.json at the archive root).
+   Do not import the GitHub "Source code" / `overworld-spawn-mod-main` ZIP.
 2. Place the mod in your Gen1Recomp mods directory.
 3. Enable **Wilds of Kanto**.
 4. No separate Followers EX or PokéPC install is required.
