@@ -75,8 +75,8 @@ From tag `v2.1.6` (`/tmp/wilds_release_rebuilt_v2.1.6.zip`):
 
 Size: 15,174,387 bytes. 13,422 files. Flat root (`manifest.json` at top).
 
-From current main after this packaging/metadata branch
-(`/tmp/wilds_release_rebuilt.zip`):
+From current main after the packaging/metadata commit
+(`/tmp/wilds_release_rebuilt.zip`; hash moves if `docs/` changes):
 
 ```
 afaae1e71e7cc5e03584851615fab22fbc56cd33f1a8185f53fd696dbcc0a789
@@ -279,9 +279,30 @@ Portal: https://www.microsoft.com/en-us/wdsi/filesubmission
 
 ## 17. Tests run
 
-See the PR / investigation log. Hygiene self-test and official-vs-clean
-ZIP checks are required. Full Lua suite is unchanged by this packaging
-work (no runtime files edited except ASCII in `manifest.description`).
+Passed here:
+
+- `python3 scripts/validate-manager-ascii.py`
+- `python3 tools/validate_release_zip_hygiene.py --self-test`
+- hygiene on clean v2.1.6 rebuild and current-tree rebuild
+- hygiene correctly **rejects** official `Wilds.of.Kanto.v2.1.6.zip`
+- `scripts/build-mod.py` `pack_manual` + `verify_zip` on current tree
+- Standalone luajit: sprite providers, water sprites, Gen1/Gen2 catching,
+  Gold boot, followers, True Size, Stadium2, SpeciesAssets, perf,
+  sandbox `wilds_fs`, voxel overlay/adapter (34 pass)
+
+Failed here, **pre-existing on current main** (not this diagnosis):
+
+- `tests/water_display_modes_unit_test.lua` — calls
+  `validate_option_labels.py`
+- `tests/settings_cave_water_overlay_unit_test.lua` —
+  `label <=14: Ball Switch Key`
+
+Both fail because **Ball Switch Key** is 15 characters (#80). That is a
+separate CI/label fix. It does not change the Wacatac finding.
+
+Not run: Gen1Recomp harness tests (`overworld_wild_spawns_test.lua`,
+`voxel_aggressive_compat_test.lua`) — engine clone not present.
+Defender CLI — Linux host, unavailable.
 
 ## 18. Remaining uncertainty
 
