@@ -15,6 +15,8 @@
   release workflow can pack. The previous `é` / `×` / `→` failed
   `validate-manager-ascii` and blocked the official ZIP. Runtime keys and
   gameplay are unchanged.
+- Option label **Ball Switch Key** shortened to **Ball Switch** (14-char Mod
+  Manager limit). Internal key `catch_cycle_key` is unchanged.
 - See `docs/release-av-diagnosis-v2.1.6.md`.
 
 ### Stadium2 Voxel — HGSS True Size billboards
@@ -46,14 +48,14 @@
 
 ### Configurable Overworld Catch controls
 
-- New Wilds settings: **Catch Key**, **Ball Switch Key**, **Catch Combo**,
+- New Wilds settings: **Catch Key**, **Ball Switch**, **Catch Combo**,
   **Switch Combo**. Defaults stay **C** / **Q** / **B+A** / **B+Left/Right**.
 - Bindings live in `lib/catching/bindings.lua`. Catch timing, meter, HUD,
   projectile, and TouchControls are unchanged.
 - Desktop keys and logical Game Boy combos remain parallel. Controller/touch
   presets use logical `a` / `b` / `select` / `left` / `right`.
 - Changing a Catch binding live-cancels an in-progress meter (no Ball consumed).
-- If Catch Key equals Ball Switch Key, throw wins and cycle falls back to Q
+- If Catch Key equals Ball Switch, throw wins and cycle falls back to Q
   (or E when Catch Key is Q).
 
 ### Species → canonical Wilds asset identity
@@ -194,6 +196,8 @@
   release workflow can pack. The previous `é` / `×` / `→` failed
   `validate-manager-ascii` and blocked the official ZIP. Runtime keys and
   gameplay are unchanged.
+- Option label **Ball Switch Key** shortened to **Ball Switch** (14-char Mod
+  Manager limit). Internal key `catch_cycle_key` is unchanged.
 - See `docs/release-av-diagnosis-v2.1.6.md`.
 
 ### Stadium2 Voxel — HGSS True Size billboards
@@ -225,14 +229,14 @@
 
 ### Configurable Overworld Catch controls
 
-- New Wilds settings: **Catch Key**, **Ball Switch Key**, **Catch Combo**,
+- New Wilds settings: **Catch Key**, **Ball Switch**, **Catch Combo**,
   **Switch Combo**. Defaults stay **C** / **Q** / **B+A** / **B+Left/Right**.
 - Bindings live in `lib/catching/bindings.lua`. Catch timing, meter, HUD,
   projectile, and TouchControls are unchanged.
 - Desktop keys and logical Game Boy combos remain parallel. Controller/touch
   presets use logical `a` / `b` / `select` / `left` / `right`.
 - Changing a Catch binding live-cancels an in-progress meter (no Ball consumed).
-- If Catch Key equals Ball Switch Key, throw wins and cycle falls back to Q
+- If Catch Key equals Ball Switch, throw wins and cycle falls back to Q
   (or E when Catch Key is Q).
 
 ## 2.1.6
