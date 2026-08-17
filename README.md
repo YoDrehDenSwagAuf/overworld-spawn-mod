@@ -35,6 +35,15 @@ The mod targets **Gen 1 + Gen 2** in Gen1Recomp's Mod Manager.
 - Stable species-based sprite identity (reordered Pokédex / Fakemon mods
   keep the correct Wilds art, or the missing-sprite fallback)
 
+## What's new — v2.1.7
+
+- Overworld Catch Key / Ball Switch Key / Catch Combo / Switch Combo are
+  configurable (defaults unchanged). Catch HUD Size 0 hides the HUD only.
+- Stadium2 Voxel (active Gen 2 renderer) gets HGSS True Size billboards
+  via the existing SpriteBillboards wrap; Classic fallback stays honest.
+- Release ZIP packaging rejects source-archive wrappers and authoring
+  scripts so the published asset matches `scripts/build-mod.py`.
+
 ## What's new — v2.1.6
 
 - Sprite identity is species-based: reordered Pokédex / Fakemon mods keep
