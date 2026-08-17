@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Release ZIP packaging (Defender Wacatac investigation)
+
+- v2.1.6's published `Wilds.of.Kanto.v2.1.6.zip` was a GitHub source archive
+  (`overworld-spawn-mod-main/`), not `scripts/build-mod.py` output. It included
+  `scripts/`, `tools/` (PowerShell + Python), `tests/`, and `.github/`.
+- Official packer still excludes those paths. Hygiene verification now rejects
+  authoring/host scripts and source-archive wrappers so a source ZIP cannot
+  be published as the user-facing release asset.
+- Manager metadata (`manifest.description`, `mod.card`, `options.lua` labels
+  / descriptions) uses ASCII `Pokemon` / `Pokedex` / `Poke Ball` so the
+  release workflow can pack. The previous `é` / `×` / `→` failed
+  `validate-manager-ascii` and blocked the official ZIP. Runtime keys and
+  gameplay are unchanged.
+- See `docs/release-av-diagnosis-v2.1.6.md`.
+
 ### Stadium2 Voxel — HGSS True Size billboards
 
 - HGSS True Size no longer falls back to Classic 16×16 when

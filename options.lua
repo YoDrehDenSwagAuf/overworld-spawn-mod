@@ -14,9 +14,9 @@
 -- All options are live-toggleable through Mod Manager (mod.options_changed).
 --
 -- UI submenu mapping (both write the SAME mod.options keys):
---   Poke Followers EX → follow_control, trainer_trail, follower_count
+--   Poke Followers EX -> follow_control, trainer_trail, follower_count
 --                       (+ Leader via party menu hint)
---   Wilds of Kanto    → enabled, spawn_density, random_encounters,
+--   Wilds of Kanto    -> enabled, spawn_density, random_encounters,
 --                       water_spawns, cave_spawns, sprite_style, sprite_fade,
 --                       town_pokemon, pokemon_grass_render_mode,
 --                       overworld_catching, catch_throw_key, catch_cycle_key,
@@ -25,10 +25,10 @@
 --                       enable_wander, enable_aggressive, enable_hidden,
 --                       dev_overlay
 --
--- Pokémon size is not a separate option: it is tied to Sprite Style.
---   GSC sprites (followers)   → Classic (one-tile 16×16 presentation)
---   HGSS sprites (pokemmo)    → True Size (larger relative species sizes)
---   Pokédex sprites           → Classic
+-- Pokemon size is not a separate option: it is tied to Sprite Style.
+--   GSC sprites (followers)   -> Classic (one-tile 16x16 presentation)
+--   HGSS sprites (pokemmo)    -> True Size (larger relative species sizes)
+--   Pokedex sprites           -> Classic
 
 return {
   -- ------- Core gameplay
@@ -47,9 +47,9 @@ return {
     choices = {
       { "Poke Followers / GSC", "followers" },
       { "HGSS / PokeMMO", "pokemmo" },
-      { "Pokédex", "pokedex" },
+      { "Pokedex", "pokedex" },
     },
-    description = "Overworld sprite style for wild Pokémon and followers. Poke Followers / GSC is the built-in default. Sprite size follows the style: GSC sprites use Classic (16×16) presentation, HGSS sprites use True Size (larger relative species sizes). Water Pokémon still use Swimming or Levitates sprites when available.",
+    description = "Overworld sprite style for wild Pokemon and followers. Poke Followers / GSC is the built-in default. Sprite size follows the style: GSC sprites use Classic (16x16) presentation, HGSS sprites use True Size (larger relative species sizes). Water Pokemon still use Swimming or Levitates sprites when available.",
   },
   {
     key = "sprite_fade",
@@ -60,7 +60,7 @@ return {
       { "Solid", "solid" },
       { "Faded", "faded" },
     },
-    description = "Opacity of normal visible wild Pokémon. Solid is fully opaque. Faded uses the classic semi-transparent wild look. Does not affect followers, Town Pokémon, silhouettes, or UI.",
+    description = "Opacity of normal visible wild Pokemon. Solid is fully opaque. Faded uses the classic semi-transparent wild look. Does not affect followers, Town Pokemon, silhouettes, or UI.",
   },
   {
     key = "follow_control",
@@ -69,16 +69,16 @@ return {
     default = "trainer",
     choices = {
       { "Trainer", "trainer" },
-      { "Pokémon", "pokemon" },
+      { "Pokemon", "pokemon" },
     },
-    description = "Choose whether you control the trainer or the selected Pokémon.",
+    description = "Choose whether you control the trainer or the selected Pokemon.",
   },
   {
     key = "trainer_trail",
     label = "Trainer Trail",
     type = "toggle",
     default = false,
-    description = "When controlling a Pokémon, the trainer follows behind.",
+    description = "When controlling a Pokemon, the trainer follows behind.",
   },
   {
     key = "follower_count",
@@ -94,7 +94,7 @@ return {
       { "5", 5 },
       { "6", 6 },
     },
-    description = "Number of additional party Pokémon following the active leader.",
+    description = "Number of additional party Pokemon following the active leader.",
   },
   {
     key = "spawn_density",
@@ -107,14 +107,14 @@ return {
       { "High", "high" },
       { "Very High", "very_high" },
     },
-    description = "Controls how many visible overworld Pokémon can appear. This also affects visible water Pokémon.",
+    description = "Controls how many visible overworld Pokemon can appear. This also affects visible water Pokemon.",
   },
   {
     key = "random_encounters",
     label = "Random Enc",
     type = "toggle",
     default = true,
-    description = "Enables or disables classic step-based random encounters. Visible overworld Pokémon remain active.",
+    description = "Enables or disables classic step-based random encounters. Visible overworld Pokemon remain active.",
   },
   {
     key = "water_spawns",
@@ -128,7 +128,7 @@ return {
       { "Classic Enc", "classic_encounters" },
       { "Disabled", "disabled" },
     },
-    description = "How water Pokémon appear: swimming sprites (default), hidden dark circles, tinted silhouettes, classic random encounters only, or fully disabled.",
+    description = "How water Pokemon appear: swimming sprites (default), hidden dark circles, tinted silhouettes, classic random encounters only, or fully disabled.",
   },
   {
     key = "cave_spawns",
@@ -139,14 +139,14 @@ return {
       { "Reachable Only", "reachable" },
       { "Mixed", "mixed" },
     },
-    description = "Cave Pokémon spawn only on tiles the player can reach, or Mixed (~20% atmospheric scenery in inaccessible cave pockets).",
+    description = "Cave Pokemon spawn only on tiles the player can reach, or Mixed (~20% atmospheric scenery in inaccessible cave pockets).",
   },
   {
     key = "town_pokemon",
-    label = "Town Pokémon",
+    label = "Town Pokemon",
     type = "toggle",
     default = true,
-    description = "Adds peaceful Pokémon to safe towns and interiors. They behave like NPCs and cannot start battles.",
+    description = "Adds peaceful Pokemon to safe towns and interiors. They behave like NPCs and cannot start battles.",
   },
   {
     key = "pokemon_grass_render_mode",
@@ -164,14 +164,14 @@ return {
     label = "Enc Silhouette",
     type = "toggle",
     default = false,
-    description = "Black out overworld wild Pokémon in encounter zones (grass/cave/water) as silhouettes, keeping their shapes. Derived from the coloured art at load — no extra sprite files.",
+    description = "Black out overworld wild Pokemon in encounter zones (grass/cave/water) as silhouettes, keeping their shapes. Derived from the coloured art at load - no extra sprite files.",
   },
   {
     key = "overworld_catching",
     label = "OW Catch",
     type = "toggle",
     default = true,
-    description = "Enables direct Poké Ball throws at visible wild Pokémon.",
+    description = "Enables direct Poke Ball throws at visible wild Pokemon.",
   },
   {
     key = "catch_throw_key",
@@ -186,7 +186,7 @@ return {
       { "R", "r" },
       { "T", "t" },
     },
-    description = "Desktop keyboard key that charges and throws a Poké Ball. Default C. Does not replace the controller/touch Catch Combo.",
+    description = "Desktop keyboard key that charges and throws a Poke Ball. Default C. Does not replace the controller/touch Catch Combo.",
   },
   {
     key = "catch_cycle_key",
@@ -234,7 +234,7 @@ return {
     default = 5,
     min = 0,
     max = 10,
-    description = "Size of the Poké Ball catching HUD. 0 = hidden, 1 = compact, 5 = default, 10 = large. Hiding the HUD does not disable Overworld Catching.",
+    description = "Size of the Poke Ball catching HUD. 0 = hidden, 1 = compact, 5 = default, 10 = large. Hiding the HUD does not disable Overworld Catching.",
   },
   {
     key = "enable_idle",
@@ -271,6 +271,6 @@ return {
     label = "Dev Overlay",
     type = "toggle",
     default = false,
-    description = "Shows each wild Pokémon's behaviour and facing direction above it.",
+    description = "Shows each wild Pokemon's behaviour and facing direction above it.",
   },
 }
