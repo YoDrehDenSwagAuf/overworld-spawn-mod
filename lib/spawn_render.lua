@@ -177,10 +177,14 @@ local function bakeSheet(species, sourcePath, log)
   love.graphics.draw(src, 0, 0, 0, CELL / sw, CELL / sh)
   love.graphics.setCanvas()
 
-  local idata = canvas:newImageData()
-  canvas:release()
-
-  if not (idata and idata.encode) then
+  -- Headless / love_stub canvases may lack newImageData; soft-fail bake.
+  local idataOk, idata = pcall(function()
+    return canvas:newImageData()
+  end)
+  if canvas.release then
+    pcall(function() canvas:release() end)
+  end
+  if not idataOk or not (idata and idata.encode) then
     return nil
   end
 

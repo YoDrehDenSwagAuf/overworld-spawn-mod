@@ -190,7 +190,7 @@ return {
   },
   {
     key = "catch_cycle_key",
-    label = "Ball Switch Key",
+    label = "Ball Switch",
     type = "choice",
     default = "q",
     choices = {
@@ -225,7 +225,7 @@ return {
       { "Select + Left/Right", "select_dpad" },
       { "Disabled", "disabled" },
     },
-    description = "Controller/touch Ball-switch combo using logical Game Boy buttons. Default B + Left/Right. Desktop Ball Switch Key still works when this is disabled.",
+    description = "Controller/touch Ball-switch combo using logical Game Boy buttons. Default B + Left/Right. Desktop Ball Switch still works when this is disabled.",
   },
   {
     key = "catch_hud_size",

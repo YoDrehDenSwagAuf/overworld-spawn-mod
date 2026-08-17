@@ -30,7 +30,7 @@
 ## Overworld Catch (optional)
 
 1. With OW Catch **ON**, confirm a small Ball HUD in the top-right on a grass route.
-2. Hold **C** (default Catch Key) to charge the power meter (vertical 1–6 + green ground tiles); release to throw; **Q** (default Ball Switch Key) cycles Balls. Bindings can be changed in Wilds settings.
+2. Hold **C** (default Catch Key) to charge the power meter (vertical 1–6 + green ground tiles); release to throw; **Q** (default Ball Switch) cycles Balls. Bindings can be changed in Wilds settings.
 2b. With Dramatic Shape on: hold C, mouse-wheel zoom in/out — green markers stay on the same world cells.
 2c. Force fail: Ball break → mon reappears → `!` → aggressive; with distance, throw again at the same mon before contact battle.
 2d. Throw at a human NPC → `"Ouch, yo, WTF"`; at a Town Pokémon → `"Grrrr..."` (no catch).

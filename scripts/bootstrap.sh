@@ -38,9 +38,15 @@ else
   say "Gen1Recomp already present at .deps/gen1recomp"
 fi
 
+# Dramatic Shape is optional for CI / harness: Wilds loads without it, and
+# voxel_aggressive_compat_test.lua simulates the posesOf contract. A missing
+# or private upstream repo must not block release packaging.
 if [ ! -d "$VOXEL/.git" ]; then
-  say "cloning Dramatic Shape Voxel Mod"
-  git clone --depth 1 "$VOXEL_URL" "$VOXEL"
+  say "cloning Dramatic Shape Voxel Mod (optional)"
+  if ! git clone --depth 1 "$VOXEL_URL" "$VOXEL"; then
+    say "DramaticShapeVoxelMod unavailable — continuing without it"
+    rm -rf "$VOXEL"
+  fi
 else
   say "DramaticShapeVoxelMod already present at .deps/DramaticShapeVoxelMod"
 fi
@@ -50,8 +56,13 @@ mkdir -p "$ENGINE/mods"
 rm -f "$ENGINE/mods/overworld-spawns"
 ln -sfn "$ROOT" "$ENGINE/mods/overworld_wild_spawns"
 
-say "linking Dramatic Shape into .deps/gen1recomp/mods/DRAMATIC_SHAPE"
-ln -sfn "$VOXEL" "$ENGINE/mods/DRAMATIC_SHAPE"
+if [ -d "$VOXEL/.git" ]; then
+  say "linking Dramatic Shape into .deps/gen1recomp/mods/DRAMATIC_SHAPE"
+  ln -sfn "$VOXEL" "$ENGINE/mods/DRAMATIC_SHAPE"
+else
+  say "skipping DRAMATIC_SHAPE link (optional dependency not present)"
+  rm -f "$ENGINE/mods/DRAMATIC_SHAPE"
+fi
 
 cat <<EOF
 

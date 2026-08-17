@@ -37,7 +37,7 @@ The mod targets **Gen 1 + Gen 2** in Gen1Recomp's Mod Manager.
 
 ## What's new — v2.1.7
 
-- Overworld Catch Key / Ball Switch Key / Catch Combo / Switch Combo are
+- Overworld Catch Key / Ball Switch / Catch Combo / Switch Combo are
   configurable (defaults unchanged). Catch HUD Size 0 hides the HUD only.
 - Stadium2 Voxel (active Gen 2 renderer) gets HGSS True Size billboards
   via the existing SpriteBillboards wrap; Classic fallback stays honest.
@@ -196,7 +196,7 @@ There is no second settings store.
 | Hidden Mons | On / Off | On | Allow hidden grass / cave markers. |
 | OW Catch | On / Off | On | Enables direct Poké Ball throws at visible wild Pokémon. |
 | Catch Key | C / V / F / G / R / T | C | Desktop key that charges and throws. |
-| Ball Switch Key | Q / E / R / F / G / T | Q | Desktop key that cycles Balls. |
+| Ball Switch | Q / E / R / F / G / T | Q | Desktop key that cycles Balls. |
 | Catch Combo | B + A / Select + A / Disabled | B + A | Controller/touch charge-and-throw combo. |
 | Switch Combo | B + Left/Right / Select + Left/Right / Disabled | B + Left/Right | Controller/touch Ball-switch combo. |
 | Catch HUD Size | 0–10 | 5 | Size of the top-screen Ball HUD. 0 = Hidden; 1–10 = size. Hiding the HUD does not disable catching. |
@@ -212,7 +212,7 @@ When **OW Catch** is ON (and not in Safari / menus / battle):
 |-------|--------|
 | Hold **Catch Key** (default **C**) | Charge throw power (1–6 tiles); green ground preview shows range |
 | Release **Catch Key** | Throw the selected Ball |
-| **Ball Switch Key** (default **Q**) | Cycle Ball type (Poké → Great → Ultra → Master; skips empty) |
+| **Ball Switch** (default **Q**) | Cycle Ball type (Poké → Great → Ultra → Master; skips empty) |
 | **Catch Combo** (default **B** + **A**) | Same charge meter / throw on controller, touch, or logical GB buttons |
 | **Switch Combo** (default **B** + **LEFT** / **RIGHT**) | Previous / next Ball on controller, touch, or logical D-Pad |
 
