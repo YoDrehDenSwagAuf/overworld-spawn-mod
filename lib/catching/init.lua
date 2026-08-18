@@ -1221,9 +1221,6 @@ function OverworldCatching:update(dt, source)
   if dt > 0.1 then dt = 0.1 end
 
   self._catchUpdateCount = (self._catchUpdateCount or 0) + 1
-  if self.hud then
-    self.hud._frame = (self.hud._frame or 0) + 1
-  end
 
   local game = self:game()
   local ow = self:overworld()
@@ -1322,17 +1319,15 @@ function OverworldCatching:register()
         and Config.isEnabled(mod) == true
     end,
     present = function(canvas, ctx)
+      catching._catchPresentCount = (catching._catchPresentCount or 0) + 1
       catching:step(ctx)
       if GameCompat.isGen2(catching.mod, catching:game()) then
         -- Gold HUD + range overlay are render.hud, not this present pass.
         return canvas
       end
       -- Reassert world-pass hook (mods / reloads); do not draw tiles here.
+      -- Gen1 Ball HUD is owned solely by owwild_ball_hud — do not paint here.
       RangePreview.installFlatWorldHook(catching)
-      -- Ball HUD stays on present (UI/screen space, not world tiles).
-      if catching.hud then
-        return catching.hud:draw(canvas, ctx)
-      end
       return canvas
     end,
   })
