@@ -161,6 +161,14 @@ eq(OverworldCatching.BALL_TYPES[3], "ULTRA_BALL", "BALL_TYPES[3] ULTRA_BALL")
 eq(OverworldCatching.BALL_TYPES[4], "MASTER_BALL", "BALL_TYPES[4] MASTER_BALL")
 eq(OverworldCatching.THROW_SOURCE_PX, 22, "throw source art is 22px")
 eq(OverworldCatching.THROW_CANVAS_PX, 16, "throw SpriteDef canvas is 16px")
+eq(OverworldCatching.THROW_ART_PX, 8, "visible throw art is 8px")
+eq(OverworldCatching.THROW_ART_OFFSET,
+  math.floor((OverworldCatching.THROW_CANVAS_PX - OverworldCatching.THROW_ART_PX) / 2),
+  "throw art offset is derived from canvas and art size")
+eq(OverworldCatching.THROW_ART_OFFSET, 4, "8x8 art is centered at (4,4) on 16x16")
+eq(OverworldCatching.THROW_ART_OFFSET * 2 + OverworldCatching.THROW_ART_PX,
+  OverworldCatching.THROW_CANVAS_PX,
+  "art is exactly centered with equal padding")
 
 -- 1-4 + 5: stable Ball ID -> throw art (not PNG filename gameplay).
 for _, ballType in ipairs(OverworldCatching.BALL_TYPES) do
@@ -338,7 +346,7 @@ check(not exists("assets/balls/great_ball_sm.png"), "old great_ball_sm removed")
 check(not exists("assets/balls/ultra_ball_sm.png"), "old ultra_ball_sm removed")
 check(not exists("assets/balls/master_ball_sm.png"), "old master_ball_sm removed")
 
--- Throw canvases are 16×16 PNG (IHDR).
+-- Throw canvases are 16×16 PNG (IHDR) with ~8×8 opaque art, same bounds on all Balls.
 local function pngSize(path)
   local f = assert(io.open(path, "rb"))
   local hdr = f:read(24)
@@ -347,11 +355,127 @@ local function pngSize(path)
   local h = hdr:byte(21) * 16777216 + hdr:byte(22) * 65536 + hdr:byte(23) * 256 + hdr:byte(24)
   return w, h
 end
+
+local ffi = require("ffi")
+ffi.cdef[[
+  int uncompress(unsigned char *dest, unsigned long *destLen,
+                 const unsigned char *source, unsigned long sourceLen);
+]]
+local zlib = ffi.load("z")
+
+local function pngOpaqueBBox(path)
+  local f = assert(io.open(path, "rb"))
+  local data = f:read("*a")
+  f:close()
+  local function u32(i)
+    return data:byte(i) * 16777216 + data:byte(i + 1) * 65536
+      + data:byte(i + 2) * 256 + data:byte(i + 3)
+  end
+  local w, h = u32(17), u32(21)
+  local i = 9
+  local idat = {}
+  while i + 8 <= #data do
+    local ln = u32(i)
+    local typ = data:sub(i + 4, i + 7)
+    local payload = data:sub(i + 8, i + 7 + ln)
+    if typ == "IDAT" then
+      idat[#idat + 1] = payload
+    elseif typ == "IEND" then
+      break
+    end
+    i = i + 12 + ln
+  end
+  local src = table.concat(idat)
+  local bound = (w * 4 + 1) * h + 64
+  local dest = ffi.new("unsigned char[?]", bound)
+  local destLen = ffi.new("unsigned long[1]", bound)
+  local srcBuf = ffi.new("unsigned char[?]", #src)
+  ffi.copy(srcBuf, src, #src)
+  local rc = zlib.uncompress(dest, destLen, srcBuf, #src)
+  assert(rc == 0, "zlib uncompress " .. path .. " rc=" .. tostring(rc))
+  local raw = ffi.string(dest, tonumber(destLen[0]))
+  local stride = w * 4
+  local function paeth(a, b, c)
+    local p = a + b - c
+    local pa, pb, pc = math.abs(p - a), math.abs(p - b), math.abs(p - c)
+    if pa <= pb and pa <= pc then return a end
+    if pb <= pc then return b end
+    return c
+  end
+  local prev = {}
+  for x = 1, stride do prev[x] = 0 end
+  local minX, minY, maxX, maxY
+  local off = 1
+  for y = 0, h - 1 do
+    local ft = raw:byte(off); off = off + 1
+    local row = {}
+    for x = 1, stride do
+      row[x] = raw:byte(off); off = off + 1
+    end
+    if ft == 1 then
+      for x = 1, stride do
+        local left = x > 4 and row[x - 4] or 0
+        row[x] = (row[x] + left) % 256
+      end
+    elseif ft == 2 then
+      for x = 1, stride do
+        row[x] = (row[x] + prev[x]) % 256
+      end
+    elseif ft == 3 then
+      for x = 1, stride do
+        local left = x > 4 and row[x - 4] or 0
+        row[x] = (row[x] + math.floor((left + prev[x]) / 2)) % 256
+      end
+    elseif ft == 4 then
+      for x = 1, stride do
+        local left = x > 4 and row[x - 4] or 0
+        local ul = x > 4 and prev[x - 4] or 0
+        row[x] = (row[x] + paeth(left, prev[x], ul)) % 256
+      end
+    elseif ft ~= 0 then
+      error("unsupported PNG filter " .. tostring(ft) .. " in " .. path)
+    end
+    prev = row
+    for x = 0, w - 1 do
+      local a = row[x * 4 + 4]
+      if a > 0 then
+        if not minX or x < minX then minX = x end
+        if not maxX or x > maxX then maxX = x end
+        if not minY or y < minY then minY = y end
+        if not maxY or y > maxY then maxY = y end
+      end
+    end
+  end
+  return minX, minY, maxX, maxY, maxX - minX + 1, maxY - minY + 1
+end
+
+local sharedBBox
 for _, ballType in ipairs(OverworldCatching.BALL_TYPES) do
   local w, h = pngSize(expectedThrow[ballType])
   eq(w, 16, ballType .. " throw PNG width 16")
   eq(h, 16, ballType .. " throw PNG height 16")
+  local x0, y0, x1, y1, bw, bh = pngOpaqueBBox(expectedThrow[ballType])
+  check(bw >= 7 and bw <= 8, ballType .. " opaque width 7-8 (got " .. tostring(bw) .. ")")
+  check(bh >= 7 and bh <= 8, ballType .. " opaque height 7-8 (got " .. tostring(bh) .. ")")
+  eq(x0, OverworldCatching.THROW_ART_OFFSET, ballType .. " opaque minX is derived offset")
+  eq(y0, OverworldCatching.THROW_ART_OFFSET, ballType .. " opaque minY is derived offset")
+  if not sharedBBox then
+    sharedBBox = { x0, y0, x1, y1, bw, bh }
+  else
+    eq(x0, sharedBBox[1], ballType .. " shares opaque minX")
+    eq(y0, sharedBBox[2], ballType .. " shares opaque minY")
+    eq(x1, sharedBBox[3], ballType .. " shares opaque maxX")
+    eq(y1, sharedBBox[4], ballType .. " shares opaque maxY")
+  end
+  -- HUD file stays the independent full asset (not the throw canvas).
+  local hw, hh = pngSize(expectedHud[ballType])
+  check(hw > 0 and hh > 0, ballType .. " HUD PNG still present")
+  local tf = assert(io.open(expectedThrow[ballType], "rb")):read("*a")
+  local hf = assert(io.open(expectedHud[ballType], "rb")):read("*a")
+  check(tf ~= hf, ballType .. " HUD PNG bytes differ from throw PNG")
 end
+eq(sharedBBox[5], 8, "shared opaque width is 8")
+eq(sharedBBox[6], 8, "shared opaque height is 8")
 
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

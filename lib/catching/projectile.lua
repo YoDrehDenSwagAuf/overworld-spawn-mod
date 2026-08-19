@@ -4,8 +4,8 @@
 -- CRITICAL CONTRACT:
 --   Ball entities may be inserted into ow.entities. Therefore entity:pose() MUST
 --   remain the native SpriteRenderer pose — never return nil to suppress drawing.
---   Small visual size comes from throw art centered in a 16×16 transparent canvas
---   (SPRITE_WILDS_BALL_* / assets/balls/throw/*.png). No custom draw()/pose() overrides.
+--   Small visual size comes from ~8×8 throw art centered in a 16×16 transparent
+--   canvas (SPRITE_WILDS_BALL_* / assets/balls/throw/*.png). No custom draw()/pose().
 --
 -- Lifecycle: every Ball MUST be removed via Projectile:cleanup() (idempotent).
 -- Presentation phases: FLYING → MISS_HOLD | WOBBLE → SUCCESS_CLICK | FAIL_BREAK → DONE
@@ -23,7 +23,8 @@ local WOBBLE_INTERVAL = 0.55
 local SUCCESS_CLICK_SEC = 0.20
 local FAIL_BREAK_SEC = 0.28
 local MISS_LAND_HOLD = 0.18
--- Artwork is ~10px inside a 16×16 transparent SpriteDef canvas (engine contract).
+-- Artwork is ~8px inside a 16×16 transparent SpriteDef canvas (engine contract).
+-- BALL_VISUAL_PX is a HUD-independence sentinel, not the packaged art size.
 local BALL_VISUAL_PX = 6
 local NUDGE_MAX = 2
 

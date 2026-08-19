@@ -29,7 +29,7 @@ local METER_MIN = 1
 local METER_MAX = 6
 
 -- HUD uses full Ball art. World projectile uses throw/ canvases (22x22 source
--- packed into a 16x16 SpriteDef canvas so overworld size stays small).
+-- nearest-neighbor packed as ~8x8 art in a 16x16 SpriteDef canvas).
 local BALL_ASSET = {
   POKE_BALL = "assets/balls/poke_ball.png",
   GREAT_BALL = "assets/balls/great_ball.png",
@@ -44,9 +44,12 @@ local BALL_ASSET_THROW = {
 }
 OverworldCatching.BALL_ASSET = BALL_ASSET
 OverworldCatching.BALL_ASSET_THROW = BALL_ASSET_THROW
--- 22x22 source art; SpriteRenderer canvas stays 16x16 (nearest-neighbor 11px).
+-- 22x22 source art; SpriteRenderer canvas stays 16x16 with ~8x8 visible art.
 OverworldCatching.THROW_SOURCE_PX = 22
 OverworldCatching.THROW_CANVAS_PX = 16
+OverworldCatching.THROW_ART_PX = 8
+OverworldCatching.THROW_ART_OFFSET =
+  math.floor((OverworldCatching.THROW_CANVAS_PX - OverworldCatching.THROW_ART_PX) / 2)
 
 local function now()
   if love and love.timer and love.timer.getTime then
@@ -143,7 +146,7 @@ function OverworldCatching:ballImage(ballType)
   if self._ballImages[ballType] ~= nil then
     return self._ballImages[ballType] or nil
   end
-  -- Throw canvases (16×16, ~10px opaque from 22×22 source) for world projectile.
+  -- Throw canvases (16×16, ~8px opaque from 22×22 source) for world projectile.
   local rel = BALL_ASSET_THROW[ballType] or BALL_ASSET[ballType]
   if not rel then
     self._ballImages[ballType] = false
@@ -325,7 +328,7 @@ function OverworldCatching:_goldCatchStage(stage)
   print("[GoldCatch] " .. tostring(stage))
 end
 
---- Registered throw SpriteDef (16×16 canvas from 22×22 source). Never a sprite id only.
+--- Registered throw SpriteDef (16×16 canvas, ~8×8 visible art). Never a sprite id only.
 function OverworldCatching:ballSpriteDef(ballType)
   local id = "SPRITE_WILDS_BALL_" .. tostring(ballType)
   local sprites = self.mod and self.mod.content and self.mod.content.sprites
