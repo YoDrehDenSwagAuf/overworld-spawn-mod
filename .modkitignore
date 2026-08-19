@@ -8,6 +8,7 @@ tests/ambient_pokemon_unit_test.lua
 tests/animated_sprites_unit_test.lua
 tests/battle_art_variable_geometry_unit_test.lua
 tests/battle_return_reconcile_unit_test.lua
+tests/behavior_live_options_unit_test.lua
 tests/behavior_tick_perf_unit_test.lua
 tests/cave_reachability_mixed_unit_test.lua
 tests/cell_occupancy_unit_test.lua
@@ -58,6 +59,7 @@ tests/overworld_wild_spawns_test.lua
 tests/perf_bench_harness.lua
 tests/perf_stats_unit_test.lua
 tests/poke_followers_assets_unit_test.lua
+tests/public_settings_audit_unit_test.lua
 tests/random_enc_unit_test.lua
 tests/render_diagnostics_unit_test.lua
 tests/runtime_sheet_walk_frames_unit_test.lua

@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+### Gen2 live settings movement
+
+- Toggling Idle / Roam / Chase / Hidden Mons now re-evaluates **existing**
+  overworld Pokémon once: disabled-behaviour state is cleared, entity identity
+  and sprites are preserved, and the ~30 Hz AI cadence is re-asserted.
+- Root cause: OPTIONS / `Pipelines.applyOptions` restored WILDS AI to OFF
+  (the pipeline row is hidden), so Gold wilds were only ticked from
+  `world.stepped` (per player tile) until the next map enter re-synced the
+  pipeline. Route reload looked like a movement fix because `initializeForMap`
+  called `syncPipelineLevel`.
+
+### Follower map seams
+
+- Outdoor walking seams (city ↔ route, route ↔ route) no longer require
+  `via=connection`. If the engine omits `via`, an outdoor edge walk still
+  carries the recent trail instead of parking the party on the player for
+  1–3 steps. Doors / warps still park on the player.
+
+### Settings / README
+
+- Public settings are exactly `options.lua`. Indoor Pokémon and WILDS AI are
+  no longer in-game menu rows (they were never Mod Manager options).
+- Enc Silhouette is documented. README settings tables match schema defaults.
+
 ### Release ZIP packaging (Defender Wacatac investigation)
 
 - v2.1.6's published `Wilds.of.Kanto.v2.1.6.zip` was a GitHub source archive

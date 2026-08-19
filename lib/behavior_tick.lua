@@ -220,6 +220,12 @@ function BehaviorTick:syncPipelineLevel()
   end
 end
 
+-- Re-assert WILDS AI after OPTIONS / Pipelines.applyOptions restores saved
+-- pipeline levels (typically OFF because the row is hidden). Cheap table write.
+function BehaviorTick:ensurePipeline()
+  self:syncPipelineLevel()
+end
+
 function BehaviorTick:_ensureReuseCtx()
   if self._reuseCtx then return self._reuseCtx end
   self._reuseCtx = {}
@@ -679,6 +685,8 @@ end
 -- Keep a ~AI_STEP floor so world.stepped cannot double-run decisions when
 -- present already advanced _lastT this frame.
 function BehaviorTick:stepFromWorld(ctx)
+  -- Recover if the present pipeline was wiped while settings were open.
+  self:ensurePipeline()
   local t = now()
   if (t - (self._lastT or 0)) < (BehaviorTick.AI_STEP * 0.9) then
     return

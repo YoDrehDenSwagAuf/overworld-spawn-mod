@@ -524,19 +524,6 @@ function SettingsMenus:_openWildsRoot(game)
       end,
     },
     {
-      label = "INDOOR POKEMON",
-      stepper = true,
-      wrap = true,
-      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
-      current = Config.indoorPokemonEnabled(mod),
-      right = Config.indoorPokemonEnabled(mod) and "ON" or "OFF",
-      apply = function(v)
-        Config.setIndoorPokemon(mod, v, "options_menu", {
-          game = game, ambient = menus.ambient, confirm = true,
-        })
-      end,
-    },
-    {
       label = "GRASS",
       stepper = true,
       wrap = true,
@@ -561,18 +548,6 @@ function SettingsMenus:_openWildsRoot(game)
       apply = function(v)
         optSet(mod, "wild_silhouettes", v == true)
         menus:_notifyLogic("wild_silhouettes", v == true)
-      end,
-    },
-    {
-      label = "WILDS AI",
-      stepper = true,
-      wrap = true,
-      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
-      current = optGet(mod, "wilds_ai", true) ~= false,
-      right = (optGet(mod, "wilds_ai", true) ~= false) and "ON" or "OFF",
-      apply = function(v)
-        optSet(mod, "wilds_ai", v == true)
-        menus:_notifyLogic("wilds_ai", v == true)
       end,
     },
     {
@@ -1197,7 +1172,7 @@ SettingsMenus.FOLLOWERS_OPTION_KEYS = {
 SettingsMenus.WILDS_OPTION_KEYS = {
   "enabled", "spawn_density", "random_encounters", "water_spawns",
   "cave_spawns", "sprite_style", "sprite_fade", "town_pokemon",
-  "pokemon_grass_render_mode", "overworld_catching",
+  "pokemon_grass_render_mode", "wild_silhouettes", "overworld_catching",
   "catch_throw_key", "catch_cycle_key", "catch_throw_combo", "catch_cycle_combo",
   "catch_hud_size",
   "enable_idle", "enable_wander", "enable_aggressive", "enable_hidden",

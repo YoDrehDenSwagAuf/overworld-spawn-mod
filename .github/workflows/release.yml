@@ -95,6 +95,8 @@ jobs:
             tests/battle_return_reconcile_unit_test.lua \
             tests/species_assets_unit_test.lua \
             tests/behavior_tick_perf_unit_test.lua \
+            tests/behavior_live_options_unit_test.lua \
+            tests/public_settings_audit_unit_test.lua \
             tests/occupancy_dirty_unit_test.lua \
             tests/perf_stats_unit_test.lua \
             tests/voxel_adapter_perf_unit_test.lua \

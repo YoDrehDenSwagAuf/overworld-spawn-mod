@@ -2820,9 +2820,94 @@ function SpawnLogic:onSaveLoaded()
   end
 end
 
+function SpawnLogic:behaviorOptionSnapshot(extra)
+  extra = extra or {}
+  return {
+    enable_idle = Config.get(self.mod, "enable_idle") ~= false,
+    enable_wander = Config.get(self.mod, "enable_wander") ~= false,
+    enable_aggressive = Config.get(self.mod, "enable_aggressive") ~= false,
+    enable_hidden = Config.get(self.mod, "enable_hidden") ~= false,
+    aggressive_frequency = Config.get(self.mod, "aggressive_frequency") or 1,
+    water_aggressive_chance = Config.get(self.mod, "water_aggressive_chance"),
+    safari = extra.safari == true,
+    hiddenCaveAvailable = extra.hiddenCaveAvailable,
+  }
+end
+
+-- One-shot live invalidation for existing wilds. Does not respawn, does not
+-- rebuild occupancy unless a hidden marker reveals/hides, and does not
+-- reconstruct SpriteRenderer unless presentation actually changes.
+function SpawnLogic:refreshBehaviorOptions()
+  local game = gameOf(self.mod)
+  local opts = self:behaviorOptionSnapshot()
+  local n = 0
+  local occupancy = self.occupancy
+  for id, entity in pairs(self.entities or {}) do
+    local record = self.spawns and self.spawns[id]
+    if entity and record and record.state == Config.STATE.AVAILABLE then
+      local safari = false
+      if self._safariActive then
+        safari = self:_safariActive(game, self:_ow(game),
+          record.mapId or self.activeMapId) == true
+      end
+      local entityOpts = {
+        enable_idle = opts.enable_idle,
+        enable_wander = opts.enable_wander,
+        enable_aggressive = opts.enable_aggressive,
+        enable_hidden = opts.enable_hidden,
+        aggressive_frequency = opts.aggressive_frequency,
+        water_aggressive_chance = opts.water_aggressive_chance,
+        safari = safari,
+        hiddenCaveAvailable = entity.surface == Surface.CAVE,
+      }
+      if entity.caveScenery then
+        entityOpts.enable_aggressive = false
+        entityOpts.enable_hidden = false
+      end
+      local changed, presentation = Behavior.resetForConfigChange(entity, entityOpts)
+      if occupancy and entity.movementReservationCancelled then
+        occupancy:cancelMove(entity)
+        entity.movementReservationCancelled = nil
+      end
+      if record then record.behavior = entity.behavior end
+      if presentation == "reveal" then
+        pcall(self._attach, self, entity)
+        if self.refreshEntitySprite then
+          pcall(self.refreshEntitySprite, self, entity, {
+            reason = "behavior_options",
+            game = game,
+            forcePresentationRefresh = true,
+          })
+        end
+      elseif presentation == "hide" then
+        pcall(self._detachFromWorld, self, entity)
+      end
+      if changed or presentation then n = n + 1 end
+      if GameCompat.ensureWildEntityUpdateOwner then
+        pcall(GameCompat.ensureWildEntityUpdateOwner, entity, game)
+      end
+    end
+  end
+  return n
+end
+
 function SpawnLogic:onOptionsChanged(payload)
   if not payload or payload.mod ~= self.mod.id then return end
+  -- OPTIONS / Pipelines.applyOptions can restore WILDS AI to OFF. Re-assert
+  -- on every live option write so existing entities keep their ~30 Hz cadence.
+  if self.behaviorTick and self.behaviorTick.ensurePipeline then
+    pcall(self.behaviorTick.ensurePipeline, self.behaviorTick)
+  elseif self.behaviorTick and self.behaviorTick.syncPipelineLevel then
+    pcall(self.behaviorTick.syncPipelineLevel, self.behaviorTick)
+  end
   local key = payload.key
+  if key == "enable_idle" or key == "enable_wander"
+      or key == "enable_aggressive" or key == "enable_hidden" then
+    local n = self:refreshBehaviorOptions()
+    self:_log("behavior option %s -> %s; revalidated %d existing entities (no respawn)",
+              tostring(key), tostring(payload.value), n)
+    return
+  end
   if key == "enabled" and payload.value == false then
     self:clearAll()
   elseif key == "enabled" and payload.value == true then

@@ -19,6 +19,7 @@
 --   Wilds of Kanto    -> enabled, spawn_density, random_encounters,
 --                       water_spawns, cave_spawns, sprite_style, sprite_fade,
 --                       town_pokemon, pokemon_grass_render_mode,
+--                       wild_silhouettes,
 --                       overworld_catching, catch_throw_key, catch_cycle_key,
 --                       catch_throw_combo, catch_cycle_combo, catch_hud_size,
 --                       enable_idle,
