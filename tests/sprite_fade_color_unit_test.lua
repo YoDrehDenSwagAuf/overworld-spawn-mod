@@ -55,15 +55,15 @@ local byKey = {}
 for _, row in ipairs(schema) do byKey[row.key] = row end
 
 check(byKey.sprite_fade ~= nil, "sprite_fade in schema")
-check(byKey.sprite_color ~= nil, "sprite_color in schema")
+check(byKey.sprite_color == nil, "sprite_color is not a public option")
 eq(byKey.sprite_fade.default, "solid", "sprite_fade default solid")
-eq(byKey.sprite_color.default, "colored", "sprite_color default colored")
 eq(byKey.town_pokemon.default, true, "town_pokemon default true")
 
 eq(Config.spriteFade(V.mod), "solid", "runtime fade default solid")
 eq(Config.spriteOpacity(V.mod), 1.0, "solid alpha == 1.0")
 eq(Config.spriteColor(V.mod), "colored", "runtime color default colored")
-check(Config.spriteTrueColor(V.mod) == true, "colored ⇒ trueColor")
+eq(Config.spriteTrueColor(V.mod), Config.paletteFxRedpp(),
+   "trueColor follows PaletteFX ADVANCED, not a public sprite_color option")
 
 -- Legacy sprite_opacity migration
 savedOpts.sprite_opacity = 0.72
@@ -83,19 +83,18 @@ Config.setSpriteFade(V.mod, "faded", "test", { confirm = false })
 eq(optionStore.sprite_fade, "faded", "setSpriteFade writes key")
 eq(Config.spriteOpacity(V.mod), 0.72, "set faded opacity")
 
--- Legacy color_mode = gbc
+-- Sprite Color is not public. Legacy color_mode / classic requests stay colored.
 savedOpts = V.mod.world.game.save.options.modOptions.overworld_wild_spawns
 savedOpts.sprite_color = nil
 savedOpts.color_mode = "gbc"
-eq(Config.spriteColor(V.mod), "classic", "color_mode gbc → classic")
-check(Config.spriteTrueColor(V.mod) == false, "classic ⇒ not trueColor")
+eq(Config.spriteColor(V.mod), "colored", "color_mode gbc is ignored (always colored)")
 Config.migrateSpriteColorOption(V.mod)
-eq(savedOpts.sprite_color, "classic", "migrate writes sprite_color")
+eq(savedOpts.sprite_color, "colored", "migrate forces sprite_color colored")
 check(savedOpts.color_mode == "gbc", "legacy color_mode preserved")
 
-Config.setSpriteColor(V.mod, "colored", "test", { confirm = false })
-eq(optionStore.sprite_color, "colored", "setSpriteColor writes key")
-check(Config.spriteTrueColor(V.mod) == true, "set colored trueColor")
+Config.setSpriteColor(V.mod, "classic", "test", { confirm = false })
+eq(optionStore.sprite_color, "colored", "setSpriteColor ignores classic")
+eq(Config.spriteColor(V.mod), "colored", "classic request still colored")
 
 -- isBattleableWild
 check(Config.isBattleableWild({
