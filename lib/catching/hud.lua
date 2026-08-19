@@ -188,12 +188,8 @@ function BallHud:draw(canvas, ctx, opts)
   local ow = catching and catching.overworld and catching:overworld()
   if not self:shouldDraw(game, ow) then return canvas end
   if not (love and love.graphics) then return canvas end
-  -- Dedup when both owwild_catching_tick and owwild_ball_hud present run.
-  local frame = self._frame or 0
-  if not opts.force and self._drawnFrame == frame and frame > 0 then
-    return canvas
-  end
-  self._drawnFrame = frame
+  -- Gen1: owwild_ball_hud is the sole render owner. Gen2: drawScreen via
+  -- render.hud → presentGold. No cross-pipeline frame dedup.
   self._hudDrawCount = (self._hudDrawCount or 0) + 1
 
   local lg = love.graphics
@@ -399,6 +395,7 @@ function BallHud:register()
     present = function(canvas, ctx)
       -- Gold HUD is render.hud (screen-space). Do not also paint present.
       local catching = hud.catching
+      hud._ballHudPresentCount = (hud._ballHudPresentCount or 0) + 1
       if catching and GameCompat.isGen2(catching.mod, catching:game()) then
         return canvas
       end
