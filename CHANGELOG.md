@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.1.8
+
 ### Overworld throw Ball sprites
 
 - Thrown Overworld Catching Balls use new 22×22 source art packed into
