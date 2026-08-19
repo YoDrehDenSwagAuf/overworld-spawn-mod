@@ -53,6 +53,11 @@ local DIR_DELTA = {
   right = { 1, 0 }, left = { -1, 0 }, down = { 0, 1 }, up = { 0, -1 },
 }
 
+-- Shared no-op for Wilds-owned trailer NPCs. ControlEngine owns stepping;
+-- stock NPC.update must not run. Reuse one function so syncTrailers does not
+-- allocate a fresh closure per trailer on the hot path.
+local NO_UPDATE = function() end
+
 local function tryRequire(path)
   local ok, mod = pcall(require, path)
   if ok then return mod end
@@ -1524,7 +1529,7 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
   -- ControlEngine owns trailer interpolation exclusively. Exclude trailers
   -- from the stock NPC auto-step so OverworldController's npc loop cannot
   -- double-advance (or reject) water steps.
-  npc.update = function() end
+  npc.update = NO_UPDATE
   local basePose = npc.pose
   if type(basePose) == "function" then
     npc.pose = function(ent)
@@ -2306,7 +2311,9 @@ function ControlEngine:syncTrailers(game, ow, opts)
   -- Reassert movement ownership on hot-reloaded / legacy trailer instances.
   for _, npc in ipairs(trailers) do
     if npc and npc.pokepcTrailer then
-      npc.update = function() end
+      if npc.update ~= NO_UPDATE then
+        npc.update = NO_UPDATE
+      end
       npc._wildsFollowerStepOwned = true
       npc._wildsFollowerStep = true
     end
