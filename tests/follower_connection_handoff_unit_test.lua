@@ -721,6 +721,90 @@ do
   eq(attached, 6, "TC-2 six follower identities survive in the draw list")
 end
 
+----------------------------------------------------------------
+-- Walking seams without via=connection still hand off the train.
+-- Gold / some engine paths omit via; parking on the player caused a
+-- 1–3 step invisible wait. Outdoor edge walks must not do that.
+----------------------------------------------------------------
+do
+  local seamEngine = makeEngine()
+  local trailers = {}
+  local cells = {}
+  for i = 1, 3 do
+    trailers[i] = makeTrailer(i, party[i], 4, i)
+    cells[i] = { x = 4, y = i }
+  end
+  local fromMap = makeMap("PALLET_TOWN")
+  local toMap = makeMap("ROUTE_1")
+  local ow = {
+    map = fromMap,
+    player = { cellX = 4, cellY = 0, facing = "up", surfing = false },
+    npcs = trailers,
+    entities = { unpack(trailers) },
+    pokepcTrailers = trailers,
+    pokepcTrailCells = cells,
+    pokepcTrailHead = { x = 4, y = 0 },
+    pokepcTrailHistory = { { x = 4, y = 0 }, { x = 4, y = 1 }, { x = 4, y = 2 } },
+  }
+  check(seamEngine:_captureMapExit(game, ow, {
+    mapId = "PALLET_TOWN", toMapId = "ROUTE_1",
+  }), "via-nil seam captures exit train")
+  ow.map = toMap
+  ow.player = { cellX = 4, cellY = 10, facing = "up", surfing = false }
+  ow.npcs, ow.entities = {}, { ow.player }
+  ow.neighbors = { { map = fromMap, ox = 0, oy = 160 } }
+  check(seamEngine:_queueMapEntry(game, ow, {
+    mapId = "ROUTE_1", fromMapId = "PALLET_TOWN", map = toMap,
+  }), "via-nil outdoor edge walk queues handoff")
+  check(seamEngine:_applyConnectionHandoff(ow), "via-nil handoff applies")
+  check(trailers[1] == ow.pokepcTrailers[1], "via-nil preserves follower identity")
+  check(ow._wildsEntryCooldown == nil, "via-nil seam has no parking cooldown")
+  check(not (trailers[1].cellX == ow.player.cellX and trailers[1].cellY == ow.player.cellY),
+        "via-nil does not park follower 1 on the player")
+end
+
+do
+  local townEngine = makeEngine()
+  local bark = makeMap("NEW_BARK_TOWN", "TOWN")
+  local route = makeMap("ROUTE_29", "OVERWORLD")
+  local t = { makeTrailer(1, party[1], 2, 1) }
+  local ow = {
+    map = bark,
+    player = { cellX = 2, cellY = 0, facing = "up" },
+    pokepcTrailers = t,
+    pokepcTrailCells = { { x = 2, y = 1 } },
+    pokepcTrailHead = { x = 2, y = 0 },
+  }
+  check(townEngine:_isOutsideMap(game, bark) == true, "New Bark TOWN tileset is outdoor")
+  check(townEngine:_captureMapExit(game, ow, {
+    mapId = "NEW_BARK_TOWN", toMapId = "ROUTE_29",
+  }), "Gold town->route captures train")
+  ow.map = route
+  ow.player = { cellX = 2, cellY = 9, facing = "up" }
+  check(townEngine:_queueMapEntry(game, ow, {
+    mapId = "ROUTE_29", fromMapId = "NEW_BARK_TOWN", map = route,
+  }), "Gold town->route without via is a walking seam")
+end
+
+do
+  local warpEngine = makeEngine()
+  local t = { makeTrailer(1, party[1], 4, 1) }
+  local ow = {
+    map = makeMap("PALLET_TOWN"),
+    player = { cellX = 4, cellY = 0, facing = "up" },
+    pokepcTrailers = t,
+    pokepcTrailCells = { { x = 4, y = 1 } },
+    pokepcTrailHead = { x = 4, y = 0 },
+  }
+  check(warpEngine:_captureMapExit(game, ow, {
+    mapId = "PALLET_TOWN", toMapId = "REDS_HOUSE_1F",
+  }), "warp still captures for classification")
+  check(warpEngine:_queueMapEntry(game, ow, {
+    mapId = "REDS_HOUSE_1F", fromMapId = "PALLET_TOWN",
+    map = makeMap("REDS_HOUSE_1F", "HOUSE"), via = "warp",
+  }) == false, "explicit warp is not a walking seam")
+end
+
 if failures > 0 then
   io.stderr:write(string.format("\n%d failure(s)\n", failures))
   os.exit(1)

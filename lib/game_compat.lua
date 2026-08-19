@@ -448,13 +448,26 @@ end
 -- Gold World:drawPeople / updatePeople / rebuildPeople guests live on npcs.
 -- Gen1 OverworldState draws ow.entities. Wilds Entity:draw(camX, camY) is
 -- NOT the Gold NPC:draw(ox, oy, scale) signature, so Gen2 gets a thin wrap.
+local function goldWildUpdate(self, a, b)
+  -- Gold World:updatePeople calls npc:update(map, entities). BehaviorTick
+  -- is the Wilds AI source of truth and calls Movement.update(dt).
+  if type(a) == "table" then
+    return
+  end
+  local orig = self._wildsOrigUpdate
+  if orig then return orig(self, a, b) end
+end
+
+-- NOT the Gold NPC:draw(ox, oy, scale) signature, so Gen2 gets a thin wrap.
 function GameCompat.adaptWildEntity(entity, game)
   if not entity or entity._wildsGoldAdapted then return entity end
   if not GameCompat.isGen2(nil, game) then return entity end
   entity._wildsGoldAdapted = true
   entity._wildsGoldGuest = true
   local origDraw = entity.draw
-  local origUpdate = entity.update
+  if entity.update and entity.update ~= goldWildUpdate then
+    entity._wildsOrigUpdate = entity.update
+  end
   function entity:draw(ox, oy, scale)
     if scale ~= nil then
       -- Gold World:drawPeople: ox/oy are already camera-translated screen
@@ -473,13 +486,22 @@ function GameCompat.adaptWildEntity(entity, game)
     end
     if origDraw then return origDraw(self, ox, oy) end
   end
-  function entity:update(a, b)
-    -- Gold World:updatePeople calls npc:update(map, entities). BehaviorTick
-    -- is the Wilds AI source of truth and calls Entity.update(dt).
-    if type(a) == "table" then
-      return
+  entity.update = goldWildUpdate
+  return entity
+end
+
+-- Re-assert the Gold World:updatePeople no-op if a later wrap replaced update.
+function GameCompat.ensureWildEntityUpdateOwner(entity, game)
+  if not entity then return entity end
+  if not GameCompat.isGen2(nil, game) then return entity end
+  if not entity._wildsGoldAdapted then
+    return GameCompat.adaptWildEntity(entity, game)
+  end
+  if entity.update ~= goldWildUpdate then
+    if entity.update and entity.update ~= goldWildUpdate then
+      entity._wildsOrigUpdate = entity._wildsOrigUpdate or entity.update
     end
-    if origUpdate then return origUpdate(self, a, b) end
+    entity.update = goldWildUpdate
   end
   return entity
 end

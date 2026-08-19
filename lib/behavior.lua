@@ -2195,6 +2195,119 @@ function Behavior.commitPendingSurfaceTransition(entity, ctx)
   return "entered_water"
 end
 
+-- True when this behaviour type is allowed by the live enable_* options.
+function Behavior.isEnabledBehavior(behavior, opts)
+  opts = opts or {}
+  if behavior == Behavior.IDLE_LOOK or behavior == Behavior.WATER_IDLE
+     or behavior == Behavior.SAFARI_IDLE then
+    return opts.enable_idle ~= false
+  end
+  if behavior == Behavior.GRASS_WANDER or behavior == Behavior.WATER_WANDER
+     or behavior == Behavior.SAFARI_WANDER then
+    return opts.enable_wander ~= false
+  end
+  if behavior == Behavior.AGGRESSIVE or behavior == Behavior.WATER_AGGRESSIVE then
+    return opts.enable_aggressive ~= false
+  end
+  if Behavior.isHidden(behavior) then
+    return opts.enable_hidden ~= false
+  end
+  return true
+end
+
+-- One-shot live-settings invalidation for an existing entity.
+-- Preserves identity, cell, and sprite renderer. Does not recreate the entity
+-- or call Movement.init. Returns changed, presentation
+--   presentation = "reveal" | "hide" | nil
+function Behavior.resetForConfigChange(entity, opts)
+  if not entity or not entity.behaviorState then return false, nil end
+  opts = opts or {}
+  local bx = entity.behaviorState
+  local t = now()
+  local current = bx.behavior or entity.behavior
+  local changed = false
+
+  -- Chase-only state belongs to aggressive. Clear it when Chase Mons is off
+  -- even if the assigned type is still allowed (should not happen) or while
+  -- we re-pick below.
+  if opts.enable_aggressive == false then
+    if bx.chasing or bx.chaseReady or bx.playerDetected
+       or bx.state == Behavior.STATE.CHASING
+       or bx.state == Behavior.STATE.CHASE_START
+       or bx.state == Behavior.STATE.ALERT
+       or bx.state == Behavior.STATE.PLAYER_DETECTED then
+      resetAggro(bx, t)
+      if Movement.isBusy(entity) then
+        Movement.stop(entity, Movement.STATE.IDLE)
+      end
+      entity.alertIcon = false
+      changed = true
+    end
+  end
+
+  if Behavior.isEnabledBehavior(current, opts) then
+    return changed, nil
+  end
+
+  local surface = entity.surface
+  if not surface then
+    if Behavior.isWater(current) then
+      surface = Surface.WATER
+    elseif current == Behavior.HIDDEN_CAVE then
+      surface = Surface.CAVE
+    else
+      surface = Surface.GRASS
+    end
+  end
+  local pickOpts = {
+    enable_idle = opts.enable_idle,
+    enable_wander = opts.enable_wander,
+    enable_aggressive = opts.enable_aggressive,
+    enable_hidden = opts.enable_hidden,
+    enable_water_aggressive = opts.enable_water_aggressive,
+    aggressive_frequency = opts.aggressive_frequency,
+    water_aggressive_chance = opts.water_aggressive_chance,
+    safari = opts.safari == true or Behavior.isSafari(current),
+    hiddenCaveAvailable = opts.hiddenCaveAvailable,
+  }
+  if entity.caveScenery then
+    pickOpts.enable_aggressive = false
+    pickOpts.enable_hidden = false
+  end
+  local newB = Behavior.pick(entity.species, surface, pickOpts, opts.rng)
+  local wasHidden = Behavior.isHidden(current) or entity.hiddenEncounter == true
+  local nowHidden = Behavior.isHidden(newB)
+
+  bx.behavior = newB
+  entity.behavior = newB
+  resetAggro(bx, t)
+  bx.behavior = newB
+  entity.behavior = newB
+  bx.nextActionAt = t
+  if Behavior.isAggressive(newB) then
+    bx.sightDisabled = false
+  elseif Behavior.isHidden(newB) then
+    bx.state = Behavior.STATE.HIDDEN
+    bx.sightDisabled = true
+  end
+
+  if Movement.isBusy(entity) then
+    Movement.stop(entity, Movement.STATE.IDLE)
+  end
+
+  local presentation = nil
+  if wasHidden ~= nowHidden then
+    entity.visibleSprite = not nowHidden
+    entity.hiddenEncounter = nowHidden
+    entity.hiddenBody = nowHidden
+    entity.canTriggerBattle = true
+    entity.passable = nowHidden == true
+    presentation = nowHidden and "hide" or "reveal"
+  end
+
+  return true, presentation
+end
+
 -- Arm overworld Safari flee after the shared emote bubble finishes.
 function Behavior.markFleeReady(entity)
   local bx = entity and entity.behaviorState

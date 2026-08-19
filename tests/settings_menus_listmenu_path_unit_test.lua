@@ -1,6 +1,10 @@
 -- Simulate the real Gen1Recomp ListMenu interaction path for
 -- START → OPTIONS → POKE FOLLOW EX.
 --
+-- The followers root is a stepper ListMenu: A / Confirm cycles the highlighted
+-- row in place (no nested choice screen). Nested SCREEN_FOLLOWERS:* ids remain
+-- registered for compatibility but are not the live OPTIONS path.
+--
 -- Critical engine facts (verified against gen1recomp source):
 --   * mod.options has define/get only — NO options:set
 --   * ManagerState:setOption writes loader.modOptions + emits options_changed
@@ -217,8 +221,20 @@ menus:register()
 ----------------------------------------------------------------
 check(V.mod.options.set == nil, "mod.options:set is absent (Gen1Recomp)")
 
+-- Confirm (A) on a stepper row cycles +1 in place and writes the option.
+local function confirmUntil(menu, index, value, label)
+  local item = menu.items[index]
+  check(item and item.stepper == true, (label or "row") .. " is a stepper")
+  local n = item.choices and #item.choices or 0
+  for _ = 1, n + 2 do
+    if item.current == value then return end
+    menu:choose(index)
+  end
+  eq(item.current, value, (label or "row") .. " reached " .. tostring(value))
+end
+
 ----------------------------------------------------------------
--- Interactive path: root → FOLLOWERS → 4
+-- Interactive path: A on FOLLOWERS cycles 1 → 4 in place
 ----------------------------------------------------------------
 handlerCalls = {}
 syncAllCalls = 0
@@ -231,24 +247,13 @@ game.stack:push(root)
 eq(root.items[3].label, "FOLLOWERS", "third row is FOLLOWERS")
 eq(root.items[3].right, "1", "root shows initial count 1")
 check(type(root.items[3].onSelect) ~= "function",
-      "FOLLOWERS uses screen id, not fragile onSelect-only")
-check(root.items[3].screen ~= nil, "FOLLOWERS has screen id")
+      "FOLLOWERS has no fragile onSelect-only handler")
+check(root.items[3].stepper == true, "FOLLOWERS is an in-place stepper")
+check(root.items[3].screen == nil, "FOLLOWERS does not push a nested screen")
 
--- Choose FOLLOWERS row (index 3) — exercises onChoose + close-then-push
-root:choose(3)
-eq(pushedScreens[#pushedScreens], SettingsMenus.SCREEN_FOLLOWERS .. ":count",
-   "child FOLLOWERS screen pushed")
-check(game.stack:top() ~= root, "parent root closed before/after push")
-local child = game.stack:top()
-check(child ~= nil and child.title == "FOLLOWERS", "child menu is FOLLOWERS choice")
-
--- Find value 4 in child items and choose it
-local idx4
-for i, it in ipairs(child.items) do
-  if it.value == 4 then idx4 = i break end
-end
-check(idx4 ~= nil, "choice menu has value 4")
-child:choose(idx4)
+confirmUntil(root, 3, 4, "FOLLOWERS")
+check(game.stack:top() == root, "A on stepper stays on the followers root")
+eq(#pushedScreens, 0, "no nested FOLLOWERS:count screen pushed")
 
 eq(modOptions.overworld_wild_spawns.follower_count, 4,
    "bucket follower_count == 4 after ListMenu path")
@@ -270,38 +275,26 @@ end
 eq(right4, "4", "reopened root shows FOLLOWERS 4")
 
 ----------------------------------------------------------------
--- value 0 (truthiness) via ListMenu path
+-- value 0 (truthiness) via ListMenu stepper path
 ----------------------------------------------------------------
 handlerCalls = {}
 stack = {}
 game.stack._items = stack
 root = menus:_openFollowersRoot(game)
 game.stack:push(root)
-root:choose(3)
-child = game.stack:top()
-local idx0
-for i, it in ipairs(child.items) do
-  if it.value == 0 then idx0 = i break end
-end
-child:choose(idx0)
+confirmUntil(root, 3, 0, "FOLLOWERS")
 eq(modOptions.overworld_wild_spawns.follower_count, 0, "FOLLOWERS=0 writes 0")
 eq(game.save.pokepcFollowerCount, 0, "save mirror 0")
 
 ----------------------------------------------------------------
--- CONTROL MODE → POKEMON via ListMenu path
+-- CONTROL → POKEMON via ListMenu stepper path
 ----------------------------------------------------------------
 stack = {}
 game.stack._items = stack
 root = menus:_openFollowersRoot(game)
 game.stack:push(root)
-root:choose(1) -- CONTROL MODE
-child = game.stack:top()
-eq(child.title, "CONTROL MODE", "control mode child open")
-local idxPoke
-for i, it in ipairs(child.items) do
-  if it.value == "pokemon" then idxPoke = i break end
-end
-child:choose(idxPoke)
+eq(root.items[1].label, "CONTROL", "first row is CONTROL")
+confirmUntil(root, 1, "pokemon", "CONTROL")
 eq(modOptions.overworld_wild_spawns.follow_control, "pokemon",
    "control mode pokemon written")
 eq(settings:followControl(), "pokemon", "settings followControl pokemon")
@@ -312,24 +305,19 @@ eq(game.save.pokepcControlMode, "pokemon", "save mode mirror pokemon")
 local root3 = menus:_openFollowersRoot(game)
 local modeRight
 for _, it in ipairs(root3.items) do
-  if it.label == "CONTROL MODE" then modeRight = it.right end
+  if it.label == "CONTROL" then modeRight = it.right end
 end
-eq(modeRight, "POKEMON", "root shows CONTROL MODE POKEMON")
+eq(modeRight, "POKEMON", "root shows CONTROL POKEMON")
 
 ----------------------------------------------------------------
--- TRAINER TRAIL → ON (false→true) via ListMenu path
+-- TRAIL → ON (false→true) via ListMenu stepper path
 ----------------------------------------------------------------
 stack = {}
 game.stack._items = stack
 root = menus:_openFollowersRoot(game)
 game.stack:push(root)
-root:choose(2)
-child = game.stack:top()
-local idxOn
-for i, it in ipairs(child.items) do
-  if it.value == true then idxOn = i break end
-end
-child:choose(idxOn)
+eq(root.items[2].label, "TRAIL", "second row is TRAIL")
+confirmUntil(root, 2, true, "TRAIL")
 eq(modOptions.overworld_wild_spawns.trainer_trail, true, "trainer_trail true")
 eq(settings:trainerTrail(), true, "settings trainerTrail true")
 eq(settings:engineMode(game), "lead_trainer", "engineMode lead_trainer")
@@ -338,9 +326,9 @@ eq(game.save.pokepcControlMode, "lead_trainer", "save mode lead_trainer")
 local root4 = menus:_openFollowersRoot(game)
 local trailRight
 for _, it in ipairs(root4.items) do
-  if it.label == "TRAINER TRAIL" then trailRight = it.right end
+  if it.label == "TRAIL" then trailRight = it.right end
 end
-eq(trailRight, "ON", "root shows TRAINER TRAIL ON")
+eq(trailRight, "ON", "root shows TRAIL ON")
 
 ----------------------------------------------------------------
 -- FOLLOWERS 6 + pack mode
@@ -350,19 +338,13 @@ stack = {}
 game.stack._items = stack
 root = menus:_openFollowersRoot(game)
 game.stack:push(root)
-root:choose(3)
-child = game.stack:top()
-local idx6
-for i, it in ipairs(child.items) do
-  if it.value == 6 then idx6 = i break end
-end
-child:choose(idx6)
+confirmUntil(root, 3, 6, "FOLLOWERS")
 eq(modOptions.overworld_wild_spawns.follower_count, 6, "FOLLOWERS=6")
 eq(settings:engineMode(game), "pack", "pokemon+6 → pack")
 eq(game.save.pokepcControlMode, "pack", "save mode pack")
 
 ----------------------------------------------------------------
--- close-then-push ordering: parent must not remain under child
+-- Confirming a stepper does not push a nested child menu
 ----------------------------------------------------------------
 stack = {}
 game.stack._items = stack
@@ -370,8 +352,8 @@ root = menus:_openFollowersRoot(game)
 game.stack:push(root)
 local beforeTop = game.stack:top()
 root:choose(3)
-check(game.stack:top() ~= beforeTop, "parent not left under child")
-check(#stack == 1, "exactly one menu on stack after push")
+check(game.stack:top() == beforeTop, "stepper confirm stays on the same menu")
+check(#stack == 1, "exactly one menu on stack after confirm")
 
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

@@ -1702,10 +1702,77 @@ function ControlEngine:_isOutsideMap(game, map)
       if ok then tilesets = value end
     end
     local ok, outside = pcall(Map.isOutside, map.def, tilesets)
-    if ok then return outside == true end
+    if ok and outside ~= nil then return outside == true end
   end
   if map.def.outdoor ~= nil then return map.def.outdoor == true end
-  return map.def.tileset == "OVERWORLD" or map.def.tileset == "PLATEAU"
+  local tileset = tostring(map.def.tileset or ""):upper()
+  local id = tostring(map.id or map.def.id or ""):upper()
+  -- Buildings / interiors: never a walking seam (Yellow door parking).
+  if tileset == "HOUSE" or tileset == "POKECENTER" or tileset == "POKEMON_CENTER"
+     or tileset == "MART" or tileset == "POKEMART" or tileset == "GYM"
+     or tileset == "GATE" or tileset == "INTERIOR" or tileset == "LAB"
+     or tileset == "SCHOOL" or tileset == "MUSEUM" or tileset == "SHIP"
+     or tileset == "FACILITY" or tileset == "MANSION" or tileset == "CAVERN"
+     or tileset == "UNDERGROUND" or tileset == "TOWER" or tileset == "RUINS"
+     or tileset:find("HOUSE", 1, true) or tileset:find("CENTER", 1, true)
+     or tileset:find("INTERIOR", 1, true) or tileset:find("GYM", 1, true)
+     or tileset:find("GATE", 1, true) or tileset:find("MART", 1, true) then
+    return false
+  end
+  if id:find("_HOUSE", 1, true) or id:find("POKECENTER", 1, true)
+     or id:find("POKEMON_CENTER", 1, true) or id:find("_GYM", 1, true)
+     or id:find("_MART", 1, true) or id:find("_GATE", 1, true) then
+    return false
+  end
+  if tileset == "OVERWORLD" or tileset == "PLATEAU" or tileset == "TOWN"
+     or tileset == "FOREST" or tileset == "JOHTO" or tileset == "KANTO" then
+    return true
+  end
+  if id:find("ROUTE", 1, true) or id:find("_TOWN", 1, true)
+     or id:find("_CITY", 1, true) or id:find("LAKE", 1, true)
+     or id:find("PARK", 1, true) then
+    return true
+  end
+  return false
+end
+
+function ControlEngine:_playerNearMapEdge(map, x, y)
+  if not map or x == nil or y == nil then return false end
+  local w = tonumber(map.widthCells) or tonumber(map.def and map.def.width) or 0
+  local h = tonumber(map.heightCells) or tonumber(map.def and map.def.height) or 0
+  if w > 0 and h > 0 then
+    return x <= 1 or y <= 1 or x >= (w - 2) or y >= (h - 2)
+  end
+  if type(map.inBounds) == "function" then
+    local function inside(cx, cy)
+      local ok, value = pcall(map.inBounds, map, cx, cy)
+      return ok and value == true
+    end
+    if not inside(x, y) then return true end
+    return not inside(x - 1, y) or not inside(x + 1, y)
+        or not inside(x, y - 1) or not inside(x, y + 1)
+  end
+  return false
+end
+
+-- Walking map seam vs door / warp / script teleport.
+function ControlEngine:_isWalkingSeam(game, ow, ev, snapshot)
+  if not snapshot then return false end
+  local via = ev and ev.via
+  if via == "warp" or via == "script" or via == "teleport" or via == "fly"
+     or via == "dig" or via == "healing" or via == "door" then
+    return false
+  end
+  local fromMap = snapshot.map
+  local toMap = (ev and ev.map) or (ow and ow.map)
+  if not (self:_isOutsideMap(game, fromMap) and self:_isOutsideMap(game, toMap)) then
+    return false
+  end
+  if via == "connection" then return true end
+  local dest = ow and ow.player
+  return self:_playerNearMapEdge(fromMap, snapshot.playerX, snapshot.playerY)
+      or self:_playerNearMapEdge(toMap, dest and dest.cellX, dest and dest.cellY)
+      or (ow and type(ow.neighbors) == "table" and ow.neighbors[1] ~= nil)
 end
 
 --- Capture live trailers before setMap replaces the entity lists.
@@ -1727,6 +1794,7 @@ function ControlEngine:_captureMapExit(game, ow, ev)
     trailers = refs,
     trailCells = copyTrailCells(ow.pokepcTrailCells),
     trailHead = copyTrailHead(ow.pokepcTrailHead),
+    trailHistory = copyTrailCells(ow.pokepcTrailHistory),
   }
   return true
 end
@@ -1737,12 +1805,11 @@ function ControlEngine:_queueMapEntry(game, ow, ev)
   self._mapExitSnapshot = nil
   self._pendingConnectionHandoff = nil
   if ow then ow._wildsFollowerSeamActive = nil end
-  if not (snapshot and ev and ev.via == "connection") then return false end
-  if snapshot.toMapId and ev.mapId and snapshot.toMapId ~= ev.mapId then
+  if not snapshot then return false end
+  if snapshot.toMapId and ev and ev.mapId and snapshot.toMapId ~= ev.mapId then
     return false
   end
-  if not (self:_isOutsideMap(game, snapshot.map)
-          and self:_isOutsideMap(game, (ev and ev.map) or (ow and ow.map))) then
+  if not self:_isWalkingSeam(game, ow, ev, snapshot) then
     return false
   end
   self._pendingConnectionHandoff = snapshot
@@ -1775,13 +1842,17 @@ function ControlEngine:_applyConnectionHandoff(ow)
   ow.pokepcTrailers = snapshot.trailers
   ow.pokepcTrailCells = snapshot.trailCells
   ow.pokepcTrailHead = head or { x = player.cellX, y = player.cellY }
+  for _, cell in ipairs(snapshot.trailHistory or {}) do
+    if cell then
+      cell.x, cell.y = (cell.x or 0) + dx, (cell.y or 0) + dy
+    end
+  end
+  ow.pokepcTrailHistory = snapshot.trailHistory or ow.pokepcTrailHistory
   ow._wildsFollowerSeamActive = true
   self._pendingMapTrailerSync = false
   self._pendingSpawnAtPlayer = false
-  -- Suppress catch-up during the connection drain so the trail drains at
-  -- normal cadence — one follower per goal shift — instead of overlapping
-  -- and slingshotting ahead.
-  ow._wildsEntryCooldown = #snapshot.trailers + 2
+  -- Followers are already at lag cells. Do not wait extra frames.
+  ow._wildsEntryCooldown = nil
   return true
 end
 
@@ -2488,7 +2559,9 @@ function ControlEngine:syncTrailers(game, ow, opts)
     }
     self._lastSyncedCount = wantN
     if opts.spawnAtPlayer then
-      ow._wildsEntryCooldown = #trailers + 2
+      -- One settle frame so stacked door-exit parking does not slingshot.
+      -- The first legitimate player step then starts follower 1 immediately.
+      ow._wildsEntryCooldown = 1
     end
     else
     -- Mid-play count change (faint, heal, party menu) or initial sync
@@ -2592,7 +2665,7 @@ function ControlEngine:syncTrailers(game, ow, opts)
       end
       ow.pokepcTrailers = trailers
       ow.pokepcTrailCells = goals
-      ow._wildsEntryCooldown = #trailers + 2
+      ow._wildsEntryCooldown = 1
     end
     ow.pokepcTrailHead = {
       x = anchor.targetX or anchor.cellX,
@@ -3174,6 +3247,18 @@ function ControlEngine:update(game, ow, opts)
   self._lastOw = ow  -- cached for menu-context access (stepper, etc.)
   self.diag.controlUpdateCalls = (self.diag.controlUpdateCalls or 0) + 1
   self.diag.lastSource = opts.source or "direct"
+
+  -- Gold OPTIONS can wipe WILDS AI to OFF. Re-assert on the per-logic-frame
+  -- World:step owner so wilds recover without waiting for a map reload.
+  do
+    local GameCompat = V.require("game_compat")
+    if GameCompat.isGen2(self.mod, game) then
+      local bt = self.mod and self.mod.exports and self.mod.exports.behaviorTick
+      if bt and bt.ensurePipeline then
+        pcall(bt.ensurePipeline, bt)
+      end
+    end
+  end
 
   local ok, err = pcall(function()
     self:_applyConnectionHandoff(ow)
@@ -3928,10 +4013,10 @@ function ControlEngine:_installEventSubscriptions()
       pcall(function() engine:syncPlayerControlVisual(game, ow) end)
       engine:_queueMapEntry(game, ow, payload)
       engine._pendingMapTrailerSync = true
-      -- Seamless outside-to-outside connections keep the existing train
+      -- Seamless outdoor walking seams keep the existing train
       -- (translated by _applyConnectionHandoff); any other entry (warp /
       -- door / boot / healing) parks the pack on the player's cell.
-      if not (payload and payload.via == "connection") then
+      if not engine._pendingConnectionHandoff then
         engine._pendingSpawnAtPlayer = true
         -- Remove any leftover trailers from the previous map immediately
         -- so they don't remain visible during transitions (healing, etc.)
@@ -4098,10 +4183,13 @@ function ControlEngine:install()
       pcall(function() engine:forceYellowStockPikachuArt(ow, game) end)
     end
     engine._pendingMapTrailerSync = true
-    -- Connection crossings are re-seeded by _applyConnectionHandoff (which
-    -- clears the pending sync); every other entry (warp / door / boot) parks
+    -- Connection / walking-seam crossings are re-seeded by
+    -- _applyConnectionHandoff. Do not force player-cell parking over a
+    -- pending seam snapshot. Every other entry (warp / door / boot) parks
     -- the pack on the player's cell.
-    engine._pendingSpawnAtPlayer = true
+    if not engine._pendingConnectionHandoff then
+      engine._pendingSpawnAtPlayer = true
+    end
     pcall(function() engine:syncPlayerControlVisual(game, ow) end)
   end
 
