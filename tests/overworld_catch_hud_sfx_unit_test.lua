@@ -233,15 +233,16 @@ check(hudSrc:find("Thrown Balls stay", 1, true) ~= nil
 local catchSrc = assert(io.open("lib/catching/init.lua", "r")):read("*a")
 check(catchSrc:find("function OverworldCatching:ballHudImage", 1, true) ~= nil,
   "ballHudImage helper exists")
-check(catchSrc:find("BALL_ASSET_SM", 1, true) ~= nil, "projectile still has sm assets")
--- Full HUD assets are larger-opaque than *_sm (root cause of invisible scaling).
+check(catchSrc:find("BALL_ASSET_THROW", 1, true) ~= nil, "projectile has throw assets")
+check(not catchSrc:find("BALL_ASSET_SM", 1, true), "old sm asset table removed")
+-- HUD full assets stay independent of world throw canvases.
 local function fileBytes(path)
   local f = assert(io.open(path, "rb")); local d = f:read("*a"); f:close(); return d
 end
 check(#fileBytes("assets/balls/poke_ball.png") > 0, "full poke_ball asset present")
-check(#fileBytes("assets/balls/poke_ball_sm.png") > 0, "sm poke_ball asset present")
-check(fileBytes("assets/balls/poke_ball.png") ~= fileBytes("assets/balls/poke_ball_sm.png"),
-  "HUD full asset differs from world sm asset")
+check(#fileBytes("assets/balls/throw/poke_ball.png") > 0, "throw poke_ball asset present")
+check(fileBytes("assets/balls/poke_ball.png") ~= fileBytes("assets/balls/throw/poke_ball.png"),
+  "HUD full asset differs from world throw asset")
 
 -- ---- shouldDraw: size 0 hides HUD; 1–10 still draw when catching allows ----
 do

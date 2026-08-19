@@ -1,6 +1,6 @@
 -- Small top-right Poké Ball inventory HUD + throw power meter.
 -- Draws onto the render-pipeline canvas (must setCanvas), matching DebugHud.
--- catch_hud_size scales this UI component only — thrown Balls stay ~6px.
+-- catch_hud_size scales this UI component only — thrown Balls stay world-sized.
 local V = ...
 local Config = V.require("config")
 local CatchMath = V.require("catching/catch_math")
@@ -10,7 +10,7 @@ local BallHud = {}
 BallHud.__index = BallHud
 
 BallHud.PIPELINE_ID = "owwild_ball_hud"
--- Default icon px when setting is 5 (~1.08× of 14). Thrown Balls stay ~6px.
+-- Default icon px when setting is 5 (~1.08× of 14). Thrown Balls ignore this.
 BallHud.ICON_PX = 15
 BallHud.ICON_PX_MIN = 8
 BallHud.ICON_PX_MAX = 24

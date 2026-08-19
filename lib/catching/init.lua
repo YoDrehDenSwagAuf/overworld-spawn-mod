@@ -28,19 +28,25 @@ local METER_CYCLE_SECONDS = 1.75
 local METER_MIN = 1
 local METER_MAX = 6
 
--- Keep full-res sources; runtime / sprite registration prefers compact *_sm.
+-- HUD uses full Ball art. World projectile uses throw/ canvases (22x22 source
+-- packed into a 16x16 SpriteDef canvas so overworld size stays small).
 local BALL_ASSET = {
   POKE_BALL = "assets/balls/poke_ball.png",
   GREAT_BALL = "assets/balls/great_ball.png",
   ULTRA_BALL = "assets/balls/ultra_ball.png",
   MASTER_BALL = "assets/balls/master_ball.png",
 }
-local BALL_ASSET_SM = {
-  POKE_BALL = "assets/balls/poke_ball_sm.png",
-  GREAT_BALL = "assets/balls/great_ball_sm.png",
-  ULTRA_BALL = "assets/balls/ultra_ball_sm.png",
-  MASTER_BALL = "assets/balls/master_ball_sm.png",
+local BALL_ASSET_THROW = {
+  POKE_BALL = "assets/balls/throw/poke_ball.png",
+  GREAT_BALL = "assets/balls/throw/great_ball.png",
+  ULTRA_BALL = "assets/balls/throw/ultra_ball.png",
+  MASTER_BALL = "assets/balls/throw/master_ball.png",
 }
+OverworldCatching.BALL_ASSET = BALL_ASSET
+OverworldCatching.BALL_ASSET_THROW = BALL_ASSET_THROW
+-- 22x22 source art; SpriteRenderer canvas stays 16x16 (nearest-neighbor 11px).
+OverworldCatching.THROW_SOURCE_PX = 22
+OverworldCatching.THROW_CANVAS_PX = 16
 
 local function now()
   if love and love.timer and love.timer.getTime then
@@ -113,7 +119,7 @@ function OverworldCatching:registerContent()
   end
   for _, ballType in ipairs(OverworldCatching.BALL_TYPES) do
     local id = "SPRITE_WILDS_BALL_" .. ballType
-    local rel = BALL_ASSET_SM[ballType] or BALL_ASSET[ballType]
+    local rel = BALL_ASSET_THROW[ballType] or BALL_ASSET[ballType]
     local path = mod.assets and mod.assets.path and mod.assets:path(rel) or rel
     if not mod.content.sprites:get(id) then
       local ok, err = pcall(function()
@@ -137,12 +143,16 @@ function OverworldCatching:ballImage(ballType)
   if self._ballImages[ballType] ~= nil then
     return self._ballImages[ballType] or nil
   end
+  -- Throw canvases (16×16, ~10px opaque from 22×22 source) for world projectile.
+  local rel = BALL_ASSET_THROW[ballType] or BALL_ASSET[ballType]
+  if not rel then
+    self._ballImages[ballType] = false
+    return nil
+  end
   if not (love and love.graphics and love.graphics.newImage) then
     self._ballImages[ballType] = false
     return nil
   end
-  -- Compact *_sm assets (~5px opaque in 16×16) for world projectile only.
-  local rel = BALL_ASSET_SM[ballType] or BALL_ASSET[ballType]
   local path = self.mod.assets and self.mod.assets.path and self.mod.assets:path(rel) or rel
   local ok, img = pcall(love.graphics.newImage, path)
   if (not ok or not img) and BALL_ASSET[ballType] then
@@ -164,17 +174,21 @@ function OverworldCatching:ballHudImage(ballType)
   if self._ballHudImages[ballType] ~= nil then
     return self._ballHudImages[ballType] or nil
   end
+  local rel = BALL_ASSET[ballType] or BALL_ASSET_THROW[ballType]
+  if not rel then
+    self._ballHudImages[ballType] = false
+    return nil
+  end
   if not (love and love.graphics and love.graphics.newImage) then
     self._ballHudImages[ballType] = false
     return nil
   end
-  local rel = BALL_ASSET[ballType] or BALL_ASSET_SM[ballType]
   local path = self.mod.assets and self.mod.assets.path and self.mod.assets:path(rel) or rel
   local ok, img = pcall(love.graphics.newImage, path)
-  if (not ok or not img) and BALL_ASSET_SM[ballType] then
-    local sm = self.mod.assets and self.mod.assets.path
-      and self.mod.assets:path(BALL_ASSET_SM[ballType]) or BALL_ASSET_SM[ballType]
-    ok, img = pcall(love.graphics.newImage, sm)
+  if (not ok or not img) and BALL_ASSET_THROW[ballType] then
+    local throw = self.mod.assets and self.mod.assets.path
+      and self.mod.assets:path(BALL_ASSET_THROW[ballType]) or BALL_ASSET_THROW[ballType]
+    ok, img = pcall(love.graphics.newImage, throw)
   end
   if ok and img and img.setFilter then
     pcall(img.setFilter, img, "nearest", "nearest")
@@ -311,7 +325,7 @@ function OverworldCatching:_goldCatchStage(stage)
   print("[GoldCatch] " .. tostring(stage))
 end
 
---- Registered *_sm SpriteDef (16×16 canvas, ~6px ball). Never a sprite id only.
+--- Registered throw SpriteDef (16×16 canvas from 22×22 source). Never a sprite id only.
 function OverworldCatching:ballSpriteDef(ballType)
   local id = "SPRITE_WILDS_BALL_" .. tostring(ballType)
   local sprites = self.mod and self.mod.content and self.mod.content.sprites
@@ -324,7 +338,10 @@ function OverworldCatching:ballSpriteDef(ballType)
   if dataSprites and type(dataSprites[id]) == "table" and dataSprites[id].image then
     return dataSprites[id]
   end
-  local rel = BALL_ASSET_SM[ballType] or BALL_ASSET[ballType]
+  local rel = BALL_ASSET_THROW[ballType] or BALL_ASSET[ballType]
+  if not rel then
+    return nil
+  end
   local path = self.mod.assets and self.mod.assets.path and self.mod.assets:path(rel) or rel
   return {
     id = id,
@@ -333,6 +350,23 @@ function OverworldCatching:ballSpriteDef(ballType)
     walker = false,
     trueColor = true,
   }
+end
+
+local function ballId(selfOrType, ballType)
+  if type(selfOrType) == "string" then
+    return selfOrType
+  end
+  return ballType
+end
+
+--- Resolve the packaged throw-asset path for a stable internal Ball ID.
+function OverworldCatching.ballThrowAsset(selfOrType, ballType)
+  return BALL_ASSET_THROW[ballId(selfOrType, ballType)]
+end
+
+--- Resolve the packaged HUD-asset path for a stable internal Ball ID.
+function OverworldCatching.ballHudAsset(selfOrType, ballType)
+  return BALL_ASSET[ballId(selfOrType, ballType)]
 end
 
 function OverworldCatching:_refundBall(game, ballType)

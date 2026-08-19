@@ -4,8 +4,8 @@
 -- CRITICAL CONTRACT:
 --   Ball entities may be inserted into ow.entities. Therefore entity:pose() MUST
 --   remain the native SpriteRenderer pose — never return nil to suppress drawing.
---   Small visual size comes from 6×6 art centered in a 16×16 transparent canvas
---   (SPRITE_WILDS_BALL_* / *_sm.png). No custom draw()/pose() overrides.
+--   Small visual size comes from throw art centered in a 16×16 transparent canvas
+--   (SPRITE_WILDS_BALL_* / assets/balls/throw/*.png). No custom draw()/pose() overrides.
 --
 -- Lifecycle: every Ball MUST be removed via Projectile:cleanup() (idempotent).
 -- Presentation phases: FLYING → MISS_HOLD | WOBBLE → SUCCESS_CLICK | FAIL_BREAK → DONE
@@ -23,7 +23,7 @@ local WOBBLE_INTERVAL = 0.55
 local SUCCESS_CLICK_SEC = 0.20
 local FAIL_BREAK_SEC = 0.28
 local MISS_LAND_HOLD = 0.18
--- Artwork is ~6px inside a 16×16 transparent SpriteDef canvas (engine contract).
+-- Artwork is ~10px inside a 16×16 transparent SpriteDef canvas (engine contract).
 local BALL_VISUAL_PX = 6
 local NUDGE_MAX = 2
 
@@ -232,7 +232,7 @@ function Projectile:startFlight(game, ow, opts)
     endX, endY, travel = Projectile.landCell(startX, startY, facing, power)
   end
 
-  -- image arg is SpriteDef.image fallback on Gold; size stays *_sm canvas art.
+  -- image arg is SpriteDef.image fallback on Gold; size stays throw canvas art.
   local ballEntity, createErr = makeBallEntity(
     game, ow, ballType, startX, startY, spriteId, opts.image, opts.spriteDef)
   if not ballEntity then
