@@ -349,6 +349,28 @@ def verify_zip(out_zip: Path, manifest: dict) -> None:
     if sample not in names:
         fail(f"ZIP missing sample runtime sheet: {sample}")
 
+    for throw_png in (
+        "assets/balls/throw/poke_ball.png",
+        "assets/balls/throw/great_ball.png",
+        "assets/balls/throw/ultra_ball.png",
+        "assets/balls/throw/master_ball.png",
+    ):
+        if throw_png not in names:
+            fail(f"ZIP missing throw Ball asset: {throw_png}")
+    for sm_png in (
+        "assets/balls/poke_ball_sm.png",
+        "assets/balls/great_ball_sm.png",
+        "assets/balls/ultra_ball_sm.png",
+        "assets/balls/master_ball_sm.png",
+    ):
+        if sm_png in names:
+            fail(f"ZIP still contains retired small Ball asset: {sm_png}")
+    for banned in names:
+        lower = banned.lower()
+        if lower.endswith(".json") and "ball" in lower and "throw" in lower:
+            fail(f"ZIP must not ship throw-ball source JSON: {banned}")
+
+
     water_map_swim = (
         "assets/enhanced_overworld/water_sprites/swimming/swimming_sprite_mapping.json"
     )

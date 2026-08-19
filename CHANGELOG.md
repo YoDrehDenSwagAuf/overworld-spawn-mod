@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 2.1.8
+
+### Overworld throw Ball sprites
+
+- Thrown Overworld Catching Balls use new 22×22 source art packed into
+  `assets/balls/throw/*.png` (16×16 SpriteDef canvas, nearest-neighbor).
+- Visible throw art is ~8×8, centered at offset (4, 4) so the Ball sits
+  closer to overworld trainer/Pokémon scale than the previous ~10×10 pack.
+- Lookup is by stable Ball ID (`POKE_BALL` / `GREAT_BALL` / `ULTRA_BALL` /
+  `MASTER_BALL`). Catch HUD still uses `assets/balls/*.png`.
+- Catch HUD Size remains UI-only: size 0 hides the HUD, not the projectile.
+
 ### Gen2 live settings movement
 
 - Toggling Idle / Roam / Chase / Hidden Mons now re-evaluates **existing**

@@ -54,6 +54,7 @@ tests/overworld_catch_hud_sfx_unit_test.lua
 tests/overworld_catch_input_unit_test.lua
 tests/overworld_catch_math_unit_test.lua
 tests/overworld_catch_preview_unit_test.lua
+tests/overworld_catch_projectile_assets_unit_test.lua
 tests/overworld_catch_target_unit_test.lua
 tests/overworld_wild_spawns_test.lua
 tests/perf_bench_harness.lua
