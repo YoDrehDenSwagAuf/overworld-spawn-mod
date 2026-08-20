@@ -17,14 +17,19 @@ local function gameVersion(game)
   return GameCompat.gameVersion(game)
 end
 
-function Interaction.new(mod, selection)
+function Interaction.new(mod, selection, control)
   local self = setmetatable({}, Interaction)
   self.mod = mod
   self.selection = selection
+  self.control = control
   self._originalTalk = nil
   self._wrapper = nil
   self._installed = false
   return self
+end
+
+function Interaction:setControl(control)
+  self.control = control
 end
 
 local function finishMovement(npc)
@@ -42,8 +47,23 @@ local function finishMovement(npc)
   npc.idle, npc.goalX, npc.goalY = nil, nil, nil
 end
 
---- Shared "X is following you!" dialog used by the lifecycle talk wrapper AND
--- the control-engine interact wrapper (trailers in every game version).
+local function monDisplayName(game, mon)
+  if not mon then return "It" end
+  if type(mon.nickname) == "string" and mon.nickname ~= "" then
+    return mon.nickname
+  end
+  local def = game and game.data and game.data.pokemon and game.data.pokemon[mon.species]
+  if def and def.name then return def.name end
+  local AmbientCries = V.require("ambient_cries")
+  if AmbientCries and AmbientCries.displayName then
+    return AmbientCries.displayName(mon.species)
+  end
+  return tostring(mon.species or "It")
+end
+
+--- Shared follower dialog + OKAY / POKEBALL choice.
+-- OKAY → close, no change.
+-- POKEBALL → manual recall of THAT mon (stopFollowing + count - 1 + recall FX).
 -- @param game src.core.Game (module or instance)
 -- @param ow overworld state
 -- @param npc follower/trailer entity being talked to (may be nil)
@@ -66,8 +86,7 @@ function Interaction:showFollowMessage(game, ow, npc, mon, done)
   end
 
   local Strings = tryRequire("src.core.Strings")
-  local def = game and game.data and game.data.pokemon and game.data.pokemon[mon.species]
-  local name = mon.nickname or (def and def.name) or mon.species
+  local name = monDisplayName(game, mon)
   local text
   if Strings then
     local ok, formatted = pcall(Strings, "%s is following\nyou!", name)
@@ -75,8 +94,37 @@ function Interaction:showFollowMessage(game, ow, npc, mon, done)
   else
     text = tostring(name) .. " is following\nyou!"
   end
+
   local GameCompat = V.require("game_compat")
-  GameCompat.presentText(self.mod, game, ow, text, done)
+  local interaction = self
+  local allowBall = self.control ~= nil
+    and type(self.control.manualRecallFollower) == "function"
+  -- Yellow stock Pikachu entity is engine-owned: never offer manual recall.
+  if npc and npc.pikachuFollower == true and npc.pokepcTrailer ~= true then
+    allowBall = false
+  end
+
+  if not allowBall then
+    GameCompat.presentText(self.mod, game, ow, text, done)
+    return true
+  end
+
+  GameCompat.presentTextChoice(self.mod, game, ow, text, function(okay)
+    if okay then
+      if done then done() end
+      return
+    end
+    -- POKEBALL: remove this specific follower from active selection.
+    local control = interaction.control
+    if control and type(control.manualRecallFollower) == "function" then
+      pcall(control.manualRecallFollower, control, game, ow, mon, {
+        source = "talk_pokeball",
+      })
+    end
+    if done then done() end
+  end, {
+    labels = { "OKAY", "POKEBALL" },
+  })
   return true
 end
 

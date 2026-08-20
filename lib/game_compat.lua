@@ -191,6 +191,19 @@ function GameCompat.isSurfing(game, ow)
   return adapter.isSurfing(game, ow) == true
 end
 
+--- True while the Poké Center nurse heal-machine animation is active.
+-- Edge-trigger this from follower runtime (false→true / true→false).
+-- CANCELLED nurse dialog never sets healAnim — no false positives.
+function GameCompat.isPokecenterHealActive(game, ow)
+  ow = ow or GameCompat.liveOverworld(nil, game)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and type(adapter.isPokecenterHealActive) == "function" then
+    local ok, active = pcall(adapter.isPokecenterHealActive, ow, game)
+    if ok then return active == true end
+  end
+  return ow ~= nil and ow.healAnim ~= nil
+end
+
 function GameCompat.isWaterCell(map, x, y, game)
   local adapter = GameCompat.current(nil, game)
   if adapter and adapter.isWaterCell then
@@ -732,6 +745,40 @@ function GameCompat.presentText(mod, game, ow, text, onDone)
     onDone()
   end
   return "none"
+end
+
+--- Present dialogue ending in a two-option ChoiceBox (shared TextBox path).
+-- onChoose(yes): yes == true → first label; yes == false → second label.
+-- opts.labels = { "OKAY", "POKEBALL" } (default YES/NO if omitted).
+-- Works for Gen1 and Gold: TextBox.choice stacks ChoiceBox over the text.
+function GameCompat.presentTextChoice(mod, game, ow, text, onChoose, opts)
+  opts = opts or {}
+  ow = ow or GameCompat.liveOverworld(mod, game)
+  local TextBox = tryRequire("src.render.TextBox")
+  if not (game and game.stack and TextBox and TextBox.new) then
+    if type(onChoose) == "function" then onChoose(true) end
+    return "none"
+  end
+  if ow and GameCompat.isGen2(nil, game) then
+    ow.textbox = true
+  end
+  local labels = opts.labels
+  game.stack:push(TextBox.new(game, text, nil, {
+    choice = function(yes)
+      if ow and GameCompat.isGen2(nil, game) then
+        ow.textbox = nil
+        ow.choicebox = nil
+      end
+      if type(onChoose) == "function" then
+        onChoose(yes == true)
+      end
+    end,
+    choiceLabels = labels,
+    choiceBox = opts.box,
+    defaultNo = opts.defaultNo,
+    noSound = opts.noSound,
+  }))
+  return "textBoxChoice"
 end
 
 -- One-line DEV snapshot for Gold map enter. Never per-frame.

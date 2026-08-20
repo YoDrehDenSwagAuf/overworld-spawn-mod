@@ -22,6 +22,7 @@ Gen1.capabilities = {
   ambient = true,
   townPokemon = true,
   safari = true,
+  healDetect = true,
 }
 
 -- Existing Gen1 name → dex fallback (moved from follower/sprite_service.lua).
@@ -418,6 +419,12 @@ function Gen1.hasCaughtSpecies(game, species)
     return true
   end
   return false
+end
+
+--- True while the Poké Center nurse heal machine animation is running.
+-- Gen1 only sets ow.healAnim after HEAL is accepted (CANCEL never sets it).
+function Gen1.isPokecenterHealActive(ow, _game)
+  return ow ~= nil and ow.healAnim ~= nil
 end
 
 function Gen1.playerHasPartySpace(game)

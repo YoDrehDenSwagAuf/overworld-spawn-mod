@@ -16,6 +16,7 @@
 local V = ...
 local Constants = V.require("follower/constants")
 local WildsFs = V.require("wilds_fs")
+local PresentationFx = V.require("follower/presentation_fx")
 
 local DebugLog
 do
@@ -195,6 +196,14 @@ function ControlEngine.new(mod, deps)
   self._owUpdateWrapped = false
   self._gen2WorldStepWrapped = false
   self._inControlUpdate = false
+  -- Intentional party Follow / Dismiss / count / switch only. Technical
+  -- rebuilds (map, battle, style, water) leave this nil → no RELEASE/RECALL.
+  self._presentationIntent = nil
+  self.presentationFx = PresentationFx.new(mod, { selection = deps.selection })
+  -- Poké Center nurse heal: temporary runtime suppression of visible trailers.
+  -- Never written to options / save. Independent of battle-return flags.
+  self._healingSuppressFollowers = false
+  self._wasHealMachineActive = false
   -- "overworld" = OverworldController.update owns trailer ticks (Gen1);
   -- "gen2_world_event" = Gold World:step owns trailer ticks;
   -- "pikachu_follower" = Gen1 fallback when OW wrap is unavailable.
@@ -547,6 +556,20 @@ function ControlEngine:followerCount(game)
   return 1
 end
 
+--- Configured follower count for trailer composition / visibility.
+-- Returns 0 while Poké Center healing temporarily suppresses followers.
+-- Never mutates options or save — settings UI still reads followerCount().
+function ControlEngine:runtimeTrailerCount(game)
+  if self._healingSuppressFollowers == true then
+    return 0
+  end
+  return self:followerCount(game)
+end
+
+function ControlEngine:isHealingFollowerSuppressed()
+  return self._healingSuppressFollowers == true
+end
+
 --- Programmatic API: write through Settings (options + save mirror).
 -- Does not own persistence; invalidates local cache instead of storing a
 -- parallel truth. Callers that need runtime refresh should go through
@@ -631,6 +654,67 @@ function ControlEngine:toggleStopFollowing(mon, game)
   return mon.stopFollowing
 end
 
+--- Manually recall one party mon from the active follower pack (talk → POKEBALL).
+-- Sets mon.stopFollowing so it stays excluded across map/battle/Poké Center
+-- temporary suppress restore. Decrements configured follower_count by 1 so a
+-- different party mon does not fill the vacated slot. Never mutates party order,
+-- HP, boxes, or Pokédex. Reuses presentation recall FX via syncAll intent.
+function ControlEngine:manualRecallFollower(game, ow, mon, opts)
+  opts = opts or {}
+  if not mon then return false, "no_mon" end
+  game = game or self:_game()
+  ow = ow or self:_liveOw(game)
+
+  -- Yellow stock Pikachu entity is engine-owned — never manual-recall it.
+  if opts.npc and opts.npc.pikachuFollower == true
+     and opts.npc.pokepcTrailer ~= true then
+    return false, "yellow_stock"
+  end
+
+  mon.stopFollowing = true
+
+  local n = self:followerCount(game) or 0
+  if n > 0 then
+    self:setFollowerCount(game, n - 1)
+  end
+
+  -- If the recalled mon was the selected leader, failover selection.
+  local active = self:getActiveFollowerMon(game)
+  local same = active == mon
+  if not same and active and self.selection
+     and type(self.selection.monFingerprint) == "function" then
+    local a = self.selection.monFingerprint(active)
+    local b = self.selection.monFingerprint(mon)
+    same = a ~= nil and a == b
+  end
+  if same then
+    local party = game and game.save and game.save.party or {}
+    local switched = false
+    for i, m in ipairs(party) do
+      if m and m ~= mon and (tonumber(m.hp) or 0) > 0
+         and m.stopFollowing ~= true then
+        if self.selection and self.selection.selectFollower then
+          pcall(self.selection.selectFollower, self.selection, m, game, {})
+        end
+        pcall(function() self:setLeaderParty(game, i) end)
+        switched = true
+        break
+      end
+    end
+    if not switched then
+      if self.selection and self.selection.state
+         and self.selection.state.clearSelection then
+        pcall(self.selection.state.clearSelection, self.selection.state)
+      end
+      pcall(function() self:clearLeader(game) end)
+    end
+  end
+
+  self:beginPresentationIntent(opts.source or "manual_recall")
+  pcall(function() self:syncAll(game, ow) end)
+  return true
+end
+
 function ControlEngine:setLeaderParty(game, partyIndex)
   if not game or not game.save then return end
   -- Wilds owns the trailer pack independently of party order, so the
@@ -640,7 +724,11 @@ function ControlEngine:setLeaderParty(game, partyIndex)
   game.save.followerPartyIndex = partyIndex
   if self.selection and type(self.selection.selectFollower) == "function" then
     local m = game.save.party and game.save.party[partyIndex]
-    if m then pcall(self.selection.selectFollower, self.selection, m, game, {}) end
+    if m then
+      -- Re-selecting via FOLLOW clears a prior manual POKEBALL recall.
+      m.stopFollowing = false
+      pcall(self.selection.selectFollower, self.selection, m, game, {})
+    end
   end
   self:bustLeaderVisual(game)
 end
@@ -1053,7 +1141,7 @@ function ControlEngine:shouldUpdateWildsTrailers(game, ow)
 end
 
 function ControlEngine:partyTrailMons(game)
-  local n = self:followerCount(game)
+  local n = self:runtimeTrailerCount(game)
   if n <= 0 then return {} end
 
   local save = game and game.save
@@ -1332,6 +1420,11 @@ function ControlEngine:removeTrailers(ow)
   if self:_battleReturnActive() then
     self:_traceBattleReturn("removeTrailers", self:_game(), ow)
   end
+  -- Technical wipes drop presentation FX. Intentional syncAll keeps intent
+  -- set so recall ghosts can be created from the pre-sync capture.
+  if self.presentationFx and not self._presentationIntent then
+    pcall(function() self.presentationFx:clearAll(ow) end)
+  end
   -- Clear the canonical list first. ow.npcs / ow.pokepcTrailers may be the
   -- SAME table reference in tests and some engine paths; never listRemove
   -- from a table while ipairs-ing it (Lua skips every other entry).
@@ -1339,6 +1432,7 @@ function ControlEngine:removeTrailers(ow)
   ow.pokepcTrailCells = {}
   local keepNpcs, keepEnt = {}, {}
   for _, npc in ipairs(ow.npcs or {}) do
+    -- Keep presentation-only recall ghosts; strip Wilds-owned trailers.
     if not self:_isWildsOwnedTrailer(npc) then keepNpcs[#keepNpcs + 1] = npc end
   end
   for _, e in ipairs(ow.entities or {}) do
@@ -1606,6 +1700,10 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
   end
   npc._wildsFollowerStep = true
   npc._wildsFollowerStepOwned = true
+  -- Cheap no-op until a release FX is attached; enables draw-time tint/scale.
+  if PresentationFx and PresentationFx.installDrawWrap then
+    pcall(PresentationFx.installDrawWrap, npc)
+  end
   return npc
 end
 
@@ -2404,7 +2502,7 @@ function ControlEngine:syncTrailers(game, ow, opts)
   local surface = surfing and "water" or "land"
 
   -- Solo "pokemon" with a pack size still trails party mons (no trainer NPC).
-  if mode == "pokemon" and self:followerCount(game) > 0 then
+  if mode == "pokemon" and self:runtimeTrailerCount(game) > 0 then
     mode = "pack"
   end
 
@@ -3289,6 +3387,9 @@ function ControlEngine:update(game, ow, opts)
     self:_traceBattleReturn("update", game, ow)
   end
 
+  -- Poké Center heal lifecycle (edge-triggered). Independent of battle flags.
+  pcall(function() self:_pollPokecenterHeal(game, ow, { dt = opts.dt }) end)
+
   -- Out-of-battle HP loss (poison, etc.) does not fire battle.ended.
   -- Reconcile on the existing trailer update cadence so a fainted selected
   -- follower permanently fails over before trailer sync / party menu reads.
@@ -3304,11 +3405,19 @@ function ControlEngine:update(game, ow, opts)
 
   -- Always run when a pending sync is queued (stepper menu changed the count
   -- while the world was paused), or selection just failed over. Otherwise
-  -- skip if trailers aren't needed.
+  -- skip if trailers aren't needed — but still tick presentation FX so a
+  -- recall ghost after DISMISS can finish while count is 0.
+  local hasPresentationFx = self.presentationFx
+    and self.presentationFx:hasActiveFx(ow)
   if not self._pendingMapTrailerSync
      and not self:shouldUpdateWildsTrailers(game, ow)
      and not opts.force
      and not selectionChanged then
+    if hasPresentationFx then
+      local dt = tonumber(opts.dt)
+      if not dt or dt <= 0 then dt = 1 / 60 end
+      pcall(function() self.presentationFx:tick(ow, dt) end)
+    end
     return false, "skip"
   end
 
@@ -3407,6 +3516,14 @@ function ControlEngine:update(game, ow, opts)
     end
     self:_finishConnectionHandoffIfComplete(ow)
     self:_traceSurf(game, ow)
+    -- Presentation-only RELEASE/RECALL. Ticked after gameplay trail steps so
+    -- FX never owns movement. Menus pause this update → FX starts when the
+    -- overworld is visible again.
+    if self.presentationFx then
+      local dt = tonumber(opts.dt)
+      if not dt or dt <= 0 then dt = 1 / 60 end
+      self.presentationFx:tick(ow, dt)
+    end
   end)
 
   self._inControlUpdate = false
@@ -3757,6 +3874,18 @@ end
 function ControlEngine:syncAll(game, ow)
   game = game or self:_game()
   ow = self:_liveOw(game, ow)
+  -- Capture intentional presentation intent before clearing trailers. Gameplay
+  -- selection/count is already updated by the caller; FX never delays that.
+  local intent = self._presentationIntent
+  local before = nil
+  if intent and self.presentationFx and ow then
+    -- Replace any unfinished prior presentation; this action is authoritative.
+    pcall(function() self.presentationFx:clearGhosts(ow) end)
+    local okCap, cap = pcall(function()
+      return self.presentationFx:captureVisibleFollowers(ow)
+    end)
+    if okCap then before = cap end
+  end
   if ow then pcall(function() self:removeTrailers(ow) end) end
   -- Never reorder the party here. Wilds designates the follower via save data
   -- (pokepcLeader / followerPartyIndex), not party order, so the Yellow
@@ -3771,13 +3900,89 @@ function ControlEngine:syncAll(game, ow)
     logGen2(self.mod, "syncPlayerControlVisual failed: %s", tostring(errVis))
   end
   pcall(function() self:forceYellowStockPikachuArt(ow, game) end)
+  local spawnAtPlayer = self._pendingSpawnAtPlayer == true
   local okSync, errSync = pcall(function()
-    self:syncTrailers(game, ow, { mapEnter = true, catchUp = true })
+    self:syncTrailers(game, ow, {
+      mapEnter = true,
+      catchUp = true,
+      spawnAtPlayer = spawnAtPlayer,
+    })
   end)
+  if spawnAtPlayer then
+    self._pendingSpawnAtPlayer = false
+  end
   if not okSync then
     logWarn(self.mod, "syncAll/syncTrailers failed: %s", tostring(errSync))
     logGen2(self.mod, "syncAll failed: %s", tostring(errSync))
   end
+  if intent and self.presentationFx and ow and before then
+    pcall(function()
+      self.presentationFx:reconcileAfterSync(ow, before, {
+        stagger = PresentationFx.STAGGER_S,
+      })
+    end)
+  end
+  self._presentationIntent = nil
+end
+
+--- Mark the next syncAll as an intentional party presentation (release/recall).
+-- Technical callers must not set this.
+function ControlEngine:beginPresentationIntent(reason)
+  self._presentationIntent = reason or "party"
+  return self._presentationIntent
+end
+
+--- Edge-trigger Poké Center heal lifecycle (presentation + temporary suppress).
+-- Does not touch configured follower_count / options / save.
+function ControlEngine:_pollPokecenterHeal(game, ow, opts)
+  opts = opts or {}
+  local GameCompat = V.require("game_compat")
+  local active = GameCompat.isPokecenterHealActive(game, ow) == true
+  local was = self._wasHealMachineActive == true
+  if active and not was then
+    self:_onPokecenterHealStarted(game, ow)
+  elseif not active and was then
+    self:_onPokecenterHealFinished(game, ow)
+  end
+  self._wasHealMachineActive = active
+  -- Keep presentation ghosts ticking when full update was skipped (Yellow cutscene).
+  if opts.tickFx and self.presentationFx then
+    local dt = tonumber(opts.dt)
+    if not dt or dt <= 0 then dt = 1 / 60 end
+    pcall(function() self.presentationFx:tick(ow, dt) end)
+  end
+  return active
+end
+
+function ControlEngine:_onPokecenterHealStarted(game, ow)
+  if self._healingSuppressFollowers then return end
+  self._healingSuppressFollowers = true
+  local configured = self:followerCount(game) or 0
+  if configured <= 0 then
+    return
+  end
+  -- Recall visible trailers via existing presentation FX; count stays configured.
+  self:beginPresentationIntent("pokecenter_heal")
+  pcall(function() self:syncAll(game, ow) end)
+end
+
+function ControlEngine:_onPokecenterHealFinished(game, ow)
+  if not self._healingSuppressFollowers then return end
+  self._healingSuppressFollowers = false
+  local configured = self:followerCount(game) or 0
+  if configured <= 0 then
+    return
+  end
+  -- Restore from current configured count (not a stale snapshot).
+  self._pendingSpawnAtPlayer = true
+  self:beginPresentationIntent("pokecenter_restore")
+  pcall(function() self:syncAll(game, ow) end)
+end
+
+--- Clear heal suppress on map transitions so it cannot stick across warps.
+function ControlEngine:_clearHealSuppress()
+  self._healingSuppressFollowers = false
+  self._wasHealMachineActive = false
 end
 
 function ControlEngine:_installTalkWrap()
@@ -3785,7 +3990,9 @@ function ControlEngine:_installTalkWrap()
   if not OverworldState then return false end
   if not self._interaction then
     local Interaction = V.require("follower/interaction")
-    self._interaction = Interaction.new(self.mod, self.selection)
+    self._interaction = Interaction.new(self.mod, self.selection, self)
+  else
+    self._interaction:setControl(self)
   end
   local engine = self
   local function handleFollowerTalk(owSelf, npc)
@@ -3927,9 +4134,14 @@ function ControlEngine:_installOverworldUpdateWrap()
       and not vanillaSpawn(game, owSelf)
       and not (owSelf.player and owSelf.player.surfing)
     if inCutscene then
-      -- Skip the engine update so trailers aren't re-added to entities
-      -- during the cutscene.  The engine's own rendering system hides
-      -- NPCs during dialogs / healing — our job is to not fight it.
+      -- Skip the full trailer step so stock cutscenes stay in control —
+      -- but still poll Poké Center heal edges and tick recall/release FX.
+      pcall(function()
+        engine:_pollPokecenterHeal(game, owSelf, {
+          dt = dt,
+          tickFx = true,
+        })
+      end)
     else
       pcall(function()
         engine:update(game, owSelf, {
@@ -4078,6 +4290,8 @@ function ControlEngine:_installEventSubscriptions()
       local game = engine:_game()
       local ow = engine:_liveOw(game)
       engine:_captureMapExit(game, ow, payload)
+      -- Heal suppress must not stick across map changes.
+      engine:_clearHealSuppress()
       -- Remove trailers from the overworld so they disappear during
       -- transitions (healing, warps, doors).  Connection handoffs
       -- reattach them in _applyConnectionHandoff; other entries

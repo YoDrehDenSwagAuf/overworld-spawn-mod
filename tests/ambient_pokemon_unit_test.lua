@@ -45,18 +45,31 @@ local AmbientCries = V.require("ambient_cries")
 local AmbientPokemon = V.require("ambient_pokemon")
 
 -- ------- Cries
-eq(AmbientCries.FALLBACK, "[...]", "fallback cry exactly [...]")
+eq(AmbientCries.FALLBACK, "[...]", "legacy fallback sentinel kept")
 eq(AmbientCries.textFor("PIKACHU"), "Pikaa...", "curated Pikachu")
 eq(AmbientCries.textFor("EEVEE"), "Vee...", "curated Eevee")
-eq(AmbientCries.textFor("RATTATA"), "[...]", "uncurated → [...]")
+check(AmbientCries.textFor("RATTATA") ~= "[...]", "uncurated → fragment not [...]")
+check(AmbientCries.textFor("RATTATA"):find("!", 1, true) ~= nil, "uncurated ends with !")
 eq(AmbientCries.textFor(nil), "[...]", "nil → [...]")
 eq(AmbientCries.textFor(""), "[...]", "empty → [...]")
 check(AmbientCries.curatedCount() >= 8, "curated cry table has several species")
 check(AmbientCries.curatedCount() < 40, "not 151 invented cries")
-check(not AmbientCries.textFor("UNKNOWN"):find("%.%.%.$", 1, false)
-        or AmbientCries.textFor("UNKNOWN") == "[...]",
-      "unknown uses bracket fallback")
-eq(AmbientCries.textFor("MEWTWO"), "[...]", "legendary fallback [...]")
+check(AmbientCries.textFor("UNKNOWN") ~= "[...]", "unknown key still fragments")
+check(AmbientCries.textFor("MEWTWO") ~= "[...]", "legendary uses fragment")
+eq(AmbientCries.fragmentFor("PIKACHU"), "Pika!", "fragment Pikachu")
+eq(AmbientCries.fragmentFor("CHARIZARD"), "Chari!", "fragment Charizard")
+eq(AmbientCries.fragmentFor("MEW"), "Mew!", "fragment Mew")
+eq(AmbientCries.displayName("MR_MIME"), "Mr. Mime", "display Mr. Mime")
+check(AmbientCries.fragmentFor("MR_MIME") ~= "[...]", "Mr. Mime fragment readable")
+check(not AmbientCries.fragmentFor("MR_MIME"):find("MR_MIME", 1, true),
+  "Mr. Mime fragment hides raw key")
+eq(AmbientCries.displayName("NIDORAN_F"), "Nidoran", "display Nidoran♀ key")
+check(AmbientCries.fragmentFor("NIDORAN_F"):find("Nido", 1, true) == 1,
+  "Nidoran fragment readable")
+eq(AmbientCries.fragmentFor("HO_OH"), "Ho!", "fragment Ho-Oh")
+eq(AmbientCries.fragmentFor("ONIX"), "Onix!", "fragment Onix")
+eq(AmbientCries.fragmentFor("SQUIRTLE"), "Squir!", "fragment Squirtle")
+eq(AmbientCries.fragmentFor("BULBASAUR"), "Bulba!", "fragment Bulbasaur")
 
 -- ------- Map classification
 local game = {
