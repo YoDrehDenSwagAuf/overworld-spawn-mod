@@ -654,6 +654,67 @@ function ControlEngine:toggleStopFollowing(mon, game)
   return mon.stopFollowing
 end
 
+--- Manually recall one party mon from the active follower pack (talk → POKEBALL).
+-- Sets mon.stopFollowing so it stays excluded across map/battle/Poké Center
+-- temporary suppress restore. Decrements configured follower_count by 1 so a
+-- different party mon does not fill the vacated slot. Never mutates party order,
+-- HP, boxes, or Pokédex. Reuses presentation recall FX via syncAll intent.
+function ControlEngine:manualRecallFollower(game, ow, mon, opts)
+  opts = opts or {}
+  if not mon then return false, "no_mon" end
+  game = game or self:_game()
+  ow = ow or self:_liveOw(game)
+
+  -- Yellow stock Pikachu entity is engine-owned — never manual-recall it.
+  if opts.npc and opts.npc.pikachuFollower == true
+     and opts.npc.pokepcTrailer ~= true then
+    return false, "yellow_stock"
+  end
+
+  mon.stopFollowing = true
+
+  local n = self:followerCount(game) or 0
+  if n > 0 then
+    self:setFollowerCount(game, n - 1)
+  end
+
+  -- If the recalled mon was the selected leader, failover selection.
+  local active = self:getActiveFollowerMon(game)
+  local same = active == mon
+  if not same and active and self.selection
+     and type(self.selection.monFingerprint) == "function" then
+    local a = self.selection.monFingerprint(active)
+    local b = self.selection.monFingerprint(mon)
+    same = a ~= nil and a == b
+  end
+  if same then
+    local party = game and game.save and game.save.party or {}
+    local switched = false
+    for i, m in ipairs(party) do
+      if m and m ~= mon and (tonumber(m.hp) or 0) > 0
+         and m.stopFollowing ~= true then
+        if self.selection and self.selection.selectFollower then
+          pcall(self.selection.selectFollower, self.selection, m, game, {})
+        end
+        pcall(function() self:setLeaderParty(game, i) end)
+        switched = true
+        break
+      end
+    end
+    if not switched then
+      if self.selection and self.selection.state
+         and self.selection.state.clearSelection then
+        pcall(self.selection.state.clearSelection, self.selection.state)
+      end
+      pcall(function() self:clearLeader(game) end)
+    end
+  end
+
+  self:beginPresentationIntent(opts.source or "manual_recall")
+  pcall(function() self:syncAll(game, ow) end)
+  return true
+end
+
 function ControlEngine:setLeaderParty(game, partyIndex)
   if not game or not game.save then return end
   -- Wilds owns the trailer pack independently of party order, so the
@@ -663,7 +724,11 @@ function ControlEngine:setLeaderParty(game, partyIndex)
   game.save.followerPartyIndex = partyIndex
   if self.selection and type(self.selection.selectFollower) == "function" then
     local m = game.save.party and game.save.party[partyIndex]
-    if m then pcall(self.selection.selectFollower, self.selection, m, game, {}) end
+    if m then
+      -- Re-selecting via FOLLOW clears a prior manual POKEBALL recall.
+      m.stopFollowing = false
+      pcall(self.selection.selectFollower, self.selection, m, game, {})
+    end
   end
   self:bustLeaderVisual(game)
 end
@@ -3925,7 +3990,9 @@ function ControlEngine:_installTalkWrap()
   if not OverworldState then return false end
   if not self._interaction then
     local Interaction = V.require("follower/interaction")
-    self._interaction = Interaction.new(self.mod, self.selection)
+    self._interaction = Interaction.new(self.mod, self.selection, self)
+  else
+    self._interaction:setControl(self)
   end
   local engine = self
   local function handleFollowerTalk(owSelf, npc)
