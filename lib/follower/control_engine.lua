@@ -65,6 +65,16 @@ local function tryRequire(path)
   return nil
 end
 
+local function talkPhaseAlways(mod, phase, extra)
+  local line = "[Wilds][FollowerTalk] phase=" .. tostring(phase)
+  if extra then
+    line = line .. " " .. tostring(extra)
+  end
+  if mod and mod.log and type(mod.log.info) == "function" then
+    pcall(mod.log.info, mod.log, "%s", line)
+  end
+end
+
 local function logInfo(mod, fmt, ...)
   if DebugLog and DebugLog.info then
     DebugLog.info(mod, fmt, ...)
@@ -656,41 +666,113 @@ function ControlEngine:toggleStopFollowing(mon, game)
   return mon.stopFollowing
 end
 
---- Queue a talk → Ball recall until Gen1 interaction no longer owns the NPC.
--- Does not mutate selection or remove the trailer; processPending runs from
--- ControlEngine:update once GameCompat.followerInteractionBusy is false.
-function ControlEngine:queueManualRecallFollower(game, ow, mon, opts)
+--- Queue a talk → Ball recall until Overworld is again the StateStack top.
+-- Stores mon identity only (fingerprint). Does not capture ow/npc pointers
+-- and does not mutate selection or remove trailers.
+function ControlEngine:queueManualRecallFollower(game, _ow, mon, opts)
   opts = opts or {}
   if not mon then return false, "no_mon" end
+  local fingerprint = nil
+  if self.selection and type(self.selection.monFingerprint) == "function" then
+    fingerprint = self.selection.monFingerprint(mon)
+  end
+  if not fingerprint then
+    fingerprint = ControlEngine.monIdentityKey(mon)
+  end
   -- One pending talk-Ball at a time (overworld talk is single-NPC).
   self._pendingManualRecall = {
     mon = mon,
-    game = game,
-    ow = ow,
-    npc = opts.npc,
+    fingerprint = fingerprint,
     source = opts.source or "talk_pokeball",
   }
   return true
 end
 
---- Start a queued talk-Ball recall at the first safe Overworld tick.
--- Safe = not followerInteractionBusy (engaging / frozen / TextBox / ChoiceBox).
--- Starts existing manualRecallFollower exactly once (selection + Recall FX).
+local function pendingMonMatches(self, mon, pending)
+  if not mon or not pending then return false end
+  if pending.mon and mon == pending.mon then return true end
+  local fp = pending.fingerprint
+  if not fp then return false end
+  if self.selection and type(self.selection.monFingerprint) == "function" then
+    if self.selection.monFingerprint(mon) == fp then return true end
+  end
+  return ControlEngine.monIdentityKey(mon) == fp
+end
+
+function ControlEngine:_resolvePendingRecallMon(game, pending)
+  if not pending then return nil end
+  if pending.mon and pendingMonMatches(self, pending.mon, pending) then
+    local party = game and game.save and game.save.party
+    if type(party) == "table" then
+      for _, m in ipairs(party) do
+        if m == pending.mon then return m end
+      end
+    end
+  end
+  local party = game and game.save and game.save.party or {}
+  for _, m in ipairs(party) do
+    if pendingMonMatches(self, m, pending) then return m end
+  end
+  return pending.mon
+end
+
+function ControlEngine:_findTrailerForMon(ow, mon, fingerprint)
+  if not ow or not mon then return nil end
+  local function match(npc)
+    if not npc then return false end
+    if npc.pokepcMon == mon then return true end
+    if fingerprint and self.selection and type(self.selection.monFingerprint) == "function"
+       and npc.pokepcMon then
+      return self.selection.monFingerprint(npc.pokepcMon) == fingerprint
+    end
+    return false
+  end
+  for _, npc in ipairs(ow.pokepcTrailers or {}) do
+    if match(npc) and self:_isTrailerAttached(ow, npc) then return npc end
+  end
+  for _, npc in ipairs(ow.pokepcTrailers or {}) do
+    if match(npc) then return npc end
+  end
+  return nil
+end
+
+--- Start a queued talk-Ball recall on the first Overworld-owned runtime tick.
+-- Safe = StateStack top is the live Overworld AND we are inside
+-- ControlEngine:update (never the ChoiceBox callback).
+-- Presentation uses the same beginPresentationIntent + syncAll path as
+-- Poké Center heal.
 function ControlEngine:_processPendingManualRecall(game, ow)
   local pending = self._pendingManualRecall
   if not pending or pending.started then return false end
-  game = game or pending.game or self:_game()
-  ow = ow or pending.ow or self:_liveOw(game)
-  local npc = pending.npc
+  if self._inChoiceCallback then return false end
   local GameCompat = V.require("game_compat")
-  if GameCompat.followerInteractionBusy(game, ow, npc) then
+  game = game or self:_game()
+  -- Prefer the world from this ControlEngine:update (the ticking Overworld).
+  -- Do not use a queued ow pointer; we never store one. liveOverworld is the
+  -- fallback when this tick did not pass a world.
+  if not (ow and (ow.player or ow.map)) then
+    ow = GameCompat.liveOverworld(self.mod, game)
+  end
+  talkPhaseAlways(self.mod, "PENDING_RECALL_CHECK")
+  logInfo(self.mod, "[Wilds][FollowerTalk] phase=PENDING_RECALL_CHECK")
+  if GameCompat.followerInteractionBusy(game, ow, nil) then
     return false
   end
+  if GameCompat.overworldOwnsStack(game, ow) ~= true then
+    return false
+  end
+  local mon = self:_resolvePendingRecallMon(game, pending)
+  if not mon then
+    self._pendingManualRecall = nil
+    return false
+  end
+  local npc = self:_findTrailerForMon(ow, mon, pending.fingerprint)
   pending.started = true
   self._pendingManualRecall = nil
-  logInfo(self.mod, "[Wilds][FollowerTalk] phase=recall_started source=%s",
+  logInfo(self.mod, "[Wilds][FollowerTalk] phase=RECALL_START source=%s",
     tostring(pending.source))
-  return self:manualRecallFollower(game, ow, pending.mon, {
+  talkPhaseAlways(self.mod, "RECALL_START", "source=" .. tostring(pending.source))
+  return self:manualRecallFollower(game, ow, mon, {
     source = pending.source,
     npc = npc,
   })
@@ -753,6 +835,8 @@ function ControlEngine:manualRecallFollower(game, ow, mon, opts)
   end
 
   self:beginPresentationIntent(opts.source or "manual_recall")
+  logInfo(self.mod, "[Wilds][FollowerTalk] phase=RECALL_REMOVE_ENTITY")
+  talkPhaseAlways(self.mod, "RECALL_REMOVE_ENTITY")
   pcall(function() self:syncAll(game, ow) end)
   return true
 end
@@ -3431,8 +3515,23 @@ function ControlEngine:update(game, ow, opts)
 
   -- Talk → Ball (Gen1): OverworldController.update only runs when it is the
   -- StateStack top, so this is the first live-world tick after ChoiceBox
-  -- unwinds. Do not recall from the ChoiceBox callback itself.
-  self:_processPendingManualRecall(game, ow)
+  -- unwinds. Same owner as Poké Center heal. Never recall from the ChoiceBox
+  -- callback itself.
+  if self._pendingManualRecall and not self._pendingManualRecall.started then
+    talkPhaseAlways(self.mod, "NEXT_OVERWORLD_UPDATE")
+    logInfo(self.mod, "[Wilds][FollowerTalk] phase=NEXT_OVERWORLD_UPDATE")
+  end
+  local pendingStarted = self:_processPendingManualRecall(game, ow)
+  if pendingStarted then
+    -- beginPresentationIntent + syncAll already ran (Poké Center schedule).
+    -- Do not rebuild trailers again this frame; only tick FX.
+    if self.presentationFx then
+      local dt = tonumber(opts.dt)
+      if not dt or dt <= 0 then dt = 1 / 60 end
+      pcall(function() self.presentationFx:tick(ow, dt) end)
+    end
+    return true, "pending_manual_recall"
+  end
 
   -- Poké Center heal lifecycle (edge-triggered). Independent of battle flags.
   pcall(function() self:_pollPokecenterHeal(game, ow, { dt = opts.dt }) end)
@@ -4057,6 +4156,8 @@ function ControlEngine:_installTalkWrap()
       return true
     end
     if engine._interaction and engine._interaction.showFollowMessage then
+      -- Production interact wrap: PikachuFollower.talk is (game, ow, npc)
+      -- with no done. Do not invent a completion callback.
       engine._interaction:showFollowMessage(engine:_game(), owSelf, npc, mon)
     end
     return true

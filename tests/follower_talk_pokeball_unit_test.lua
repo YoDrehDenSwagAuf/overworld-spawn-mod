@@ -24,6 +24,7 @@ package.loaded["src.world.NPC"] = {
   new = function(_, _, def)
     return {
       id = "WILDS_TRAILER_" .. tostring(def and def.index or 0),
+      def = def or {},
       cellX = def and def.x or 0,
       cellY = def and def.y or 0,
       px = (def and def.x or 0) * 16,
@@ -71,11 +72,10 @@ package.loaded["src.render.TextBox"] = {
       onDone = onDone,
       choice = opts and opts.choice,
       choiceLabels = opts and opts.choiceLabels,
+      isTextBox = true,
     }
     lastChoice = box
-    if game and game.stack and game.stack.push then
-      game.stack:push(box)
-    end
+    -- GameCompat.presentTextChoice already stack:push's the box.
     return box
   end,
 }
@@ -215,6 +215,69 @@ local function hasSpecies(list, species)
     if s == species then return true end
   end
   return false
+end
+
+-- Exact Gen1 StateStack (top updates; all draw).
+local function makeStack(ow)
+  local stack = { states = { ow } }
+  function stack:push(state)
+    self.states[#self.states + 1] = state
+  end
+  function stack:pop()
+    local state = self.states[#self.states]
+    self.states[#self.states] = nil
+    return state
+  end
+  function stack:top()
+    return self.states[#self.states]
+  end
+  return stack
+end
+
+-- Exact Gen1 OverworldState:checkTrainerSight npc.def indexing (no nil guard).
+local function gen1CheckTrainerSight(ow)
+  for _, npc in ipairs(ow.npcs or {}) do
+    local d = npc.def
+    if d.trainerClass and not npc.moving then
+      return npc
+    end
+  end
+  return nil
+end
+
+-- Exact Gen1 drawWorld entity sort + draw arity.
+local function gen1DrawWorld(ow)
+  table.sort(ow.entities, function(a, b)
+    if a.py ~= b.py then return a.py < b.py end
+    return a.pikachuFollower == true and b.pikachuFollower ~= true
+  end)
+  for _, e in ipairs(ow.entities or {}) do
+    if e.draw then e:draw(0, 0) end
+  end
+end
+
+-- Real engine pop sequence: ChoiceBox select → pop ChoiceBox → TextBox
+-- onChoose pops TextBox → choice(yes).
+local function selectChoiceViaStack(game, yes)
+  local stack = game.stack
+  local choiceBox = stack:top()
+  check(choiceBox ~= nil and type(choiceBox.onChoose) == "function",
+    "ChoiceBox is stack top at selection")
+  stack:pop() -- ChoiceBox
+  choiceBox.onChoose(yes == true)
+end
+
+local function pushFaithfulChoice(game, textBox)
+  local choiceBox = {
+    labels = textBox.choiceLabels or { "Ok", "Ball" },
+    index = 1,
+    onChoose = function(yes)
+      game.stack:pop() -- TextBox under the choice
+      textBox.choice(yes)
+    end,
+  }
+  game.stack:push(choiceBox)
+  return choiceBox
 end
 
 --------------------------------------------------------------------
@@ -491,25 +554,36 @@ do
 end
 
 --------------------------------------------------------------------
--- CASE 10: Gen1 interaction lifecycle — do not remove while engaging
+-- CASE 10: Gen1 StateStack ownership — no mutation until Overworld is top
 --------------------------------------------------------------------
 do
+  Interaction.resetTalkPhases()
   local ow = makeOw()
+  ow.isOverworld = true
+  ow.def = { trainerClass = nil }
   local party = makeParty(1)
+  local stack = makeStack(ow)
   local game = {
     save = { party = party, pokepcFollowerCount = 1, pokepcControlMode = "follow" },
     data = {}, overworld = ow,
-    stack = { items = {}, push = function(s, b) s.items[#s.items + 1] = b end },
+    stack = stack,
     generation = 1,
   }
   local engine = makeEngine(game, 1)
   engine:syncAll(game, ow)
+  for _, t in ipairs(ow.pokepcTrailers or {}) do
+    t.def = t.def or {}
+    if not t.draw then
+      t.draw = function() end
+    end
+  end
   local npc = ow.pokepcTrailers[1]
-  ow.engaging = npc
-  npc.frozen = true
   local events = {}
   local origManual = engine.manualRecallFollower
   function engine:manualRecallFollower(...)
+    check(self._inChoiceCallback ~= true,
+      "CASE10 recall must not run inside ChoiceBox callback")
+    check(game.stack:top() == ow, "CASE10 recall starts with Overworld on stack top")
     events[#events + 1] = "recall_started"
     local ok, err = origManual(self, ...)
     if #(ow.pokepcTrailers or {}) == 0 then
@@ -517,51 +591,71 @@ do
     end
     return ok, err
   end
+  local doneCalled = 0
   local interaction = Interaction.new(V.mod, engine.selection, engine)
   interaction:showFollowMessage(game, ow, npc, party[1], function()
+    doneCalled = doneCalled + 1
     events[#events + 1] = "dialog_done"
   end)
-  events[#events + 1] = "choice_ball"
-  lastChoice.choice(false)
-
-  local function seqSoFar()
-    return table.concat(events, ",")
-  end
-  check(seqSoFar():find("choice_ball", 1, true) == 1,
-    "CASE10 starts with choice_ball")
-  check(seqSoFar():find("dialog_done", 1, true) ~= nil, "CASE10 done() ran")
-  check(seqSoFar():find("recall_started", 1, true) == nil,
-    "CASE10 recall not started inside ChoiceBox callback")
-  eq(#(ow.pokepcTrailers or {}), 1, "CASE10 follower remains while engaging")
-  check(engine._pendingManualRecall ~= nil, "CASE10 pending recall queued")
+  check(stack:top() == lastChoice, "CASE10 TextBox is stack top after present")
+  pushFaithfulChoice(game, lastChoice)
+  check(stack:top() ~= ow, "CASE10 ChoiceBox owns stack before Ball")
   local GameCompat = V.require("game_compat")
+  check(GameCompat.overworldOwnsStack(game, ow) ~= true,
+    "CASE10 overworld does not own stack during ChoiceBox")
   check(GameCompat.followerInteractionBusy(game, ow, npc) == true,
-    "CASE10 busy while engaging")
+    "CASE10 busy while ChoiceBox is top")
   check(GameCompat.shouldDeferFollowerRecall(game, ow, npc) == true,
     "CASE10 Gen1 defers recall")
 
-  engine:update(game, ow, { force = true, dt = 1 / 60 })
-  eq(#(ow.pokepcTrailers or {}), 1, "CASE10 still present while engaging owns NPC")
-  check(engine._pendingManualRecall ~= nil, "CASE10 pending waits for clear")
-  check(seqSoFar():find("recall_started", 1, true) == nil,
-    "CASE10 update while busy does not start recall")
+  events[#events + 1] = "choice_ball"
+  selectChoiceViaStack(game, false)
 
-  ow.engaging = nil
-  npc.frozen = false
-  events[#events + 1] = "interaction_cleared"
+  check(doneCalled == 0, "CASE10 Gen1 does not invent/call done()")
+  check(table.concat(events, ","):find("recall_started", 1, true) == nil,
+    "CASE10 recall not started inside ChoiceBox callback")
+  eq(#(ow.pokepcTrailers or {}), 1, "CASE10 follower remains during callback")
+  check(engine._pendingManualRecall ~= nil, "CASE10 pending recall queued")
+  check(engine._pendingManualRecall.npc == nil, "CASE10 does not store stale npc")
+  check(engine._pendingManualRecall.ow == nil, "CASE10 does not store stale ow")
+  check(type(engine._pendingManualRecall.fingerprint) == "string",
+    "CASE10 queues mon fingerprint")
+  eq(stack:top(), ow, "CASE10 Overworld is stack top after Ball pop")
+  check(GameCompat.overworldOwnsStack(game, ow) == true,
+    "CASE10 overworld owns stack after UI pop")
+
+  -- Same-frame draw still has the live follower (recall has not run yet).
+  local okDraw, errDraw = pcall(gen1DrawWorld, ow)
+  check(okDraw, "CASE10 draw after callback: " .. tostring(errDraw))
+  local okSight, errSight = pcall(gen1CheckTrainerSight, ow)
+  check(okSight, "CASE10 trainer-sight after callback: " .. tostring(errSight))
+
   engine:update(game, ow, { force = true, dt = 1 / 60 })
-  eq(#(ow.pokepcTrailers or {}), 0, "CASE10 follower removed after safe point")
+  eq(#(ow.pokepcTrailers or {}), 0, "CASE10 follower removed on Overworld tick")
   eq(engine._pendingManualRecall, nil, "CASE10 pending consumed")
   eq(party[1].stopFollowing, true, "CASE10 exclusion applied once")
+
+  -- Next Overworld tick: exact checkTrainerSight / drawWorld must not crash.
+  local okSight2, errSight2 = pcall(gen1CheckTrainerSight, ow)
+  check(okSight2, "CASE10 trainer-sight after recall: " .. tostring(errSight2))
+  local okDraw2, errDraw2 = pcall(gen1DrawWorld, ow)
+  check(okDraw2, "CASE10 draw after recall: " .. tostring(errDraw2))
+
+  local ghostInNpcs = false
+  for _, n in ipairs(ow.npcs or {}) do
+    if n and n._wildsRecallGhost then ghostInNpcs = true end
+  end
+  check(not ghostInNpcs, "CASE10 recall ghost is not on Gen1 npc list")
+
   engine:update(game, ow, { force = true, dt = 1 / 60 })
   local recallCount = 0
   for _, e in ipairs(events) do
     if e == "recall_started" then recallCount = recallCount + 1 end
   end
   eq(recallCount, 1, "CASE10 recall begins exactly once")
-  eq(seqSoFar(),
-    "choice_ball,dialog_done,interaction_cleared,recall_started,follower_removed",
-    "CASE10 safe callback order")
+  eq(table.concat(events, ","),
+    "choice_ball,recall_started,follower_removed",
+    "CASE10 callback does not run done(); recall waits for Overworld tick")
   engine._presentationIntent = nil
   engine:syncAll(game, ow)
   eq(#(ow.pokepcTrailers or {}), 0, "CASE10 no respawn after lifecycle recall")
@@ -603,6 +697,175 @@ do
   eq(queued, 0, "CASE11 Gold did not queue")
   eq(recalled, 1, "CASE11 Gold recalled immediately")
   setEngineVersion("red")
+end
+
+--------------------------------------------------------------------
+-- CASE 12: Isolation A — Ball with no queue/mutation does not crash
+--------------------------------------------------------------------
+do
+  local ow = makeOw()
+  ow.isOverworld = true
+  local party = makeParty(1)
+  local stack = makeStack(ow)
+  local game = {
+    save = { party = party, pokepcFollowerCount = 1, pokepcControlMode = "follow" },
+    data = {}, overworld = ow, stack = stack, generation = 1,
+  }
+  local engine = makeEngine(game, 1)
+  engine:syncAll(game, ow)
+  function engine:queueManualRecallFollower()
+    return true -- Isolation A: do not actually queue
+  end
+  function engine:manualRecallFollower()
+    error("Isolation A must not recall")
+  end
+  local interaction = Interaction.new(V.mod, engine.selection, engine)
+  interaction:showFollowMessage(game, ow, ow.pokepcTrailers[1], party[1], function()
+    error("Isolation A must not call done()")
+  end)
+  pushFaithfulChoice(game, lastChoice)
+  local ok, err = pcall(selectChoiceViaStack, game, false)
+  check(ok, "CASE12 Isolation A ChoiceBox path: " .. tostring(err))
+  eq(party[1].stopFollowing, false, "CASE12 no mutation")
+  eq(#(ow.pokepcTrailers or {}), 1, "CASE12 follower remains")
+  check(pcall(gen1CheckTrainerSight, ow), "CASE12 trainer-sight after dialog-only Ball")
+  check(pcall(gen1DrawWorld, ow), "CASE12 draw after dialog-only Ball")
+end
+
+--------------------------------------------------------------------
+-- CASE 13: Isolation B — Gen1 Ball must not call done()
+--------------------------------------------------------------------
+do
+  local ow = makeOw()
+  local party = makeParty(1)
+  local stack = makeStack(ow)
+  local game = {
+    save = { party = party, pokepcFollowerCount = 1, pokepcControlMode = "follow" },
+    data = {}, overworld = ow, stack = stack, generation = 1,
+  }
+  local engine = makeEngine(game, 1)
+  engine:syncAll(game, ow)
+  local doneCalled = false
+  local interaction = Interaction.new(V.mod, engine.selection, engine)
+  interaction:showFollowMessage(game, ow, ow.pokepcTrailers[1], party[1], function()
+    doneCalled = true
+    error("done() is not a valid Gen1 interact completion callback")
+  end)
+  pushFaithfulChoice(game, lastChoice)
+  local ok, err = pcall(selectChoiceViaStack, game, false)
+  check(ok, "CASE13 Isolation B callback: " .. tostring(err))
+  check(not doneCalled, "CASE13 Gen1 Ball does not call done()")
+end
+
+--------------------------------------------------------------------
+-- CASE 14: Isolation C — deferred recall + live trainer-sight must not crash
+--------------------------------------------------------------------
+do
+  local ow = makeOw()
+  ow.isOverworld = true
+  local party = makeParty(1)
+  local stack = makeStack(ow)
+  local game = {
+    save = { party = party, pokepcFollowerCount = 1, pokepcControlMode = "follow" },
+    data = {}, overworld = ow, stack = stack, generation = 1,
+  }
+  local engine = makeEngine(game, 1)
+  engine:syncAll(game, ow)
+  for _, t in ipairs(ow.pokepcTrailers or {}) do
+    t.def = t.def or {}
+    t.draw = t.draw or function() end
+  end
+  local interaction = Interaction.new(V.mod, engine.selection, engine)
+  interaction:showFollowMessage(game, ow, ow.pokepcTrailers[1], party[1])
+  pushFaithfulChoice(game, lastChoice)
+  selectChoiceViaStack(game, false)
+  check(engine._pendingManualRecall ~= nil, "CASE14 pending queued")
+  eq(#(ow.pokepcTrailers or {}), 1, "CASE14 trailer still present after Ball")
+  engine:update(game, ow, { force = true, dt = 1 / 60 })
+  eq(#(ow.pokepcTrailers or {}), 0, "CASE14 trailer removed on Overworld tick")
+  local okSight, errSight = pcall(gen1CheckTrainerSight, ow)
+  check(okSight, "CASE14 Isolation C trainer-sight after recall: " .. tostring(errSight))
+  local okDraw, errDraw = pcall(gen1DrawWorld, ow)
+  check(okDraw, "CASE14 Isolation C drawWorld after recall: " .. tostring(errDraw))
+  for _, n in ipairs(ow.npcs or {}) do
+    check(n._wildsRecallGhost ~= true, "CASE14 ghost not in npcs")
+    local okDef = pcall(function()
+      local d = n.def
+      return d.trainerClass
+    end)
+    check(okDef, "CASE14 every npc.def is indexable")
+  end
+end
+
+--------------------------------------------------------------------
+-- CASE 15: Gen1 wrapper uses PikachuFollower.talk(game, ow, npc, done)
+--------------------------------------------------------------------
+do
+  local ow = makeOw()
+  local party = makeParty(1)
+  local game = {
+    save = { party = party, pokepcFollowerCount = 1 },
+    data = {}, overworld = ow, generation = 1,
+    stack = makeStack(ow),
+  }
+  local engine = makeEngine(game, 1)
+  engine:syncAll(game, ow)
+  local npc = ow.pokepcTrailers[1]
+  npc.pokepcMon = party[1]
+  local origCalls = 0
+  local originalTalk = function(g, w, n, d)
+    origCalls = origCalls + 1
+    check(g == game, "CASE15 originalTalk game")
+    check(w == ow, "CASE15 originalTalk ow")
+    check(n == npc, "CASE15 originalTalk npc")
+  end
+  local interaction = Interaction.new(V.mod, engine.selection, engine)
+  local wrapped = interaction:makeGen1TalkWrapper(originalTalk)
+  lastChoice = nil
+  wrapped(game, ow, npc) -- interact arity: no done
+  check(lastChoice ~= nil, "CASE15 wrapper presents follow message")
+  eq(origCalls, 0, "CASE15 Wilds trailer does not fall through to vanilla talk")
+  eq(lastChoice.choiceLabels[1], "Ok", "CASE15 Ok label")
+  eq(lastChoice.choiceLabels[2], "Ball", "CASE15 Ball label")
+end
+
+--------------------------------------------------------------------
+-- CASE 16: ow.engaging is irrelevant to ordinary follower talk
+--------------------------------------------------------------------
+do
+  local ow = makeOw()
+  local party = makeParty(1)
+  local stack = makeStack(ow)
+  local game = {
+    save = { party = party, pokepcFollowerCount = 1 },
+    data = {}, overworld = ow, stack = stack, generation = 1,
+  }
+  local GameCompat = V.require("game_compat")
+  ow.engaging = { trainer = true }
+  local frozenNpc = { frozen = true, def = {} }
+  check(GameCompat.followerInteractionBusy(game, ow, frozenNpc) == false,
+    "CASE16 engaging/frozen do not busy Gen1 when Overworld is stack top")
+  stack:push({ isTextBox = true })
+  check(GameCompat.followerInteractionBusy(game, ow, nil) == true,
+    "CASE16 TextBox on stack is busy")
+  stack:pop()
+  check(GameCompat.overworldOwnsStack(game, ow) == true,
+    "CASE16 overworld owns stack after pop")
+end
+
+--------------------------------------------------------------------
+-- CASE 17: Document exact Gen1 crash (ghost on ow.npcs, nil def)
+--------------------------------------------------------------------
+do
+  local ghost = {
+    py = 16, pikachuFollower = false, def = nil, _wildsRecallGhost = true,
+    draw = function() end,
+  }
+  local ow = { npcs = { ghost }, entities = { ghost } }
+  local ok = pcall(gen1CheckTrainerSight, ow)
+  check(not ok, "CASE17 checkTrainerSight crashes on npc.def == nil")
+  ghost.def = {}
+  check(pcall(gen1CheckTrainerSight, ow), "CASE17 dummy def is the Gen1-safe ghost")
 end
 
 --------------------------------------------------------------------
