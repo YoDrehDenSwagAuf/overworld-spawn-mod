@@ -747,9 +747,35 @@ function GameCompat.presentText(mod, game, ow, text, onDone)
   return "none"
 end
 
+--- True when follower recall must wait until interaction no longer owns the NPC.
+-- Gen1: ChoiceBox callback is still on the UI stack after popping TextBox.
+-- Gen2: false — Gold's working talk-Ball path stays immediate.
+function GameCompat.shouldDeferFollowerRecall(game, ow, npc)
+  ow = ow or GameCompat.liveOverworld(nil, game)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and type(adapter.shouldDeferFollowerRecall) == "function" then
+    local ok, defer = pcall(adapter.shouldDeferFollowerRecall, ow, game, npc)
+    if ok then return defer == true end
+  end
+  return GameCompat.isGen1(nil, game)
+end
+
+--- True while the generation's overworld interaction still owns this NPC.
+-- Gen1: ow.engaging, npc.frozen, TextBox/ChoiceBox on the StateStack.
+-- Gen2: World.textbox / choicebox / engaging / busy.
+function GameCompat.followerInteractionBusy(game, ow, npc)
+  ow = ow or GameCompat.liveOverworld(nil, game)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and type(adapter.followerInteractionBusy) == "function" then
+    local ok, busy = pcall(adapter.followerInteractionBusy, ow, game, npc)
+    if ok then return busy == true end
+  end
+  return false
+end
+
 --- Present dialogue ending in a two-option ChoiceBox (shared TextBox path).
 -- onChoose(yes): yes == true → first label; yes == false → second label.
--- opts.labels = { "OKAY", "POKEBALL" } (default YES/NO if omitted).
+-- opts.labels = { "Ok", "Ball" } (default YES/NO if omitted).
 -- Works for Gen1 and Gold: TextBox.choice stacks ChoiceBox over the text.
 function GameCompat.presentTextChoice(mod, game, ow, text, onChoose, opts)
   opts = opts or {}

@@ -61,9 +61,47 @@ local function monDisplayName(game, mon)
   return tostring(mon.species or "It")
 end
 
---- Shared follower dialog + OKAY / POKEBALL choice.
--- OKAY → close, no change.
--- POKEBALL → manual recall of THAT mon (stopFollowing + count - 1 + recall FX).
+local function talkTrace(mod, phase, extra)
+  local ok, DebugLog = pcall(function() return V.require("debug_log") end)
+  if not (ok and DebugLog and DebugLog.info) then return end
+  extra = extra or {}
+  local parts = { "phase=" .. tostring(phase) }
+  for _, key in ipairs({
+    "generation", "npc", "engaging", "frozen", "entities", "npcs",
+    "trailers", "busy", "deferred", "npcAttachedEntities", "npcAttachedNpcs",
+  }) do
+    if extra[key] ~= nil then
+      parts[#parts + 1] = key .. "=" .. tostring(extra[key])
+    end
+  end
+  DebugLog.info(mod, "[Wilds][FollowerTalk] %s", table.concat(parts, " "))
+end
+
+local function talkSnapshot(ow, npc)
+  local function inList(list, item)
+    if type(list) ~= "table" or not item then return false end
+    for _, e in ipairs(list) do
+      if e == item then return true end
+    end
+    return false
+  end
+  return {
+    npc = npc and (npc.id or npc.pokepcTrailerId or "npc"),
+    engaging = ow and ow.engaging,
+    frozen = npc and npc.frozen == true,
+    entities = ow and #(ow.entities or {}) or 0,
+    npcs = ow and #(ow.npcs or {}) or 0,
+    trailers = ow and #(ow.pokepcTrailers or {}) or 0,
+    npcAttachedEntities = inList(ow and ow.entities, npc),
+    npcAttachedNpcs = inList(ow and ow.npcs, npc),
+  }
+end
+
+--- Shared follower dialog + Ok / Ball choice.
+-- Ok → close, no change.
+-- Ball → manual recall of THAT mon (stopFollowing + count - 1 + recall FX).
+-- Gen1 defers the recall until Overworld interaction no longer owns the NPC.
+-- Gold keeps the immediate recall path that already works.
 -- @param game src.core.Game (module or instance)
 -- @param ow overworld state
 -- @param npc follower/trailer entity being talked to (may be nil)
@@ -104,26 +142,55 @@ function Interaction:showFollowMessage(game, ow, npc, mon, done)
     allowBall = false
   end
 
+  local gen = GameCompat.generation(self.mod, game)
+  talkTrace(self.mod, "begin", (function()
+    local snap = talkSnapshot(ow, npc)
+    snap.generation = gen
+    return snap
+  end)())
+
   if not allowBall then
     GameCompat.presentText(self.mod, game, ow, text, done)
     return true
   end
+
+  talkTrace(self.mod, "choice_open", { generation = gen })
 
   GameCompat.presentTextChoice(self.mod, game, ow, text, function(okay)
     if okay then
       if done then done() end
       return
     end
-    -- POKEBALL: remove this specific follower from active selection.
+    -- Ball: remove this specific follower from active selection.
+    -- Gen1 must not recall inside this ChoiceBox callback: TextBox.choice
+    -- has already popped ChoiceBox+TextBox, but OverworldController cleanup
+    -- / the next draw still expect the engaged NPC to exist.
     local control = interaction.control
-    if control and type(control.manualRecallFollower) == "function" then
-      pcall(control.manualRecallFollower, control, game, ow, mon, {
-        source = "talk_pokeball",
-      })
+    local defer = GameCompat.shouldDeferFollowerRecall(game, ow, npc) == true
+    talkTrace(self.mod, "ball_selected", (function()
+      local snap = talkSnapshot(ow, npc)
+      snap.generation = gen
+      snap.deferred = defer
+      snap.busy = GameCompat.followerInteractionBusy(game, ow, npc)
+      return snap
+    end)())
+    if control then
+      local opts = { source = "talk_pokeball", npc = npc }
+      if defer and type(control.queueManualRecallFollower) == "function" then
+        talkTrace(self.mod, "before_queue", talkSnapshot(ow, npc))
+        control:queueManualRecallFollower(game, ow, mon, opts)
+        talkTrace(self.mod, "after_queue", talkSnapshot(ow, npc))
+      elseif type(control.manualRecallFollower) == "function" then
+        talkTrace(self.mod, "before_recall", talkSnapshot(ow, npc))
+        control:manualRecallFollower(game, ow, mon, opts)
+        talkTrace(self.mod, "after_recall", talkSnapshot(ow, npc))
+      end
     end
+    talkTrace(self.mod, "before_done", talkSnapshot(ow, npc))
     if done then done() end
+    talkTrace(self.mod, "after_done", talkSnapshot(ow, npc))
   end, {
-    labels = { "OKAY", "POKEBALL" },
+    labels = { "Ok", "Ball" },
   })
   return true
 end

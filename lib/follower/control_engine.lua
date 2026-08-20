@@ -204,6 +204,8 @@ function ControlEngine.new(mod, deps)
   -- Never written to options / save. Independent of battle-return flags.
   self._healingSuppressFollowers = false
   self._wasHealMachineActive = false
+  -- Gen1 talk → Ball: recall after Overworld interaction no longer owns the NPC.
+  self._pendingManualRecall = nil
   -- "overworld" = OverworldController.update owns trailer ticks (Gen1);
   -- "gen2_world_event" = Gold World:step owns trailer ticks;
   -- "pikachu_follower" = Gen1 fallback when OW wrap is unavailable.
@@ -654,7 +656,47 @@ function ControlEngine:toggleStopFollowing(mon, game)
   return mon.stopFollowing
 end
 
---- Manually recall one party mon from the active follower pack (talk → POKEBALL).
+--- Queue a talk → Ball recall until Gen1 interaction no longer owns the NPC.
+-- Does not mutate selection or remove the trailer; processPending runs from
+-- ControlEngine:update once GameCompat.followerInteractionBusy is false.
+function ControlEngine:queueManualRecallFollower(game, ow, mon, opts)
+  opts = opts or {}
+  if not mon then return false, "no_mon" end
+  -- One pending talk-Ball at a time (overworld talk is single-NPC).
+  self._pendingManualRecall = {
+    mon = mon,
+    game = game,
+    ow = ow,
+    npc = opts.npc,
+    source = opts.source or "talk_pokeball",
+  }
+  return true
+end
+
+--- Start a queued talk-Ball recall at the first safe Overworld tick.
+-- Safe = not followerInteractionBusy (engaging / frozen / TextBox / ChoiceBox).
+-- Starts existing manualRecallFollower exactly once (selection + Recall FX).
+function ControlEngine:_processPendingManualRecall(game, ow)
+  local pending = self._pendingManualRecall
+  if not pending or pending.started then return false end
+  game = game or pending.game or self:_game()
+  ow = ow or pending.ow or self:_liveOw(game)
+  local npc = pending.npc
+  local GameCompat = V.require("game_compat")
+  if GameCompat.followerInteractionBusy(game, ow, npc) then
+    return false
+  end
+  pending.started = true
+  self._pendingManualRecall = nil
+  logInfo(self.mod, "[Wilds][FollowerTalk] phase=recall_started source=%s",
+    tostring(pending.source))
+  return self:manualRecallFollower(game, ow, pending.mon, {
+    source = pending.source,
+    npc = npc,
+  })
+end
+
+--- Manually recall one party mon from the active follower pack (talk → Ball).
 -- Sets mon.stopFollowing so it stays excluded across map/battle/Poké Center
 -- temporary suppress restore. Decrements configured follower_count by 1 so a
 -- different party mon does not fill the vacated slot. Never mutates party order,
@@ -725,7 +767,7 @@ function ControlEngine:setLeaderParty(game, partyIndex)
   if self.selection and type(self.selection.selectFollower) == "function" then
     local m = game.save.party and game.save.party[partyIndex]
     if m then
-      -- Re-selecting via FOLLOW clears a prior manual POKEBALL recall.
+      -- Re-selecting via FOLLOW clears a prior manual talk-Ball recall.
       m.stopFollowing = false
       pcall(self.selection.selectFollower, self.selection, m, game, {})
     end
@@ -3387,6 +3429,11 @@ function ControlEngine:update(game, ow, opts)
     self:_traceBattleReturn("update", game, ow)
   end
 
+  -- Talk → Ball (Gen1): OverworldController.update only runs when it is the
+  -- StateStack top, so this is the first live-world tick after ChoiceBox
+  -- unwinds. Do not recall from the ChoiceBox callback itself.
+  self:_processPendingManualRecall(game, ow)
+
   -- Poké Center heal lifecycle (edge-triggered). Independent of battle flags.
   pcall(function() self:_pollPokecenterHeal(game, ow, { dt = opts.dt }) end)
 
@@ -4636,6 +4683,7 @@ function ControlEngine:restore()
   self._installed = false
   self._restoreState = nil
   self._trailerUpdateOwner = nil
+  self._pendingManualRecall = nil
 end
 
 return ControlEngine

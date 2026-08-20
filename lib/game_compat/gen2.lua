@@ -612,6 +612,27 @@ function Gen2.hasCaughtSpecies(game, species)
   return caught[species] == true
 end
 
+--- Gold talk/choice already closes through World:showText / TextBox.choice
+-- without owning the follower NPC the way Gen1 OverworldController does.
+-- Immediate manualRecallFollower in the choice callback is the working path.
+function Gen2.shouldDeferFollowerRecall(_ow, _game, _npc)
+  return false
+end
+
+--- Gold interaction ownership: World.textbox / choicebox / engaging / freeze.
+-- Unused for talk-Ball (shouldDeferFollowerRecall is false) but kept accurate.
+function Gen2.followerInteractionBusy(ow, _game, npc)
+  if not ow then return false end
+  if ow.engaging then return true end
+  if ow.textbox or ow.choicebox then return true end
+  if npc and npc.frozen == true then return true end
+  if type(ow.busy) == "function" then
+    local ok, busy = pcall(ow.busy, ow)
+    if ok and busy then return true end
+  end
+  return false
+end
+
 --- True while a Poké Center HealMachineAnim is running.
 -- Hall of Fame (hof) and Elm's Lab maps are excluded — only nurse PC.
 function Gen2.isPokecenterHealActive(ow, game)

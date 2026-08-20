@@ -427,6 +427,39 @@ function Gen1.isPokecenterHealActive(ow, _game)
   return ow ~= nil and ow.healAnim ~= nil
 end
 
+--- Gen1 must not destroy the talked-to follower inside the ChoiceBox callback.
+-- OverworldController.interact / talkTo freeze that NPC and TextBox.choice
+-- pops ChoiceBox then TextBox before choice(yes) runs — still on the UI
+-- call stack, before the next OverworldState:update. Recalling there removes
+-- the NPC from ow.npcs / ow.entities while draw/update still expect it.
+function Gen1.shouldDeferFollowerRecall(_ow, _game, _npc)
+  return true
+end
+
+--- True while Gen1 interaction still owns the world / this NPC.
+-- OverworldController: engaging is the trainer-sight lock; talkTo sets
+-- npc.frozen until TextBox onDone; TextBox/ChoiceBox sit on the StateStack
+-- and freeze OverworldState underneath (only the top state updates).
+function Gen1.followerInteractionBusy(ow, game, npc)
+  if ow then
+    if ow.engaging then return true end
+    if npc and npc.frozen == true then return true end
+  end
+  local stack = game and game.stack
+  if stack and type(stack.top) == "function" then
+    local ok, top = pcall(stack.top, stack)
+    if ok and type(top) == "table" then
+      if top.isTextBox == true then return true end
+      -- ChoiceBox has no type flag; it is the two-option state over TextBox.
+      if type(top.onChoose) == "function" and type(top.labels) == "table"
+         and top.index ~= nil then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 function Gen1.playerHasPartySpace(game)
   local party = Gen1.party(game)
   if type(party) ~= "table" then return false end

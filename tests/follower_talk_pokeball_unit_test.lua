@@ -1,4 +1,4 @@
--- Follower talk OKAY/POKEBALL + manual recall selection.
+-- Follower talk Ok/Ball + manual recall selection.
 -- Run: luajit tests/follower_talk_pokeball_unit_test.lua
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
@@ -44,12 +44,23 @@ package.loaded["src.world.OverworldController"] = {
   interact = function() end,
   talkTo = function() end,
 }
-package.loaded["src.core.GameVersion"] = {
-  get = function() return "red" end,
-  isYellow = function() return false end,
-  isGold = function() return false end,
-  generation = function() return 1 end,
-}
+local engineVersionId = "red"
+local function setEngineVersion(v)
+  engineVersionId = string.lower(tostring(v or "red"))
+  package.loaded["src.core.GameVersion"] = {
+    get = function() return engineVersionId end,
+    isYellow = function() return engineVersionId == "yellow" end,
+    isGold = function() return engineVersionId == "gold" end,
+    generation = function(which)
+      which = which or engineVersionId
+      if which == "gold" or which == "silver" or which == "crystal" then
+        return 2
+      end
+      return 1
+    end,
+  }
+end
+setEngineVersion("red")
 
 local lastChoice = nil
 package.loaded["src.render.TextBox"] = {
@@ -231,14 +242,14 @@ do
   interaction:showFollowMessage(game, ow, npc, party[1])
   check(lastChoice ~= nil, "talk opens choice textbox")
   check(lastChoice.choice ~= nil, "choice callback present")
-  eq(lastChoice.choiceLabels[1], "OKAY", "OKAY label")
-  eq(lastChoice.choiceLabels[2], "POKEBALL", "POKEBALL label")
+  eq(lastChoice.choiceLabels[1], "Ok", "Ok label")
+  eq(lastChoice.choiceLabels[2], "Ball", "Ball label")
   check(tostring(lastChoice.text or ""):find("following", 1, true) ~= nil,
     "follow message precedes choice")
 end
 
 --------------------------------------------------------------------
--- CASE 1: OKAY keeps follower
+-- CASE 1: Ok keeps follower
 --------------------------------------------------------------------
 do
   local ow = makeOw()
@@ -254,14 +265,14 @@ do
   eq(#(ow.pokepcTrailers or {}), 1, "CASE1 one trailer")
   local interaction = Interaction.new(V.mod, engine.selection, engine)
   interaction:showFollowMessage(game, ow, ow.pokepcTrailers[1], party[1])
-  lastChoice.choice(true) -- OKAY
+  lastChoice.choice(true) -- Ok
   eq(party[1].stopFollowing, false, "CASE1 not stopFollowing")
   eq(engine:followerCount(game), 1, "CASE1 count unchanged")
   eq(#(ow.pokepcTrailers or {}), 1, "CASE1 trailer remains")
 end
 
 --------------------------------------------------------------------
--- CASE 2: POKEBALL recalls sole follower
+-- CASE 2: Ball recalls sole follower (Gen1 defers until Overworld update)
 --------------------------------------------------------------------
 do
   local ow = makeOw()
@@ -276,10 +287,16 @@ do
   engine:syncAll(game, ow)
   local interaction = Interaction.new(V.mod, engine.selection, engine)
   interaction:showFollowMessage(game, ow, ow.pokepcTrailers[1], party[1])
-  lastChoice.choice(false) -- POKEBALL
-  eq(party[1].stopFollowing, true, "CASE2 stopFollowing set")
+  lastChoice.choice(false) -- Ball
+  eq(party[1].stopFollowing, false, "CASE2 exclusion not applied in ChoiceBox callback")
+  eq(engine:followerCount(game), 1, "CASE2 count unchanged in callback")
+  eq(#(ow.pokepcTrailers or {}), 1, "CASE2 trailer not removed while dialog callback runs")
+  check(engine._pendingManualRecall ~= nil, "CASE2 Gen1 queues pending recall")
+  engine:update(game, ow, { force = true, dt = 1 / 60 })
+  eq(party[1].stopFollowing, true, "CASE2 stopFollowing set after safe tick")
   eq(engine:followerCount(game), 0, "CASE2 count decremented")
   eq(#(ow.pokepcTrailers or {}), 0, "CASE2 trailer gone")
+  eq(engine._pendingManualRecall, nil, "CASE2 pending consumed once")
   -- Next sync must not respawn
   engine._presentationIntent = nil
   engine:syncAll(game, ow)
@@ -406,7 +423,7 @@ do
 end
 
 --------------------------------------------------------------------
--- CASE 8: OKAY no mutation (already covered; assert party fields)
+-- CASE 8: Ok no mutation (already covered; assert party fields)
 --------------------------------------------------------------------
 do
   local ow = makeOw()
@@ -429,7 +446,7 @@ do
 end
 
 --------------------------------------------------------------------
--- CASE 9: Yellow stock Pikachu — no POKEBALL choice
+-- CASE 9: Yellow stock Pikachu — no Ball choice
 --------------------------------------------------------------------
 do
   local ow = makeOw()
@@ -466,11 +483,126 @@ do
   for _, p in ipairs(presented) do
     if p.kind == "choice" then sawChoice = true end
   end
-  check(not sawChoice, "CASE9 stock Pikachu has no POKEBALL choice")
+  check(not sawChoice, "CASE9 stock Pikachu has no Ball choice")
   check(#presented >= 1 and presented[1].kind == "text",
     "CASE9 stock gets plain text")
   GameCompat.presentText = orig
   GameCompat.presentTextChoice = origChoice
+end
+
+--------------------------------------------------------------------
+-- CASE 10: Gen1 interaction lifecycle — do not remove while engaging
+--------------------------------------------------------------------
+do
+  local ow = makeOw()
+  local party = makeParty(1)
+  local game = {
+    save = { party = party, pokepcFollowerCount = 1, pokepcControlMode = "follow" },
+    data = {}, overworld = ow,
+    stack = { items = {}, push = function(s, b) s.items[#s.items + 1] = b end },
+    generation = 1,
+  }
+  local engine = makeEngine(game, 1)
+  engine:syncAll(game, ow)
+  local npc = ow.pokepcTrailers[1]
+  ow.engaging = npc
+  npc.frozen = true
+  local events = {}
+  local origManual = engine.manualRecallFollower
+  function engine:manualRecallFollower(...)
+    events[#events + 1] = "recall_started"
+    local ok, err = origManual(self, ...)
+    if #(ow.pokepcTrailers or {}) == 0 then
+      events[#events + 1] = "follower_removed"
+    end
+    return ok, err
+  end
+  local interaction = Interaction.new(V.mod, engine.selection, engine)
+  interaction:showFollowMessage(game, ow, npc, party[1], function()
+    events[#events + 1] = "dialog_done"
+  end)
+  events[#events + 1] = "choice_ball"
+  lastChoice.choice(false)
+
+  local function seqSoFar()
+    return table.concat(events, ",")
+  end
+  check(seqSoFar():find("choice_ball", 1, true) == 1,
+    "CASE10 starts with choice_ball")
+  check(seqSoFar():find("dialog_done", 1, true) ~= nil, "CASE10 done() ran")
+  check(seqSoFar():find("recall_started", 1, true) == nil,
+    "CASE10 recall not started inside ChoiceBox callback")
+  eq(#(ow.pokepcTrailers or {}), 1, "CASE10 follower remains while engaging")
+  check(engine._pendingManualRecall ~= nil, "CASE10 pending recall queued")
+  local GameCompat = V.require("game_compat")
+  check(GameCompat.followerInteractionBusy(game, ow, npc) == true,
+    "CASE10 busy while engaging")
+  check(GameCompat.shouldDeferFollowerRecall(game, ow, npc) == true,
+    "CASE10 Gen1 defers recall")
+
+  engine:update(game, ow, { force = true, dt = 1 / 60 })
+  eq(#(ow.pokepcTrailers or {}), 1, "CASE10 still present while engaging owns NPC")
+  check(engine._pendingManualRecall ~= nil, "CASE10 pending waits for clear")
+  check(seqSoFar():find("recall_started", 1, true) == nil,
+    "CASE10 update while busy does not start recall")
+
+  ow.engaging = nil
+  npc.frozen = false
+  events[#events + 1] = "interaction_cleared"
+  engine:update(game, ow, { force = true, dt = 1 / 60 })
+  eq(#(ow.pokepcTrailers or {}), 0, "CASE10 follower removed after safe point")
+  eq(engine._pendingManualRecall, nil, "CASE10 pending consumed")
+  eq(party[1].stopFollowing, true, "CASE10 exclusion applied once")
+  engine:update(game, ow, { force = true, dt = 1 / 60 })
+  local recallCount = 0
+  for _, e in ipairs(events) do
+    if e == "recall_started" then recallCount = recallCount + 1 end
+  end
+  eq(recallCount, 1, "CASE10 recall begins exactly once")
+  eq(seqSoFar(),
+    "choice_ball,dialog_done,interaction_cleared,recall_started,follower_removed",
+    "CASE10 safe callback order")
+  engine._presentationIntent = nil
+  engine:syncAll(game, ow)
+  eq(#(ow.pokepcTrailers or {}), 0, "CASE10 no respawn after lifecycle recall")
+end
+
+--------------------------------------------------------------------
+-- CASE 11: Gold talk-Ball stays immediate (do not force Gen1 defer)
+--------------------------------------------------------------------
+do
+  setEngineVersion("gold")
+  local ow = makeOw()
+  local party = makeParty(1)
+  local game = {
+    save = { party = party, pokepcFollowerCount = 1, pokepcControlMode = "follow" },
+    data = {}, overworld = ow,
+    stack = { items = {}, push = function(s, b) s.items[#s.items + 1] = b end },
+    generation = 2,
+  }
+  local engine = makeEngine(game, 1)
+  local queued, recalled = 0, 0
+  function engine:queueManualRecallFollower()
+    queued = queued + 1
+    return true
+  end
+  function engine:manualRecallFollower()
+    recalled = recalled + 1
+    return true
+  end
+  local GameCompat = V.require("game_compat")
+  check(GameCompat.shouldDeferFollowerRecall(game, ow, nil) == false,
+    "CASE11 Gold does not defer")
+  local interaction = Interaction.new(V.mod, engine.selection, engine)
+  lastChoice = nil
+  interaction:showFollowMessage(game, ow, { facing = "down" }, party[1])
+  check(lastChoice ~= nil, "CASE11 Gold opens Ok/Ball")
+  eq(lastChoice.choiceLabels[1], "Ok", "CASE11 Ok label")
+  eq(lastChoice.choiceLabels[2], "Ball", "CASE11 Ball label")
+  lastChoice.choice(false)
+  eq(queued, 0, "CASE11 Gold did not queue")
+  eq(recalled, 1, "CASE11 Gold recalled immediately")
+  setEngineVersion("red")
 end
 
 --------------------------------------------------------------------
