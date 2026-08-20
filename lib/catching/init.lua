@@ -968,6 +968,11 @@ function OverworldCatching:_resolveCapture(game, ow, caught)
       local dexOk = GameCompat.markSpeciesCaught(game, species, newMon)
       self:_goldCatchLog("destination=%s", tostring(result.destination or "none"))
       self:_goldCatchLog("dex updated=%s", tostring(dexOk == true))
+      -- Live Undiscovered recolor: same-map instances of this species
+      -- must stop being silhouettes without a route change.
+      if dexOk and self.logic and self.logic.refreshDiscoveryPresentation then
+        pcall(self.logic.refreshDiscoveryPresentation, self.logic, species)
+      end
       if result.destination == "box" then
         if result.boxNum then
           msg = msg .. "\fTransferred to\nBox " .. tostring(result.boxNum) .. "."

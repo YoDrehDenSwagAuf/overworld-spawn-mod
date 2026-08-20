@@ -457,6 +457,191 @@ do
         "empty ow has no follower entity")
 end
 
+----------------------------------------------------------------
+-- Permanent faint failover (issue #90)
+----------------------------------------------------------------
+local function makeMon(species, otId, hp, dvs)
+  return {
+    species = species,
+    otId = otId,
+    catchRate = 45,
+    hp = hp,
+    dvs = dvs or { attack = otId, defense = otId, speed = otId, special = otId },
+  }
+end
+
+do
+  -- A: slot1 alive, slot2 selected+fainted, slot3 alive → permanent slot1
+  saveStore = {}
+  local state = State.new(V.mod)
+  local selection = Selection.new(V.mod, state)
+  local m1 = makeMon("CHARMELEON", 1, 20)
+  local m2 = makeMon("PIKACHU", 2, 0)
+  local m3 = makeMon("PIDGEOTTO", 3, 20)
+  local game = { save = { party = { m1, m2, m3 } } }
+  selection:selectFollower(m2, game) -- rejected (fainted)
+  state:setSelection(Selection.monFingerprint(m2), 2)
+  game.save.followerPartyIndex = 2
+  game.save.pokepcLeader = { source = "party", index = 2 }
+
+  local mon, slot = selection:reconcile(game)
+  eq(mon, m1, "A: failover to topmost healthy (Charmeleon)")
+  eq(slot, 1, "A: selected slot = 1")
+  eq(state.selectedMonKey, Selection.monFingerprint(m1), "A: selectedMonKey = Charmeleon")
+  eq(state.selectedSlot, 1, "A: selectedSlot persisted")
+  eq(game.save.followerPartyIndex, 1, "A: followerPartyIndex mirrored")
+  eq(game.save.followerSpecies, "CHARMELEON", "A: followerSpecies mirrored")
+  eq(game.save.pokepcLeader.index, 1, "A: pokepcLeader mirrored")
+end
+
+do
+  -- B: slot1 fainted, slot2 selected+fainted, slot3 alive → slot3
+  saveStore = {}
+  local state = State.new(V.mod)
+  local selection = Selection.new(V.mod, state)
+  local m1 = makeMon("CHARMELEON", 1, 0)
+  local m2 = makeMon("PIKACHU", 2, 0)
+  local m3 = makeMon("PIDGEOTTO", 3, 18)
+  local game = { save = { party = { m1, m2, m3 } } }
+  state:setSelection(Selection.monFingerprint(m2), 2)
+  local mon, slot = selection:reconcile(game)
+  eq(mon, m3, "B: failover skips fainted slot1")
+  eq(slot, 3, "B: selected slot = 3")
+  eq(state.selectedMonKey, Selection.monFingerprint(m3), "B: key = Pidgeotto")
+end
+
+do
+  -- C: selected slot1 faints, slot2 alive → slot2
+  saveStore = {}
+  local state = State.new(V.mod)
+  local selection = Selection.new(V.mod, state)
+  local m1 = makeMon("BULBASAUR", 10, 0)
+  local m2 = makeMon("SQUIRTLE", 11, 22)
+  local game = { save = { party = { m1, m2 } } }
+  state:setSelection(Selection.monFingerprint(m1), 1)
+  local mon, slot = selection:reconcile(game)
+  eq(mon, m2, "C: failover to slot2")
+  eq(slot, 2, "C: slot = 2")
+end
+
+do
+  -- D: all fainted → no follower, no crash, no bogus slot
+  saveStore = {}
+  local state = State.new(V.mod)
+  local selection = Selection.new(V.mod, state)
+  local m1 = makeMon("RATTATA", 20, 0)
+  local m2 = makeMon("PIDGEY", 21, 0)
+  local game = {
+    save = {
+      party = { m1, m2 },
+      followerPartyIndex = 1,
+      followerSpecies = "RATTATA",
+      pokepcLeader = { source = "party", index = 1 },
+    },
+  }
+  state:setSelection(Selection.monFingerprint(m1), 1)
+  local mon = selection:reconcile(game)
+  check(mon == nil, "D: all fainted → nil")
+  check(state.selectedMonKey == nil, "D: selection cleared")
+  check(state.selectedSlot == nil, "D: slot cleared")
+  check(game.save.followerPartyIndex == nil, "D: no bogus followerPartyIndex")
+  check(game.save.pokepcLeader == nil, "D: pokepcLeader cleared")
+end
+
+do
+  -- E: after failover, revived original does NOT reclaim
+  saveStore = {}
+  local state = State.new(V.mod)
+  local selection = Selection.new(V.mod, state)
+  local m1 = makeMon("CHARMELEON", 30, 20)
+  local m2 = makeMon("PIKACHU", 31, 0)
+  local m3 = makeMon("PIDGEOTTO", 32, 20)
+  local game = { save = { party = { m1, m2, m3 } } }
+  state:setSelection(Selection.monFingerprint(m2), 2)
+  selection:reconcile(game)
+  eq(state.selectedSlot, 1, "E: after faint, Charmeleon selected")
+  m2.hp = 25 -- revive original
+  local mon, slot = selection:reconcile(game)
+  eq(mon, m1, "E: revive does not switch back")
+  eq(slot, 1, "E: still slot 1")
+  eq(state.selectedMonKey, Selection.monFingerprint(m1), "E: key still Charmeleon")
+end
+
+do
+  -- F: duplicate species — fingerprint identity
+  saveStore = {}
+  local state = State.new(V.mod)
+  local selection = Selection.new(V.mod, state)
+  local a = makeMon("PIDGEY", 40, 20, { attack = 1, defense = 1, speed = 1, special = 1 })
+  local b = makeMon("PIDGEY", 41, 0, { attack = 8, defense = 8, speed = 8, special = 8 })
+  local c = makeMon("PIDGEY", 42, 15, { attack = 15, defense = 15, speed = 15, special = 15 })
+  local game = { save = { party = { a, b, c } } }
+  state:setSelection(Selection.monFingerprint(b), 2)
+  local mon, slot = selection:reconcile(game)
+  eq(mon, a, "F: failover picks first healthy duplicate by party order")
+  eq(slot, 1, "F: slot 1")
+  check(state.selectedMonKey == Selection.monFingerprint(a), "F: fingerprint of individual A")
+  check(state.selectedMonKey ~= Selection.monFingerprint(c), "F: not C's fingerprint")
+end
+
+do
+  -- G: party-menu DISMISS identity matches post-failover selection
+  saveStore = {}
+  local state = State.new(V.mod)
+  local selection = Selection.new(V.mod, state)
+  local m1 = makeMon("CHARMELEON", 50, 20)
+  local m2 = makeMon("PIKACHU", 51, 0)
+  local m3 = makeMon("PIDGEOTTO", 52, 20)
+  local game = { save = { party = { m1, m2, m3 }, pokepcFollowerCount = 1 } }
+  state:setSelection(Selection.monFingerprint(m2), 2)
+  selection:reconcile(game)
+  local active = selection:getActiveFollowerMon(game, true)
+  local activeKey = Selection.monFingerprint(active)
+  local function isDismiss(mon)
+    local monKey = Selection.monFingerprint(mon)
+    return active and mon and (active == mon or (activeKey and monKey and activeKey == monKey))
+  end
+  check(isDismiss(m1) == true, "G: DISMISS on Charmeleon")
+  check(isDismiss(m3) ~= true, "G: no DISMISS on Pidgeotto")
+  check(selection.healthy(m2) == false, "G: fainted has no menu follower row")
+end
+
+do
+  -- H/I: shared Selection path — Gen1-shaped + Gold-shaped mon tables
+  saveStore = {}
+  local state = State.new(V.mod)
+  local selection = Selection.new(V.mod, state)
+  -- Gen1-shaped (catchRate present)
+  local g1a = makeMon("NIDORAN_M", 60, 20)
+  local g1b = makeMon("SPEAROW", 61, 0)
+  g1a.catchRate = 235
+  g1b.catchRate = 255
+  local game1 = { save = { party = { g1a, g1b } } }
+  state:setSelection(Selection.monFingerprint(g1b), 2)
+  local mon1, slot1 = selection:reconcile(game1)
+  eq(mon1, g1a, "H Gen1: failover works")
+  eq(slot1, 1, "H Gen1: slot 1")
+
+  -- Gold-shaped (catchRate typically unset → fingerprint "-1")
+  saveStore = {}
+  state = State.new(V.mod)
+  selection = Selection.new(V.mod, state)
+  local g2a = {
+    species = "CYNDAQUIL", otId = 70, hp = 20,
+    dvs = { attack = 10, defense = 10, speed = 10, special = 10 },
+  }
+  local g2b = {
+    species = "TOTODILE", otId = 71, hp = 0,
+    dvs = { attack = 5, defense = 5, speed = 5, special = 5 },
+  }
+  local game2 = { save = { party = { g2a, g2b } } }
+  state:setSelection(Selection.monFingerprint(g2b), 2)
+  local mon2, slot2 = selection:reconcile(game2)
+  eq(mon2, g2a, "I Gold: failover works")
+  eq(slot2, 1, "I Gold: slot 1")
+  eq(game2.save.followerSpecies, "CYNDAQUIL", "I Gold: species mirror")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(string.format("%d failure(s)\n", failures))

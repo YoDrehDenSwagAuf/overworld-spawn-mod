@@ -463,6 +463,147 @@ check(logic.occupancy:isOccupied(3, 4) or logic.occupancy:isOccupied(4, 4)
       "occupancy sees a reattached wild cell")
 
 ------------------------------------------------------------------------
+-- CASE J: Gen2 battle-return + route change must not leave a frozen clone
+------------------------------------------------------------------------
+do
+  package.loaded["src.core.GameVersion"] = {
+    get = function() return "gold" end,
+    isYellow = function() return false end,
+    generation = function() return 2 end,
+  }
+  -- Reset live ow after Gold swap.
+  ow = makeOw("ROUTE_29")
+  game.overworld = ow
+  game.world = ow
+  optionStore.follower_count = 1
+
+  local function countWildsTrailers(list)
+    local n = 0
+    for _, e in ipairs(list or {}) do
+      if engine:_isWildsOwnedTrailer(e) then n = n + 1 end
+    end
+    return n
+  end
+
+  pack = seedFollowers(1)
+  local oldT = pack[1]
+  oldT.cellX, oldT.cellY = 2, 2
+  oldT.wildsFollowerSlot = 1
+  oldT.pokepcTrailerId = "mon:1"
+
+  -- Battle return remembers the trailer.
+  engine:onBattleEnded(game, nil, { source = "battle.ended" })
+  check(engine._battleReturnTrailers and engine._battleReturnTrailers[1] == oldT,
+        "CASE J: battle return remembered trailer")
+  eq(engine._battleReturnMapId, "ROUTE_29", "CASE J: remembered map id")
+
+  -- Simulate map.exited: capture + remove + clear battle-return memory.
+  local exitEv = { mapId = "ROUTE_29", toMapId = "ROUTE_30" }
+  engine:_captureMapExit(game, ow, exitEv)
+  engine:removeTrailers(ow)
+  if engine:_battleReturnActive() then
+    engine:_clearBattleReturn()
+  end
+  eq(engine._battleReturnTrailers, nil,
+     "CASE J: battle-return memory cleared on map exit")
+  eq(countWildsTrailers(ow.npcs), 0, "CASE J: no trailers in npcs after exit")
+  eq(countWildsTrailers(ow.entities), 0, "CASE J: no trailers in entities after exit")
+
+  -- Enter new map with a NEW canonical trailer (spawnAtPlayer path), while
+  -- a stale orphan from the old object is still sitting in draw lists.
+  ow = makeOw("ROUTE_30")
+  game.overworld = ow
+  game.world = ow
+  local newT = makeTrailer("trailer_new")
+  newT.cellX, newT.cellY = 8, 8
+  newT.wildsFollowerSlot = 1
+  newT.pokepcTrailerId = "mon:1"
+  GameCompat.attachGuestEntity(ow, newT, game)
+  ow.pokepcTrailers = { newT }
+
+  -- Orphan: same slot markers, different object, still in draw containers
+  -- (the Gen2 ghost after battle + route change).
+  oldT.cellX, oldT.cellY = 2, 2
+  table.insert(ow.npcs, oldT)
+  table.insert(ow.entities, oldT)
+  eq(countWildsTrailers(ow.npcs), 2, "CASE J: setup has canonical + stale")
+
+  local purged = engine:_purgeStaleFollowerPresentations(ow)
+  check(purged >= 1, "CASE J: purge removed stale presentation")
+  eq(#ow.pokepcTrailers, 1, "CASE J: exactly one canonical trailer")
+  eq(ow.pokepcTrailers[1], newT, "CASE J: canonical object preserved")
+  eq(countWildsTrailers(ow.npcs), 1, "CASE J: one Wilds trailer in npcs")
+  eq(countWildsTrailers(ow.entities), 1, "CASE J: one Wilds trailer in entities")
+  check(engine:_isTrailerAttached(ow, newT), "CASE J: canonical still attached")
+  check(not engine:_isTrailerAttached(ow, oldT), "CASE J: stale object detached")
+
+  -- Duplicate species must not confuse identity cleanup.
+  local twinA = makeTrailer("slot1")
+  twinA.wildsFollowerSlot = 1
+  twinA.pokepcTrailerId = "mon:1"
+  twinA._species = "PIDGEY"
+  local twinB = makeTrailer("slot2")
+  twinB.wildsFollowerSlot = 2
+  twinB.pokepcTrailerId = "mon:2"
+  twinB._species = "PIDGEY"
+  local orphanTwin = makeTrailer("stale_slot1")
+  orphanTwin.wildsFollowerSlot = 1
+  orphanTwin.pokepcTrailerId = "mon:1"
+  orphanTwin._species = "PIDGEY"
+  ow.entities = { ow.player }
+  ow.npcs = {}
+  GameCompat.attachGuestEntity(ow, twinA, game)
+  GameCompat.attachGuestEntity(ow, twinB, game)
+  table.insert(ow.npcs, orphanTwin)
+  table.insert(ow.entities, orphanTwin)
+  ow.pokepcTrailers = { twinA, twinB }
+  engine:_purgeStaleFollowerPresentations(ow)
+  eq(#ow.pokepcTrailers, 2, "CASE J2: both slots kept (duplicate species ok)")
+  eq(countWildsTrailers(ow.npcs), 2, "CASE J2: exactly 2 presentations")
+  check(engine:_isTrailerAttached(ow, twinA), "CASE J2: slot1 kept")
+  check(engine:_isTrailerAttached(ow, twinB), "CASE J2: slot2 kept")
+  check(not engine:_isTrailerAttached(ow, orphanTwin), "CASE J2: orphan purged")
+
+  -- followers=3 / 6 invariant after purge
+  for _, n in ipairs({ 3, 6 }) do
+    ow.entities = { ow.player }
+    ow.npcs = {}
+    local packN = {}
+    for i = 1, n do
+      local t = makeTrailer("pack_" .. n .. "_" .. i)
+      t.wildsFollowerSlot = i
+      t.pokepcTrailerId = "mon:" .. i
+      GameCompat.attachGuestEntity(ow, t, game)
+      packN[i] = t
+    end
+    -- Inject one stale of slot 1.
+    local stale = makeTrailer("stale_" .. n)
+    stale.wildsFollowerSlot = 1
+    stale.pokepcTrailerId = "mon:1"
+    table.insert(ow.npcs, stale)
+    ow.pokepcTrailers = packN
+    engine:_purgeStaleFollowerPresentations(ow)
+    eq(#ow.pokepcTrailers, n, "CASE J3 n=" .. n .. ": trailers count")
+    eq(countWildsTrailers(ow.npcs), n, "CASE J3 n=" .. n .. ": npcs count")
+    eq(countWildsTrailers(ow.entities), n, "CASE J3 n=" .. n .. ": entities count")
+  end
+
+  -- Adopt must refuse across map id change.
+  ow = makeOw("ROUTE_29")
+  game.overworld = ow
+  game.world = ow
+  pack = seedFollowers(1)
+  oldT = pack[1]
+  engine._battleReturnTrailers = { oldT }
+  engine._battleReturnMapId = "ROUTE_29"
+  local newOw = makeOw("ROUTE_30")
+  local adopted = engine:_adoptRememberedTrailers(newOw)
+  eq(adopted, false, "CASE J4: refuse adopt across map change")
+  eq(#(newOw.pokepcTrailers or {}), 0, "CASE J4: new ow stays empty")
+  eq(engine._battleReturnTrailers, nil, "CASE J4: remembered cleared")
+end
+
+------------------------------------------------------------------------
 -- No love.filesystem in this change set (sandbox lock)
 ------------------------------------------------------------------------
 local fsHits = {}

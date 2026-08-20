@@ -66,11 +66,10 @@ Config.DEFAULTS = {
   -- Master AI switch: gates the per-frame behavior tick pipeline (wander,
   -- chase, contact battles).  OFF keeps spawns visible but frozen.
   wilds_ai = true,
-  -- Global "encounters are silhouettes": black out overworld wild mons in
-  -- encounter zones (grass / cave land, plus water sprites) by deriving a
-  -- luminance silhouette sheet from the colored art at load — no extra
-  -- asset files.  Extends the water-only silhouette look to every encounter.
-  wild_silhouettes = false,
+  -- Encounter silhouette mode: off | undiscovered | all.
+  -- Legacy bool false→off, true→all. Default off (never silently enable
+  -- Undiscovered for existing users).
+  wild_silhouettes = "off",
   -- Optional overworld Poké Ball throws at visible wilds (default ON).
   overworld_catching = true,
   -- Catch input (live). Defaults match the original hardcoded C / Q / B+A / B+Dpad.
@@ -853,17 +852,81 @@ function Config.waterEncountersDisabled(mod)
   return Config.waterDisplayMode(mod) == "disabled"
 end
 
--- Global Encounter Silhouettes toggle: true black-outs every overworld wild
--- mon in an encounter zone (grass/cave land + water sprites) via luminance
--- silhouette sheets, regardless of sprite style.
-function Config.wildSilhouettes(mod)
+-- Encounter silhouette mode: "off" | "undiscovered" | "all".
+-- Migrates legacy bool saves: false→off, true→all. Default remains off.
+Config.WILD_SILHOUETTE_MODES = {
+  off = true,
+  undiscovered = true,
+  all = true,
+}
+
+function Config.normalizeWildSilhouetteMode(value)
+  if value == true or value == "true" or value == "on" or value == "ON"
+     or value == "all" or value == "ALL" then
+    return "all"
+  end
+  if value == false or value == "false" or value == "off" or value == "OFF"
+     or value == nil then
+    return "off"
+  end
+  local s = tostring(value or ""):lower()
+  if s == "undiscovered" or s == "unseen" or s == "new" then
+    return "undiscovered"
+  end
+  if Config.WILD_SILHOUETTE_MODES[s] then return s end
+  return "off"
+end
+
+function Config.wildSilhouetteMode(mod)
   local raw, present = Config.peekSavedOption(mod, "wild_silhouettes")
-  if present then return raw == true end
+  if present then
+    return Config.normalizeWildSilhouetteMode(raw)
+  end
   if mod and mod.options and type(mod.options.get) == "function" then
     local v = mod.options:get("wild_silhouettes")
-    if v ~= nil then return v == true end
+    if v ~= nil then
+      return Config.normalizeWildSilhouetteMode(v)
+    end
   end
-  return Config.DEFAULTS.wild_silhouettes == true
+  return Config.normalizeWildSilhouetteMode(Config.DEFAULTS.wild_silhouettes)
+end
+
+-- Backward-compatible boolean: true only when mode is full "all".
+-- Prefer Config.shouldWildSilhouette for presentation decisions.
+function Config.wildSilhouettes(mod)
+  return Config.wildSilhouetteMode(mod) == "all"
+end
+
+--- Effective encounter-zone silhouette for one species.
+-- off → never; all → always; undiscovered → silhouette only when the
+-- Pokédex has no capture registration for the species (owned/caught).
+-- Encounter-only `seen` does NOT clear Undiscovered silhouettes.
+-- Species may be an internal key ("PIDGEY") or canonical asset id (16);
+-- both resolve through GameCompat.resolveSpeciesKey. Unknown → silhouette.
+function Config.shouldWildSilhouette(mod, game, species)
+  local mode = Config.wildSilhouetteMode(mod)
+  if mode == "off" then return false end
+  if mode == "all" then return true end
+  if mode ~= "undiscovered" then return false end
+  local ok, GameCompat = pcall(function() return V.require("game_compat") end)
+  if not (ok and GameCompat) then
+    return true
+  end
+  local key = species
+  if type(GameCompat.resolveSpeciesKey) == "function" then
+    key = GameCompat.resolveSpeciesKey(species)
+  end
+  if type(key) ~= "string" or key == "" then
+    return true -- conservative: unknown → silhouette
+  end
+  if type(GameCompat.hasCaughtSpecies) == "function" then
+    return GameCompat.hasCaughtSpecies(game, key) ~= true
+  end
+  -- Legacy fallback (should not run on current adapters).
+  if type(GameCompat.hasSeenSpecies) == "function" then
+    return GameCompat.hasSeenSpecies(game, key) ~= true
+  end
+  return true
 end
 
 function Config.maxWaterMons(mod)

@@ -112,7 +112,9 @@ function Selection:getActiveFollowerMon(game, needHealthy)
   return party[1], 1
 end
 
---- Persist an explicit party selection.
+--- Persist an explicit party selection (canonical selection path).
+-- Updates selectedMonKey / selectedSlot and compatibility save mirrors so
+-- visible follower, party-menu DISMISS, and persisted state stay aligned.
 function Selection:selectFollower(mon, game, opts)
   opts = opts or {}
   if not (mon and game and healthy(mon)) then return false end
@@ -135,6 +137,8 @@ function Selection:selectFollower(mon, game, opts)
   if game.save then
     game.save.followerPartyIndex = slot
     game.save.followerSpecies = mon.species
+    -- Keep pokepcLeader in sync so trailer packing uses the same slot.
+    game.save.pokepcLeader = { source = "party", index = slot }
   end
 
   if opts.onSelected then
@@ -143,51 +147,70 @@ function Selection:selectFollower(mon, game, opts)
   return true, slot
 end
 
+local function clearPersistedSelection(self, game)
+  self.state:clearSelection()
+  if game and game.save then
+    game.save.followerPartyIndex = nil
+    game.save.followerSpecies = nil
+    local lead = game.save.pokepcLeader
+    if lead and lead.source == "party" then
+      game.save.pokepcLeader = nil
+    end
+  end
+end
+
 --- Ensure selection still points at a valid party mon after party mutations.
---- Ensure selection still points at a valid party mon after party mutations.
--- When the selected mon is merely fainted (still in party), a healthy
--- substitute is returned but the selection is NOT overwritten — so the
--- original leader reclaims their slot when revived.
+-- When the selected mon is fainted (HP <= 0, still in party), permanently
+-- fail over to the topmost healthy party mon via selectFollower. Revival of
+-- the original mon must NOT reclaim selection — ownership has changed.
+-- Sprite / render availability is irrelevant; only HP is consulted.
 function Selection:reconcile(game)
   local party = self:getParty(game)
   if not party or #party == 0 then
+    clearPersistedSelection(self, game)
     return nil
   end
 
-  -- Check the selected mon first — if it's healthy, update and return.
-  -- If it's fainted but still in party, return a substitute WITHOUT
-  -- overwriting the selection.
   local selKey = self.state.selectedMonKey
   if selKey then
     for i, m in ipairs(party) do
       if fingerprintsMatch(selKey, m) then
         if healthy(m) then
-          -- Selected mon is healthy — refresh fingerprint if needed.
+          -- Selected mon is healthy — refresh fingerprint/slot if needed.
           local key = monFingerprint(m)
           if key and (key ~= selKey or i ~= self.state.selectedSlot) then
-            self.state:setSelection(key, i)
+            self:selectFollower(m, game)
+          elseif game and game.save then
+            -- Keep compatibility mirrors aligned even when key/slot match.
+            game.save.followerPartyIndex = i
+            game.save.followerSpecies = m.species
+            game.save.pokepcLeader = { source = "party", index = i }
           end
           return m, i
         end
-        -- Selected mon is fainted but still in party.
-        -- Find a healthy substitute without overwriting selection.
+        -- Selected mon is fainted: permanent failover to first healthy mon.
         for j, m2 in ipairs(party) do
-          if healthy(m2) and not fingerprintsMatch(selKey, m2) then
+          if healthy(m2) then
+            self:selectFollower(m2, game)
             return m2, j
           end
         end
-        return nil  -- no other healthy mon
+        -- Entire party fainted: no active follower, no bogus slot.
+        clearPersistedSelection(self, game)
+        return nil
       end
     end
   end
 
   -- No selection, or selected mon is gone from party.
   -- Pick first healthy as new permanent leader.
-  local mon, slot = self:getActiveFollowerMon(game, false)
-  if mon and healthy(mon) then
-    self.state:setSelection(monFingerprint(mon), slot)
-    return mon, slot
+  for i, mon in ipairs(party) do
+    if healthy(mon) then
+      self:selectFollower(mon, game)
+      return mon, i
+    end
   end
+  clearPersistedSelection(self, game)
   return nil
 end
 

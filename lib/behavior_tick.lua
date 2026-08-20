@@ -257,6 +257,7 @@ function BehaviorTick:_fillBehaviorCtx(ctx, ow, game, logic, occupancy, cfg, saf
   ctx.game = game
   ctx.logic = logic
   ctx.occupancy = occupancy
+  ctx.mapId = ow.map and ow.map.id
   ctx.reachableCaveCells = caveCells
   ctx.suppressAggressive = entity and entity.caveScenery == true
   ctx.hasWaterSprite = cfg.hasWaterSprite

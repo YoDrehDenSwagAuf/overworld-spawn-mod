@@ -243,7 +243,23 @@ for _, it in ipairs(wildsRoot.items) do wlabels[#wlabels + 1] = it.label end
 local wjoin = table.concat(wlabels, ",")
 check(wjoin:find("SPRITE FADE", 1, true), "wilds menu has Sprite Fade")
 check(wjoin:find("TOWN POKEMON", 1, true), "wilds menu has Town Pokémon")
-check(wjoin:find("ENC SILHOUETTE", 1, true), "wilds menu has Enc Silhouette")
+check(wjoin:find("SILHOUETTE", 1, true), "wilds menu has Silhouette")
+do
+  local silItem
+  for _, it in ipairs(wildsRoot.items) do
+    if it.label == "SILHOUETTE" then silItem = it break end
+  end
+  check(silItem ~= nil, "Silhouette item present")
+  local choiceJoin = ""
+  for _, c in ipairs((silItem and silItem.choices) or {}) do
+    choiceJoin = choiceJoin .. "," .. tostring(c.label)
+  end
+  check(choiceJoin:find("UNCAUGHT", 1, true) and choiceJoin:find("OFF", 1, true)
+        and choiceJoin:find("ALL", 1, true),
+        "Silhouette choices OFF/UNCAUGHT/ALL")
+  check(silItem.right == "OFF" or silItem.right == "UNCAUGHT" or silItem.right == "ALL",
+        "Silhouette right shows mode")
+end
 check(not wjoin:find("INDOOR POKEMON", 1, true), "no Indoor Pokémon public row")
 check(not wjoin:find("WILDS AI", 1, true), "no internal WILDS AI public row")
 check(wjoin:find("OW CATCH", 1, true), "wilds menu has OW Catch")

@@ -2141,6 +2141,21 @@ function SpawnRender:applyProviderSprite(entity, game, options)
   local surface = entity.surface
   local spriteState = entity.spriteState
   local form = entity.spriteForm or entity.formSuffix or entity.form
+  -- Canonical species key for discovery (string or numeric asset id → key).
+  local speciesKey = entity.species
+  do
+    local okGC, GameCompat = pcall(function() return V.require("game_compat") end)
+    if okGC and GameCompat and GameCompat.resolveSpeciesKey then
+      speciesKey = GameCompat.resolveSpeciesKey(entity.species or entity.enhancedDexId)
+        or (type(entity.species) == "string" and entity.species or nil)
+    elseif type(speciesKey) ~= "string" then
+      speciesKey = nil
+    end
+  end
+  local effectiveSilhouette = type(Config.shouldWildSilhouette) == "function"
+    and Config.shouldWildSilhouette(self.mod, game, speciesKey) == true
+    and (surface == "GRASS" or surface == "grass" or surface == "CAVE" or surface == "cave"
+         or surface == "WATER" or surface == "water" or spriteState == "water")
 
   -- Cheap presentation gate BEFORE resolve / SpriteRenderer.new.
   -- Rendering identity only — does NOT prove world attachment.
@@ -2155,6 +2170,7 @@ function SpawnRender:applyProviderSprite(entity, game, options)
      and entity._wildsPresSpriteState == spriteState
      and entity._wildsPresForm == form
      and entity._wildsPresWaterMode == waterMode
+     and entity._wildsPresSilhouette == effectiveSilhouette
      and entity.waterVoxelActive == voxelActive
      and entity.paletteRedpp == redpp
      and entity._wildsEffectiveSize == effectiveSize
@@ -2259,6 +2275,7 @@ function SpawnRender:applyProviderSprite(entity, game, options)
     entity._wildsPresSpriteState = result.spriteState or spriteState
     entity._wildsPresForm = form
     entity._wildsPresWaterMode = waterMode
+    entity._wildsPresSilhouette = (result.wildSilhouette == true) or effectiveSilhouette
     if self.spriteResolver then
       self.spriteResolver:applyEntityMeta(entity, result)
     end
@@ -2529,6 +2546,7 @@ function SpawnRender:applyProviderSprite(entity, game, options)
   entity._wildsPresSpriteState = result.spriteState or entity.spriteState
   entity._wildsPresForm = form
   entity._wildsPresWaterMode = waterMode
+  entity._wildsPresSilhouette = (result.wildSilhouette == true) or effectiveSilhouette
   entity._wildsEffectiveSize = entity._wildsEffectiveSize or effectiveSize
   self:_instrumentResolveImage(entity, entity.sprite)
   self:bindWorldBillboard(entity, true)
@@ -2765,6 +2783,45 @@ function SpawnRender:refreshAllEntitySprites(logic, game)
     if entity then
       if not entity.hiddenEncounter and entity.visibleSprite ~= false
          and self:applyProviderSprite(entity, game) then
+        n = n + 1
+      end
+    end
+  end
+  return n
+end
+
+--- Rebind Undiscovered silhouettes after Pokédex capture registration.
+-- speciesFilter nil → all entities; otherwise only matching species.
+-- Fingerprint gate skips SpriteRenderer.new when silhouette state unchanged.
+function SpawnRender:refreshDiscoveryPresentation(logic, game, speciesFilter)
+  if not logic or not logic.entities then return 0 end
+  local Config = V.require("config")
+  if type(Config.wildSilhouetteMode) == "function"
+     and Config.wildSilhouetteMode(self.mod) ~= "undiscovered" then
+    return 0
+  end
+  local filterKey = nil
+  if speciesFilter ~= nil then
+    local okGC, GameCompat = pcall(function() return V.require("game_compat") end)
+    if okGC and GameCompat and GameCompat.resolveSpeciesKey then
+      filterKey = GameCompat.resolveSpeciesKey(speciesFilter)
+    elseif type(speciesFilter) == "string" then
+      filterKey = speciesFilter
+    end
+  end
+  local n = 0
+  for _, entity in pairs(logic.entities) do
+    if entity and not entity.hiddenEncounter and entity.visibleSprite ~= false then
+      local match = true
+      if filterKey then
+        local okGC, GameCompat = pcall(function() return V.require("game_compat") end)
+        local ek = entity.species
+        if okGC and GameCompat and GameCompat.resolveSpeciesKey then
+          ek = GameCompat.resolveSpeciesKey(entity.species or entity.enhancedDexId)
+        end
+        match = (ek == filterKey)
+      end
+      if match and self:applyProviderSprite(entity, game) then
         n = n + 1
       end
     end

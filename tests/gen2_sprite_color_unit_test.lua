@@ -231,16 +231,19 @@ end
 local schema = assert(loadfile("options.lua"))()
 local byKey = {}
 for _, row in ipairs(schema) do byKey[row.key] = row end
-eq(byKey.wild_silhouettes.default, false, "options.lua wild_silhouettes default false")
-eq(Config.DEFAULTS.wild_silhouettes, false, "Config.DEFAULTS.wild_silhouettes false")
+eq(byKey.wild_silhouettes.default, "off", "options.lua wild_silhouettes default off")
+eq(Config.DEFAULTS.wild_silhouettes, "off", "Config.DEFAULTS.wild_silhouettes off")
 
 savedOpts.wild_silhouettes = nil
 eq(Config.wildSilhouettes(V.mod), false, "unset wildSilhouettes is false")
+eq(Config.wildSilhouetteMode(V.mod), "off", "unset wildSilhouetteMode is off")
 
 savedOpts.wild_silhouettes = true
-eq(Config.wildSilhouettes(V.mod), true, "explicit wildSilhouettes true is honored")
+eq(Config.wildSilhouettes(V.mod), true, "legacy bool true migrates to all")
+eq(Config.wildSilhouetteMode(V.mod), "all", "legacy bool true → all mode")
 savedOpts.wild_silhouettes = false
-eq(Config.wildSilhouettes(V.mod), false, "explicit wildSilhouettes false is honored")
+eq(Config.wildSilhouettes(V.mod), false, "legacy bool false migrates to off")
+eq(Config.wildSilhouetteMode(V.mod), "off", "legacy bool false → off mode")
 savedOpts.wild_silhouettes = nil
 
 ------------------------------------------------------------------------

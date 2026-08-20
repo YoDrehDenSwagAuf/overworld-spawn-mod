@@ -242,7 +242,8 @@ end
 -- Progressive search: prefer configured min/max, then relax minDist down to 1,
 -- then expand maxDist so small maps are not left with zero candidates.
 -- opts: { membership, mode, occupiedSpawns, minSeparation, preferFar,
---         strictSeparation, separationMetric ("chebyshev"|"manhattan") }
+--         strictSeparation, separationMetric ("chebyshev"|"manhattan"),
+--         occupancy, isBlocked(x,y) }
 function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist, onReject, opts)
   opts = opts or {}
   grassList = grassList or Grass.cells(map)
@@ -267,6 +268,10 @@ function Grass.pickFree(map, entities, player, minDist, rng, grassList, maxDist,
       local ok, reason = Grass.validateEligibleTile(
         map, entities, player, cell.x, cell.y, useMin, useMax, nil,
         membership, mode, occupancy)
+      if ok and opts.isBlocked and opts.isBlocked(cell.x, cell.y) then
+        ok = false
+        reason = "rejected: story trigger reserved"
+      end
       if ok and enforceSep
          and tooCloseToSpawns(cell.x, cell.y, occupiedSpawns, minSep, sepMetric) then
         ok = false
