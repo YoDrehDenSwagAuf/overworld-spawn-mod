@@ -544,13 +544,13 @@ function SettingsMenus:_openWildsRoot(game)
       wrap = true,
       choices = {
         { label = "OFF", value = "off" },
-        { label = "UNSEEN", value = "undiscovered" },
+        { label = "UNCAUGHT", value = "undiscovered" },
         { label = "ALL", value = "all" },
       },
       current = Config.wildSilhouetteMode(mod),
       right = ({
         off = "OFF",
-        undiscovered = "UNSEEN",
+        undiscovered = "UNCAUGHT",
         all = "ALL",
       })[Config.wildSilhouetteMode(mod)] or "OFF",
       apply = function(v)

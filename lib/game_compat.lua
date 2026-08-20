@@ -358,29 +358,77 @@ end
 
 function GameCompat.markSpeciesCaught(game, species, mon)
   local adapter = catchAdapter(game)
+  local ok = false
   if adapter and adapter.markSpeciesCaught then
-    return adapter.markSpeciesCaught(game, species, mon)
+    ok = adapter.markSpeciesCaught(game, species, mon) == true
   end
-  return false
+  return ok
+end
+
+--- Normalize a species argument to the internal Pokédex key.
+-- Accepts mon.species strings ("PIDGEY") or canonical Wilds asset ids (16).
+-- Never uses runtime Dex position / mon.dex (mod-reorder unsafe).
+function GameCompat.resolveSpeciesKey(species)
+  if species == nil then return nil end
+  if type(species) == "string" and species ~= "" then
+    if not species:match("^%s*%d+%.?%d*%s*$") then
+      return species
+    end
+    species = tonumber(species)
+  end
+  if type(species) == "number" then
+    local ok, SpeciesAssets = pcall(function() return V.require("species_assets") end)
+    if ok and SpeciesAssets and SpeciesAssets.speciesFor then
+      return SpeciesAssets.speciesFor(species)
+    end
+  end
+  return nil
 end
 
 --- True when the player's Pokédex has seen this species.
 -- Uses species key identity (not runtime Dex position). Unknown / Fakemon
 -- species with no resolvable seen entry are treated as unseen (conservative).
 function GameCompat.hasSeenSpecies(game, species)
-  if type(species) ~= "string" or species == "" then
+  local key = GameCompat.resolveSpeciesKey(species)
+  if type(key) ~= "string" or key == "" then
     return false
   end
   local adapter = GameCompat.current(nil, game)
   if adapter and type(adapter.hasSeenSpecies) == "function" then
-    local ok, seen = pcall(adapter.hasSeenSpecies, game, species)
+    local ok, seen = pcall(adapter.hasSeenSpecies, game, key)
     if ok then return seen == true end
   end
   local dex = game and game.save and game.save.pokedex
   if type(dex) ~= "table" then return false end
   local seen = dex.seen
   if type(seen) ~= "table" then return false end
-  return seen[species] == true
+  return seen[key] == true
+end
+
+--- True when the species is registered in the Pokédex after capture.
+-- Gen1: save.pokedex.owned (preferred) or .caught.
+-- Gen2: save.pokedex.caught (native SetSeenAndCaughtMon).
+-- Encounter-only `seen` is NOT enough — Undiscovered silhouettes use this.
+function GameCompat.hasCaughtSpecies(game, species)
+  local key = GameCompat.resolveSpeciesKey(species)
+  if type(key) ~= "string" or key == "" then
+    return false
+  end
+  local adapter = GameCompat.current(nil, game)
+  if adapter and type(adapter.hasCaughtSpecies) == "function" then
+    local ok, caught = pcall(adapter.hasCaughtSpecies, game, key)
+    if ok then return caught == true end
+  end
+  local dex = game and game.save and game.save.pokedex
+  if type(dex) ~= "table" then return false end
+  if type(dex.owned) == "table" and dex.owned[key] == true then return true end
+  if type(dex.caught) == "table" and dex.caught[key] == true then return true end
+  return false
+end
+
+--- Alias: Pokédex entry exists after capture (same as hasCaughtSpecies).
+function GameCompat.isPokedexRegistered(game, species)
+  return GameCompat.hasCaughtSpecies(game, species)
 end
 
 function GameCompat.playerHasPartySpace(game)

@@ -1242,6 +1242,9 @@ function SpawnLogic:flushBattleReturnReconcile(source)
     return false, "map_mismatch"
   end
   if ok then
+    -- Native battle catch updates Pokédex before battle.ended. Refresh
+    -- Undiscovered silhouettes once the overworld is live again.
+    pcall(function() self:refreshDiscoveryPresentation(nil) end)
     if source == "world.stepped" then
       self._pendingBattleReturnReconcile = false
       self._battleReturnFlushedOnce = false
@@ -1252,6 +1255,26 @@ function SpawnLogic:flushBattleReturnReconcile(source)
     return true, info
   end
   return false, info
+end
+
+--- After a species is registered in the Pokédex (OW catch / battle catch),
+-- rebind same-map Wilds so Undiscovered silhouettes become colour without
+-- a route change. Cheap: fingerprint skips work when state unchanged.
+function SpawnLogic:refreshDiscoveryPresentation(species)
+  local Config = V.require("config")
+  if type(Config.wildSilhouetteMode) ~= "function"
+     or Config.wildSilhouetteMode(self.mod) ~= "undiscovered" then
+    return 0
+  end
+  local game = gameOf(self.mod)
+  local render = self.render
+  if not (render and render.refreshDiscoveryPresentation) then
+    if render and render.refreshAllEntitySprites then
+      return render:refreshAllEntitySprites(self, game) or 0
+    end
+    return 0
+  end
+  return render:refreshDiscoveryPresentation(self, game, species) or 0
 end
 
 function SpawnLogic:_logMapDiagnostics(mapId, game, encDef)

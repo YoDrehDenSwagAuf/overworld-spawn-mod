@@ -602,6 +602,15 @@ function Gen2.hasSeenSpecies(game, species)
   return seen[species] == true
 end
 
+--- Gold capture registration: pokedex.caught (SetSeenAndCaughtMon).
+function Gen2.hasCaughtSpecies(game, species)
+  local dex = game and game.save and game.save.pokedex
+  if not (dex and species) then return false end
+  local caught = dex.caught
+  if type(caught) ~= "table" then return false end
+  return caught[species] == true
+end
+
 function Gen2.playerHasPartySpace(game)
   local party = Gen2.party(game)
   if type(party) ~= "table" then return false end
