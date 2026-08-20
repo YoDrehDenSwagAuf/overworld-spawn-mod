@@ -130,6 +130,17 @@ modules.game_compat = {
     if not has(ow.npcs, entity) then ow.npcs[#ow.npcs + 1] = entity end
     return "npcs+entities"
   end,
+  attachPresentationGhost = function(ow, entity)
+    if entity.def == nil then entity.def = {} end
+    entity.frozen = true
+    ow.entities = ow.entities or {}
+    local function has(list, e)
+      for _, x in ipairs(list) do if x == e then return true end end
+      return false
+    end
+    if not has(ow.entities, entity) then ow.entities[#ow.entities + 1] = entity end
+    return "entities"
+  end,
   detachGuestEntity = function(ow, entity)
     local function strip(list)
       if type(list) ~= "table" then return end
@@ -348,6 +359,17 @@ do
   check(ghost.pureFx == true, "ghost pureFx")
   check(ghost.pokepcTrailer ~= true, "ghost not trailer")
   check(ghost.wildsFollower ~= true, "ghost not wildsFollower")
+  check(type(ghost.def) == "table", "ghost has def so Gen1 trainer-sight cannot nil-index")
+  local ghostInNpcs = false
+  for _, n in ipairs(ow.npcs or {}) do
+    if n == ghost then ghostInNpcs = true end
+  end
+  check(not ghostInNpcs, "Gen1 recall ghost is not in ow.npcs")
+  local ghostInEntities = false
+  for _, e in ipairs(ow.entities or {}) do
+    if e == ghost then ghostInEntities = true end
+  end
+  check(ghostInEntities, "Gen1 recall ghost is in ow.entities (draw list)")
   check(ghost.update == ghost.update, "ghost has update")
   -- No collision / occupancy as follower
   check(CellOccupancy.isBlockingEntity(ghost) == false, "ghost not blocking")

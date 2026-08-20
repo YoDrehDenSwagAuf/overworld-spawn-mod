@@ -632,6 +632,42 @@ function GameCompat.containerMembership(ow, entity)
   }
 end
 
+--- Presentation-only recall/release ghost.
+-- Gen1 OverworldState:checkTrainerSight does `local d = npc.def` with no nil
+-- guard, and iterates ow.npcs every live overworld tick. Poké Center recall
+-- ghosts survive because healAnim returns before that loop. Manual Ball
+-- runs on a live tick, so Gen1 FX ghosts attach to ow.entities only (the
+-- draw list). Gold still uses attachGuestEntity (drawPeople reads npcs).
+function GameCompat.attachPresentationGhost(ow, entity, game)
+  if not ow or not entity then return "none" end
+  if entity.def == nil then entity.def = {} end
+  entity.frozen = true
+  entity.wanders = false
+  if GameCompat.isGen2(nil, game) then
+    return GameCompat.attachGuestEntity(ow, entity, game)
+  end
+  ow.entities = ow.entities or {}
+  listInsert(ow.entities, entity)
+  entity.worldContainer = "entities"
+  return "entities"
+end
+
+--- True when the live OverworldState/World is the StateStack top.
+-- This is the real Gen1 UI ownership boundary: only the top state updates.
+-- Missing stack.top (unit tests) is treated as owning so recall can run.
+function GameCompat.overworldOwnsStack(game, ow)
+  ow = ow or GameCompat.liveOverworld(nil, game)
+  local stack = game and game.stack
+  if not (stack and type(stack.top) == "function") then
+    return true
+  end
+  local ok, top = pcall(stack.top, stack)
+  if not ok or top == nil or ow == nil then
+    return false
+  end
+  return top == ow
+end
+
 --- Insert a follower / town guest without wild-spawn flags.
 -- Gold World:drawPeople / rebuildPeople keep non-map NPCs as guests.
 -- Native Gold NPC:draw already accepts (ox, oy, scale); only wrap guests
@@ -747,9 +783,36 @@ function GameCompat.presentText(mod, game, ow, text, onDone)
   return "none"
 end
 
+--- True when follower recall must wait until Overworld owns the stack again.
+-- Gen1: true — do not recall inside the ChoiceBox callback.
+-- Gen2: false — Gold's working talk-Ball path stays immediate.
+function GameCompat.shouldDeferFollowerRecall(game, ow, npc)
+  ow = ow or GameCompat.liveOverworld(nil, game)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and type(adapter.shouldDeferFollowerRecall) == "function" then
+    local ok, defer = pcall(adapter.shouldDeferFollowerRecall, ow, game, npc)
+    if ok then return defer == true end
+  end
+  return GameCompat.isGen1(nil, game)
+end
+
+--- True while a non-overworld state still owns the StateStack.
+-- Gen1: stack:top() ~= live OverworldState (TextBox / ChoiceBox / menus).
+-- Do not use ow.engaging (trainer sight) or npc.frozen as the talk gate.
+-- Gen2: World.textbox / choicebox / engaging / busy.
+function GameCompat.followerInteractionBusy(game, ow, npc)
+  ow = ow or GameCompat.liveOverworld(nil, game)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and type(adapter.followerInteractionBusy) == "function" then
+    local ok, busy = pcall(adapter.followerInteractionBusy, ow, game, npc)
+    if ok then return busy == true end
+  end
+  return GameCompat.overworldOwnsStack(game, ow) ~= true
+end
+
 --- Present dialogue ending in a two-option ChoiceBox (shared TextBox path).
 -- onChoose(yes): yes == true → first label; yes == false → second label.
--- opts.labels = { "OKAY", "POKEBALL" } (default YES/NO if omitted).
+-- opts.labels = { "Ok", "Ball" } (default YES/NO if omitted).
 -- Works for Gen1 and Gold: TextBox.choice stacks ChoiceBox over the text.
 function GameCompat.presentTextChoice(mod, game, ow, text, onChoose, opts)
   opts = opts or {}

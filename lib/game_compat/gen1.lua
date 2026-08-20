@@ -427,6 +427,30 @@ function Gen1.isPokecenterHealActive(ow, _game)
   return ow ~= nil and ow.healAnim ~= nil
 end
 
+--- Gen1 must not destroy the talked-to follower inside the ChoiceBox callback.
+-- OverworldController.interact never sets ow.engaging for ordinary talk
+-- (that flag is trainer-sight). TextBox.choice pops ChoiceBox then TextBox
+-- before choice(yes) runs — still on the UI call stack. Recalling there
+-- (or attaching FX ghosts to ow.npcs) races the next Overworld tick.
+function Gen1.shouldDeferFollowerRecall(_ow, _game, _npc)
+  return true
+end
+
+--- True while a non-overworld state owns the Gen1 StateStack.
+-- Only the top state updates. When stack:top() is the live OverworldState,
+-- follower talk UI is finished. Do not wait on npc.frozen (Wilds trailers
+-- are not frozen by interact wrap) or ow.engaging (trainer sight only).
+function Gen1.followerInteractionBusy(ow, game, _npc)
+  local stack = game and game.stack
+  if not (stack and type(stack.top) == "function") then
+    return false
+  end
+  local ok, top = pcall(stack.top, stack)
+  if not ok or top == nil then return false end
+  if ow ~= nil and top == ow then return false end
+  return true
+end
+
 function Gen1.playerHasPartySpace(game)
   local party = Gen1.party(game)
   if type(party) ~= "table" then return false end

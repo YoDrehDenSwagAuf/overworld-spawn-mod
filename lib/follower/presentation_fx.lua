@@ -439,6 +439,10 @@ function PresentationFx:_makeGhost(snap, delay)
     pokepcMon = snap.mon,
     update = NO_UPDATE,
     _wildsRecallGhost = true,
+    -- Gen1 OverworldState:checkTrainerSight indexes npc.def with no nil guard.
+    def = {},
+    frozen = true,
+    wanders = false,
   }
   function ghost:walkPhase()
     return 0
@@ -511,13 +515,13 @@ function PresentationFx:reconcileAfterSync(ow, before, opts)
       if ghost then
         local GameCompat = V.require("game_compat")
         local game = self.mod and self.mod.world and self.mod.world.game
-        if GameCompat and GameCompat.attachGuestEntity then
+        if GameCompat and GameCompat.attachPresentationGhost then
+          pcall(GameCompat.attachPresentationGhost, ow, ghost, game)
+        elseif GameCompat and GameCompat.attachGuestEntity then
           pcall(GameCompat.attachGuestEntity, ow, ghost, game)
         else
           ow.entities = ow.entities or {}
-          ow.npcs = ow.npcs or {}
           ow.entities[#ow.entities + 1] = ghost
-          ow.npcs[#ow.npcs + 1] = ghost
         end
         self.ghosts[#self.ghosts + 1] = ghost
         recalled = recalled + 1
