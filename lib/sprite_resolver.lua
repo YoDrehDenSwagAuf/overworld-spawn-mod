@@ -182,12 +182,18 @@ function SpriteResolver:resolveLandSprite(entity, context)
     result.spriteState = "land"
     result.spriteKind = result.providerId
     result.waterOverride = false
-    -- Global Encounter Silhouettes: black out land wild mons, but only in
-    -- actual encounter zones (grass / cave).  Followers, previews and mons
-    -- on non-encounter surfaces keep their normal art.
-    if type(Config.wildSilhouettes) == "function"
-       and Config.wildSilhouettes(self.mod)
-       and self:_inLandEncounterZone(entity) then
+    -- Encounter silhouettes: black out land wilds in grass/cave only.
+    -- Followers, previews, and non-encounter surfaces keep normal art.
+    local speciesKey = type(species) == "string" and species or nil
+    if not speciesKey and type(species) == "number" then
+      local okSA, SpeciesAssets = pcall(function() return V.require("species_assets") end)
+      if okSA and SpeciesAssets and SpeciesAssets.speciesFor then
+        speciesKey = SpeciesAssets.speciesFor(species)
+      end
+    end
+    local wantSilo = type(Config.shouldWildSilhouette) == "function"
+      and Config.shouldWildSilhouette(self.mod, game, speciesKey)
+    if wantSilo and self:_inLandEncounterZone(entity) then
       self:_applyWildSilhouette(result)
     end
   end
@@ -282,11 +288,25 @@ function SpriteResolver:resolveWaterSprite(entity, context)
     return result
   end
 
-  -- Global Encounter Silhouettes also black out water sprites (swim /
-  -- submerged / provider / land-fallback art).  Hidden circle markers and
-  -- native (voxel) silhouette sheets keep their own presentation.
-  local wildSilo = type(Config.wildSilhouettes) == "function"
-    and Config.wildSilhouettes(self.mod) == true
+  -- Encounter silhouettes also black out water sprites (swim / submerged /
+  -- provider / land-fallback art). Hidden circle markers and native (voxel)
+  -- silhouette sheets keep their own presentation.
+  local speciesKey = nil
+  do
+    if type(speciesId) == "string" then
+      speciesKey = speciesId
+    else
+      local okSA, SpeciesAssets = pcall(function() return V.require("species_assets") end)
+      if okSA and SpeciesAssets and SpeciesAssets.speciesFor then
+        speciesKey = SpeciesAssets.speciesFor(waterAssetId or speciesId)
+      end
+    end
+    if not speciesKey and entity then
+      speciesKey = entity.species
+    end
+  end
+  local wildSilo = type(Config.shouldWildSilhouette) == "function"
+    and Config.shouldWildSilhouette(self.mod, game, speciesKey) == true
   local function finish(result)
     if wildSilo and result and result.def and result.def.image then
       self:_applyWildSilhouette(result)
@@ -710,10 +730,26 @@ function SpriteResolver:cacheKey(entity, context, state)
   local voxel = "flat"
   local shadowMode = "none"
   local imagePath = "na"
-  -- Silhouette toggle participates in the cache key so a toggled switch is
-  -- picked up even by paths that do not invalidate the whole resolver cache.
-  local silo = (type(Config.wildSilhouettes) == "function"
-    and Config.wildSilhouettes(self.mod) == true) and "silo" or "color"
+  -- Silhouette mode + per-species seen bit participate in the cache key so
+  -- Off/Undiscovered/All and live Pokédex discovery invalidate correctly.
+  local silo = "color"
+  do
+    local mode = type(Config.wildSilhouetteMode) == "function"
+      and Config.wildSilhouetteMode(self.mod) or "off"
+    if mode == "all" then
+      silo = "silo"
+    elseif mode == "undiscovered" then
+      local speciesKey = nil
+      if type(entity) == "table" and type(entity.species) == "string" then
+        speciesKey = entity.species
+      elseif type(speciesId) == "string" then
+        speciesKey = speciesId
+      end
+      local want = type(Config.shouldWildSilhouette) == "function"
+        and Config.shouldWildSilhouette(self.mod, context.game, speciesKey)
+      silo = want and "silo" or "seen"
+    end
+  end
   -- True Size effective mode participates so Classic↔True Size / Flat↔Voxel
   -- never reuse a stale SpriteDef even if a caller forgets invalidateCache.
   local sizeMode = "classic"

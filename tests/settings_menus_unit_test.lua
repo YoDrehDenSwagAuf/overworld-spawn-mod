@@ -243,7 +243,9 @@ for _, it in ipairs(wildsRoot.items) do wlabels[#wlabels + 1] = it.label end
 local wjoin = table.concat(wlabels, ",")
 check(wjoin:find("SPRITE FADE", 1, true), "wilds menu has Sprite Fade")
 check(wjoin:find("TOWN POKEMON", 1, true), "wilds menu has Town Pokémon")
-check(wjoin:find("ENC SILHOUETTE", 1, true), "wilds menu has Enc Silhouette")
+check(wjoin:find("SILHOUETTE", 1, true), "wilds menu has Silhouette")
+check(wjoin:find("UNSEEN", 1, true) or wjoin:find("OFF", 1, true),
+      "wilds Silhouette shows mode choices")
 check(not wjoin:find("INDOOR POKEMON", 1, true), "no Indoor Pokémon public row")
 check(not wjoin:find("WILDS AI", 1, true), "no internal WILDS AI public row")
 check(wjoin:find("OW CATCH", 1, true), "wilds menu has OW Catch")

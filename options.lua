@@ -162,10 +162,15 @@ return {
   },
   {
     key = "wild_silhouettes",
-    label = "Enc Silhouette",
-    type = "toggle",
-    default = false,
-    description = "Black out overworld wild Pokemon in encounter zones (grass/cave/water) as silhouettes, keeping their shapes. Derived from the coloured art at load - no extra sprite files.",
+    label = "Silhouette",
+    type = "choice",
+    default = "off",
+    choices = {
+      { "Off", "off" },
+      { "Undiscovered", "undiscovered" },
+      { "All", "all" },
+    },
+    description = "Off keeps normal colours. Undiscovered silhouettes species not yet seen in the Pokedex. All silhouettes every encounter-zone wild.",
   },
   {
     key = "overworld_catching",

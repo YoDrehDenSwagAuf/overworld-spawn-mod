@@ -85,7 +85,7 @@ There is no second settings store. Defaults match `options.lua`.
 | Cave Spawns | Reachable Only / Mixed | Reachable Only | Cave spawn reachability filter. Mixed allows ~20% atmospheric scenery in inaccessible pockets. |
 | Town Pokémon | On / Off | On | Peaceful ambient Pokémon in safe towns and interiors. |
 | Grass View | Above / Immersed | Immersed | Draw wilds fully above tall grass, or partially hidden inside it. |
-| Enc Silhouette | On / Off | Off | Black out overworld wilds in encounter zones as silhouettes. Derived from the coloured art at load. |
+| Silhouette | Off / Undiscovered / All | Off | Off keeps normal colours. Undiscovered silhouettes species not yet seen in the Pokédex. All silhouettes every encounter-zone wild. |
 | Idle Mons | On / Off | On | Allow idle look behaviour. |
 | Roam Mons | On / Off | On | Allow wander behaviour. |
 | Chase Mons | On / Off | On | Allow aggressive chase behaviour. |

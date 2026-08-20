@@ -2141,6 +2141,11 @@ function SpawnRender:applyProviderSprite(entity, game, options)
   local surface = entity.surface
   local spriteState = entity.spriteState
   local form = entity.spriteForm or entity.formSuffix or entity.form
+  local speciesKey = type(entity.species) == "string" and entity.species or nil
+  local effectiveSilhouette = type(Config.shouldWildSilhouette) == "function"
+    and Config.shouldWildSilhouette(self.mod, game, speciesKey) == true
+    and (surface == "GRASS" or surface == "grass" or surface == "CAVE" or surface == "cave"
+         or surface == "WATER" or surface == "water" or spriteState == "water")
 
   -- Cheap presentation gate BEFORE resolve / SpriteRenderer.new.
   -- Rendering identity only — does NOT prove world attachment.
@@ -2155,6 +2160,7 @@ function SpawnRender:applyProviderSprite(entity, game, options)
      and entity._wildsPresSpriteState == spriteState
      and entity._wildsPresForm == form
      and entity._wildsPresWaterMode == waterMode
+     and entity._wildsPresSilhouette == effectiveSilhouette
      and entity.waterVoxelActive == voxelActive
      and entity.paletteRedpp == redpp
      and entity._wildsEffectiveSize == effectiveSize
@@ -2259,6 +2265,7 @@ function SpawnRender:applyProviderSprite(entity, game, options)
     entity._wildsPresSpriteState = result.spriteState or spriteState
     entity._wildsPresForm = form
     entity._wildsPresWaterMode = waterMode
+    entity._wildsPresSilhouette = (result.wildSilhouette == true) or effectiveSilhouette
     if self.spriteResolver then
       self.spriteResolver:applyEntityMeta(entity, result)
     end
@@ -2529,6 +2536,7 @@ function SpawnRender:applyProviderSprite(entity, game, options)
   entity._wildsPresSpriteState = result.spriteState or entity.spriteState
   entity._wildsPresForm = form
   entity._wildsPresWaterMode = waterMode
+  entity._wildsPresSilhouette = (result.wildSilhouette == true) or effectiveSilhouette
   entity._wildsEffectiveSize = entity._wildsEffectiveSize or effectiveSize
   self:_instrumentResolveImage(entity, entity.sprite)
   self:bindWorldBillboard(entity, true)

@@ -353,32 +353,63 @@ function SpriteProviders:_makePokedexProvider()
 
       local imagePath = nil
       local kind = nil
-
-      -- Prefer already-registered content sprite when it is a 1-frame / battle front.
-      local reg = render and render.registrationInfo and render.registrationInfo[speciesKey]
-      if reg and type(reg.image) == "string" and reg.image ~= ""
-         and reg.kind ~= "native_runtime_sheet" then
-        imagePath = reg.image
-        kind = reg.kind or "registered"
-      end
-
-      if not imagePath and render and render.resolveAsset then
-        local resolved = render:resolveAsset(speciesKey, game)
-        if resolved and type(resolved.path) == "string" and resolved.path ~= "" then
-          imagePath = resolved.path
-          kind = resolved.source or "resolved"
+      local isGen2 = false
+      do
+        local ok, GameCompat = pcall(function() return V.require("game_compat") end)
+        if ok and GameCompat and GameCompat.isGen2 then
+          isGen2 = GameCompat.isGen2(mod, game) == true
         end
       end
 
-      if not imagePath then
+      local function tryRegistrationInfo()
+        local reg = render and render.registrationInfo and render.registrationInfo[speciesKey]
+        if reg and type(reg.image) == "string" and reg.image ~= ""
+           and reg.kind ~= "native_runtime_sheet" then
+          return reg.image, reg.kind or "registered"
+        end
+        return nil, nil
+      end
+
+      local function tryResolveAsset()
+        if not (render and render.resolveAsset) then return nil, nil end
+        local resolved = render:resolveAsset(speciesKey, game)
+        if resolved and type(resolved.path) == "string" and resolved.path ~= "" then
+          return resolved.path, resolved.source or "resolved"
+        end
+        return nil, nil
+      end
+
+      local function tryNativeSpriteFront()
         local mon = game and game.data and game.data.pokemon and game.data.pokemon[speciesKey]
         if not mon and mod and mod.content and mod.content.pokemon then
           mon = mod.content.pokemon:get(speciesKey)
         end
         local front = mon and mon.spriteFront
         if type(front) == "string" and front ~= "" then
-          imagePath = front
-          kind = "battle_front"
+          return front, "battle_front"
+        end
+        return nil, nil
+      end
+
+      -- Gen2 (Gold): prefer the live generation-native battle front so a stale
+      -- Gen1 registrationInfo / mod asset cannot override Gold's spriteFront
+      -- for shared Gen1 species (e.g. FARFETCHD). Gen1 keeps the historical
+      -- registrationInfo → resolveAsset → spriteFront order.
+      if isGen2 then
+        imagePath, kind = tryNativeSpriteFront()
+        if not imagePath then
+          imagePath, kind = tryResolveAsset()
+        end
+        if not imagePath then
+          imagePath, kind = tryRegistrationInfo()
+        end
+      else
+        imagePath, kind = tryRegistrationInfo()
+        if not imagePath then
+          imagePath, kind = tryResolveAsset()
+        end
+        if not imagePath then
+          imagePath, kind = tryNativeSpriteFront()
         end
       end
 

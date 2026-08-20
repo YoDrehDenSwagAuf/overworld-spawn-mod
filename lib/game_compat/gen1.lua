@@ -398,6 +398,15 @@ function Gen1.markSpeciesCaught(game, species, _mon)
   return true
 end
 
+--- Gen1 Pokédex seen table is keyed by internal species id.
+function Gen1.hasSeenSpecies(game, species)
+  local dex = game and game.save and game.save.pokedex
+  if not (dex and species) then return false end
+  local seen = dex.seen
+  if type(seen) ~= "table" then return false end
+  return seen[species] == true
+end
+
 function Gen1.playerHasPartySpace(game)
   local party = Gen1.party(game)
   if type(party) ~= "table" then return false end

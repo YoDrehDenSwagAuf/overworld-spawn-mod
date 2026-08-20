@@ -364,6 +364,25 @@ function GameCompat.markSpeciesCaught(game, species, mon)
   return false
 end
 
+--- True when the player's Pokédex has seen this species.
+-- Uses species key identity (not runtime Dex position). Unknown / Fakemon
+-- species with no resolvable seen entry are treated as unseen (conservative).
+function GameCompat.hasSeenSpecies(game, species)
+  if type(species) ~= "string" or species == "" then
+    return false
+  end
+  local adapter = GameCompat.current(nil, game)
+  if adapter and type(adapter.hasSeenSpecies) == "function" then
+    local ok, seen = pcall(adapter.hasSeenSpecies, game, species)
+    if ok then return seen == true end
+  end
+  local dex = game and game.save and game.save.pokedex
+  if type(dex) ~= "table" then return false end
+  local seen = dex.seen
+  if type(seen) ~= "table" then return false end
+  return seen[species] == true
+end
+
 function GameCompat.playerHasPartySpace(game)
   local adapter = catchAdapter(game)
   if adapter and adapter.playerHasPartySpace then

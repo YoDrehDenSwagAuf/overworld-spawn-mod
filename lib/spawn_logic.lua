@@ -3004,7 +3004,9 @@ function SpawnLogic:onOptionsChanged(payload)
     -- Presentation switch: rebind entity sprites to/from the silhouette
     -- sheets without respawning.  Invalidate caches so old coloured /
     -- silhouette SpriteRenderers are never reused.
-    self:_log("wild_silhouettes -> %s", tostring(payload.value == true))
+    self:_log("wild_silhouettes -> %s",
+              tostring(Config.wildSilhouetteMode and Config.wildSilhouetteMode(self.mod)
+                or payload.value))
     if self.render then
       local world = self.mod.world
       local game = world and world.game
