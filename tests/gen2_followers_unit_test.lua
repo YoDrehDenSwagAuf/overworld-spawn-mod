@@ -460,7 +460,19 @@ do
   dismiss.onSelect(mon, game)
   eq(game.save.pokepcFollowerCount, 0, "14. selection cleared / count 0")
   eq(#(world.pokepcTrailers or {}), 0, "14. trailer removed")
-  eq(#world.npcs, 0, "14. no stale npc")
+  local staleFollowers, recallGhosts = 0, 0
+  for _, n in ipairs(world.npcs or {}) do
+    if n.pokepcTrailer == true or n.wildsFollower == true then
+      staleFollowers = staleFollowers + 1
+    elseif n._wildsRecallGhost == true or n.fxOnly == true then
+      recallGhosts = recallGhosts + 1
+      check(n.pokepcTrailer ~= true, "14. recall ghost is not a trailer")
+      check(n.wildsFollower ~= true, "14. recall ghost is not wildsFollower")
+      check(n.passable == true, "14. recall ghost passable")
+    end
+  end
+  eq(staleFollowers, 0, "14. no stale follower npc")
+  check(recallGhosts >= 1, "14. presentation recall ghost remains briefly")
   follower:restore()
   end
 end
