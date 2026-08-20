@@ -200,6 +200,10 @@ function ControlEngine.new(mod, deps)
   -- rebuilds (map, battle, style, water) leave this nil → no RELEASE/RECALL.
   self._presentationIntent = nil
   self.presentationFx = PresentationFx.new(mod, { selection = deps.selection })
+  -- Poké Center nurse heal: temporary runtime suppression of visible trailers.
+  -- Never written to options / save. Independent of battle-return flags.
+  self._healingSuppressFollowers = false
+  self._wasHealMachineActive = false
   -- "overworld" = OverworldController.update owns trailer ticks (Gen1);
   -- "gen2_world_event" = Gold World:step owns trailer ticks;
   -- "pikachu_follower" = Gen1 fallback when OW wrap is unavailable.
@@ -550,6 +554,20 @@ function ControlEngine:followerCount(game)
     end
   end
   return 1
+end
+
+--- Configured follower count for trailer composition / visibility.
+-- Returns 0 while Poké Center healing temporarily suppresses followers.
+-- Never mutates options or save — settings UI still reads followerCount().
+function ControlEngine:runtimeTrailerCount(game)
+  if self._healingSuppressFollowers == true then
+    return 0
+  end
+  return self:followerCount(game)
+end
+
+function ControlEngine:isHealingFollowerSuppressed()
+  return self._healingSuppressFollowers == true
 end
 
 --- Programmatic API: write through Settings (options + save mirror).
@@ -1058,7 +1076,7 @@ function ControlEngine:shouldUpdateWildsTrailers(game, ow)
 end
 
 function ControlEngine:partyTrailMons(game)
-  local n = self:followerCount(game)
+  local n = self:runtimeTrailerCount(game)
   if n <= 0 then return {} end
 
   local save = game and game.save
@@ -2419,7 +2437,7 @@ function ControlEngine:syncTrailers(game, ow, opts)
   local surface = surfing and "water" or "land"
 
   -- Solo "pokemon" with a pack size still trails party mons (no trainer NPC).
-  if mode == "pokemon" and self:followerCount(game) > 0 then
+  if mode == "pokemon" and self:runtimeTrailerCount(game) > 0 then
     mode = "pack"
   end
 
@@ -3304,6 +3322,9 @@ function ControlEngine:update(game, ow, opts)
     self:_traceBattleReturn("update", game, ow)
   end
 
+  -- Poké Center heal lifecycle (edge-triggered). Independent of battle flags.
+  pcall(function() self:_pollPokecenterHeal(game, ow, { dt = opts.dt }) end)
+
   -- Out-of-battle HP loss (poison, etc.) does not fire battle.ended.
   -- Reconcile on the existing trailer update cadence so a fainted selected
   -- follower permanently fails over before trailer sync / party menu reads.
@@ -3814,9 +3835,17 @@ function ControlEngine:syncAll(game, ow)
     logGen2(self.mod, "syncPlayerControlVisual failed: %s", tostring(errVis))
   end
   pcall(function() self:forceYellowStockPikachuArt(ow, game) end)
+  local spawnAtPlayer = self._pendingSpawnAtPlayer == true
   local okSync, errSync = pcall(function()
-    self:syncTrailers(game, ow, { mapEnter = true, catchUp = true })
+    self:syncTrailers(game, ow, {
+      mapEnter = true,
+      catchUp = true,
+      spawnAtPlayer = spawnAtPlayer,
+    })
   end)
+  if spawnAtPlayer then
+    self._pendingSpawnAtPlayer = false
+  end
   if not okSync then
     logWarn(self.mod, "syncAll/syncTrailers failed: %s", tostring(errSync))
     logGen2(self.mod, "syncAll failed: %s", tostring(errSync))
@@ -3836,6 +3865,59 @@ end
 function ControlEngine:beginPresentationIntent(reason)
   self._presentationIntent = reason or "party"
   return self._presentationIntent
+end
+
+--- Edge-trigger Poké Center heal lifecycle (presentation + temporary suppress).
+-- Does not touch configured follower_count / options / save.
+function ControlEngine:_pollPokecenterHeal(game, ow, opts)
+  opts = opts or {}
+  local GameCompat = V.require("game_compat")
+  local active = GameCompat.isPokecenterHealActive(game, ow) == true
+  local was = self._wasHealMachineActive == true
+  if active and not was then
+    self:_onPokecenterHealStarted(game, ow)
+  elseif not active and was then
+    self:_onPokecenterHealFinished(game, ow)
+  end
+  self._wasHealMachineActive = active
+  -- Keep presentation ghosts ticking when full update was skipped (Yellow cutscene).
+  if opts.tickFx and self.presentationFx then
+    local dt = tonumber(opts.dt)
+    if not dt or dt <= 0 then dt = 1 / 60 end
+    pcall(function() self.presentationFx:tick(ow, dt) end)
+  end
+  return active
+end
+
+function ControlEngine:_onPokecenterHealStarted(game, ow)
+  if self._healingSuppressFollowers then return end
+  self._healingSuppressFollowers = true
+  local configured = self:followerCount(game) or 0
+  if configured <= 0 then
+    return
+  end
+  -- Recall visible trailers via existing presentation FX; count stays configured.
+  self:beginPresentationIntent("pokecenter_heal")
+  pcall(function() self:syncAll(game, ow) end)
+end
+
+function ControlEngine:_onPokecenterHealFinished(game, ow)
+  if not self._healingSuppressFollowers then return end
+  self._healingSuppressFollowers = false
+  local configured = self:followerCount(game) or 0
+  if configured <= 0 then
+    return
+  end
+  -- Restore from current configured count (not a stale snapshot).
+  self._pendingSpawnAtPlayer = true
+  self:beginPresentationIntent("pokecenter_restore")
+  pcall(function() self:syncAll(game, ow) end)
+end
+
+--- Clear heal suppress on map transitions so it cannot stick across warps.
+function ControlEngine:_clearHealSuppress()
+  self._healingSuppressFollowers = false
+  self._wasHealMachineActive = false
 end
 
 function ControlEngine:_installTalkWrap()
@@ -3985,9 +4067,14 @@ function ControlEngine:_installOverworldUpdateWrap()
       and not vanillaSpawn(game, owSelf)
       and not (owSelf.player and owSelf.player.surfing)
     if inCutscene then
-      -- Skip the engine update so trailers aren't re-added to entities
-      -- during the cutscene.  The engine's own rendering system hides
-      -- NPCs during dialogs / healing — our job is to not fight it.
+      -- Skip the full trailer step so stock cutscenes stay in control —
+      -- but still poll Poké Center heal edges and tick recall/release FX.
+      pcall(function()
+        engine:_pollPokecenterHeal(game, owSelf, {
+          dt = dt,
+          tickFx = true,
+        })
+      end)
     else
       pcall(function()
         engine:update(game, owSelf, {
@@ -4136,6 +4223,8 @@ function ControlEngine:_installEventSubscriptions()
       local game = engine:_game()
       local ow = engine:_liveOw(game)
       engine:_captureMapExit(game, ow, payload)
+      -- Heal suppress must not stick across map changes.
+      engine:_clearHealSuppress()
       -- Remove trailers from the overworld so they disappear during
       -- transitions (healing, warps, doors).  Connection handoffs
       -- reattach them in _applyConnectionHandoff; other entries

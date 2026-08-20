@@ -191,6 +191,19 @@ function GameCompat.isSurfing(game, ow)
   return adapter.isSurfing(game, ow) == true
 end
 
+--- True while the Poké Center nurse heal-machine animation is active.
+-- Edge-trigger this from follower runtime (false→true / true→false).
+-- CANCELLED nurse dialog never sets healAnim — no false positives.
+function GameCompat.isPokecenterHealActive(game, ow)
+  ow = ow or GameCompat.liveOverworld(nil, game)
+  local adapter = GameCompat.current(nil, game)
+  if adapter and type(adapter.isPokecenterHealActive) == "function" then
+    local ok, active = pcall(adapter.isPokecenterHealActive, ow, game)
+    if ok then return active == true end
+  end
+  return ow ~= nil and ow.healAnim ~= nil
+end
+
 function GameCompat.isWaterCell(map, x, y, game)
   local adapter = GameCompat.current(nil, game)
   if adapter and adapter.isWaterCell then

@@ -41,6 +41,7 @@ Gen2.capabilities = {
   ambient = true,
   townPokemon = true,
   safari = false,
+  healDetect = true,
 }
 
 local function tryRequire(path)
@@ -609,6 +610,26 @@ function Gen2.hasCaughtSpecies(game, species)
   local caught = dex.caught
   if type(caught) ~= "table" then return false end
   return caught[species] == true
+end
+
+--- True while a Poké Center HealMachineAnim is running.
+-- Hall of Fame (hof) and Elm's Lab maps are excluded — only nurse PC.
+function Gen2.isPokecenterHealActive(ow, game)
+  ow = goldWorld(game, ow) or ow
+  if not (ow and ow.healAnim) then return false end
+  if ow.healAnim.hof == true then return false end
+  local mapId = tostring(ow.map and ow.map.id or ""):upper()
+  if mapId == "" then return false end
+  if mapId:find("HALL_OF_FAME", 1, true) or mapId:find("HALL OF FAME", 1, true) then
+    return false
+  end
+  if mapId:find("LAB", 1, true) then return false end
+  -- Nurse scripts run on *CENTER / POKECENTER maps.
+  if mapId:find("POKECENTER", 1, true) or mapId:find("_CENTER", 1, true)
+      or mapId:find("CENTER", 1, true) then
+    return true
+  end
+  return false
 end
 
 function Gen2.playerHasPartySpace(game)
