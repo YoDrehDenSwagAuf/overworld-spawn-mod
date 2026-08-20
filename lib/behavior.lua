@@ -7,6 +7,7 @@ local SpawnRegions = V.require("spawn_regions")
 local Movement = V.require("movement")
 local CellOccupancy = V.require("cell_occupancy")
 local SafariCompat = V.require("safari_compat")
+local SpecialSpawnSafety = V.require("special_spawn_safety")
 
 local Behavior = {}
 
@@ -446,6 +447,12 @@ local function canStep(map, entities, entity, player, nx, ny, region, allowLeave
   if map.warpAtCell and map:warpAtCell(nx, ny) then return false, "warp" end
   if player and player.cellX == nx and player.cellY == ny then
     return false, "player"
+  end
+  -- Mandatory story-battle trigger cells (e.g. Tower Marowak) are off-limits
+  -- to Wilds movement so wander/chase cannot occupy them mid-map.
+  local mapId = opts.mapId or (map and map.id) or (entity and entity.mapId)
+  if opts.game and mapId and SpecialSpawnSafety.isReserved(opts.game, mapId, nx, ny) then
+    return false, "story_reserved"
   end
   -- Hard occupancy first (canStep is read-only; never writes reservations).
   local blocked, blockWhy = occupiedBlocked(entities, nx, ny, entity, opts.occupancy)
@@ -887,6 +894,8 @@ local function planWanderStep(entity, ctx, bx, t, opts)
 
   local stepOpts = {
     occupancy = ctx.occupancy,
+    game = ctx.game,
+    mapId = ctx.mapId,
     waterOnly = waterOnly,
     reachableCaveCells = (entity.surface == Surface.CAVE) and ctx.reachableCaveCells or nil,
   }
@@ -1359,6 +1368,7 @@ local function tickLandAggressive(entity, ctx, bx, t)
       occupancy = ctx.occupancy,
       logic = ctx.logic,
       game = ctx.game,
+      mapId = ctx.mapId,
       hasWaterSprite = ctx.hasWaterSprite,
       waterRegions = ctx.waterRegions,
       reachableCaveCells = (entity.surface == Surface.CAVE) and ctx.reachableCaveCells or nil,
@@ -1520,6 +1530,7 @@ local function tickWaterAggressive(entity, ctx, bx, t)
         occupancy = ctx.occupancy,
         logic = ctx.logic,
         game = ctx.game,
+        mapId = ctx.mapId,
         hasWaterSprite = ctx.hasWaterSprite,
         waterRegions = ctx.waterRegions,
       })
@@ -2073,6 +2084,8 @@ function Behavior.tick(entity, ctx)
     end
     local stepOpts = {
       occupancy = ctx.occupancy,
+      game = ctx.game,
+      mapId = ctx.mapId,
       waterOnly = bx.behavior == Behavior.WATER_WANDER or entity.surface == Surface.WATER,
       reachableCaveCells = (entity.surface == Surface.CAVE) and ctx.reachableCaveCells or nil,
     }

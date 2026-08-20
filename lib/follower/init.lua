@@ -253,10 +253,13 @@ function Follower:_installPartyLeaderItems()
         return out
       end
 
-      -- Determine if this mon is currently the active leader/follower
+      -- Canonical active follower identity (fingerprint), not trailer index or
+      -- a stale legacy slot. After faint failover, DISMISS must land on the
+      -- newly selected healthy mon.
       local active = control:getActiveFollowerMon(game)
-      local activeKey = selection.state and selection.state.selectedMonKey
       local monKey = selection.monFingerprint and selection.monFingerprint(mon)
+      local activeKey = active and selection.monFingerprint
+        and selection.monFingerprint(active)
 
       local isActive = active and mon and (
         active == mon or (activeKey and monKey and activeKey == monKey)

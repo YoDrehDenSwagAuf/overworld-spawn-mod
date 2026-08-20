@@ -612,9 +612,8 @@ function ControlEngine:getLeaderMon(game)
     if mon then return mon, "box" end
   end
 
-  -- Prefer Wilds selection when available.  needHealthy=true so a
-  -- fainted leader is skipped — reconcile will have already picked a
-  -- healthy substitute without overwriting the selection.
+  -- Prefer Wilds selection when available. needHealthy=true so a fainted
+  -- leader is skipped — reconcile permanently fails over selection first.
   if self.selection and type(self.selection.getActiveFollowerMon) == "function" then
     local ok, mon, slot = pcall(self.selection.getActiveFollowerMon, self.selection, game, true)
     if ok and mon then return mon, "party", slot end
@@ -1003,16 +1002,14 @@ function ControlEngine:partyTrailMons(game)
   local leader, leadSrc = self:getLeaderMon(game)
   local leadIdx = self:_leaderPartyIndex(game, leader, leadSrc)
   local leadKey = ControlEngine.monIdentityKey(leader)
-  -- Detect when the active leader is a stand-in for a fainted selected
-  -- mon — the substitute only appears at the player's feet, not in the
-  -- trail, so it doesn't look like a duplicate.
+  -- After permanent faint failover, selectedMonKey always matches the
+  -- healthy leader. leadIsSubstitute remains for rare mid-frame races
+  -- before reconcile runs (should be false once reconcile has settled).
   --
   -- NOTE: selKey is Selection's monFingerprint (colon-separated
   -- species:otId:dv:...), NOT ControlEngine.monIdentityKey (pipe-separated
-  -- species|level|nickname|otId|...).  Comparing them directly never
-  -- matches even for the same mon, which always flagged a substitute and
-  -- dropped the leader trailer in Red/Blue (no stock Pikachu renders it).
-  -- Compare the leader's own fingerprint in the selection format instead.
+  -- species|level|nickname|otId|...). Compare the leader's own fingerprint
+  -- in the selection format instead of mixing key formats.
   local selKey = self.selection and self.selection.state
     and self.selection.state.selectedMonKey
   local leadIsSubstitute = false
@@ -3224,11 +3221,27 @@ function ControlEngine:update(game, ow, opts)
     end
     self:_traceBattleReturn("update", game, ow)
   end
+
+  -- Out-of-battle HP loss (poison, etc.) does not fire battle.ended.
+  -- Reconcile on the existing trailer update cadence so a fainted selected
+  -- follower permanently fails over before trailer sync / party menu reads.
+  local selState = self.selection and self.selection.state
+  local beforeKey = selState and selState.selectedMonKey
+  local beforeSlot = selState and selState.selectedSlot
+  if self.selection and game and type(self.selection.reconcile) == "function" then
+    pcall(function() self.selection:reconcile(game) end)
+  end
+  local afterKey = selState and selState.selectedMonKey
+  local afterSlot = selState and selState.selectedSlot
+  local selectionChanged = beforeKey ~= afterKey or beforeSlot ~= afterSlot
+
   -- Always run when a pending sync is queued (stepper menu changed the count
-  -- while the world was paused).  Otherwise skip if trailers aren't needed.
+  -- while the world was paused), or selection just failed over. Otherwise
+  -- skip if trailers aren't needed.
   if not self._pendingMapTrailerSync
      and not self:shouldUpdateWildsTrailers(game, ow)
-     and not opts.force then
+     and not opts.force
+     and not selectionChanged then
     return false, "skip"
   end
 

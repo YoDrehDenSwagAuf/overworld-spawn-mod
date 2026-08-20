@@ -28,6 +28,7 @@ local FollowersWaterCompat = V.require("followers_water_compat")
 local CaveReachability = V.require("cave_reachability")
 local SafariCompat = V.require("safari_compat")
 local GameCompat = V.require("game_compat")
+local SpecialSpawnSafety = V.require("special_spawn_safety")
 
 local SpawnLogic = {}
 SpawnLogic.__index = SpawnLogic
@@ -157,6 +158,36 @@ function SpawnLogic:occupancyContext(ow)
     logicEntities = self.entities,
     trailers = ow and ow.pokepcTrailers,
   }
+end
+
+--- True when Wilds must not place/keep a battleable spawn on (x, y).
+function SpawnLogic:isStoryReservedCell(game, mapId, x, y)
+  return SpecialSpawnSafety.isReserved(game or gameOf(self.mod), mapId, x, y)
+end
+
+--- Remove any Wilds entities sitting on active story-reserved cells.
+-- Used on map init and as a collision safety net; never teleports the player.
+function SpawnLogic:purgeStoryReservedEntities(game, mapId)
+  game = game or gameOf(self.mod)
+  mapId = mapId or self.activeMapId
+  local cells = SpecialSpawnSafety.activeCells(game, mapId)
+  if #cells == 0 then return 0 end
+  local removed = 0
+  for id, entity in pairs(self.entities or {}) do
+    if entity and entity.overworldWildSpawn then
+      local ex, ey = entity.cellX, entity.cellY
+      if ex ~= nil and ey ~= nil then
+        for i = 1, #cells do
+          if cells[i].x == ex and cells[i].y == ey then
+            self:_despawn(id, true)
+            removed = removed + 1
+            break
+          end
+        end
+      end
+    end
+  end
+  return removed
 end
 
 -- Explicit land↔water presentation transitions may request a fingerprint bypass
@@ -1577,7 +1608,12 @@ function SpawnLogic:initializeForMap(mapId, game)
   local probeX, probeY, probeReason = Grass.pickFree(
     ow.map, ow.entities, ow.player, minDist, nil, self.eligibleCache, maxDist,
     function(reason) st:noteReject(reason) end,
-    { mode = surfaceInfo.tileMode })
+    {
+      mode = surfaceInfo.tileMode,
+      isBlocked = function(cx, cy)
+        return SpecialSpawnSafety.isReserved(game, mapId, cx, cy)
+      end,
+    })
   if not probeX then
     st.eligibleTilesAvailable = false
     st:markUnsupported(probeReason or "no eligible tiles")
@@ -1589,6 +1625,10 @@ function SpawnLogic:initializeForMap(mapId, game)
     return false
   end
   st.eligibleTilesAvailable = true
+
+  -- Drop any leftover Wilds entity on an active story trigger (save/load race,
+  -- older build, forced test spawn) before initial fill.
+  self:purgeStoryReservedEntities(game, mapId)
 
   -- 6/7) Required assets + load/validate (real or fallback both count)
   st.assetsLoading = true
@@ -1846,10 +1886,17 @@ function SpawnLogic:trySpawn(game, opts)
         minSeparation = SpawnRegions.minSeparation(),
         preferFar = not opts.force,
         occupancy = occupancy,
+        isBlocked = function(cx, cy)
+          return SpecialSpawnSafety.isReserved(game, mapId, cx, cy)
+        end,
       })
   end
   if not x then
     return nil, reason or "rejected: no eligible tiles"
+  end
+  if self:isStoryReservedCell(game, mapId, x, y) then
+    st:noteReject("rejected: story trigger reserved")
+    return nil, "rejected: story trigger reserved"
   end
   if tileMode == "walkable" and self.caveReachability then
     local cls = CaveReachability.classifyCell(ow.map, self.caveReachability, x, y)
@@ -2127,6 +2174,10 @@ function SpawnLogic:trySpawnWater(game, opts)
   local occupancy = self:rebuildOccupancy(ow)
   local minWaterSep = Config.waterMinSpacing(self.mod)
 
+  local function waterBlocked(cx, cy)
+    return SpecialSpawnSafety.isReserved(game, mapId, cx, cy)
+  end
+
   local x, y, reason = Grass.pickFree(
     ow.map, ow.entities, ow.player,
     Config.DEFAULTS.min_player_distance, nil, zoneCells,
@@ -2140,6 +2191,7 @@ function SpawnLogic:trySpawnWater(game, opts)
       separationMetric = "manhattan",
       preferFar = true,
       occupancy = occupancy,
+      isBlocked = waterBlocked,
     })
   if not x then
     -- Retry against full water cache once (still with strict spacing).
@@ -2156,6 +2208,7 @@ function SpawnLogic:trySpawnWater(game, opts)
         separationMetric = "manhattan",
         preferFar = true,
         occupancy = occupancy,
+        isBlocked = waterBlocked,
       })
     if not x then
       -- No spaced cell → reduce target rather than ignore spacing.
@@ -2173,6 +2226,10 @@ function SpawnLogic:trySpawnWater(game, opts)
     if d ~= nil then
       zone = WaterSpawn.zoneForDistance(d) or zone
     end
+  end
+
+  if self:isStoryReservedCell(game, mapId, x, y) then
+    return nil, "rejected: story trigger reserved"
   end
 
   local spawnToken, reserveErr = occupancy:reserveSpawn(nil, x, y)
@@ -3067,6 +3124,15 @@ function SpawnLogic:_startBattle(record)
     return false
   end
 
+  local game = gameOf(self.mod)
+  local mapId = record.mapId or (ow.map and ow.map.id) or self.activeMapId
+  -- Never start a Wilds battle on an active mandatory story trigger cell
+  -- (e.g. Pokémon Tower Marowak). Despawn the conflicting entity instead.
+  if self:isStoryReservedCell(game, mapId, record.x, record.y) then
+    if record.id then self:_despawn(record.id, true) end
+    return false
+  end
+
   local entity = self.entities[record.id]
   -- Ambient Town Pokémon and any non-battleable wild marker never battle.
   if entity and Config.isBattleableWild and not Config.isBattleableWild(entity) then
@@ -3082,8 +3148,6 @@ function SpawnLogic:_startBattle(record)
     return false
   end
 
-  local game = gameOf(self.mod)
-  local mapId = record.mapId or (ow.map and ow.map.id) or self.activeMapId
   local safariStatus = SafariCompat.status(game, ow, mapId)
   local safariActive = safariStatus == SafariCompat.STATUS.ACTIVE
 
