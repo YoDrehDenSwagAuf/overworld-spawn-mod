@@ -283,6 +283,8 @@ function Follower:_installPartyLeaderItems()
             end
             control._optCache.follower_count = 0
             control._pendingMapTrailerSync = true
+            -- Gameplay cleared above; recall is presentation-only.
+            control:beginPresentationIntent("party_dismiss")
 
             local GameCompat = V.require("game_compat")
             local ow = GameCompat.liveOverworld(mod, selectedGame)
@@ -336,6 +338,8 @@ function Follower:_installPartyLeaderItems()
                 tostring(selSlot))
             end
             control._pendingMapTrailerSync = true
+            -- Selection already persisted; release/recall is presentation-only.
+            control:beginPresentationIntent("party_follow")
 
             local GameCompat = V.require("game_compat")
             local ow = GameCompat.liveOverworld(mod, selectedGame)
@@ -514,6 +518,11 @@ function Follower:onOptionsChanged(payload)
     local game = self.mod and self.mod.world and self.mod.world.game
     self.settings:alignSave(game)
     if self.control then
+      -- Intentional count / mode changes may add or remove visible followers.
+      -- Sprite style rebuilds must stay visually seamless (no RELEASE/RECALL).
+      if key == "follower_count" or key == "follow_control" or key == "trainer_trail" then
+        self.control:beginPresentationIntent("options:" .. tostring(key))
+      end
       self.control:onOptionsChanged(payload)
     end
     self.lifecycle:requestFollowerSpriteRefresh("options:" .. tostring(key), {
@@ -542,6 +551,7 @@ function Follower:selectFollower(mon, game, quiet)
         local GameCompat = V.require("game_compat")
         local ow = GameCompat.liveOverworld(self.mod, g)
         pcall(function()
+          self.control:beginPresentationIntent("party_select")
           self.control:syncAll(g, ow)
         end)
       end

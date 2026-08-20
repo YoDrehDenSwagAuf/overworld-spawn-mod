@@ -16,6 +16,7 @@
 local V = ...
 local Constants = V.require("follower/constants")
 local WildsFs = V.require("wilds_fs")
+local PresentationFx = V.require("follower/presentation_fx")
 
 local DebugLog
 do
@@ -194,6 +195,10 @@ function ControlEngine.new(mod, deps)
   self._owUpdateWrapped = false
   self._gen2WorldStepWrapped = false
   self._inControlUpdate = false
+  -- Intentional party Follow / Dismiss / count / switch only. Technical
+  -- rebuilds (map, battle, style, water) leave this nil → no RELEASE/RECALL.
+  self._presentationIntent = nil
+  self.presentationFx = PresentationFx.new(mod, { selection = deps.selection })
   -- "overworld" = OverworldController.update owns trailer ticks (Gen1);
   -- "gen2_world_event" = Gold World:step owns trailer ticks;
   -- "pikachu_follower" = Gen1 fallback when OW wrap is unavailable.
@@ -1272,12 +1277,28 @@ function ControlEngine:removeTrailers(ow)
   if self:_battleReturnActive() then
     self:_traceBattleReturn("removeTrailers", self:_game(), ow)
   end
+  -- Technical wipes drop presentation FX. Intentional syncAll keeps intent
+  -- set so recall ghosts can be created from the pre-sync capture.
+  if self.presentationFx and not self._presentationIntent then
+    pcall(function() self.presentationFx:clearAll(ow) end)
+  end
   local keepNpcs, keepEnt = {}, {}
   for _, npc in ipairs(ow.npcs or {}) do
-    if not npc.pokepcTrailer then keepNpcs[#keepNpcs + 1] = npc end
+    -- Keep presentation-only recall ghosts (fxOnly); strip trailers.
+    if npc.pokepcTrailer then
+      -- drop
+    elseif npc._wildsRecallGhost == true then
+      keepNpcs[#keepNpcs + 1] = npc
+    else
+      keepNpcs[#keepNpcs + 1] = npc
+    end
   end
   for _, e in ipairs(ow.entities or {}) do
-    if not e.pokepcTrailer then keepEnt[#keepEnt + 1] = e end
+    if e.pokepcTrailer then
+      -- drop
+    else
+      keepEnt[#keepEnt + 1] = e
+    end
   end
   ow.npcs, ow.entities = keepNpcs, keepEnt
   ow.pokepcTrailers = {}
@@ -1543,6 +1564,10 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
   end
   npc._wildsFollowerStep = true
   npc._wildsFollowerStepOwned = true
+  -- Cheap no-op until a release FX is attached; enables draw-time tint/scale.
+  if PresentationFx and PresentationFx.installDrawWrap then
+    pcall(PresentationFx.installDrawWrap, npc)
+  end
   return npc
 end
 
@@ -3237,11 +3262,19 @@ function ControlEngine:update(game, ow, opts)
 
   -- Always run when a pending sync is queued (stepper menu changed the count
   -- while the world was paused), or selection just failed over. Otherwise
-  -- skip if trailers aren't needed.
+  -- skip if trailers aren't needed — but still tick presentation FX so a
+  -- recall ghost after DISMISS can finish while count is 0.
+  local hasPresentationFx = self.presentationFx
+    and self.presentationFx:hasActiveFx(ow)
   if not self._pendingMapTrailerSync
      and not self:shouldUpdateWildsTrailers(game, ow)
      and not opts.force
      and not selectionChanged then
+    if hasPresentationFx then
+      local dt = tonumber(opts.dt)
+      if not dt or dt <= 0 then dt = 1 / 60 end
+      pcall(function() self.presentationFx:tick(ow, dt) end)
+    end
     return false, "skip"
   end
 
@@ -3340,6 +3373,14 @@ function ControlEngine:update(game, ow, opts)
     end
     self:_finishConnectionHandoffIfComplete(ow)
     self:_traceSurf(game, ow)
+    -- Presentation-only RELEASE/RECALL. Ticked after gameplay trail steps so
+    -- FX never owns movement. Menus pause this update → FX starts when the
+    -- overworld is visible again.
+    if self.presentationFx then
+      local dt = tonumber(opts.dt)
+      if not dt or dt <= 0 then dt = 1 / 60 end
+      self.presentationFx:tick(ow, dt)
+    end
   end)
 
   self._inControlUpdate = false
@@ -3690,6 +3731,18 @@ end
 function ControlEngine:syncAll(game, ow)
   game = game or self:_game()
   ow = self:_liveOw(game, ow)
+  -- Capture intentional presentation intent before clearing trailers. Gameplay
+  -- selection/count is already updated by the caller; FX never delays that.
+  local intent = self._presentationIntent
+  local before = nil
+  if intent and self.presentationFx and ow then
+    -- Replace any unfinished prior presentation; this action is authoritative.
+    pcall(function() self.presentationFx:clearGhosts(ow) end)
+    local okCap, cap = pcall(function()
+      return self.presentationFx:captureVisibleFollowers(ow)
+    end)
+    if okCap then before = cap end
+  end
   if ow then pcall(function() self:removeTrailers(ow) end) end
   -- Never reorder the party here. Wilds designates the follower via save data
   -- (pokepcLeader / followerPartyIndex), not party order, so the Yellow
@@ -3711,6 +3764,21 @@ function ControlEngine:syncAll(game, ow)
     logWarn(self.mod, "syncAll/syncTrailers failed: %s", tostring(errSync))
     logGen2(self.mod, "syncAll failed: %s", tostring(errSync))
   end
+  if intent and self.presentationFx and ow and before then
+    pcall(function()
+      self.presentationFx:reconcileAfterSync(ow, before, {
+        stagger = PresentationFx.STAGGER_S,
+      })
+    end)
+  end
+  self._presentationIntent = nil
+end
+
+--- Mark the next syncAll as an intentional party presentation (release/recall).
+-- Technical callers must not set this.
+function ControlEngine:beginPresentationIntent(reason)
+  self._presentationIntent = reason or "party"
+  return self._presentationIntent
 end
 
 function ControlEngine:_installTalkWrap()
