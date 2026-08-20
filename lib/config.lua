@@ -898,21 +898,35 @@ function Config.wildSilhouettes(mod)
 end
 
 --- Effective encounter-zone silhouette for one species.
--- off → never; all → always; undiscovered → silhouette only when Pokédex
--- has not seen the species. Unknown species are treated as unseen.
+-- off → never; all → always; undiscovered → silhouette only when the
+-- Pokédex has no capture registration for the species (owned/caught).
+-- Encounter-only `seen` does NOT clear Undiscovered silhouettes.
+-- Species may be an internal key ("PIDGEY") or canonical asset id (16);
+-- both resolve through GameCompat.resolveSpeciesKey. Unknown → silhouette.
 function Config.shouldWildSilhouette(mod, game, species)
   local mode = Config.wildSilhouetteMode(mod)
   if mode == "off" then return false end
   if mode == "all" then return true end
   if mode ~= "undiscovered" then return false end
-  if type(species) ~= "string" or species == "" then
-    return true -- conservative: unknown → silhouette
-  end
   local ok, GameCompat = pcall(function() return V.require("game_compat") end)
-  if not (ok and GameCompat and GameCompat.hasSeenSpecies) then
+  if not (ok and GameCompat) then
     return true
   end
-  return GameCompat.hasSeenSpecies(game, species) ~= true
+  local key = species
+  if type(GameCompat.resolveSpeciesKey) == "function" then
+    key = GameCompat.resolveSpeciesKey(species)
+  end
+  if type(key) ~= "string" or key == "" then
+    return true -- conservative: unknown → silhouette
+  end
+  if type(GameCompat.hasCaughtSpecies) == "function" then
+    return GameCompat.hasCaughtSpecies(game, key) ~= true
+  end
+  -- Legacy fallback (should not run on current adapters).
+  if type(GameCompat.hasSeenSpecies) == "function" then
+    return GameCompat.hasSeenSpecies(game, key) ~= true
+  end
+  return true
 end
 
 function Config.maxWaterMons(mod)

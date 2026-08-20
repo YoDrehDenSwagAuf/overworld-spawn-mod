@@ -170,7 +170,7 @@ return {
       { "Undiscovered", "undiscovered" },
       { "All", "all" },
     },
-    description = "Off keeps normal colours. Undiscovered silhouettes species not yet seen in the Pokedex. All silhouettes every encounter-zone wild.",
+    description = "Off keeps normal colours. Undiscovered silhouettes species not yet caught / registered in the Pokedex. All silhouettes every encounter-zone wild.",
   },
   {
     key = "overworld_catching",

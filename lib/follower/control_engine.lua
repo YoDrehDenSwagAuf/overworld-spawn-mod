@@ -185,6 +185,7 @@ function ControlEngine.new(mod, deps)
   self._battleReturnTrailers = nil
   self._battleReturnTrailCells = nil
   self._battleReturnTrailHead = nil
+  self._battleReturnMapId = nil
   self._mapExitSnapshot = nil
   self._pendingConnectionHandoff = nil
   self._optCache = {}
@@ -249,6 +250,17 @@ function ControlEngine:_identityInList(list, npc)
   return false
 end
 
+-- Wilds-owned follower presentation (not species — party can duplicate).
+function ControlEngine:_isWildsOwnedTrailer(npc)
+  if not npc then return false end
+  if npc.pokepcTrailer == true then return true end
+  -- Slot/id markers survive some rebuilds that clear pokepcTrailer.
+  if npc.wildsFollower == true and (npc.pokepcTrailerId or npc.wildsFollowerSlot) then
+    return true
+  end
+  return false
+end
+
 -- Authoritative visibility: the SAME object is in the current live
 -- draw/entity/NPC containers. Id / pokepcTrailers / registeredInWorld
 -- are not enough — a late people rebuild can drop the object while
@@ -259,6 +271,40 @@ function ControlEngine:_isTrailerAttached(ow, npc)
     or self:_identityInList(ow.npcs, npc)
 end
 
+--- Drop orphaned Wilds trailer drawables that are not the canonical
+-- pokepcTrailers objects. Gen2 battle-return + route change can leave the
+-- old presentation object in ow.npcs/entities while a new trailer follows.
+-- Identity is object reference / Wilds ownership — never species alone.
+function ControlEngine:_purgeStaleFollowerPresentations(ow)
+  if not ow then return 0 end
+  local keep = {}
+  for _, t in ipairs(ow.pokepcTrailers or {}) do
+    if t then keep[t] = true end
+  end
+  local removed = 0
+  local function scrub(list)
+    if type(list) ~= "table" then return list, 0 end
+    local out, n = {}, 0
+    for _, e in ipairs(list) do
+      if self:_isWildsOwnedTrailer(e) and not keep[e] then
+        n = n + 1
+      else
+        out[#out + 1] = e
+      end
+    end
+    return out, n
+  end
+  local nNpcs, nEnt = 0, 0
+  ow.npcs, nNpcs = scrub(ow.npcs)
+  ow.entities, nEnt = scrub(ow.entities)
+  removed = nNpcs + nEnt
+  if removed > 0 then
+    logGen2(self.mod, "purgedStaleTrailers npcs=%s entities=%s keep=%s",
+      tostring(nNpcs), tostring(nEnt), tostring(#(ow.pokepcTrailers or {})))
+  end
+  return removed
+end
+
 function ControlEngine:_rememberBattleTrailers(ow)
   local trailers = ow and ow.pokepcTrailers
   if not (trailers and #trailers > 0) then return end
@@ -267,14 +313,26 @@ function ControlEngine:_rememberBattleTrailers(ow)
   self._battleReturnTrailers = refs
   self._battleReturnTrailCells = ow.pokepcTrailCells
   self._battleReturnTrailHead = ow.pokepcTrailHead
+  self._battleReturnMapId = ow.map and ow.map.id
 end
 
 -- If the engine replaced the overworld object, pokepcTrailers on the
 -- new instance is empty even though we still hold the live NPCs.
+-- Never adopt across a map id change — that reattaches the pre-transition
+-- object at stale cell coordinates (Gen2 frozen clone after route change).
 function ControlEngine:_adoptRememberedTrailers(ow)
   if not ow then return false end
   local remembered = self._battleReturnTrailers
   if not remembered or #remembered == 0 then return false end
+  local returnMap = self._battleReturnMapId
+  local curMap = ow.map and ow.map.id
+  if returnMap and curMap and returnMap ~= curMap then
+    self._battleReturnTrailers = nil
+    self._battleReturnTrailCells = nil
+    self._battleReturnTrailHead = nil
+    self._battleReturnMapId = nil
+    return false
+  end
   if ow.pokepcTrailers and #ow.pokepcTrailers > 0 then
     self:_rememberBattleTrailers(ow)
     return false
@@ -323,6 +381,7 @@ function ControlEngine:_ensureTrailersAttached(game, ow)
       end
     end
   end
+  self:_purgeStaleFollowerPresentations(ow)
   self:_rememberBattleTrailers(ow)
   self:_traceBattleReturn("ensureTrailersAttached", game, ow, {
     attached = attached,
@@ -346,6 +405,7 @@ function ControlEngine:_clearBattleReturn()
   self._battleReturnTrailers = nil
   self._battleReturnTrailCells = nil
   self._battleReturnTrailHead = nil
+  self._battleReturnMapId = nil
 end
 
 function ControlEngine:_traceBattleReturn(tag, game, ow, extra)
@@ -1272,16 +1332,19 @@ function ControlEngine:removeTrailers(ow)
   if self:_battleReturnActive() then
     self:_traceBattleReturn("removeTrailers", self:_game(), ow)
   end
-  local keepNpcs, keepEnt = {}, {}
-  for _, npc in ipairs(ow.npcs or {}) do
-    if not npc.pokepcTrailer then keepNpcs[#keepNpcs + 1] = npc end
-  end
-  for _, e in ipairs(ow.entities or {}) do
-    if not e.pokepcTrailer then keepEnt[#keepEnt + 1] = e end
-  end
-  ow.npcs, ow.entities = keepNpcs, keepEnt
+  -- Clear the canonical list first. ow.npcs / ow.pokepcTrailers may be the
+  -- SAME table reference in tests and some engine paths; never listRemove
+  -- from a table while ipairs-ing it (Lua skips every other entry).
   ow.pokepcTrailers = {}
   ow.pokepcTrailCells = {}
+  local keepNpcs, keepEnt = {}, {}
+  for _, npc in ipairs(ow.npcs or {}) do
+    if not self:_isWildsOwnedTrailer(npc) then keepNpcs[#keepNpcs + 1] = npc end
+  end
+  for _, e in ipairs(ow.entities or {}) do
+    if not self:_isWildsOwnedTrailer(e) then keepEnt[#keepEnt + 1] = e end
+  end
+  ow.npcs, ow.entities = keepNpcs, keepEnt
 end
 
 function ControlEngine:ledgeStep(game, ow, cx, cy, dir)
@@ -1845,6 +1908,7 @@ function ControlEngine:_applyConnectionHandoff(ow)
     end
   end
   ow.pokepcTrailHistory = snapshot.trailHistory or ow.pokepcTrailHistory
+  self:_purgeStaleFollowerPresentations(ow)
   ow._wildsFollowerSeamActive = true
   self._pendingMapTrailerSync = false
   self._pendingSpawnAtPlayer = false
@@ -2955,6 +3019,9 @@ function ControlEngine:syncTrailers(game, ow, opts)
   if dirty or mapEnter or opts.spawnAtPlayer or countChanged then
     logGen2(self.mod, "activeTrailers=%s", tostring(#(ow.pokepcTrailers or {})))
   end
+  -- One presentation object per logical slot: drop any orphaned Wilds
+  -- trailer still sitting in Gen2 draw containers after reseed / attach.
+  self:_purgeStaleFollowerPresentations(ow)
   return true
 end
 
@@ -4016,6 +4083,18 @@ function ControlEngine:_installEventSubscriptions()
       -- reattach them in _applyConnectionHandoff; other entries
       -- re-create them fresh via spawnAtPlayer.
       pcall(function() engine:removeTrailers(ow) end)
+      -- Battle-return remembered objects must not be re-adopted after a
+      -- route/map change — that left a frozen Gen2 visual clone at the
+      -- pre-transition cell while a new/canonical trailer followed.
+      -- Connection handoff uses _mapExitSnapshot, not battle-return memory.
+      if engine:_battleReturnActive() then
+        engine:_clearBattleReturn()
+      else
+        engine._battleReturnTrailers = nil
+        engine._battleReturnTrailCells = nil
+        engine._battleReturnTrailHead = nil
+        engine._battleReturnMapId = nil
+      end
     end)
   subscribe("map.entered", function(payload)
       local game = engine:_game()
