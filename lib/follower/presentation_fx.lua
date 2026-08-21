@@ -170,6 +170,46 @@ local function drawLightCore(feetX, feetY, light, scale)
   resetColor()
 end
 
+-- OG Red/Blue OBP redraw replays sprites at unscaled screen coords after the
+-- zone pass. A transformed FX blit would be overwritten by a full-size replay,
+-- so drop the redraw entry queued by this exact draw.
+local function dropTrailingObpRedraw()
+  local ok, PaletteFX = pcall(require, "src.render.PaletteFX")
+  if not ok or not PaletteFX or type(PaletteFX.spriteRedraws) ~= "function" then
+    return
+  end
+  local list = PaletteFX.spriteRedraws()
+  if type(list) == "table" and #list > 0 then
+    list[#list] = nil
+  end
+end
+
+local function fxTrace(mod, phase, fields)
+  -- One-shot / lifecycle traces only. Never per-frame in production.
+  if not mod then return end
+  local line = "[Wilds][FollowerFx][Gen1] " .. tostring(phase)
+  if type(fields) == "table" then
+    for _, key in ipairs({
+      "species", "slot", "npcId", "kind", "hasSprite", "hasSpriteDef",
+      "wrapped", "worldContainer", "elapsed",
+    }) do
+      if fields[key] ~= nil then
+        line = line .. " " .. key .. "=" .. tostring(fields[key])
+      end
+    end
+  end
+  if mod.log and type(mod.log.info) == "function" then
+    pcall(mod.log.info, mod.log, "%s", line)
+  end
+end
+
+local function walkPhaseOf(ent)
+  if type(ent.walkPhase) == "function" then
+    return ent:walkPhase() or 0
+  end
+  return 0
+end
+
 --- Install a one-time sprite.draw / npc.draw wrap that reads `_wildsPresentationFx`.
 function PresentationFx.installDrawWrap(npc)
   if not npc or npc._wildsPresentationDrawWrapped then return npc end
@@ -188,21 +228,33 @@ function PresentationFx.installDrawWrap(npc)
     return PresentationFx.sample(fx.kind, t)
   end
 
+  -- Bind (or re-bind) sprite.draw so activeSample reads THIS entity.
+  -- Recall ghosts reuse the captured SpriteRenderer; a wrap still closed over
+  -- the removed trailer would sample a nil FX and draw at full size.
   local function wrapSpriteDraw(ent, sprite)
-    if not (sprite and type(sprite.draw) == "function" and not sprite._wildsFxDrawWrapped) then
+    if not (sprite and type(sprite.draw) == "function") then
       return
     end
+    if sprite._wildsFxDrawWrapped and sprite._wildsFxOwner == ent then
+      return
+    end
+    local orig = sprite._wildsFxOrigDraw
+    if sprite._wildsFxDrawWrapped and type(orig) == "function" then
+      sprite.draw = orig
+    elseif not orig then
+      orig = sprite.draw
+    end
     sprite._wildsFxDrawWrapped = true
-    local orig = sprite.draw
     sprite._wildsFxOrigDraw = orig
-    function sprite:draw(px, py, camX, camY, facing, phase, flip)
-      -- Outer Gen2 draw already applied FX transforms.
+    sprite._wildsFxOwner = ent
+    function sprite:draw(px, py, camX, camY, facing, phase, flip, ...)
+      -- Outer npc.draw already applied FX transforms.
       if ent._wildsFxDrawing then
-        return orig(self, px, py, camX, camY, facing, phase, flip)
+        return orig(self, px, py, camX, camY, facing, phase, flip, ...)
       end
       local sample = activeSample(ent)
       if not sample then
-        return orig(self, px, py, camX, camY, facing, phase, flip)
+        return orig(self, px, py, camX, camY, facing, phase, flip, ...)
       end
       local G = love and love.graphics
       local geom = geometryOf(ent)
@@ -216,15 +268,32 @@ function PresentationFx.installDrawWrap(npc)
         G.scale(sample.scale, sample.scale)
         G.translate(-sx, -sy)
         ent._wildsFxDrawing = true
-        orig(self, px, py, camX, camY, facing, phase, flip)
+        orig(self, px, py, camX, camY, facing, phase, flip, ...)
         ent._wildsFxDrawing = false
+        dropTrailingObpRedraw()
         drawLightCore(sx, sy - 2, sample.light, sample.scale)
         resetColor()
         G.pop()
       else
         setColor(sample.r, sample.g, sample.b, sample.alpha)
-        orig(self, px, py, camX, camY, facing, phase, flip)
+        orig(self, px, py, camX, camY, facing, phase, flip, ...)
         resetColor()
+      end
+      if not ent._wildsFxFirstDrawLogged then
+        ent._wildsFxFirstDrawLogged = true
+        local fx = ent._wildsPresentationFx
+        fxTrace(ent._wildsFxMod, "first_draw", {
+          species = ent.pokepcMon and ent.pokepcMon.species
+            or ent._wildsFollowerSpecies,
+          slot = ent.wildsFollowerSlot or ent._wildsFxSlot,
+          npcId = ent.id,
+          kind = fx and fx.kind,
+          hasSprite = ent.sprite ~= nil,
+          hasSpriteDef = ent.spriteDef ~= nil or (ent.sprite and ent.sprite.def ~= nil),
+          wrapped = true,
+          worldContainer = ent.worldContainer,
+          elapsed = fx and fx.elapsed,
+        })
       end
     end
   end
@@ -234,6 +303,7 @@ function PresentationFx.installDrawWrap(npc)
   end
 
   -- Gen2 World:drawPeople → npc:draw(ox, oy, scale).
+  -- Gen1 OverworldState → e:draw(camX, camY) with scale nil.
   local baseDraw = npc.draw
   if type(baseDraw) == "function" then
     function npc:draw(ox, oy, scale)
@@ -241,27 +311,32 @@ function PresentationFx.installDrawWrap(npc)
       if not sample then
         return baseDraw(self, ox, oy, scale)
       end
-      if self.sprite and not self.sprite._wildsFxDrawWrapped then
+      if self.sprite and (not self.sprite._wildsFxDrawWrapped
+          or self.sprite._wildsFxOwner ~= self) then
         wrapSpriteDraw(self, self.sprite)
       end
       local G = love and love.graphics
-      if scale ~= nil and G and G.push then
+      if not (G and G.push) then
+        return baseDraw(self, ox, oy, scale)
+      end
+
+      local geom = geometryOf(self)
+      local fox, foy = feetScreenOffset(geom)
+      local phase = walkPhaseOf(self)
+      local raw = self.sprite and (self.sprite._wildsFxOrigDraw or self.sprite.draw)
+
+      if scale ~= nil then
+        -- Gen2: ox/oy are camera-translated screen offsets; SpriteRenderer
+        -- draws at world px/py inside the transform (cam 0,0).
         G.push()
         G.translate(ox or 0, oy or 0)
         G.scale(scale, scale)
         setColor(sample.r, sample.g, sample.b, sample.alpha)
-        local geom = geometryOf(self)
-        local fox, foy = feetScreenOffset(geom)
         local feetX = (self.px or 0) + fox
         local feetY = (self.py or 0) + foy
         G.translate(feetX, feetY)
         G.scale(sample.scale, sample.scale)
         G.translate(-feetX, -feetY)
-        local phase = 0
-        if type(self.walkPhase) == "function" then
-          phase = self:walkPhase() or 0
-        end
-        local raw = self.sprite and (self.sprite._wildsFxOrigDraw or self.sprite.draw)
         self._wildsFxDrawing = true
         if raw then
           raw(self.sprite, self.px or 0, self.py or 0, 0, 0,
@@ -275,7 +350,45 @@ function PresentationFx.installDrawWrap(npc)
         G.pop()
         return
       end
-      return baseDraw(self, ox, oy, scale)
+
+      -- Gen1: OverworldState calls e:draw(camX, camY). Apply FX here so we
+      -- do not depend solely on sprite.draw still being wrapped to this NPC.
+      G.push()
+      setColor(sample.r, sample.g, sample.b, sample.alpha)
+      local feetX = (self.px or 0) - (ox or 0) + fox
+      local feetY = (self.py or 0) - (oy or 0) + foy
+      G.translate(feetX, feetY)
+      G.scale(sample.scale, sample.scale)
+      G.translate(-feetX, -feetY)
+      self._wildsFxDrawing = true
+      if raw then
+        raw(self.sprite, self.px or 0, self.py or 0, ox or 0, oy or 0,
+          self.facing or "down", phase, self.stepFlip)
+      else
+        baseDraw(self, ox, oy, scale)
+      end
+      self._wildsFxDrawing = false
+      dropTrailingObpRedraw()
+      drawLightCore(feetX, feetY - 2, sample.light, sample.scale)
+      resetColor()
+      G.pop()
+      if not self._wildsFxFirstDrawLogged then
+        self._wildsFxFirstDrawLogged = true
+        local fx = self._wildsPresentationFx
+        fxTrace(self._wildsFxMod, "first_draw", {
+          species = self.pokepcMon and self.pokepcMon.species
+            or self._wildsFollowerSpecies,
+          slot = self.wildsFollowerSlot or self._wildsFxSlot,
+          npcId = self.id,
+          kind = fx and fx.kind,
+          hasSprite = self.sprite ~= nil,
+          hasSpriteDef = self.spriteDef ~= nil
+            or (self.sprite and self.sprite.def ~= nil),
+          wrapped = self.sprite and self.sprite._wildsFxDrawWrapped == true,
+          worldContainer = self.worldContainer,
+          elapsed = fx and fx.elapsed,
+        })
+      end
     end
   end
 
@@ -283,7 +396,8 @@ function PresentationFx.installDrawWrap(npc)
   local basePose = npc.pose
   if type(basePose) == "function" then
     npc.pose = function(ent)
-      if ent.sprite and not ent.sprite._wildsFxDrawWrapped then
+      if ent.sprite and (not ent.sprite._wildsFxDrawWrapped
+          or ent.sprite._wildsFxOwner ~= ent) then
         wrapSpriteDraw(ent, ent.sprite)
       end
       return basePose(ent)
@@ -400,7 +514,14 @@ function PresentationFx:_beginOnEntity(npc, kind, delay)
   if npc.pikachuFollower == true and npc.pokepcTrailer ~= true then
     return nil
   end
+  npc._wildsFxMod = self.mod
+  npc._wildsFxFirstDrawLogged = nil
   PresentationFx.installDrawWrap(npc)
+  -- Pose wrap rebinds sprite.draw when SpriteRenderer was replaced after the
+  -- initial install (water/land refresh, species swap).
+  if type(npc.pose) == "function" then
+    pcall(npc.pose, npc)
+  end
   local fx = {
     kind = kind,
     elapsed = 0,
@@ -410,11 +531,60 @@ function PresentationFx:_beginOnEntity(npc, kind, delay)
     sourceNpc = npc,
   }
   npc._wildsPresentationFx = fx
+  fxTrace(self.mod, kind == "recall" and "recall_requested" or "release_requested", {
+    species = npc.pokepcMon and npc.pokepcMon.species or npc._wildsFollowerSpecies,
+    slot = npc.wildsFollowerSlot or npc._wildsFxSlot,
+    npcId = npc.id,
+    kind = kind,
+    hasSprite = npc.sprite ~= nil,
+    hasSpriteDef = npc.spriteDef ~= nil or (npc.sprite and npc.sprite.def ~= nil),
+    wrapped = npc.sprite and npc.sprite._wildsFxDrawWrapped == true,
+    worldContainer = npc.worldContainer,
+    elapsed = 0,
+  })
+  fxTrace(self.mod, "attached", {
+    species = npc.pokepcMon and npc.pokepcMon.species or npc._wildsFollowerSpecies,
+    slot = npc.wildsFollowerSlot or npc._wildsFxSlot,
+    npcId = npc.id,
+    kind = kind,
+    hasSprite = npc.sprite ~= nil,
+    wrapped = npc._wildsPresentationDrawWrapped == true,
+    worldContainer = npc.worldContainer,
+  })
+  if npc.sprite and npc.sprite._wildsFxDrawWrapped and npc.sprite._wildsFxOwner == npc then
+    fxTrace(self.mod, "draw_wrap_installed", {
+      species = npc.pokepcMon and npc.pokepcMon.species or npc._wildsFollowerSpecies,
+      slot = npc.wildsFollowerSlot or npc._wildsFxSlot,
+      npcId = npc.id,
+      kind = kind,
+      hasSprite = true,
+      wrapped = true,
+      worldContainer = npc.worldContainer,
+    })
+  end
   return fx
 end
 
 function PresentationFx:_makeGhost(snap, delay)
   if not snap then return nil end
+  -- Rebind presentation to a ghost-owned SpriteRenderer view. Sharing the
+  -- live trailer's already-wrapped sprite leaves activeSample closed over the
+  -- removed NPC (nil FX → full-size draw, no recall animation on Gen1).
+  local ghostSprite = snap.sprite
+  if ghostSprite then
+    local origDraw = ghostSprite._wildsFxOrigDraw or ghostSprite.draw
+    if type(origDraw) == "function" then
+      ghostSprite = setmetatable({
+        def = ghostSprite.def,
+        draw = origDraw,
+        _wildsFxDrawWrapped = nil,
+        _wildsFxOrigDraw = nil,
+        _wildsFxOwner = nil,
+      }, {
+        __index = snap.sprite,
+      })
+    end
+  end
   local ghost = {
     id = "WILDS_FOLLOWER_RECALL_FX_" .. tostring(snap.slot or 0),
     fxOnly = true,
@@ -434,11 +604,13 @@ function PresentationFx:_makeGhost(snap, delay)
     cellY = snap.cellY,
     facing = snap.facing or "down",
     stepFlip = snap.stepFlip == true,
-    sprite = snap.sprite,
-    spriteDef = snap.spriteDef,
+    sprite = ghostSprite,
+    spriteDef = snap.spriteDef or (ghostSprite and ghostSprite.def),
     pokepcMon = snap.mon,
     update = NO_UPDATE,
     _wildsRecallGhost = true,
+    _wildsFxSlot = snap.slot,
+    _wildsFxMod = self.mod,
     -- Gen1 OverworldState:checkTrainerSight indexes npc.def with no nil guard.
     def = {},
     frozen = true,
@@ -474,8 +646,11 @@ function PresentationFx:_makeGhost(snap, delay)
         G.translate(feetX, feetY)
         G.scale(sample.scale, sample.scale)
         G.translate(-feetX, -feetY)
-        self.sprite:draw(self.px or 0, self.py or 0, 0, 0,
+        local raw = self.sprite._wildsFxOrigDraw or self.sprite.draw
+        self._wildsFxDrawing = true
+        raw(self.sprite, self.px or 0, self.py or 0, 0, 0,
           self.facing or "down", phase, self.stepFlip)
+        self._wildsFxDrawing = false
         drawLightCore(feetX, feetY - 2, sample.light, sample.scale)
         resetColor()
       else
@@ -485,11 +660,19 @@ function PresentationFx:_makeGhost(snap, delay)
       G.pop()
       return
     end
-    -- Gen1 camera-arity: rely on sprite.draw wrap.
+    -- Gen1 camera-arity: npc.draw wrap (installDrawWrap) applies FX; this
+    -- fallback still goes through sprite.draw which is rebound to the ghost.
     self.sprite:draw(self.px or 0, self.py or 0, ox or 0, oy or 0,
       self.facing or "down", phase, self.stepFlip)
   end
-  PresentationFx.installDrawWrap(ghost)
+  fxTrace(self.mod, "captured", {
+    species = snap.mon and snap.mon.species,
+    slot = snap.slot,
+    npcId = ghost.id,
+    kind = "recall",
+    hasSprite = ghost.sprite ~= nil,
+    hasSpriteDef = ghost.spriteDef ~= nil,
+  })
   self:_beginOnEntity(ghost, "recall", delay)
   return ghost
 end
@@ -522,7 +705,9 @@ function PresentationFx:reconcileAfterSync(ow, before, opts)
         else
           ow.entities = ow.entities or {}
           ow.entities[#ow.entities + 1] = ghost
+          ghost.worldContainer = "entities"
         end
+        ghost.worldContainer = ghost.worldContainer or "entities"
         self.ghosts[#self.ghosts + 1] = ghost
         recalled = recalled + 1
       end
@@ -559,11 +744,34 @@ function PresentationFx:tick(ow, dt)
       remain = -fx.delay -- leftover after delay
       fx.delay = 0
     end
-    fx.elapsed = (tonumber(fx.elapsed) or 0) + remain
+    local wasElapsed = tonumber(fx.elapsed) or 0
+    fx.elapsed = wasElapsed + remain
+    if wasElapsed == 0 and fx.elapsed > 0 and not fx._wildsFxUpdateLogged then
+      fx._wildsFxUpdateLogged = true
+      fxTrace(self.mod, "update", {
+        species = ent.pokepcMon and ent.pokepcMon.species or ent._wildsFollowerSpecies,
+        slot = ent.wildsFollowerSlot or ent._wildsFxSlot,
+        npcId = ent.id,
+        kind = fx.kind,
+        hasSprite = ent.sprite ~= nil,
+        wrapped = ent.sprite and ent.sprite._wildsFxDrawWrapped == true,
+        worldContainer = ent.worldContainer,
+        elapsed = fx.elapsed,
+      })
+    end
     local dur = tonumber(fx.duration) or PresentationFx.DURATION
     if fx.elapsed >= dur then
       fx.elapsed = dur
       fx.done = true
+      fxTrace(self.mod, "completed", {
+        species = ent.pokepcMon and ent.pokepcMon.species or ent._wildsFollowerSpecies,
+        slot = ent.wildsFollowerSlot or ent._wildsFxSlot,
+        npcId = ent.id,
+        kind = fx.kind,
+        hasSprite = ent.sprite ~= nil,
+        worldContainer = ent.worldContainer,
+        elapsed = fx.elapsed,
+      })
       if fx.kind == "release" then
         -- Guarantee no leftover tint/scale on the live follower.
         ent._wildsPresentationFx = nil

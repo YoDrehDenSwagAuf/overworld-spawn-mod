@@ -575,5 +575,62 @@ do
   check(engine._wasHealMachineActive == false, "map-exit clears wasActive")
 end
 
+--------------------------------------------------------------------
+-- Gen1 Poké Center: recall FX on all, then release FX on restore
+--------------------------------------------------------------------
+do
+  local ow = makeOw()
+  local party = makeParty(3)
+  local game = {
+    save = { party = party, pokepcFollowerCount = 3, pokepcControlMode = "follow" },
+    data = {},
+    overworld = ow,
+    generation = 1,
+  }
+  local engine = makeEngine(game, 3)
+  seedTrailers(engine, game, ow, 3)
+  eq(#(ow.pokepcTrailers or {}), 3, "Gen1 PC setup: 3 trailers")
+
+  ow.healAnim = { balls = 3 }
+  engine:_pollPokecenterHeal(game, ow, {})
+  eq(#(ow.pokepcTrailers or {}), 0, "Gen1 PC heal: gameplay followers removed")
+  check(engine.presentationFx:activeGhostCount() >= 1, "Gen1 PC heal: recall ghosts")
+  for _, g in ipairs(engine.presentationFx.ghosts) do
+    check(g._wildsPresentationFx and g._wildsPresentationFx.kind == "recall",
+      "Gen1 PC heal ghost is recall")
+    local inNpcs = false
+    for _, n in ipairs(ow.npcs or {}) do if n == g then inNpcs = true end end
+    check(not inNpcs, "Gen1 PC recall ghost off npcs")
+  end
+
+  -- Finish ghosts so restore is clean.
+  for _ = 1, 30 do
+    engine.presentationFx:tick(ow, 0.05)
+  end
+
+  ow.healAnim = nil
+  engine:_pollPokecenterHeal(game, ow, {})
+  eq(#(ow.pokepcTrailers or {}), 3, "Gen1 PC restore: 3 trailers")
+  local released = 0
+  for _, t in ipairs(ow.pokepcTrailers or {}) do
+    if t._wildsPresentationFx and t._wildsPresentationFx.kind == "release" then
+      released = released + 1
+    end
+  end
+  eq(released, 3, "Gen1 PC restore: release FX on all")
+  -- Stagger: later slots delayed.
+  local delays = {}
+  for _, t in ipairs(ow.pokepcTrailers or {}) do
+    if t._wildsPresentationFx then
+      delays[#delays + 1] = t._wildsPresentationFx.delay or 0
+    end
+  end
+  table.sort(delays)
+  check(delays[1] == 0, "Gen1 PC stagger first immediate")
+  if delays[2] then
+    check(delays[2] > 0, "Gen1 PC stagger second delayed")
+  end
+end
+
 print(string.format("\n%d failures", failures))
 os.exit(failures == 0 and 0 or 1)

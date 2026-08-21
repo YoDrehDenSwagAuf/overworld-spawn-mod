@@ -3855,6 +3855,11 @@ function ControlEngine:_refreshTrailerMonSprites(game, ow, surface)
             npc.sprite = sprite
             npc._wildsFollowerSpecies = species
             rebound = rebound + 1
+            -- PresentationFx pose/draw wraps rebind sprite.draw to this NPC
+            -- when the SpriteRenderer instance changes mid-FX.
+            if npc._wildsPresentationDrawWrapped and type(npc.pose) == "function" then
+              pcall(npc.pose, npc)
+            end
           end
         end
       end
