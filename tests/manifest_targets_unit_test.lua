@@ -70,10 +70,11 @@ else
 
   eq(table.concat(ModTargets.expand("gen1"), ","), "red,blue,yellow",
      "gen1 expands to red,blue,yellow")
-  eq(table.concat(ModTargets.expand("gen2"), ","), "gold",
-     "gen2 expands to gold (current engine)")
-  eq(ModTargets.expand("silver"), nil,
-     "silver is unknown until the engine has a cache for it")
+  -- Engine ORDER: gold then silver (GameVersion.ORDER / generationVersions).
+  eq(table.concat(ModTargets.expand("gen2"), ","), "gold,silver",
+     "gen2 expands to gold,silver (current engine)")
+  eq(table.concat(ModTargets.expand("silver"), ","), "silver",
+     "silver is a recognized Gen2 game target")
 
   local none = { }
   eq(ModTargets.label(none), "Gen 1",
@@ -105,16 +106,27 @@ else
   eq(GameVersion.generation("blue"), 1, "engine generation(blue) == 1")
   eq(GameVersion.generation("yellow"), 1, "engine generation(yellow) == 1")
   eq(GameVersion.generation("gold"), 2, "engine generation(gold) == 2")
-  eq(GameVersion.VERSIONS.silver, nil, "engine has no silver version id yet")
+  eq(GameVersion.generation("silver"), 2, "engine generation(silver) == 2")
+  check(type(GameVersion.VERSIONS.silver) == "table",
+        "engine silver version definition exists")
+  eq(GameVersion.VERSIONS.silver.id, "silver",
+     "engine silver version id is silver")
+  eq(GameVersion.VERSIONS.silver.generation, 2,
+     "engine silver version generation is 2")
+  eq(GameVersion.VERSIONS.silver.cachePrefix, "silver/",
+     "engine silver has cache prefix silver/")
 
   local prodGames = ModTargets.normalize({ "gen1", "gen2" })
   local prod = { games = prodGames }
+  eq(table.concat(prodGames, ","), "red,blue,yellow,gold,silver",
+     "production normalize(gen1,gen2) → red,blue,yellow,gold,silver")
   eq(ModTargets.label(prod), "Gen 1+2", "production games label Gen 1+2")
   eq(ModTargets.chip(prod), "GEN 1+2", "production games chip GEN 1+2")
   eq(ModTargets.supports(prod, "red"), true, "production supports red")
   eq(ModTargets.supports(prod, "blue"), true, "production supports blue")
   eq(ModTargets.supports(prod, "yellow"), true, "production supports yellow")
   eq(ModTargets.supports(prod, "gold"), true, "production supports gold")
+  eq(ModTargets.supports(prod, "silver"), true, "production supports silver")
 
   print("ok  ModTargets sourced from " .. root)
 end
