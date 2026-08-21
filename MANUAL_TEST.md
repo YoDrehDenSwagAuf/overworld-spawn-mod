@@ -12,6 +12,9 @@
 2. Confirm core options:
    Sprite Style / Pokémon Size / Spawn Amount / Random Enc / Water Mons / OW Catch / Dev Overlay
    (plus Show Wild Mons, Grass View, Idle/Roam/Chase/Hidden Mons).
+2a. Confirm optional **AI Dialogues** (default **Off**), **AI Provider**, **AI Model**,
+    **AI Endpoint**, **AI Memory**. See `docs/AI_DIALOGUES.md` for LM Studio setup.
+    With AI Off, NPC talk must stay fully vanilla/Wilds (no Talk prompt, no network).
 2b. **Pokémon Size** defaults to **Classic**. With Gen1Recomp (≥ #1020) in Flat:
     set **True Size**, Sprite Style **HGSS / PokeMMO**, spawn/test Charizard —
     expect ~32px tall art, feet on the cell, collision still 1 tile.
