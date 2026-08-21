@@ -44,6 +44,7 @@ INCLUDE_PREFIXES = (
     "mod.card",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
+    "THIRD_PARTY_ASSETS.md",
     "README.md",
     "CHANGELOG.md",
     "MANUAL_TEST.md",

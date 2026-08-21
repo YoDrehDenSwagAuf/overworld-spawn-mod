@@ -1765,10 +1765,11 @@ local styleChoices = {}
 for _, choice in ipairs(styleOpt.choices) do
   styleChoices[choice[2]] = choice[1]
 end
-T.eq(#styleOpt.choices, 3, "exactly three public sprite styles")
+T.eq(#styleOpt.choices, 4, "exactly four public sprite styles")
 T.check(styleChoices.pokemmo == "HGSS / PokeMMO", "HGSS / PokeMMO choice present")
 T.check(styleChoices.followers == "Poke Followers / GSC", "Poke Followers / GSC choice present")
 T.check(styleChoices.pokedex == "Pokedex", "Pokedex choice present")
+T.check(styleChoices.pmdcollab == "PMDCollab", "PMDCollab choice present")
 T.check(styleChoices.auto == nil and styleChoices.gold == nil, "legacy styles removed")
 T.eq(#("SPRITE STYLE"), 12, "SPRITE STYLE menu length")
 

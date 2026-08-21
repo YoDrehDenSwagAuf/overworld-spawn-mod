@@ -164,11 +164,82 @@ local function spriteDefWithGeometry(resolved, extras)
     frameHeight = resolved.frameHeight,
     anchorX = resolved.anchorX,
     anchorY = resolved.anchorY,
+    idleFrameCount = resolved.idleFrameCount,
+    idleDurations = resolved.idleDurations,
+    walkFrameCount = resolved.walkFrameCount,
+    walkDurations = resolved.walkDurations,
+    walkCycleBase = resolved.walkCycleBase,
+    disableVerticalStepFlip = resolved.disableVerticalStepFlip,
+    forceRawTrueColor = resolved.forceRawTrueColor,
   }
   if type(extras) == "table" then
     for k, v in pairs(extras) do def[k] = v end
   end
   return def
+end
+
+local function attachPmdIdleToNpc(npc, resolved)
+  if not npc then return end
+  if not (resolved and resolved.providerId == "pmdcollab" and npc.sprite) then
+    npc._pmdIdleMeta = nil
+    npc._pmdIdle = nil
+    npc._pmdWalkMeta = nil
+    npc._pmdWalk = nil
+    return
+  end
+  npc.spriteProviderId = "pmdcollab"
+  npc._pmdIdleMeta = {
+    idleFrameCount = resolved.idleFrameCount
+      or (npc.sprite.def and npc.sprite.def.idleFrameCount),
+    idleDurations = resolved.idleDurations
+      or (npc.sprite.def and npc.sprite.def.idleDurations),
+  }
+  npc._pmdWalkMeta = {
+    walkFrameCount = resolved.walkFrameCount
+      or (npc.sprite.def and npc.sprite.def.walkFrameCount),
+    walkDurations = resolved.walkDurations
+      or (npc.sprite.def and npc.sprite.def.walkDurations),
+    walkCycleBase = resolved.walkCycleBase
+      or (npc.sprite.def and npc.sprite.def.walkCycleBase),
+  }
+  local ok, PmdIdle = pcall(function() return V.require("pmd_idle") end)
+  if ok and PmdIdle then
+    PmdIdle.attachDrawWrap(npc.sprite, npc)
+    PmdIdle.schedule(npc)
+  end
+end
+
+local function attachPresentation(npc, resolved)
+  if not (npc and npc.sprite) then return end
+  -- Presentation (true-color / stepFlip) first; Idle/Walk wrap outermost.
+  local okP, SpritePresentation = pcall(function() return V.require("sprite_presentation") end)
+  if okP and SpritePresentation and SpritePresentation.attach then
+    pcall(SpritePresentation.attach, npc.sprite, npc)
+  end
+  if resolved and resolved.providerId == "pmdcollab" then
+    attachPmdIdleToNpc(npc, resolved)
+  else
+    npc._pmdIdleMeta = nil
+    npc._pmdIdle = nil
+    npc._pmdWalkMeta = nil
+    npc._pmdWalk = nil
+  end
+end
+
+local function tickPmdIdleOnTrailers(ow, dt)
+  if not (ow and ow.pokepcTrailers) then return end
+  local okWalk, PmdWalk = pcall(function() return V.require("pmd_walk") end)
+  local ok, PmdIdle = pcall(function() return V.require("pmd_idle") end)
+  for _, npc in ipairs(ow.pokepcTrailers) do
+    if npc and npc.spriteProviderId == "pmdcollab" then
+      if okWalk and PmdWalk and PmdWalk.update and npc._pmdWalkMeta then
+        pcall(PmdWalk.update, npc, dt)
+      end
+      if ok and PmdIdle and PmdIdle.update and npc._pmdIdleMeta then
+        pcall(PmdIdle.update, npc, dt)
+      end
+    end
+  end
 end
 
 --- Construct a control engine instance.
@@ -1117,6 +1188,7 @@ function ControlEngine:forceYellowStockPikachuArt(ow, game)
     npc.goalX, npc.goalY = preserved.goalX, preserved.goalY
     npc._pokepcFollowerSpecies = species
     npc._wildsFollowerSpecies = species
+    attachPresentation(npc, resolved)
   end
 end
 
@@ -1762,6 +1834,7 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
       -- (Follower.lua does not rebuild it). Keep that sprite unless missing.
       if gen2 and npc.sprite then
         npc.spriteDef = npc.spriteDef or spriteDef
+        attachPresentation(npc, resolved)
       else
         local ok, sprite = pcall(SpriteRenderer.new, spriteDefWithGeometry(resolved, {
           pokepcShiny = npc.pokepcShiny,
@@ -1774,6 +1847,7 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
         elseif sprite then
           npc.sprite = sprite
           if gen2 then npc.spriteDef = sprite.def or spriteDef end
+          attachPresentation(npc, resolved)
         end
       end
     end
@@ -3563,6 +3637,11 @@ function ControlEngine:update(game, ow, opts)
       local dt = tonumber(opts.dt)
       if not dt or dt <= 0 then dt = 1 / 60 end
       pcall(function() self.presentationFx:tick(ow, dt) end)
+      tickPmdIdleOnTrailers(ow, dt)
+    else
+      local dt = tonumber(opts.dt)
+      if not dt or dt <= 0 then dt = 1 / 60 end
+      tickPmdIdleOnTrailers(ow, dt)
     end
     return false, "skip"
   end
@@ -3669,6 +3748,11 @@ function ControlEngine:update(game, ow, opts)
       local dt = tonumber(opts.dt)
       if not dt or dt <= 0 then dt = 1 / 60 end
       self.presentationFx:tick(ow, dt)
+      tickPmdIdleOnTrailers(ow, dt)
+    else
+      local dt = tonumber(opts.dt)
+      if not dt or dt <= 0 then dt = 1 / 60 end
+      tickPmdIdleOnTrailers(ow, dt)
     end
   end)
 
@@ -3811,6 +3895,7 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
         if ok and sprite then
           npc.sprite = sprite
           npc._wildsFollowerSpecies = species
+          attachPresentation(npc, resolved)
         end
       end
       npc.wildsFollowerWater = (surface == "water")
@@ -3855,6 +3940,7 @@ function ControlEngine:_refreshTrailerMonSprites(game, ow, surface)
             npc.sprite = sprite
             npc._wildsFollowerSpecies = species
             rebound = rebound + 1
+            attachPresentation(npc, resolved)
             -- PresentationFx pose/draw wraps rebind sprite.draw to this NPC
             -- when the SpriteRenderer instance changes mid-FX.
             if npc._wildsPresentationDrawWrapped and type(npc.pose) == "function" then

@@ -146,6 +146,7 @@ function Interaction:showFollowMessage(game, ow, npc, mon, done)
   end
 
   local GameCompat = V.require("game_compat")
+  local PokemonDialogue = V.require("pokemon_dialogue")
   local interaction = self
   local allowBall = self.control ~= nil
     and type(self.control.manualRecallFollower) == "function"
@@ -157,14 +158,22 @@ function Interaction:showFollowMessage(game, ow, npc, mon, done)
   local gen = GameCompat.generation(self.mod, game)
   local gen1 = GameCompat.isGen1(self.mod, game) == true
 
+  local dialogOpts = {
+    species = mon.species,
+    mon = mon,
+    randomGeneric = false,
+    mood = "normal",
+    labels = { "Ok", "Ball" },
+  }
+
   if not allowBall then
-    GameCompat.presentText(self.mod, game, ow, text, done)
+    PokemonDialogue.presentText(self.mod, game, ow, text, done, dialogOpts)
     return true
   end
 
   talkPhase(self.mod, "choice_open", { generation = gen })
 
-  GameCompat.presentTextChoice(self.mod, game, ow, text, function(okay)
+  PokemonDialogue.presentTextChoice(self.mod, game, ow, text, function(okay)
     setChoiceCallbackFlag(interaction, true)
     talkPhase(interaction.mod, "CHOICE_CALLBACK_ENTER", {
       generation = gen,
@@ -214,9 +223,7 @@ function Interaction:showFollowMessage(game, ow, npc, mon, done)
     end
     talkPhase(interaction.mod, "CHOICE_CALLBACK_EXIT", { generation = gen })
     setChoiceCallbackFlag(interaction, false)
-  end, {
-    labels = { "Ok", "Ball" },
-  })
+  end, dialogOpts)
   return true
 end
 

@@ -10,6 +10,13 @@ See the asset-specific documentation and credits for details.
 
 ## Notable third-party material
 
+- **PMDCollab / SpriteCollab** overworld sprites and portraits under
+  `assets/pmdcollab/` are derived at build time from
+  [PMDCollab/SpriteCollab](https://github.com/PMDCollab/SpriteCollab)
+  (CC BY-NC 4.0). See `THIRD_PARTY_ASSETS.md`, `assets/pmdcollab/LICENSE.txt`,
+  and `assets/pmdcollab/CREDITS.txt`. Wilds does not ship the full upstream
+  repository; only Gen1–Gen2 Walk/Idle sheets and selected portrait emotions.
+  Dialogue portraits are independent of the selected overworld Sprite Style.
 - Follow-sprite / overworld Pokemon art under `assets/enhanced_overworld/`
   remains under the license of its original authors and sources. It is not
   covered by this project's MIT License.

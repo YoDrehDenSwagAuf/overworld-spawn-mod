@@ -17,10 +17,12 @@ The mod targets **Gen 1 + Gen 2** in Gen1Recomp's Mod Manager.
 - Water Pokémon (swimming sprites, silhouettes, or classic encounters)
 - Cave spawn filtering
 - Town / ambient Pokémon
-- Sprite styles: Poké Followers / GSC, HGSS / PokeMMO, Pokédex
+- Sprite styles: Poké Followers / GSC, HGSS / PokeMMO, Pokédex, PMDCollab
 - Sprite size follows Sprite Style — GSC uses Classic (one-tile 16×16);
   HGSS uses True Size (larger relative species sizes) when the active renderer
-  can consume variable SpriteDef geometry
+  can consume variable SpriteDef geometry; PMDCollab keeps native imported sizes
+- PMDCollab dialogue portraits for Wilds Pokémon talk (followers, town Pokémon,
+  generic cries) — independent of the selected overworld Sprite Style
 - Red / Blue / Yellow, plus experimental Pokémon Gold (beta)
 - Safari compatibility
 - Stable species-based sprite identity (reordered Pokédex / Fakemon mods keep
@@ -77,7 +79,7 @@ There is no second settings store. Defaults match `options.lua`.
 | Setting | Values | Default | Description |
 |---------|--------|---------|-------------|
 | Show Wild Mons | On / Off | On | Spawn visible wild Pokémon in eligible areas. |
-| Sprite Style | Poke Followers / GSC · HGSS / PokeMMO · Pokédex | Poke Followers / GSC | Overworld sprite style for wilds and followers. GSC uses Classic (16×16); HGSS uses True Size. |
+| Sprite Style | Poke Followers / GSC · HGSS / PokeMMO · Pokédex · PMDCollab | Poke Followers / GSC | Overworld sprite style for wilds and followers. GSC uses Classic (16×16); HGSS uses True Size; PMDCollab uses native imported geometry with directional walk and occasional idle animations. Dialogue portraits are separate (always PMDCollab for supported Wilds Pokémon talk). |
 | Sprite Fade | Solid / Faded | Solid | Opacity of normal wild sprites (Solid = fully opaque). Does not affect followers, Town Pokémon, silhouettes, or UI. |
 | Spawn Amount | Low / Normal / High / Very High | Normal | How many visible overworld Pokémon can appear (including water). |
 | Random Enc | On / Off | On | Classic step-based random encounters. Visible overworld Pokémon stay active. |

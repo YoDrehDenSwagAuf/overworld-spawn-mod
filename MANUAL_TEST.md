@@ -26,6 +26,13 @@
    SPRITE STYLE / SPAWN AMOUNT / RANDOM ENC / WATER MONS there.
 7. Load an older save: Water Mons `true`/`false` must migrate without crash
    (`true` → Swim Sprites, `false` → Classic Enc).
+8. Confirm **Sprite Style** includes **PMDCollab** (optional; default remains
+   Poke Followers / GSC). With PMDCollab: wilds/followers walk with directional
+   frames and occasional idle animations while standing.
+9. Talk to a follower / town Pokémon with Sprite Style set to Dex, HGSS,
+   Poke-Followers, **and** PMDCollab — a PMDCollab portrait should appear in
+   all four cases (portraits are independent of Sprite Style). Ok/Ball must
+   still work on followers.
 
 ## Overworld Catch (optional)
 
