@@ -12,7 +12,7 @@
   "dependencies": [],
   "optional_dependencies": [],
   "conflicts": [],
-  "permissions": ["engine_internals"],
+  "permissions": ["engine_internals", "network"],
   "affects_link": false,
   "options_schema": "options.lua",
   "description": "Visible and reactive wild Pokemon for the Gen 1 overworld. Experimental Pokemon Gold / Gen 2 support (beta).",

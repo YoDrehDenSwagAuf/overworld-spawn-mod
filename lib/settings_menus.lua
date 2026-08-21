@@ -737,6 +737,43 @@ function SettingsMenus:_openWildsRoot(game)
       end,
     },
     {
+      label = "AI DIALOGUES",
+      stepper = true,
+      wrap = true,
+      choices = { { label = "OFF", value = false }, { label = "ON", value = true } },
+      current = optGet(mod, "ai_dialogues", false) == true,
+      right = (optGet(mod, "ai_dialogues", false) == true) and "ON" or "OFF",
+      apply = function(v)
+        optSet(mod, "ai_dialogues", v == true)
+      end,
+    },
+    {
+      label = "AI PROVIDER",
+      stepper = true,
+      wrap = true,
+      choices = {
+        { label = "LOCAL", value = "local" },
+        { label = "OPENAI", value = "openai" },
+        { label = "CUSTOM", value = "custom" },
+      },
+      current = tostring(optGet(mod, "ai_provider", "local") or "local"),
+      right = ({ ["local"] = "LOCAL", openai = "OPENAI", custom = "CUSTOM" })[tostring(optGet(mod, "ai_provider", "local") or "local")] or "LOCAL",
+      apply = function(v)
+        optSet(mod, "ai_provider", tostring(v))
+      end,
+    },
+    {
+      label = "AI MEMORY",
+      stepper = true,
+      wrap = true,
+      choices = { { label = "ON", value = true }, { label = "OFF", value = false } },
+      current = optGet(mod, "ai_memory", true) ~= false,
+      right = (optGet(mod, "ai_memory", true) ~= false) and "ON" or "OFF",
+      apply = function(v)
+        optSet(mod, "ai_memory", v == true)
+      end,
+    },
+    {
       label = "DEV OVERLAY",
       stepper = true,
       wrap = true,
@@ -1185,6 +1222,7 @@ SettingsMenus.WILDS_OPTION_KEYS = {
   "catch_throw_key", "catch_cycle_key", "catch_throw_combo", "catch_cycle_combo",
   "catch_hud_size",
   "enable_idle", "enable_wander", "enable_aggressive", "enable_hidden",
+  "ai_dialogues", "ai_provider", "ai_model", "ai_endpoint", "ai_memory",
   "dev_overlay",
 }
 

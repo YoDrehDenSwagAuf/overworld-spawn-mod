@@ -139,6 +139,12 @@ Config.DEFAULTS = {
   water_density_high = 1.40,
   water_density_very_high = 1.60,
   max_water_mons = 6, -- soft global cap for visible water mons
+  -- Optional AI NPC dialogues (default OFF; never a hard dependency).
+  ai_dialogues = false,
+  ai_provider = "local", -- local | openai | custom
+  ai_model = "local",
+  ai_memory = true,
+  ai_endpoint = "http://127.0.0.1:1234/v1",
 }
 
 -- Entity lifecycle states for encounter safety.

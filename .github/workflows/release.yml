@@ -100,7 +100,12 @@ jobs:
             tests/occupancy_dirty_unit_test.lua \
             tests/perf_stats_unit_test.lua \
             tests/voxel_adapter_perf_unit_test.lua \
-            tests/hgss_water_presentation_perf_unit_test.lua
+            tests/hgss_water_presentation_perf_unit_test.lua \
+            tests/ai_transport_unit_test.lua \
+            tests/ai_provider_unit_test.lua \
+            tests/ai_config_secrets_unit_test.lua \
+            tests/ai_context_builder_unit_test.lua \
+            tests/ai_dialogue_flow_unit_test.lua
           do
             echo "==> luajit $t"
             luajit "$t"

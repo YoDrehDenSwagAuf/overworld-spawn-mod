@@ -25,6 +25,8 @@ The mod targets **Gen 1 + Gen 2** in Gen1Recomp's Mod Manager.
 - Safari compatibility
 - Stable species-based sprite identity (reordered Pokédex / Fakemon mods keep
   the correct Wilds art, or the missing-sprite fallback)
+- Optional AI NPC dialogues (local LM Studio / OpenAI-compatible; default Off —
+  see [`docs/AI_DIALOGUES.md`](docs/AI_DIALOGUES.md))
 
 ## Pokémon Gold / Gen 2 Support — Beta
 

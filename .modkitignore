@@ -89,6 +89,11 @@ tests/water_shadow_unit_test.lua
 tests/water_spawn_unit_test.lua
 tests/water_sprites_unit_test.lua
 tests/wild_rebind_geometry_unit_test.lua
+tests/ai_transport_unit_test.lua
+tests/ai_provider_unit_test.lua
+tests/ai_config_secrets_unit_test.lua
+tests/ai_context_builder_unit_test.lua
+tests/ai_dialogue_flow_unit_test.lua
 
 # Repo / authoring tooling (not runtime).
 scripts/bootstrap.sh

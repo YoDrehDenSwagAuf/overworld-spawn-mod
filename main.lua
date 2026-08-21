@@ -14,6 +14,7 @@
 --   lib/followers_water_compat.lua - optional Followers EX water sprites
 --   lib/follower/           - unified follower core (selection/lifecycle/talk)
 --   lib/catching/           - optional overworld Poké Ball catching
+--   lib/ai/                 - optional AI NPC dialogues (default off)
 --   lib/diagnostics.lua     - status derivation for HUD/logs
 --   options.lua             - Mod Manager option schema
 --
@@ -163,6 +164,29 @@ return function(mod)
     ambient:install()
   end
 
+  -- Optional AI NPC dialogues (default OFF). Install after ambient so talk
+  -- wraps chain correctly. Zero work when disabled.
+  local Ai = V.require("ai/init")
+  local aiDialogues = Ai.new(mod, { follower = follower })
+  pcall(function() aiDialogues:install() end)
+  if mod.content and mod.content.render_pipelines
+     and type(mod.content.render_pipelines.register) == "function" then
+    pcall(function()
+      mod.content.render_pipelines:register("overworld_wild_spawns:ai_dialogues", {
+        label = "WILDS AI CHAT",
+        levels = { "OFF", "ON" },
+        priority = 2,
+        available = function()
+          return true
+        end,
+        present = function(canvas, ctx)
+          pcall(function() aiDialogues:tick() end)
+          return canvas
+        end,
+      })
+    end)
+  end
+
   local OverworldCatching = V.require("catching/init")
   local catching = OverworldCatching.new(mod, logic)
   logic.catching = catching
@@ -300,6 +324,9 @@ return function(mod)
       pcall(function() ambient:onBattleEnded({ source = "world.stepped" }) end)
     end
     pcall(function() logic:rebuildOccupancy() end)
+    if aiDialogues then
+      pcall(function() aiDialogues:tick() end)
+    end
   end)
 
   mod.events:on("battle.ended", function()
@@ -540,6 +567,7 @@ return function(mod)
   mod.exports.follower = follower
   mod.exports.ambient = ambient
   mod.exports.catching = catching
+  mod.exports.aiDialogues = aiDialogues
   mod.exports.handleOptionsChanged = handleOptionsChanged
   mod.exports.isBattleableWild = Config.isBattleableWild
   mod.exports.overworldCatchingEnabled = function()

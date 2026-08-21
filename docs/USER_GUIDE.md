@@ -30,8 +30,12 @@ The ZIP root must contain `manifest.json` directly (no wrapping folder).
 |---|---|
 | Mod Manager switch off | Mod not loaded; fully vanilla |
 | Option **Show Wild Mons** off | Removes entities, restores vanilla grass rolls |
+| Option **AI Dialogues** off (default) | Normal NPC dialogue only; no network |
 
 No game restart is required; options apply live.
+
+Optional free-text NPC chat (local LM Studio or OpenAI-compatible) is documented
+in [`AI_DIALOGUES.md`](AI_DIALOGUES.md).
 
 ## 4. Prerequisites
 
