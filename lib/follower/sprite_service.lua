@@ -154,6 +154,8 @@ function SpriteService:resolveFollowerSprite(opts)
         anchorY = def.anchorY,
         idleFrameCount = def.idleFrameCount,
         idleDurations = def.idleDurations,
+        disableVerticalStepFlip = def.disableVerticalStepFlip,
+        forceRawTrueColor = def.forceRawTrueColor,
         providerId = result.providerId,
         role = role,
         surface = "land",

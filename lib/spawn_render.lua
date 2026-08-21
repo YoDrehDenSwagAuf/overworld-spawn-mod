@@ -1637,6 +1637,12 @@ function Entity:pose()
   self._lastLift = (self.py or 0) - visualY
   local phase = Movement.walkPhase(self)
   local flip = self.stepFlip == true
+  do
+    local okP, SpritePresentation = pcall(function() return V.require("sprite_presentation") end)
+    if okP and SpritePresentation and SpritePresentation.effectiveStepFlip then
+      flip = SpritePresentation.effectiveStepFlip(sprite, flip)
+    end
+  end
   self.phase = phase
   self.flip = flip
   self.walkFlip = flip
@@ -2431,7 +2437,13 @@ function SpawnRender:applyProviderSprite(entity, game, options)
   entity.paletteRedpp = redpp
   entity.spriteVariant = (result.meta and result.meta.usedVariant) or variant
   entity.usingFollowerSprite = (result.providerId == "followers_ex")
-  -- PMDCollab presentation-only Idle metadata + draw wrap.
+  -- Presentation wrap first; Idle wrap outermost so frameOverride reaches it.
+  do
+    local okP, SpritePresentation = pcall(function() return V.require("sprite_presentation") end)
+    if okP and SpritePresentation and SpritePresentation.attach then
+      pcall(SpritePresentation.attach, sprite, entity)
+    end
+  end
   if result.providerId == "pmdcollab" then
     entity._pmdIdleMeta = {
       idleFrameCount = def.idleFrameCount or (result.meta and result.meta.idleFrameCount),

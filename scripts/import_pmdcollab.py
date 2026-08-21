@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import subprocess
 import sys
@@ -42,7 +43,7 @@ from pathlib import Path
 
 from PIL import Image
 
-IMPORTER_VERSION = "1"
+IMPORTER_VERSION = "2"
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets" / "pmdcollab"
 
@@ -165,16 +166,47 @@ def parse_anim_data(path: Path) -> dict[str, dict]:
     return anims
 
 
-def offset_anchor(offsets: Image.Image, fw: int, fh: int, col: int, row: int) -> tuple[float, float]:
-    """Green pixel in Offsets.png = body center; fallback frame center / feet."""
+def find_marker(cell: Image.Image, pred) -> tuple[float, float] | None:
+    """Return first matching opaque marker pixel (integer coords as floats)."""
+    w, h = cell.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = cell.getpixel((x, y))
+            if a > 200 and pred(r, g, b):
+                return float(x), float(y)
+    return None
+
+
+def offset_body_center(offsets: Image.Image, fw: int, fh: int, col: int, row: int) -> tuple[float, float]:
+    """Offsets.png (PMD Sprite Format): green = body center, black = head,
+    red/blue = hands. Returns body-center (green), else frame center."""
     x0, y0 = col * fw, row * fh
     cell = offsets.crop((x0, y0, x0 + fw, y0 + fh)).convert("RGBA")
-    for y in range(fh):
-        for x in range(fw):
-            r, g, b, a = cell.getpixel((x, y))
-            if a > 200 and g > 200 and r < 100 and b < 100:
-                return float(x) + 0.5, float(y) + 0.5
-    return fw / 2.0, float(fh)
+    hit = find_marker(cell, lambda r, g, b: g > 200 and r < 100 and b < 100)
+    if hit:
+        return hit
+    return fw / 2.0, fh / 2.0
+
+
+def shadow_ground_point(shadow: Image.Image, fw: int, fh: int, col: int, row: int) -> tuple[float, float] | None:
+    """Shadow.png: white pixel = shadow center (ground contact under the sprite)."""
+    x0, y0 = col * fw, row * fh
+    cell = shadow.crop((x0, y0, x0 + fw, y0 + fh)).convert("RGBA")
+    return find_marker(cell, lambda r, g, b: r > 200 and g > 200 and b > 200)
+
+
+def alpha_feet_xy(tile: Image.Image) -> tuple[float, float] | None:
+    """Visible feet contact ≈ horizontal center of alpha bbox, bottom pixel.
+
+    PIL getbbox() lower/right edges are exclusive.
+    """
+    if tile.mode != "RGBA":
+        tile = tile.convert("RGBA")
+    bbox = tile.getchannel("A").getbbox()
+    if not bbox:
+        return None
+    x0, _y0, x1, y1 = bbox
+    return (x0 + x1 - 1) / 2.0, float(y1 - 1)
 
 
 def extract_frame(sheet: Image.Image, fw: int, fh: int, col: int, row: int) -> Image.Image:
@@ -182,12 +214,29 @@ def extract_frame(sheet: Image.Image, fw: int, fh: int, col: int, row: int) -> I
     return sheet.crop((x0, y0, x0 + fw, y0 + fh)).convert("RGBA")
 
 
-def paste_centered(dst: Image.Image, src: Image.Image, feet_align: bool = True) -> None:
-    """Paste src onto transparent dst canvas; feet-align when heights differ."""
-    dw, dh = dst.size
-    sw, sh = src.size
-    x = (dw - sw) // 2
-    y = (dh - sh) if feet_align else (dh - sh) // 2
+def paste_at_contact(
+    dst: Image.Image,
+    src: Image.Image,
+    ground_y: float,
+    contact_x: float,
+    contact_y: float,
+    body_x: float | None = None,
+) -> None:
+    """Paste src so (contact_x, contact_y) lands on (canvas_mid, ground_y).
+
+    contact is SpriteCollab Shadow white (preferred) or visible alpha feet.
+    Horizontal: prefer Offsets green body-center when provided so asymmetric
+    frames do not drift when padding changes.
+    """
+    dw, _dh = dst.size
+    if src.mode != "RGBA":
+        src = src.convert("RGBA")
+    # Exact integer paste so contact maps onto the ground row without 0.5 drift.
+    y = int(round(ground_y)) - int(round(contact_y))
+    if body_x is not None:
+        x = int(round(dw / 2.0 - body_x))
+    else:
+        x = int(round(dw / 2.0 - contact_x))
     dst.alpha_composite(src, (x, y))
 
 
@@ -213,13 +262,51 @@ def resolve_variant_dir(species_dir: Path, shiny: bool) -> Path | None:
     return None
 
 
+def frame_contact(
+    tile: Image.Image,
+    shadow_sheet: Image.Image | None,
+    fw: int,
+    fh: int,
+    col: int,
+    row: int,
+) -> tuple[float, float, str]:
+    """Return (contact_x, contact_y, source) in tile coords.
+
+    Prefer Shadow.png white (PMD ground / shadow center). Fall back to the
+    visible alpha feet. Offsets green is body center — not ground.
+    """
+    if shadow_sheet is not None:
+        gp = shadow_ground_point(shadow_sheet, fw, fh, col, row)
+        if gp:
+            return gp[0], gp[1], "shadow_white"
+    feet = alpha_feet_xy(tile)
+    if feet:
+        return feet[0], feet[1], "alpha_feet"
+    return fw / 2.0, float(fh), "frame_bottom"
+
+
 def build_combined_sheet(
     walk_sheet: Image.Image,
     walk_meta: dict,
     idle_sheet: Image.Image | None,
     idle_meta: dict | None,
     offsets: Image.Image | None,
+    shadow: Image.Image | None = None,
+    idle_shadow: Image.Image | None = None,
 ) -> tuple[Image.Image, dict]:
+    """Build Gen1Recomp walker sheet with a stable ground anchor.
+
+    SpriteCollab Offsets.png markers (wiki PMD Sprite Format):
+      green = body center, black = head, red = left hand, blue = right hand.
+    SpriteCollab Shadow.png:
+      white = shadow center (intended ground contact under the sprite).
+
+    Gen1Recomp SpriteRenderer maps world stand point through anchorX/anchorY.
+    Using canvas_h as anchorY was wrong: frames carry large transparent padding
+    below the contact row, so the art floated ~1 tile high. We anchor on the
+    Shadow white (or alpha feet) contact row, and place every frame so that
+    contact shares the same canvas Y/X (no animation jitter).
+    """
     wfw = int(walk_meta["frameWidth"])
     wfh = int(walk_meta["frameHeight"])
     walk_n = len(walk_meta.get("durations") or []) or max(1, walk_sheet.width // max(wfw, 1))
@@ -232,24 +319,24 @@ def build_combined_sheet(
         ifh = int(idle_meta["frameHeight"])
         idle_n = len(idle_meta.get("durations") or []) or max(1, idle_sheet.width // max(ifw, 1))
 
-    canvas_w = max(wfw, ifw)
-    canvas_h = max(wfh, ifh)
-    total_frames = 6 + (idle_n * len(IDLE_DIRS) if idle_n > 0 else 0)
-
-    out = Image.new("RGBA", (canvas_w, canvas_h * total_frames), (0, 0, 0, 0))
     mid = walk_mid_col(walk_n)
+    # (frame_index, tile, body_x|None, contact_x, contact_y)
+    tiles: list[tuple[int, Image.Image, float | None, float, float]] = []
 
-    # Walker poses
+    stand_down = extract_frame(walk_sheet, wfw, wfh, 0, DIR_ROWS["down"])
+    _cx0, _cy0, anchor_source = frame_contact(
+        stand_down, shadow, wfw, wfh, 0, DIR_ROWS["down"])
+
     for i, dname in enumerate(WALKER_DIRS):
         row = DIR_ROWS[dname]
-        stand = extract_frame(walk_sheet, wfw, wfh, 0, row)
-        walk = extract_frame(walk_sheet, wfw, wfh, mid, row)
-        for frame_i, tile in ((i, stand), (i + 3, walk)):
-            cell = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
-            paste_centered(cell, tile, feet_align=True)
-            out.paste(cell, (0, frame_i * canvas_h))
+        for phase, col, frame_i in ((0, 0, i), (1, mid, i + 3)):
+            tile = extract_frame(walk_sheet, wfw, wfh, col, row)
+            bx = None
+            if offsets is not None:
+                bx, _ = offset_body_center(offsets, wfw, wfh, col, row)
+            cx, cy, _ = frame_contact(tile, shadow, wfw, wfh, col, row)
+            tiles.append((frame_i, tile, bx, cx, cy))
 
-    # Idle blocks
     idle_durations: list[int] = []
     if idle_n > 0 and idle_sheet is not None and idle_meta:
         idle_durations = list(idle_meta.get("durations") or [4] * idle_n)
@@ -258,24 +345,48 @@ def build_combined_sheet(
             row = DIR_ROWS[dname]
             for fi in range(idle_n):
                 tile = extract_frame(idle_sheet, ifw, ifh, fi, row)
-                cell = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
-                paste_centered(cell, tile, feet_align=True)
-                out.paste(cell, (0, (base + di * idle_n + fi) * canvas_h))
+                cx, cy, _ = frame_contact(tile, idle_shadow, ifw, ifh, fi, row)
+                tiles.append((base + di * idle_n + fi, tile, None, cx, cy))
 
-    # Anchor from Walk stand-down offsets (green = body center).
-    # SpriteRenderer uses feet-ish anchorY = frameHeight by default; prefer
-    # body-center X and feet Y (canvas bottom) for overworld placement.
-    if offsets is not None:
-        ax, ay = offset_anchor(offsets, wfw, wfh, 0, DIR_ROWS["down"])
-        # Remap into padded canvas (feet-aligned paste).
-        x_off = (canvas_w - wfw) // 2
-        y_off = canvas_h - wfh
-        anchor_x = x_off + ax
-        # Keep feet at bottom of canvas for consistent ground contact.
-        anchor_y = float(canvas_h)
-    else:
-        anchor_x = canvas_w / 2.0
-        anchor_y = float(canvas_h)
+    # Canvas: room above/below the shared contact row for all frames.
+    max_above = 0.0
+    max_below = 2.0
+    max_half_w = 0
+    for _fi, tile, _bx, _cx, cy in tiles:
+        bbox = tile.getchannel("A").getbbox()
+        if not bbox:
+            continue
+        above = cy - bbox[1]
+        below = max(tile.size[1] - cy, bbox[3] - cy)
+        if above > max_above:
+            max_above = above
+        if below > max_below:
+            max_below = below
+        vis_w = bbox[2] - bbox[0]
+        if vis_w // 2 + 2 > max_half_w:
+            max_half_w = vis_w // 2 + 2
+
+    pad = 2
+    canvas_w = max(wfw, ifw, max_half_w * 2 + pad * 2)
+    ground_y = float(pad + int(math.ceil(max_above)))
+    canvas_h = int(math.ceil(ground_y + max_below + pad))
+    if canvas_h < 1:
+        canvas_h = max(wfh, ifh)
+    if canvas_w < 1:
+        canvas_w = max(wfw, ifw)
+
+    total_frames = 6 + (idle_n * len(IDLE_DIRS) if idle_n > 0 else 0)
+    # Gen1Recomp walker sheets are vertical strips (see docs/ARCHITECTURE.md).
+    out = Image.new("RGBA", (canvas_w, canvas_h * total_frames), (0, 0, 0, 0))
+
+    for frame_i, tile, bx, cx, cy in tiles:
+        cell = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+        paste_at_contact(cell, tile, ground_y, cx, cy, body_x=bx)
+        out.paste(cell, (0, frame_i * canvas_h))
+
+    # World anchor = shared contact in canvas space (body/contact → mid X).
+    anchor_x = canvas_w / 2.0
+    anchor_y = ground_y
 
     meta = {
         "frameWidth": canvas_w,
@@ -291,8 +402,10 @@ def build_combined_sheet(
         "sourceWalkFrameHeight": wfh,
         "sourceIdleFrameWidth": ifw if idle_n else None,
         "sourceIdleFrameHeight": ifh if idle_n else None,
+        "sourceGroundY": round(float(_cy0), 2),
         "walkFrameCount": walk_n,
         "walkMidColumn": mid,
+        "anchorSource": anchor_source,
     }
     return out, meta
 
@@ -440,8 +553,19 @@ def import_species(
         off_path = vdir / "Walk-Offsets.png"
         if off_path.is_file():
             offsets = Image.open(off_path)
+        shadow = None
+        sh_path = vdir / "Walk-Shadow.png"
+        if sh_path.is_file():
+            shadow = Image.open(sh_path)
+        idle_shadow = None
+        if idle_im is not None:
+            ish_path = vdir / "Idle-Shadow.png"
+            if ish_path.is_file():
+                idle_shadow = Image.open(ish_path)
 
-        sheet, meta = build_combined_sheet(walk_im, walk_meta, idle_im, idle_meta, offsets)
+        sheet, meta = build_combined_sheet(
+            walk_im, walk_meta, idle_im, idle_meta, offsets, shadow, idle_shadow
+        )
         rel = f"assets/pmdcollab/sprites/{dex:03d}-{variant}.png"
         save_png(sheet, ROOT / rel)
         source_rel = str(vdir.relative_to(src)).replace("\\", "/")

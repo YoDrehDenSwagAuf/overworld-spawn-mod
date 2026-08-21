@@ -166,6 +166,8 @@ local function spriteDefWithGeometry(resolved, extras)
     anchorY = resolved.anchorY,
     idleFrameCount = resolved.idleFrameCount,
     idleDurations = resolved.idleDurations,
+    disableVerticalStepFlip = resolved.disableVerticalStepFlip,
+    forceRawTrueColor = resolved.forceRawTrueColor,
   }
   if type(extras) == "table" then
     for k, v in pairs(extras) do def[k] = v end
@@ -191,6 +193,21 @@ local function attachPmdIdleToNpc(npc, resolved)
   if ok and PmdIdle then
     PmdIdle.attachDrawWrap(npc.sprite, npc)
     PmdIdle.schedule(npc)
+  end
+end
+
+local function attachPresentation(npc, resolved)
+  if not (npc and npc.sprite) then return end
+  -- Presentation (true-color / stepFlip) first; Idle wrap outermost.
+  local okP, SpritePresentation = pcall(function() return V.require("sprite_presentation") end)
+  if okP and SpritePresentation and SpritePresentation.attach then
+    pcall(SpritePresentation.attach, npc.sprite, npc)
+  end
+  if resolved and resolved.providerId == "pmdcollab" then
+    attachPmdIdleToNpc(npc, resolved)
+  else
+    npc._pmdIdleMeta = nil
+    npc._pmdIdle = nil
   end
 end
 
@@ -1151,7 +1168,7 @@ function ControlEngine:forceYellowStockPikachuArt(ow, game)
     npc.goalX, npc.goalY = preserved.goalX, preserved.goalY
     npc._pokepcFollowerSpecies = species
     npc._wildsFollowerSpecies = species
-    attachPmdIdleToNpc(npc, resolved)
+    attachPresentation(npc, resolved)
   end
 end
 
@@ -1797,7 +1814,7 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
       -- (Follower.lua does not rebuild it). Keep that sprite unless missing.
       if gen2 and npc.sprite then
         npc.spriteDef = npc.spriteDef or spriteDef
-        attachPmdIdleToNpc(npc, resolved)
+        attachPresentation(npc, resolved)
       else
         local ok, sprite = pcall(SpriteRenderer.new, spriteDefWithGeometry(resolved, {
           pokepcShiny = npc.pokepcShiny,
@@ -1810,7 +1827,7 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
         elseif sprite then
           npc.sprite = sprite
           if gen2 then npc.spriteDef = sprite.def or spriteDef end
-          attachPmdIdleToNpc(npc, resolved)
+          attachPresentation(npc, resolved)
         end
       end
     end
@@ -3858,7 +3875,7 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
         if ok and sprite then
           npc.sprite = sprite
           npc._wildsFollowerSpecies = species
-          attachPmdIdleToNpc(npc, resolved)
+          attachPresentation(npc, resolved)
         end
       end
       npc.wildsFollowerWater = (surface == "water")
@@ -3903,7 +3920,7 @@ function ControlEngine:_refreshTrailerMonSprites(game, ow, surface)
             npc.sprite = sprite
             npc._wildsFollowerSpecies = species
             rebound = rebound + 1
-            attachPmdIdleToNpc(npc, resolved)
+            attachPresentation(npc, resolved)
             -- PresentationFx pose/draw wraps rebind sprite.draw to this NPC
             -- when the SpriteRenderer instance changes mid-FX.
             if npc._wildsPresentationDrawWrapped and type(npc.pose) == "function" then

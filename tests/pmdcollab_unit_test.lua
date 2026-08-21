@@ -294,6 +294,102 @@ eq(Config.pokemonSizeMode(V.mod), "true_size", "pmdcollab size mode true_size")
 savedOpts.sprite_style = "followers"
 eq(Config.pokemonSizeMode(V.mod), "classic", "followers still classic")
 
+------------------------------------------------------------------------
+-- H) Geometry / true-color / step-flip presentation fixes
+------------------------------------------------------------------------
+print("== presentation geometry & flags ==")
+-- Anchors must describe ground contact, not canvas bottom (bug: one tile high).
+local function assertGroundAnchor(dex, name)
+  local e = Assets.spriteEntry(dex, "normal")
+  check(e ~= nil, name .. " entry")
+  if not e then return end
+  local fw, fh = tonumber(e.frameWidth), tonumber(e.frameHeight)
+  local ax, ay = tonumber(e.anchorX), tonumber(e.anchorY)
+  check(fw and fh and ax and ay, name .. " has geometry")
+  check(ay < fh, name .. " anchorY below frameHeight (not canvas bottom)")
+  check(ay > fh * 0.25, name .. " anchorY not near top")
+  check(math.abs(ax - fw / 2) <= 1.01, name .. " anchorX near frame mid")
+end
+assertGroundAnchor(1, "Bulbasaur")
+assertGroundAnchor(7, "Squirtle")
+assertGroundAnchor(25, "Pikachu")
+assertGroundAnchor(95, "Onix")
+assertGroundAnchor(131, "Lapras")
+
+-- Importer fixture: contact stable across walker frames (vertical strip).
+do
+  local py = os.execute([[python3 - <<'PY'
+from PIL import Image
+from pathlib import Path
+import importlib.util
+spec = importlib.util.spec_from_file_location("imp", "scripts/import_pmdcollab.py")
+imp = importlib.util.module_from_spec(spec); spec.loader.exec_module(imp)
+# Re-run mini import already done; inspect committed bulbasaur sheet.
+im = Image.open("assets/pmdcollab/sprites/001-normal.png").convert("RGBA")
+entry = open("assets/pmdcollab/sprite_table.lua").read()
+import re
+m = re.search(r"\[1\]=\{[\s\S]*?frameWidth=(\d+),frameHeight=(\d+),.*?anchorX=([\d.]+),anchorY=([\d.]+)", entry)
+fw, fh, ax, ay = map(float, m.groups())
+assert im.size[0] == int(fw), (im.size, fw)
+assert im.size[1] == int(fh) * int(re.search(r"\[1\]=\{[\s\S]*?frames=(\d+)", entry).group(1))
+# Vertical strip: each walker frame's content must share the same ground row.
+# Shadow contact is not painted into Anim; measure that top-of-alpha relative
+# to anchor does not jump by a full tile (>=16px).
+tops = []
+for fi in range(6):
+    frame = im.crop((0, int(fi*fh), int(fw), int((fi+1)*fh)))
+    bbox = frame.getchannel("A").getbbox()
+    assert bbox, fi
+    tops.append(bbox[1] - ay)
+span = max(tops) - min(tops)
+assert span < 16, tops
+print("ok")
+PY]])
+  check(py == true or py == 0, "bulbasaur walker frames share ground (no tile jitter)")
+end
+
+local pmd = providers:resolve("pmdcollab", "SQUIRTLE", "normal", nil)
+check(pmd and pmd.def, "resolve squirtle pmd")
+eq(pmd.def.trueColor, true, "pmd trueColor")
+eq(pmd.def.forceRawTrueColor, true, "pmd forceRawTrueColor")
+eq(pmd.def.disableVerticalStepFlip, true, "pmd disableVerticalStepFlip")
+eq(pmd.meta.keepNativeGeometry, true, "pmd keepNativeGeometry")
+
+local Pres = V.require("sprite_presentation")
+eq(Pres.effectiveStepFlip({ disableVerticalStepFlip = true }, true), false,
+  "effectiveStepFlip forced off")
+eq(Pres.effectiveStepFlip({ disableVerticalStepFlip = true }, false), false,
+  "effectiveStepFlip stays false")
+eq(Pres.effectiveStepFlip({}, true), true, "unflagged packs keep stepFlip")
+
+-- Wrap forces stepFlip=false into draw while preserving right-facing mirror via pose.
+do
+  local drew = {}
+  local sprite = {
+    def = { disableVerticalStepFlip = true, forceRawTrueColor = false },
+    draw = function(self, px, py, camX, camY, facing, walkPhase, stepFlip, ...)
+      drew[#drew + 1] = { facing = facing, stepFlip = stepFlip }
+    end,
+  }
+  check(Pres.attach(sprite) == true, "attach presentation wrap")
+  sprite:draw(0, 0, 0, 0, "down", 1, true)
+  sprite:draw(0, 0, 0, 0, "up", 1, true)
+  sprite:draw(0, 0, 0, 0, "right", 0, false)
+  eq(drew[1].stepFlip, false, "down walk stepFlip suppressed")
+  eq(drew[2].stepFlip, false, "up walk stepFlip suppressed")
+  eq(drew[3].facing, "right", "right facing still drawn")
+  eq(drew[3].stepFlip, false, "right path also gets sf=false (mirror via facing)")
+end
+
+-- followers_ex also disables vertical stepFlip (Squirtle jump fix)
+local fol = providers:resolve("followers", "SQUIRTLE", "normal", nil)
+if fol and fol.def then
+  eq(fol.def.disableVerticalStepFlip, true, "poke-followers disableVerticalStepFlip")
+  check(fol.def.forceRawTrueColor ~= true, "followers do not force raw truecolor")
+else
+  check(false, "resolve squirtle followers")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

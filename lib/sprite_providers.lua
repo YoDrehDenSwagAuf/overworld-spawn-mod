@@ -136,6 +136,10 @@ local function copyDef(def, spriteId, mod)
   if def.frameHeight ~= nil then out.frameHeight = def.frameHeight end
   if def.anchorX ~= nil then out.anchorX = def.anchorX end
   if def.anchorY ~= nil then out.anchorY = def.anchorY end
+  if def.disableVerticalStepFlip then out.disableVerticalStepFlip = true end
+  if def.forceRawTrueColor then out.forceRawTrueColor = true end
+  if def.idleFrameCount ~= nil then out.idleFrameCount = def.idleFrameCount end
+  if def.idleDurations ~= nil then out.idleDurations = def.idleDurations end
   return out
 end
 
@@ -506,6 +510,11 @@ function SpriteProviders:_makePmdCollabProvider()
         frames = frames,
         walker = true,
         trueColor = true,
+        -- Gen1 PaletteFX.honorsTrueColor() is ADVANCED-only; force raw RGBA
+        -- draw so SGB/OG modes do not DMG-shade-remap authored PMD colors.
+        forceRawTrueColor = true,
+        -- One walk pose per facing; vertical stepFlip would mirror asymmetries.
+        disableVerticalStepFlip = true,
         id = "SPRITE_OW_WILD_PMD_" .. tostring(dex),
         frameWidth = tonumber(entry.frameWidth),
         frameHeight = tonumber(entry.frameHeight),
@@ -1020,6 +1029,9 @@ function SpriteProviders:_makeFollowersExProvider()
         -- zone pass colors them; colored art (ADVANCED / headless fallback)
         -- is true so it draws raw.
         trueColor = not lumaServed,
+        -- Asymmetric Pokémon art (e.g. Squirtle) must not use Gen1Recomp's
+        -- up/down alternate-step full-sprite mirror.
+        disableVerticalStepFlip = true,
         id = "SPRITE_OW_WILD_" .. tostring(dex),
       }
       local meta = {

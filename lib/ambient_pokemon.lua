@@ -326,6 +326,8 @@ function AmbientPokemon:_resolveSprite(species, game)
         anchorY = result.def.anchorY,
         idleFrameCount = result.def.idleFrameCount,
         idleDurations = result.def.idleDurations,
+        disableVerticalStepFlip = result.def.disableVerticalStepFlip,
+        forceRawTrueColor = result.def.forceRawTrueColor,
         providerId = result.providerId,
         style = style,
         species = species,
@@ -405,6 +407,8 @@ function AmbientPokemon:_bindSprite(npc, species, game)
     anchorY = def.anchorY,
     idleFrameCount = def.idleFrameCount,
     idleDurations = def.idleDurations,
+    disableVerticalStepFlip = def.disableVerticalStepFlip,
+    forceRawTrueColor = def.forceRawTrueColor,
   }, npc.id)
   if ok and sprite then
     npc.sprite = sprite
@@ -416,6 +420,10 @@ function AmbientPokemon:_bindSprite(npc, species, game)
         idleFrameCount = def.idleFrameCount,
         idleDurations = def.idleDurations,
       }
+      local okP, SpritePresentation = pcall(function() return V.require("sprite_presentation") end)
+      if okP and SpritePresentation and SpritePresentation.attach then
+        pcall(SpritePresentation.attach, sprite, npc)
+      end
       local okIdle, PmdIdle = pcall(function() return V.require("pmd_idle") end)
       if okIdle and PmdIdle then
         PmdIdle.attachDrawWrap(sprite, npc)
@@ -425,6 +433,10 @@ function AmbientPokemon:_bindSprite(npc, species, game)
       npc.spriteProviderId = def.providerId
       npc._pmdIdleMeta = nil
       npc._pmdIdle = nil
+      local okP, SpritePresentation = pcall(function() return V.require("sprite_presentation") end)
+      if okP and SpritePresentation and SpritePresentation.attach then
+        pcall(SpritePresentation.attach, sprite, npc)
+      end
     end
     return true
   end
