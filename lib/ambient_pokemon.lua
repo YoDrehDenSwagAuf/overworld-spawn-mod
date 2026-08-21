@@ -324,6 +324,8 @@ function AmbientPokemon:_resolveSprite(species, game)
         frameHeight = result.def.frameHeight,
         anchorX = result.def.anchorX,
         anchorY = result.def.anchorY,
+        idleFrameCount = result.def.idleFrameCount,
+        idleDurations = result.def.idleDurations,
         providerId = result.providerId,
         style = style,
         species = species,
@@ -401,14 +403,44 @@ function AmbientPokemon:_bindSprite(npc, species, game)
     frameHeight = def.frameHeight,
     anchorX = def.anchorX,
     anchorY = def.anchorY,
+    idleFrameCount = def.idleFrameCount,
+    idleDurations = def.idleDurations,
   }, npc.id)
   if ok and sprite then
     npc.sprite = sprite
     npc._ambientSpriteKey = tostring(species) .. "|" .. tostring(Config.spriteStyle(self.mod))
       .. "|" .. (def.trueColor ~= false and "1" or "0")
+    if def.providerId == "pmdcollab" then
+      npc.spriteProviderId = "pmdcollab"
+      npc._pmdIdleMeta = {
+        idleFrameCount = def.idleFrameCount,
+        idleDurations = def.idleDurations,
+      }
+      local okIdle, PmdIdle = pcall(function() return V.require("pmd_idle") end)
+      if okIdle and PmdIdle then
+        PmdIdle.attachDrawWrap(sprite, npc)
+        PmdIdle.schedule(npc)
+      end
+    else
+      npc.spriteProviderId = def.providerId
+      npc._pmdIdleMeta = nil
+      npc._pmdIdle = nil
+    end
     return true
   end
   return false
+end
+
+--- Presentation-only PMDCollab idle tick for town Pokémon.
+function AmbientPokemon:tickPresentation(dt)
+  dt = tonumber(dt) or (1 / 60)
+  local ok, PmdIdle = pcall(function() return V.require("pmd_idle") end)
+  if not (ok and PmdIdle and PmdIdle.update) then return end
+  for npc in pairs(self.active) do
+    if npc and npc._pmdIdleMeta then
+      pcall(PmdIdle.update, npc, dt)
+    end
+  end
 end
 
 function AmbientPokemon:_makeGoldGuest(game, ow, species, x, y, behavior)
@@ -877,7 +909,11 @@ function AmbientPokemon:talkTo(ow, npc, done)
 
   local text = AmbientCries.textFor(species)
   local GameCompat = V.require("game_compat")
-  GameCompat.presentText(self.mod, game, ow, text, unfreeze)
+  local PokemonDialogue = V.require("pokemon_dialogue")
+  PokemonDialogue.presentText(self.mod, game, ow, text, unfreeze, {
+    species = species,
+    randomGeneric = true,
+  })
 end
 
 function AmbientPokemon:_installTalkWrap()

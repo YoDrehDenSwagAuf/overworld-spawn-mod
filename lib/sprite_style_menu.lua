@@ -31,6 +31,7 @@ SpriteStyleMenu.STYLE_CHOICES = {
   { label = "FOLLOWERS/GSC", value = "followers" },
   { label = "HGSS / POKEMMO", value = "pokemmo" },
   { label = "POKEDEX", value = "pokedex" },
+  { label = "PMDCOLLAB", value = "pmdcollab" },
 }
 SpriteStyleMenu.CHOICES = SpriteStyleMenu.STYLE_CHOICES
 
@@ -58,6 +59,7 @@ local STYLE_CONFIRM = {
   followers = "POKE FOLLOWERS / GSC",
   pokemmo = "HGSS / POKEMMO",
   pokedex = "POKEDEX",
+  pmdcollab = "PMDCOLLAB",
 }
 
 local function providerAvailable(menu, style, game)
@@ -65,7 +67,7 @@ local function providerAvailable(menu, style, game)
   local providers = render and render.spriteProviders
   if not providers then return false, "no providers" end
   style = Config.normalizeSpriteStyle(style)
-  if style == "pokemmo" or style == "pokedex" then
+  if style == "pokemmo" or style == "pokedex" or style == "pmdcollab" then
     return true, "built-in"
   end
   if style == "followers" then
@@ -81,6 +83,7 @@ local function activeFallbackLabel(menu, style, game)
   local id = select(1, providers:activeProviderForStyle(style, game))
   if id == "followers_ex" then return "POKE FOLLOWERS / GSC"
   elseif id == "pokedex" then return "POKEDEX"
+  elseif id == "pmdcollab" then return "PMDCOLLAB"
   elseif id == "black" then return "FALLBACK"
   end
   return "HGSS / POKEMMO"

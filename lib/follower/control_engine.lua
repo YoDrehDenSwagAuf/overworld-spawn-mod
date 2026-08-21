@@ -164,11 +164,45 @@ local function spriteDefWithGeometry(resolved, extras)
     frameHeight = resolved.frameHeight,
     anchorX = resolved.anchorX,
     anchorY = resolved.anchorY,
+    idleFrameCount = resolved.idleFrameCount,
+    idleDurations = resolved.idleDurations,
   }
   if type(extras) == "table" then
     for k, v in pairs(extras) do def[k] = v end
   end
   return def
+end
+
+local function attachPmdIdleToNpc(npc, resolved)
+  if not npc then return end
+  if not (resolved and resolved.providerId == "pmdcollab" and npc.sprite) then
+    npc._pmdIdleMeta = nil
+    npc._pmdIdle = nil
+    return
+  end
+  npc.spriteProviderId = "pmdcollab"
+  npc._pmdIdleMeta = {
+    idleFrameCount = resolved.idleFrameCount
+      or (npc.sprite.def and npc.sprite.def.idleFrameCount),
+    idleDurations = resolved.idleDurations
+      or (npc.sprite.def and npc.sprite.def.idleDurations),
+  }
+  local ok, PmdIdle = pcall(function() return V.require("pmd_idle") end)
+  if ok and PmdIdle then
+    PmdIdle.attachDrawWrap(npc.sprite, npc)
+    PmdIdle.schedule(npc)
+  end
+end
+
+local function tickPmdIdleOnTrailers(ow, dt)
+  if not (ow and ow.pokepcTrailers) then return end
+  local ok, PmdIdle = pcall(function() return V.require("pmd_idle") end)
+  if not (ok and PmdIdle and PmdIdle.update) then return end
+  for _, npc in ipairs(ow.pokepcTrailers) do
+    if npc and npc._pmdIdleMeta and npc.spriteProviderId == "pmdcollab" then
+      pcall(PmdIdle.update, npc, dt)
+    end
+  end
 end
 
 --- Construct a control engine instance.
@@ -1117,6 +1151,7 @@ function ControlEngine:forceYellowStockPikachuArt(ow, game)
     npc.goalX, npc.goalY = preserved.goalX, preserved.goalY
     npc._pokepcFollowerSpecies = species
     npc._wildsFollowerSpecies = species
+    attachPmdIdleToNpc(npc, resolved)
   end
 end
 
@@ -1762,6 +1797,7 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
       -- (Follower.lua does not rebuild it). Keep that sprite unless missing.
       if gen2 and npc.sprite then
         npc.spriteDef = npc.spriteDef or spriteDef
+        attachPmdIdleToNpc(npc, resolved)
       else
         local ok, sprite = pcall(SpriteRenderer.new, spriteDefWithGeometry(resolved, {
           pokepcShiny = npc.pokepcShiny,
@@ -1774,6 +1810,7 @@ function ControlEngine:makeTrailer(game, ow, x, y, facing, kind, mon, slot, opts
         elseif sprite then
           npc.sprite = sprite
           if gen2 then npc.spriteDef = sprite.def or spriteDef end
+          attachPmdIdleToNpc(npc, resolved)
         end
       end
     end
@@ -3563,6 +3600,11 @@ function ControlEngine:update(game, ow, opts)
       local dt = tonumber(opts.dt)
       if not dt or dt <= 0 then dt = 1 / 60 end
       pcall(function() self.presentationFx:tick(ow, dt) end)
+      tickPmdIdleOnTrailers(ow, dt)
+    else
+      local dt = tonumber(opts.dt)
+      if not dt or dt <= 0 then dt = 1 / 60 end
+      tickPmdIdleOnTrailers(ow, dt)
     end
     return false, "skip"
   end
@@ -3669,6 +3711,11 @@ function ControlEngine:update(game, ow, opts)
       local dt = tonumber(opts.dt)
       if not dt or dt <= 0 then dt = 1 / 60 end
       self.presentationFx:tick(ow, dt)
+      tickPmdIdleOnTrailers(ow, dt)
+    else
+      local dt = tonumber(opts.dt)
+      if not dt or dt <= 0 then dt = 1 / 60 end
+      tickPmdIdleOnTrailers(ow, dt)
     end
   end)
 
@@ -3811,6 +3858,7 @@ function ControlEngine:_refreshTrailerWaterSprites(game, ow, surface)
         if ok and sprite then
           npc.sprite = sprite
           npc._wildsFollowerSpecies = species
+          attachPmdIdleToNpc(npc, resolved)
         end
       end
       npc.wildsFollowerWater = (surface == "water")
@@ -3855,6 +3903,7 @@ function ControlEngine:_refreshTrailerMonSprites(game, ow, surface)
             npc.sprite = sprite
             npc._wildsFollowerSpecies = species
             rebound = rebound + 1
+            attachPmdIdleToNpc(npc, resolved)
             -- PresentationFx pose/draw wraps rebind sprite.draw to this NPC
             -- when the SpriteRenderer instance changes mid-FX.
             if npc._wildsPresentationDrawWrapped and type(npc.pose) == "function" then

@@ -1,0 +1,3 @@
+Name	Discord	Contact
+CHUNSOFT	CHUNSOFT	https://www.spike-chunsoft.com/
+TestArtist	TestArtist	https://example.com/

@@ -152,6 +152,8 @@ function SpriteService:resolveFollowerSprite(opts)
         frameHeight = def.frameHeight,
         anchorX = def.anchorX,
         anchorY = def.anchorY,
+        idleFrameCount = def.idleFrameCount,
+        idleDurations = def.idleDurations,
         providerId = result.providerId,
         role = role,
         surface = "land",

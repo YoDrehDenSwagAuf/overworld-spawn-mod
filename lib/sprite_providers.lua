@@ -32,6 +32,7 @@ SpriteProviders.ID = {
   FOLLOWERS_EX = "followers_ex",
   POKEMMO = "pokemmo",
   POKEDEX = "pokedex",
+  PMDCOLLAB = "pmdcollab",
   BLACK = "black",
 }
 
@@ -41,6 +42,7 @@ SpriteProviders.STYLE = {
   POKEMMO = "pokemmo",
   FOLLOWERS = "followers",
   POKEDEX = "pokedex",
+  PMDCOLLAB = "pmdcollab",
   -- Compat aliases (normalized away by Config.normalizeSpriteStyle).
   AUTO = "auto",
   GOLD = "gold",
@@ -53,6 +55,7 @@ local STYLE_CHAINS = {
   pokemmo = { "pokemmo", "pokedex" },
   followers = { "followers_ex", "pokemmo", "pokedex" },
   pokedex = { "pokedex" },
+  pmdcollab = { "pmdcollab", "pokedex" },
   -- Legacy aliases kept for direct resolve / old call sites.
   auto = { "pokemmo", "pokedex" },
   gold = { "pokemmo", "pokedex" },
@@ -63,6 +66,7 @@ local VALID_STYLES = {
   pokemmo = true,
   followers = true,
   pokedex = true,
+  pmdcollab = true,
   auto = true,
   gold = true,
   followers_ex = true,
@@ -193,6 +197,7 @@ end
 function SpriteProviders:_registerBuiltins()
   self:register(self:_makePokemmoProvider())
   self:register(self:_makePokedexProvider())
+  self:register(self:_makePmdCollabProvider())
   self:register(self:_makeBlackProvider())
   -- External adapters are registered now and re-probed at finalize / resolve.
   self:register(self:_makeGoldProvider())
@@ -215,6 +220,7 @@ function SpriteProviders:unregister(id)
   if type(id) ~= "string" or id == "" then return false end
   if id == SpriteProviders.ID.POKEMMO
      or id == SpriteProviders.ID.POKEDEX
+     or id == SpriteProviders.ID.PMDCOLLAB
      or id == SpriteProviders.ID.BLACK then
     return false, "cannot unregister built-in provider"
   end
@@ -440,6 +446,96 @@ function SpriteProviders:_makePokedexProvider()
         variant = "normal",
         packId = "pokedex",
       })
+      return def, meta, nil
+    end,
+  }
+end
+
+------------------------------------------------------------------------
+-- Built-in: PMDCollab / SpriteCollab derived walker sheets
+--
+-- Imported at authoring time by scripts/import_pmdcollab.py into
+-- assets/pmdcollab/. Native frame sizes + optional Idle block after the
+-- standard 6 walker frames. No upstream XML at runtime.
+-- Water: no Swim in SpriteCollab Gen1–2 — fall through to Wilds water system.
+------------------------------------------------------------------------
+
+function SpriteProviders:_makePmdCollabProvider()
+  local render = self.render
+  local mod = self.mod
+  return {
+    id = SpriteProviders.ID.PMDCOLLAB,
+    builtin = true,
+    modId = mod and mod.id or "overworld_wild_spawns",
+    isAvailable = function(_self, _game)
+      local Assets = V.require("pmdcollab_assets")
+      if not Assets.isReady() then
+        local ok = Assets.load(mod)
+        if not ok then
+          return false, Assets.loadError() or "pmdcollab assets missing"
+        end
+      end
+      return true, "pmdcollab runtime assets"
+    end,
+    resolve = function(_self, speciesId, variant, game)
+      local Assets = V.require("pmdcollab_assets")
+      if not Assets.isReady() then
+        Assets.load(mod)
+      end
+      local dex = resolveDexId(speciesId, game, mod)
+      if not dex then
+        return nil, nil, "dex unresolved"
+      end
+      local want = normalizeVariant(variant)
+      local entry, usedVariant = Assets.spriteEntry(dex, want)
+      if not entry or type(entry.rel) ~= "string" then
+        return nil, nil, "no pmdcollab sheet for dex " .. tostring(dex)
+      end
+      local loadPath = entry.rel
+      if render and render._modAssetPath then
+        local via = render:_modAssetPath(entry.rel)
+        if via then loadPath = via end
+      elseif mod and mod.assets and mod.assets.path then
+        local ok, via = pcall(function() return mod.assets:path(entry.rel) end)
+        if ok and via then loadPath = via end
+      end
+      local idleCount = tonumber(entry.idleFrameCount) or 0
+      local frames = tonumber(entry.frames) or 6
+      local def = {
+        image = loadPath,
+        frames = frames,
+        walker = true,
+        trueColor = true,
+        id = "SPRITE_OW_WILD_PMD_" .. tostring(dex),
+        frameWidth = tonumber(entry.frameWidth),
+        frameHeight = tonumber(entry.frameHeight),
+        anchorX = tonumber(entry.anchorX),
+        anchorY = tonumber(entry.anchorY),
+        -- Presentation metadata for PmdIdle (not read by SpriteRenderer).
+        idleFrameCount = idleCount,
+        idleDurations = entry.idleDurations,
+      }
+      local meta = {
+        providerId = SpriteProviders.ID.PMDCOLLAB,
+        usedVariant = usedVariant or want,
+        relativePath = entry.rel,
+        loadPath = loadPath,
+        frames = frames,
+        walker = true,
+        bodyRenderer = "NATIVE_SPRITE_RENDERER",
+        idleFrameCount = idleCount,
+        idleDurations = entry.idleDurations,
+        variableSize = true,
+        frameWidth = def.frameWidth,
+        frameHeight = def.frameHeight,
+        anchorX = def.anchorX,
+        anchorY = def.anchorY,
+        sourcePath = entry.sourcePath,
+        -- Native PMD geometry — do not swap onto HGSS True Size packs.
+        keepNativeGeometry = true,
+      }
+      -- Do not call applyTrueSizeToProvider: PMD packs are not in
+      -- SpeciesGeometry, and Classic effectiveMode would strip native size.
       return def, meta, nil
     end,
   }

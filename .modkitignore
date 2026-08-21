@@ -73,6 +73,7 @@ tests/settings_menus_unit_test.lua
 tests/species_assets_unit_test.lua
 tests/sprite_fade_color_unit_test.lua
 tests/sprite_providers_unit_test.lua
+tests/pmdcollab_unit_test.lua
 tests/sprite_swap_anim_unit_test.lua
 tests/stadium2_variable_geometry_unit_test.lua
 tests/true_size_def_geometry_unit_test.lua
@@ -125,3 +126,4 @@ tools/validate_release_version.ps1
 tools/validate_release_zip_hygiene.py
 tools/validate_water_sprites.ps1
 tools/validate_water_sprites.py
+tests/fixtures/spritecollab_mini/

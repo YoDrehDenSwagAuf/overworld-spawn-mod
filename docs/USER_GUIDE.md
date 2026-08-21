@@ -122,7 +122,7 @@ Gameplay settings live in **Mod Settings** only (not duplicated in the Start men
 | Label | Key | Default | Values | Effect |
 |---|---|---|---|---|
 | Show Wild Mons | `enabled` | true | on/off | Master switch |
-| Sprite Style | `sprite_style` | pokemmo | HGSS / PokeMMO / Poke Followers / Pokedex | Wild + follower land sprites |
+| Sprite Style | `sprite_style` | followers | Poke Followers / GSC · HGSS / PokeMMO · Pokédex · PMDCollab | Overworld wild + follower land sprites. Size follows style (GSC Classic, HGSS True Size, Pokedex Classic, PMDCollab native). PMDCollab includes directional walk and occasional idle animations. |
 | Spawn Amount | `spawn_density` | normal | Low / Normal / High / Very High | Visible land + water density |
 | Random Enc | `random_encounters` | true | on/off | Classic step RNG (grass / cave / water) |
 | Water Mons | `water_spawns` | swimming_sprites | Swim Sprites / Hid Silhouette / Silhouettes / Classic Enc / Disabled | Water presentation mode (default = current swimming sprites) |
@@ -189,6 +189,23 @@ Gen1 wild spawns currently always use the normal variant.
   compatibility only — not a claim of complete Gen 2 gameplay support.
 - Aggressive chase keeps a stable entity id and uses the engine `!` emote
 
+## 17b. PMDCollab sprites & portraits
+
+**Sprite Style → PMDCollab** uses derived [SpriteCollab](https://github.com/PMDCollab/SpriteCollab)
+Walk sheets (directional) with occasional Idle animations while standing.
+Size is native to the imported art (not forced to 16×16). Water Pokémon still
+use Wilds swimming / levitate / silhouette presentation — SpriteCollab has no
+generic Swim set for Gen1–2.
+
+**Portraits** for Wilds-owned Pokémon dialogue (followers, town Pokémon,
+generic name-derived cries like `Pika!`) always use PMDCollab faces when
+available. They are **not** tied to Sprite Style — Dex / HGSS / Poke-Followers /
+PMDCollab overworld styles all show the same portrait subsystem.
+
+Credits / license: `THIRD_PARTY_ASSETS.md`, `assets/pmdcollab/CREDITS.txt`
+(CC BY-NC 4.0). Regenerate with
+`python3 scripts/import_pmdcollab.py /path/to/SpriteCollab`.
+
 ## 18. Troubleshooting
 
 | Symptom | Check |
@@ -200,6 +217,7 @@ Gen1 wild spawns currently always use the normal variant.
 | Prefer classic static sprites | Set **Sprite Style** to **Pokedex** |
 | Prefer Pokemon fully above grass | Set **Grass View** to Above |
 | Want classic feel | Disable Chase / Hidden Mons, or turn Show Wild Mons off |
+| Prefer PMD overworld art | Set **Sprite Style** to **PMDCollab** |
 
 ## 19. Uninstall
 

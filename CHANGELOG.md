@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### PMDCollab / SpriteCollab support
+
+- New optional **Sprite Style: PMDCollab** (`pmdcollab`) with derived Gen1–Gen2
+  Walk sheets and occasional presentation-only Idle animations. Default style
+  remains Poke Followers / GSC.
+- Independent **PMDCollab portraits** for Wilds follower talk, town Pokémon
+  talk, and generic cry text — works under every Sprite Style (Dex / HGSS /
+  Poke-Followers / PMDCollab).
+- Authoring importer: `scripts/import_pmdcollab.py` (local SpriteCollab
+  checkout → `assets/pmdcollab/`). CC BY-NC 4.0 attribution in
+  `THIRD_PARTY_ASSETS.md` and `assets/pmdcollab/CREDITS.txt`.
+- Water: no Swim in SpriteCollab for #001–251 → existing Wilds water system.
+
 ## 2.1.9
 
 ### Follower RELEASE / RECALL presentation FX

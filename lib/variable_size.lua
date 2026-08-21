@@ -407,7 +407,10 @@ local function geometryValid(pack)
 end
 
 local function looksLikeTrueSizePath(path)
-  return type(path) == "string" and path:find("true_size/", 1, true) ~= nil
+  return type(path) == "string" and (
+    path:find("true_size/", 1, true) ~= nil
+    or path:find("pmdcollab/", 1, true) ~= nil
+  )
 end
 
 --- Resolve speciesId to a canonical Wilds asset id for geometry packs.

@@ -509,7 +509,7 @@ eq(wraps, 0, "start menu hook not registered by sprite style menu")
 check(screens >= 4, "style/spawn/random/water screens registered")
 eq(menu._registered, true, "menu marked registered")
 
--- options.lua exposes exactly the three public styles
+-- options.lua exposes the four public styles
 local schema = assert(loadfile("options.lua"))()
 local styleOpt
 for _, row in ipairs(schema) do
@@ -517,7 +517,7 @@ for _, row in ipairs(schema) do
 end
 check(styleOpt ~= nil, "options has sprite_style")
 eq(styleOpt.default, "followers", "options default is followers")
-eq(#styleOpt.choices, 3, "exactly three public sprite styles")
+eq(#styleOpt.choices, 4, "exactly four public sprite styles")
 local saw = {}
 for _, choice in ipairs(styleOpt.choices) do
   -- Mod Settings shows the full GSC label; Gen1 ListMenu uses ≤14 abbrev.
@@ -531,6 +531,7 @@ end
 check(saw.pokemmo == "HGSS / PokeMMO", "options includes HGSS / PokeMMO")
 check(saw.followers == "Poke Followers / GSC", "options includes Poke Followers / GSC")
 check(saw.pokedex == "Pokédex" or saw.pokedex == "Pokedex", "options includes Pokedex")
+check(saw.pmdcollab == "PMDCollab", "options includes PMDCollab")
 check(saw.auto == nil and saw.gold == nil and saw.followers_ex == nil,
       "legacy styles removed from public options")
 

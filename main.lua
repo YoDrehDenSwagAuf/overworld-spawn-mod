@@ -299,6 +299,9 @@ return function(mod)
     if supports("ambient") and ambient and ambient._pendingBattleReturnReconcile then
       pcall(function() ambient:onBattleEnded({ source = "world.stepped" }) end)
     end
+    if supports("ambient") and ambient and ambient.tickPresentation then
+      pcall(function() ambient:tickPresentation(1 / 60) end)
+    end
     pcall(function() logic:rebuildOccupancy() end)
   end)
 

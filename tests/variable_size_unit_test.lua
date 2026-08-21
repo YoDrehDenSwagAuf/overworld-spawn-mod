@@ -78,7 +78,7 @@ local VariableSize = V.require("variable_size")
 
 -- Geometry table covers all 151
 local summary = SpeciesGeometry.summary(mod)
-eq(summary.species, 151, "151 species geometry")
+eq(summary.species, 251, "251 species geometry")
 check((summary.classes.XL or 0) > 0, "has XL class")
 check((summary.manualOverrides or 0) >= 15, "manual overrides present")
 
