@@ -649,5 +649,254 @@ do
     "follow intent starts release when trailers exist")
 end
 
+--------------------------------------------------------------------
+-- Gen1 native draw path: e:draw(camX, camY) must apply FX
+--------------------------------------------------------------------
+do
+  love = love or {}
+  love.graphics = love.graphics or {}
+  local scales = {}
+  love.graphics.push = function() end
+  love.graphics.pop = function() end
+  love.graphics.translate = function() end
+  love.graphics.scale = function(x, y)
+    scales[#scales + 1] = x
+  end
+  love.graphics.setColor = function() end
+  love.graphics.rectangle = function() end
+
+  local fx = PresentationFx.new(V.mod, {})
+  local npc = makeTrailer(1, makeMon("RATTATA", 1), 8, 8)
+  -- Gen1 OverworldState draws via NPC:draw(camX, camY) → pose → sprite.draw.
+  function npc:draw(camX, camY)
+    local sprite, px, py, facing, phase, flip = self:pose()
+    if sprite and sprite.draw then
+      sprite:draw(px, py, camX, camY, facing, phase, flip)
+    end
+  end
+  PresentationFx.installDrawWrap(npc)
+  fx:_beginOnEntity(npc, "release", 0)
+  eq(npc._wildsPresentationFx.kind, "release", "Gen1 release fx kind")
+  scales = {}
+  npc:draw(0, 0)
+  check(#scales >= 1, "Gen1 release first draw applies scale")
+  check(scales[1] < 0.25, "Gen1 release first draw tiny scale")
+
+  local owTick = makeOw()
+  attachTrailer(owTick, npc)
+  fx:tick(owTick, PresentationFx.DURATION * 0.5)
+  check(npc._wildsPresentationFx ~= nil, "Gen1 release elapsed mid")
+  check(npc._wildsPresentationFx.elapsed > 0, "Gen1 release elapsed progresses")
+  fx:tick(owTick, PresentationFx.DURATION)
+  check(npc._wildsPresentationFx == nil, "Gen1 release completion clears FX")
+  check(npc.pokepcTrailer == true, "Gen1 release entity remains after FX")
+end
+
+--------------------------------------------------------------------
+-- Gen1 recall ghost: shared sprite rebind + entities-only + drawable FX
+--------------------------------------------------------------------
+do
+  love = love or {}
+  love.graphics = love.graphics or {}
+  local scales = {}
+  love.graphics.push = function() end
+  love.graphics.pop = function() end
+  love.graphics.translate = function() end
+  love.graphics.scale = function(x, y) scales[#scales + 1] = x end
+  love.graphics.setColor = function() end
+  love.graphics.rectangle = function() end
+
+  local state = State.new(V.mod)
+  local selection = Selection.new(V.mod, state)
+  local fx = PresentationFx.new(V.mod, { selection = selection })
+  local ow = makeOw()
+  local mon = makeMon("EKANS", 1)
+  local npc = makeTrailer(1, mon, 10, 11)
+  function npc:draw(camX, camY)
+    local sprite, px, py, facing, phase, flip = self:pose()
+    if sprite and sprite.draw then
+      sprite:draw(px, py, camX, camY, facing, phase, flip)
+    end
+  end
+  PresentationFx.installDrawWrap(npc)
+  attachTrailer(ow, npc)
+
+  local before = fx:captureVisibleFollowers(ow)
+  eq(#before, 1, "Gen1 recall capture has trailer")
+  -- Gameplay removal (syncAll): trailer gone, ghost remains.
+  ow.pokepcTrailers = {}
+  ow.entities = {}
+  ow.npcs = {}
+  local res = fx:reconcileAfterSync(ow, before, { stagger = 0 })
+  eq(res.recalled, 1, "Gen1 intentional removal starts recall")
+  eq(fx:activeGhostCount(), 1, "Gen1 recall ghost exists")
+  local ghost = fx.ghosts[1]
+  check(ghost._wildsPresentationFx and ghost._wildsPresentationFx.kind == "recall",
+    "Gen1 ghost recall kind")
+  check(ghost.sprite ~= npc.sprite, "Gen1 ghost uses rebound sprite proxy")
+  check(ghost.sprite._wildsFxOwner == ghost, "Gen1 ghost owns sprite wrap")
+  local ghostInNpcs, ghostInEntities = false, false
+  for _, n in ipairs(ow.npcs or {}) do if n == ghost then ghostInNpcs = true end end
+  for _, e in ipairs(ow.entities or {}) do if e == ghost then ghostInEntities = true end end
+  check(not ghostInNpcs, "Gen1 ghost not in npcs")
+  check(ghostInEntities, "Gen1 ghost in entities draw list")
+  check(#(ow.pokepcTrailers or {}) == 0, "Gen1 gameplay follower removed")
+
+  scales = {}
+  ghost:draw(0, 0)
+  check(#scales >= 1, "Gen1 recall first draw uses FX")
+  check(scales[1] > 0.9, "Gen1 recall starts near full scale")
+
+  fx:tick(ow, PresentationFx.DURATION * 0.5)
+  check(ghost._wildsPresentationFx and ghost._wildsPresentationFx.elapsed > 0,
+    "Gen1 recall elapsed progresses")
+  fx:tick(ow, PresentationFx.DURATION)
+  eq(fx:activeGhostCount(), 0, "Gen1 recall completion removes ghost")
+end
+
+--------------------------------------------------------------------
+-- Gen1 sprite rebind mid-release keeps FX visible
+--------------------------------------------------------------------
+do
+  love = love or {}
+  love.graphics = love.graphics or {}
+  local scales = {}
+  love.graphics.push = function() end
+  love.graphics.pop = function() end
+  love.graphics.translate = function() end
+  love.graphics.scale = function(x, y) scales[#scales + 1] = x end
+  love.graphics.setColor = function() end
+  love.graphics.rectangle = function() end
+
+  local fx = PresentationFx.new(V.mod, {})
+  local npc = makeTrailer(1, makeMon("MEOWTH", 1), 4, 4)
+  function npc:draw(camX, camY)
+    local sprite, px, py, facing, phase, flip = self:pose()
+    if sprite and sprite.draw then
+      sprite:draw(px, py, camX, camY, facing, phase, flip)
+    end
+  end
+  PresentationFx.installDrawWrap(npc)
+  fx:_beginOnEntity(npc, "release", 0)
+  -- Simulate water/land SpriteRenderer replacement after wrap install.
+  npc.sprite = {
+    def = {
+      image = "water_MEOWTH.png",
+      frames = 6,
+      walker = true,
+      frameWidth = 16,
+      frameHeight = 16,
+    },
+    draw = function() end,
+  }
+  npc:pose() -- must re-wrap
+  check(npc.sprite._wildsFxDrawWrapped == true, "Gen1 rebind re-wraps sprite")
+  check(npc.sprite._wildsFxOwner == npc, "Gen1 rebind owner is trailer")
+  scales = {}
+  npc:draw(0, 0)
+  check(#scales >= 1 and scales[1] < 0.25, "Gen1 release FX survives sprite rebind")
+end
+
+--------------------------------------------------------------------
+-- Count transitions: 0→3, 3→0, 3→1, 1→3
+--------------------------------------------------------------------
+do
+  local state = State.new(V.mod)
+  local selection = Selection.new(V.mod, state)
+  local fx = PresentationFx.new(V.mod, { selection = selection })
+  local ow = makeOw()
+  local mons = { makeMon("A", 1), makeMon("B", 2), makeMon("C", 3) }
+
+  local before = fx:captureVisibleFollowers(ow)
+  local t1 = makeTrailer(1, mons[1], 10, 11)
+  local t2 = makeTrailer(2, mons[2], 10, 12)
+  local t3 = makeTrailer(3, mons[3], 10, 13)
+  attachTrailer(ow, t1); attachTrailer(ow, t2); attachTrailer(ow, t3)
+  local res = fx:reconcileAfterSync(ow, before, { stagger = PresentationFx.STAGGER_S })
+  eq(res.released, 3, "0→3 releases all")
+  eq(res.recalled, 0, "0→3 no recall")
+  check(t1._wildsPresentationFx and t1._wildsPresentationFx.delay == 0, "stagger slot1")
+  check(t2._wildsPresentationFx
+    and math.abs((t2._wildsPresentationFx.delay or 0) - PresentationFx.STAGGER_S) < 1e-9,
+    "stagger slot2")
+  check(t3._wildsPresentationFx
+    and math.abs((t3._wildsPresentationFx.delay or 0) - 2 * PresentationFx.STAGGER_S) < 1e-9,
+    "stagger slot3")
+
+  -- Simulate completed release animations before a mid-play count drop.
+  t1._wildsPresentationFx = nil
+  t2._wildsPresentationFx = nil
+  t3._wildsPresentationFx = nil
+
+  before = fx:captureVisibleFollowers(ow)
+  ow.pokepcTrailers = { t1 }
+  ow.entities = { t1 }
+  ow.npcs = { t1 }
+  res = fx:reconcileAfterSync(ow, before, { stagger = 0 })
+  eq(res.recalled, 2, "3→1 recalls two")
+  eq(res.released, 0, "3→1 no release on kept")
+  check(t1._wildsPresentationFx == nil, "kept follower no release replay")
+
+  -- Clear ghosts; grow 1→3
+  fx:clearAll(ow)
+  before = fx:captureVisibleFollowers(ow)
+  local n2 = makeTrailer(2, mons[2], 10, 12)
+  local n3 = makeTrailer(3, mons[3], 10, 13)
+  attachTrailer(ow, n2); attachTrailer(ow, n3)
+  res = fx:reconcileAfterSync(ow, before, { stagger = 0 })
+  eq(res.released, 2, "1→3 releases only new")
+  eq(res.recalled, 0, "1→3 no recall")
+  check(t1._wildsPresentationFx == nil, "existing 1 no release replay")
+
+  before = fx:captureVisibleFollowers(ow)
+  ow.pokepcTrailers = {}
+  ow.entities = {}
+  ow.npcs = {}
+  res = fx:reconcileAfterSync(ow, before, { stagger = 0 })
+  eq(res.recalled, 3, "3→0 recalls all")
+  eq(fx:activeGhostCount(), 3, "3→0 three ghosts")
+end
+
+--------------------------------------------------------------------
+-- Technical rebuilds: battle return / map / sprite style — no FX
+--------------------------------------------------------------------
+do
+  local state = State.new(V.mod)
+  local selection = Selection.new(V.mod, state)
+  local engine = ControlEngine.new(V.mod, {
+    selection = selection,
+    settings = {
+      engineMode = function() return "follow" end,
+      followerCount = function() return 1 end,
+      alignSaveFromOptions = function() end,
+      onOptionsChanged = function() end,
+    },
+    spriteService = {
+      resolveFollowerSprite = function()
+        return { id = "S", image = "x.png", frames = 6, walker = true,
+          frameWidth = 16, frameHeight = 16 }
+      end,
+    },
+  })
+  local mon = makeMon("ABRA", 1)
+  local game = {
+    save = { party = { mon }, pokepcFollowerCount = 1, pokepcControlMode = "follow" },
+    data = {},
+  }
+  engine._gameRef = game
+  local ow = makeOw()
+  game.overworld = ow
+  local trailer = makeTrailer(1, mon, 10, 11)
+  attachTrailer(ow, trailer)
+
+  -- Battle return / map transition / sprite style: syncAll WITHOUT intent.
+  check(engine._presentationIntent == nil, "no presentation intent")
+  engine:syncAll(game, ow)
+  eq(engine.presentationFx:activeGhostCount(), 0, "battle/map/style: no recall ghosts")
+  for _, t in ipairs(ow.pokepcTrailers or {}) do
+    check(t._wildsPresentationFx == nil, "battle/map/style: no release FX")
+  end
+end
+
 print(string.format("\n%d failures", failures))
 os.exit(failures == 0 and 0 or 1)
