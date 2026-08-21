@@ -2,6 +2,54 @@
 
 ## Unreleased
 
+## 2.1.9
+
+### Follower RELEASE / RECALL presentation FX
+
+- Intentional Follow / Dismiss / follower-count / party switch now play a short
+  Poké Ball-style scale / tint / alpha effect. Gameplay selection updates
+  immediately; recall uses presentation-only ghosts. Technical rebuilds stay
+  seamless.
+- Poké Center heal temporarily suppresses visible party trailers while the
+  nurse heal-machine animation runs (`ow.healAnim`), reusing the same FX.
+  Configured `follower_count` / options / save are never overwritten.
+- Talking to a Wilds trailer offers **Ok** / **Ball** after the follow message.
+  **Ball** sets `mon.stopFollowing`, decrements follower count, and reuses
+  recall FX so that mon stays excluded across map, battle, and Poké Center
+  restore. Yellow stock Pikachu keeps vanilla talk.
+- Gen1 talk-Ball recall is deferred until Overworld owns the tick (ChoiceBox
+  still holds the talked-to NPC). Recall ghosts attach to `ow.entities` only
+  with a dummy `def`, so `checkTrainerSight` never sees them. Gold talk-Ball
+  stays immediate.
+- Gen1 OverworldState draws via `e:draw(camX, camY)` (scale nil); the
+  presentation FX wrap now applies tint / scale on that camera-arity path and
+  rebinds recall ghost sprites so wraps sample the ghost. Gen2's scale path is
+  unchanged.
+
+### Follower faint failover
+
+- When the selected follower faints outside battle, permanently fail over to
+  the topmost healthy party mon via `selectFollower` so visible follower,
+  DISMISS, and save mirrors stay aligned.
+
+### Pokémon Tower Marowak spawn reserve
+
+- Reserve Pokémon Tower 6F `(10, 16)` from Wilds spawns until
+  `EVENT_BEAT_GHOST_MAROWAK` so the scripted Marowak battle cannot collide with
+  an overworld Wilds encounter.
+
+### Gold Farfetch'd Pokédex art
+
+- Prefer Gold's live `spriteFront` over stale Gen1 `registrationInfo` in the
+  Pokédex provider for Gen2 only.
+
+### Enc Silhouette — Undiscovered
+
+- `wild_silhouettes` is now **Off** / **Undiscovered** / **All** (bool
+  migration preserved). Undiscovered silhouettes species not yet caught /
+  registered in the Pokédex; a presentation fingerprint bit recolors on
+  discovery without a map change.
+
 ## 2.1.8
 
 ### Overworld throw Ball sprites
