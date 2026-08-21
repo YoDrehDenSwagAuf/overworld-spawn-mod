@@ -271,6 +271,48 @@ return {
     description = "Allow hidden grass (or cave dust) encounter markers with no Pokemon sprite.",
   },
 
+  -- ------- Optional AI NPC dialogues (no API keys here)
+  {
+    key = "ai_dialogues",
+    label = "AI Dialogues",
+    type = "toggle",
+    default = false,
+    description = "Optional free-text NPC conversations via a local or remote LLM. When off or unavailable, Wilds uses normal dialogue only.",
+  },
+  {
+    key = "ai_provider",
+    label = "AI Provider",
+    type = "choice",
+    default = "local",
+    choices = {
+      { "Local", "local" },
+      { "OpenAI", "openai" },
+      { "Custom", "custom" },
+    },
+    description = "Local OpenAI-compatible (LM Studio default), official OpenAI, or a custom OpenAI-compatible endpoint. API keys are stored in private local config, not here.",
+  },
+  {
+    key = "ai_model",
+    label = "AI Model",
+    type = "text",
+    default = "local",
+    description = "Model id for the selected provider. Use local for LM Studio auto/default, or a specific model name.",
+  },
+  {
+    key = "ai_endpoint",
+    label = "AI Endpoint",
+    type = "text",
+    default = "http://127.0.0.1:1234/v1",
+    description = "Base URL for Local or Custom providers (OpenAI-compatible). Example: http://127.0.0.1:1234/v1",
+  },
+  {
+    key = "ai_memory",
+    label = "AI Memory",
+    type = "toggle",
+    default = true,
+    description = "Remember recent NPC conversations in private Wilds user data (not Pokemon save data).",
+  },
+
   -- ------- Developer (only Dev Overlay + Test Spawn)
   {
     key = "dev_overlay",

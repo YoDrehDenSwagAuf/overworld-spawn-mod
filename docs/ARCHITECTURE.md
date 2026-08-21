@@ -48,6 +48,7 @@ Public name: **Wilds of Kanto**. Technical id: `overworld_wild_spawns`.
 | `lib/debug_hud.lua` | Present-only debug HUD |
 | `lib/debug_overlay.lua` | Spawn-tile markers |
 | `lib/preview_browser.lua` | Dev species browser + anim preview |
+| `lib/ai/` | Optional AI NPC dialogues (transport, providers, context, UI) |
 
 ## Game compatibility (internal)
 
