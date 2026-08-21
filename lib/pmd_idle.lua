@@ -126,8 +126,14 @@ function PmdIdle.attachDrawWrap(sprite, entity)
   function sprite:draw(px, py, camX, camY, facing, walkPhase, stepFlip, topHalf, forceFlip, frameOverride)
     local ent = self._pmdIdleEntity or entity
     local override = PmdIdle.frameOverride(ent)
+    if override == nil then
+      local okW, PmdWalk = pcall(function() return V.require("pmd_walk") end)
+      if okW and PmdWalk and PmdWalk.frameOverride then
+        override = PmdWalk.frameOverride(ent)
+      end
+    end
     if override ~= nil then
-      -- Right-facing idle uses dedicated right frames (no mirror).
+      -- Dedicated directional frames (including real right) — never mirror.
       return orig(self, px, py, camX, camY, facing, walkPhase, stepFlip, topHalf, false, override)
     end
     return orig(self, px, py, camX, camY, facing, walkPhase, stepFlip, topHalf, forceFlip, frameOverride)

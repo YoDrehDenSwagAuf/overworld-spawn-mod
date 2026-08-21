@@ -21,8 +21,10 @@ Output:
 
 Walk sheet layout (Gen1Recomp SpriteRenderer walker contract):
   frames 0..2  STAND down / up / left
-  frames 3..5  WALK  down / up / left
+  frames 3..5  WALK  down / up / left  (first visually distinct Walk col)
   frames 6+    IDLE blocks: down, up, left, right (each idleFrameCount)
+  then         WALK cycles: down, up, left, right (each walkFrameCount)
+               — full SpriteCollab Walk + durations; PmdWalk frameOverride
 
 Direction rows in upstream Walk/Idle-Anim.png (SpriteBot Constants.DIRECTIONS):
   0 Down, 1 DownRight, 2 Right, 3 UpRight, 4 Up, 5 UpLeft, 6 Left, 7 DownLeft
@@ -43,7 +45,7 @@ from pathlib import Path
 
 from PIL import Image
 
-IMPORTER_VERSION = "2"
+IMPORTER_VERSION = "3"
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets" / "pmdcollab"
 
@@ -240,12 +242,40 @@ def paste_at_contact(
     dst.alpha_composite(src, (x, y))
 
 
-def walk_mid_col(n_frames: int) -> int:
+def visible_content_bytes(tile: Image.Image) -> bytes:
+    """Opaque pixels only — ignore fully transparent padding for comparisons."""
+    if tile.mode != "RGBA":
+        tile = tile.convert("RGBA")
+    bbox = tile.getchannel("A").getbbox()
+    if not bbox:
+        return b""
+    return tile.crop(bbox).tobytes()
+
+
+def pick_distinct_walk_col(
+    walk_sheet: Image.Image, fw: int, fh: int, row: int, n_frames: int
+) -> int:
+    """First Walk column visually distinct from stand (col 0), else 0.
+
+    Replaces the old walk_mid_col() heuristic, which often picked a ping-pong
+    repeat of frame 0 (e.g. Totodile n=4 mid=2 → identical stand/walk).
+    """
     if n_frames <= 1:
         return 0
-    if n_frames >= 3:
-        return min(2, n_frames - 1)
-    return 1
+    stand = visible_content_bytes(extract_frame(walk_sheet, fw, fh, 0, row))
+    for col in range(1, n_frames):
+        if visible_content_bytes(extract_frame(walk_sheet, fw, fh, col, row)) != stand:
+            return col
+    return 0
+
+
+def count_distinct_cols(
+    walk_sheet: Image.Image, fw: int, fh: int, row: int, n_frames: int
+) -> int:
+    seen: set[bytes] = set()
+    for col in range(n_frames):
+        seen.add(visible_content_bytes(extract_frame(walk_sheet, fw, fh, col, row)))
+    return len(seen)
 
 
 def resolve_variant_dir(species_dir: Path, shiny: bool) -> Path | None:
@@ -294,22 +324,26 @@ def build_combined_sheet(
     shadow: Image.Image | None = None,
     idle_shadow: Image.Image | None = None,
 ) -> tuple[Image.Image, dict]:
-    """Build Gen1Recomp walker sheet with a stable ground anchor.
+    """Build Gen1Recomp sheet: walker fallback + Idle + full Walk cycles.
 
-    SpriteCollab Offsets.png markers (wiki PMD Sprite Format):
-      green = body center, black = head, red = left hand, blue = right hand.
-    SpriteCollab Shadow.png:
-      white = shadow center (intended ground contact under the sprite).
+    Sheet layout (vertical strip, Gen1Recomp SpriteRenderer contract):
+      frames 0..2   STAND down / up / left
+      frames 3..5   WALK  down / up / left  (first visually distinct col)
+      frames 6..    IDLE blocks: down, up, left, right  (idleFrameCount each)
+      then          WALK cycles: down, up, left, right  (walkFrameCount each)
 
-    Gen1Recomp SpriteRenderer maps world stand point through anchorX/anchorY.
-    Using canvas_h as anchorY was wrong: frames carry large transparent padding
-    below the contact row, so the art floated ~1 tile high. We anchor on the
-    Shadow white (or alpha feet) contact row, and place every frame so that
-    contact shares the same canvas Y/X (no animation jitter).
+    Walk cycles preserve SpriteCollab's full animation + durations. Runtime
+    PmdWalk selects them via frameOverride while moving. Idle stays at base 6.
+
+    Cardinal rows (SpriteBot Constants.DIRECTIONS):
+      Down=0, Right=2, Up=4, Left=6 — real right row is packed (no left mirror).
+
+    Anchors: Shadow.png white (else alpha feet); every frame shares ground_y.
     """
     wfw = int(walk_meta["frameWidth"])
     wfh = int(walk_meta["frameHeight"])
     walk_n = len(walk_meta.get("durations") or []) or max(1, walk_sheet.width // max(wfw, 1))
+    walk_durations = list(walk_meta.get("durations") or [4] * walk_n)
 
     idle_n = 0
     ifw = wfw
@@ -319,17 +353,23 @@ def build_combined_sheet(
         ifh = int(idle_meta["frameHeight"])
         idle_n = len(idle_meta.get("durations") or []) or max(1, idle_sheet.width // max(ifw, 1))
 
-    mid = walk_mid_col(walk_n)
-    # (frame_index, tile, body_x|None, contact_x, contact_y)
     tiles: list[tuple[int, Image.Image, float | None, float, float]] = []
 
     stand_down = extract_frame(walk_sheet, wfw, wfh, 0, DIR_ROWS["down"])
     _cx0, _cy0, anchor_source = frame_contact(
         stand_down, shadow, wfw, wfh, 0, DIR_ROWS["down"])
 
+    distinct_by_dir: dict[str, int] = {}
+    walk_pick_by_dir: dict[str, int] = {}
+    for dname in ("down", "up", "left", "right"):
+        row = DIR_ROWS[dname]
+        distinct_by_dir[dname] = count_distinct_cols(walk_sheet, wfw, wfh, row, walk_n)
+        walk_pick_by_dir[dname] = pick_distinct_walk_col(walk_sheet, wfw, wfh, row, walk_n)
+
     for i, dname in enumerate(WALKER_DIRS):
         row = DIR_ROWS[dname]
-        for phase, col, frame_i in ((0, 0, i), (1, mid, i + 3)):
+        walk_col = walk_pick_by_dir[dname]
+        for col, frame_i in ((0, i), (walk_col, i + 3)):
             tile = extract_frame(walk_sheet, wfw, wfh, col, row)
             bx = None
             if offsets is not None:
@@ -338,17 +378,27 @@ def build_combined_sheet(
             tiles.append((frame_i, tile, bx, cx, cy))
 
     idle_durations: list[int] = []
+    idle_base = 6
     if idle_n > 0 and idle_sheet is not None and idle_meta:
         idle_durations = list(idle_meta.get("durations") or [4] * idle_n)
-        base = 6
         for di, dname in enumerate(IDLE_DIRS):
             row = DIR_ROWS[dname]
             for fi in range(idle_n):
                 tile = extract_frame(idle_sheet, ifw, ifh, fi, row)
                 cx, cy, _ = frame_contact(tile, idle_shadow, ifw, ifh, fi, row)
-                tiles.append((base + di * idle_n + fi, tile, None, cx, cy))
+                tiles.append((idle_base + di * idle_n + fi, tile, None, cx, cy))
 
-    # Canvas: room above/below the shared contact row for all frames.
+    walk_cycle_base = idle_base + (idle_n * len(IDLE_DIRS) if idle_n > 0 else 0)
+    for di, dname in enumerate(IDLE_DIRS):
+        row = DIR_ROWS[dname]
+        for col in range(walk_n):
+            tile = extract_frame(walk_sheet, wfw, wfh, col, row)
+            bx = None
+            if offsets is not None:
+                bx, _ = offset_body_center(offsets, wfw, wfh, col, row)
+            cx, cy, _ = frame_contact(tile, shadow, wfw, wfh, col, row)
+            tiles.append((walk_cycle_base + di * walk_n + col, tile, bx, cx, cy))
+
     max_above = 0.0
     max_below = 2.0
     max_half_w = 0
@@ -375,8 +425,7 @@ def build_combined_sheet(
     if canvas_w < 1:
         canvas_w = max(wfw, ifw)
 
-    total_frames = 6 + (idle_n * len(IDLE_DIRS) if idle_n > 0 else 0)
-    # Gen1Recomp walker sheets are vertical strips (see docs/ARCHITECTURE.md).
+    total_frames = walk_cycle_base + walk_n * len(IDLE_DIRS)
     out = Image.new("RGBA", (canvas_w, canvas_h * total_frames), (0, 0, 0, 0))
 
     for frame_i, tile, bx, cx, cy in tiles:
@@ -384,7 +433,6 @@ def build_combined_sheet(
         paste_at_contact(cell, tile, ground_y, cx, cy, body_x=bx)
         out.paste(cell, (0, frame_i * canvas_h))
 
-    # World anchor = shared contact in canvas space (body/contact → mid X).
     anchor_x = canvas_w / 2.0
     anchor_y = ground_y
 
@@ -396,6 +444,13 @@ def build_combined_sheet(
         "idleFrameCount": idle_n,
         "idleDurations": idle_durations,
         "idleDirections": list(IDLE_DIRS),
+        "idleBase": idle_base,
+        "walkFrameCount": walk_n,
+        "walkDurations": walk_durations,
+        "walkCycleBase": walk_cycle_base,
+        "walkDirections": list(IDLE_DIRS),
+        "walkPickByDir": dict(walk_pick_by_dir),
+        "distinctByDir": dict(distinct_by_dir),
         "anchorX": round(anchor_x, 2),
         "anchorY": round(anchor_y, 2),
         "sourceWalkFrameWidth": wfw,
@@ -403,11 +458,10 @@ def build_combined_sheet(
         "sourceIdleFrameWidth": ifw if idle_n else None,
         "sourceIdleFrameHeight": ifh if idle_n else None,
         "sourceGroundY": round(float(_cy0), 2),
-        "walkFrameCount": walk_n,
-        "walkMidColumn": mid,
         "anchorSource": anchor_source,
     }
     return out, meta
+
 
 
 def read_credits_authors(credits_path: Path, wanted: set[str]) -> list[str]:
@@ -473,12 +527,16 @@ def write_sprite_table(path: Path, species: dict[int, dict], source_sha: str | N
             if not v:
                 continue
             durs = ",".join(str(int(x)) for x in (v.get("idleDurations") or []))
+            wdurs = ",".join(str(int(x)) for x in (v.get("walkDurations") or []))
             lines.append(
                 f'    {variant}={{rel="{lua_escape(v["rel"])}",'
                 f'frameWidth={v["frameWidth"]},frameHeight={v["frameHeight"]},'
                 f'frames={v["frames"]},walkerFrames=6,'
                 f'idleFrameCount={v["idleFrameCount"]},'
                 f'idleDurations={{{durs}}},'
+                f'walkFrameCount={v.get("walkFrameCount") or 0},'
+                f'walkDurations={{{wdurs}}},'
+                f'walkCycleBase={v.get("walkCycleBase") or 0},'
                 f'anchorX={v["anchorX"]},anchorY={v["anchorY"]},'
                 f'sourcePath="{lua_escape(v.get("sourcePath") or "")}"}},'
             )

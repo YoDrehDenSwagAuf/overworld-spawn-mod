@@ -354,6 +354,37 @@ eq(pmd.def.trueColor, true, "pmd trueColor")
 eq(pmd.def.forceRawTrueColor, true, "pmd forceRawTrueColor")
 eq(pmd.def.disableVerticalStepFlip, true, "pmd disableVerticalStepFlip")
 eq(pmd.meta.keepNativeGeometry, true, "pmd keepNativeGeometry")
+check((tonumber(pmd.def.walkFrameCount) or 0) >= 2, "pmd walkFrameCount >= 2")
+check(tonumber(pmd.def.walkCycleBase) ~= nil, "pmd walkCycleBase set")
+check(type(pmd.def.walkDurations) == "table", "pmd walkDurations table")
+
+-- Totodile: previously mid-col identical; must expose multi-frame walk cycle
+local toto = providers:resolve("pmdcollab", "TOTODILE", "normal", nil)
+  or providers:resolve("pmdcollab", 158, "normal", nil)
+check(toto and toto.def, "resolve totodile")
+if toto and toto.def then
+  check((tonumber(toto.def.walkFrameCount) or 0) >= 2, "totodile walkFrameCount")
+  check((tonumber(toto.def.walkCycleBase) or 0) >= 6, "totodile walkCycleBase after idle")
+end
+
+local PmdWalk = V.require("pmd_walk")
+local walkEnt = {
+  facing = "down",
+  moving = true,
+  _pmdWalkMeta = {
+    walkFrameCount = 4,
+    walkDurations = { 8, 10, 8, 10 },
+    walkCycleBase = 34,
+  },
+  _pmdWalk = { frame = 1, frameElapsed = 0, facing = "down" },
+}
+eq(PmdWalk.frameOverride(walkEnt), 35, "walk override moving frame")
+walkEnt.moving = false
+eq(PmdWalk.frameOverride(walkEnt), 34, "walk override stand frame 0")
+walkEnt.facing = "right"
+eq(PmdWalk.frameOverride(walkEnt), 34 + 3 * 4, "real right stand base")
+walkEnt._pmdIdle = { playing = true }
+eq(PmdWalk.frameOverride(walkEnt), nil, "idle playing wins over walk")
 
 local Pres = V.require("sprite_presentation")
 eq(Pres.effectiveStepFlip({ disableVerticalStepFlip = true }, true), false,
@@ -379,6 +410,39 @@ do
   eq(drew[2].stepFlip, false, "up walk stepFlip suppressed")
   eq(drew[3].facing, "right", "right facing still drawn")
   eq(drew[3].stepFlip, false, "right path also gets sf=false (mirror via facing)")
+end
+
+-- resolveImage bypass for forceRawTrueColor (Voxel / DS path)
+do
+  local baked = false
+  local sprite = {
+    def = { forceRawTrueColor = true },
+    image = { id = "raw" },
+    resolveImage = function(self)
+      baked = true
+      return { id = "obp" }
+    end,
+    draw = function() end,
+  }
+  check(Pres.attach(sprite) == true, "attach for resolveImage")
+  local img = sprite:resolveImage()
+  eq(baked, false, "resolveImage does not call engine bake")
+  eq(img.id, "raw", "resolveImage returns authored image")
+end
+
+-- Full audit of imported sheets (requires SpriteCollab checkout when present)
+do
+  local src = "/tmp/SpriteCollab"
+  local f = io.open(src .. "/sprite/0001/Walk-Anim.png", "rb")
+  if f then
+    f:close()
+    local rc = os.execute(
+      "python3 scripts/audit_pmdcollab_walk.py " .. src .. " >/tmp/pmd_audit_test.txt 2>&1"
+    )
+    check(rc == true or rc == 0, "audit_pmdcollab_walk exits 0 for 1-251")
+  else
+    print("skip full audit (no SpriteCollab at /tmp/SpriteCollab)")
+  end
 end
 
 -- followers_ex also disables vertical stepFlip (Squirtle jump fix)

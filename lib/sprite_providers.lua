@@ -140,6 +140,9 @@ local function copyDef(def, spriteId, mod)
   if def.forceRawTrueColor then out.forceRawTrueColor = true end
   if def.idleFrameCount ~= nil then out.idleFrameCount = def.idleFrameCount end
   if def.idleDurations ~= nil then out.idleDurations = def.idleDurations end
+  if def.walkFrameCount ~= nil then out.walkFrameCount = def.walkFrameCount end
+  if def.walkDurations ~= nil then out.walkDurations = def.walkDurations end
+  if def.walkCycleBase ~= nil then out.walkCycleBase = def.walkCycleBase end
   return out
 end
 
@@ -504,6 +507,7 @@ function SpriteProviders:_makePmdCollabProvider()
         if ok and via then loadPath = via end
       end
       local idleCount = tonumber(entry.idleFrameCount) or 0
+      local walkCount = tonumber(entry.walkFrameCount) or 0
       local frames = tonumber(entry.frames) or 6
       local def = {
         image = loadPath,
@@ -513,16 +517,19 @@ function SpriteProviders:_makePmdCollabProvider()
         -- Gen1 PaletteFX.honorsTrueColor() is ADVANCED-only; force raw RGBA
         -- draw so SGB/OG modes do not DMG-shade-remap authored PMD colors.
         forceRawTrueColor = true,
-        -- One walk pose per facing; vertical stepFlip would mirror asymmetries.
+        -- Dedicated walk/right frames via PmdWalk; vertical stepFlip unused.
         disableVerticalStepFlip = true,
         id = "SPRITE_OW_WILD_PMD_" .. tostring(dex),
         frameWidth = tonumber(entry.frameWidth),
         frameHeight = tonumber(entry.frameHeight),
         anchorX = tonumber(entry.anchorX),
         anchorY = tonumber(entry.anchorY),
-        -- Presentation metadata for PmdIdle (not read by SpriteRenderer).
+        -- Presentation metadata for PmdIdle / PmdWalk (not SpriteRenderer).
         idleFrameCount = idleCount,
         idleDurations = entry.idleDurations,
+        walkFrameCount = walkCount,
+        walkDurations = entry.walkDurations,
+        walkCycleBase = tonumber(entry.walkCycleBase),
       }
       local meta = {
         providerId = SpriteProviders.ID.PMDCOLLAB,
@@ -534,6 +541,9 @@ function SpriteProviders:_makePmdCollabProvider()
         bodyRenderer = "NATIVE_SPRITE_RENDERER",
         idleFrameCount = idleCount,
         idleDurations = entry.idleDurations,
+        walkFrameCount = walkCount,
+        walkDurations = entry.walkDurations,
+        walkCycleBase = def.walkCycleBase,
         variableSize = true,
         frameWidth = def.frameWidth,
         frameHeight = def.frameHeight,

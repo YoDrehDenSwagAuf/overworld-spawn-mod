@@ -111,6 +111,24 @@ local plain = {
 }
 eq(Pres.attach(plain), false, "no wrap without flags")
 
+print("== resolveImage raw bypass ==")
+do
+  local called = false
+  local sprite = {
+    def = { forceRawTrueColor = true, disableVerticalStepFlip = true },
+    image = { tag = "rgba" },
+    resolveImage = function()
+      called = true
+      return { tag = "dmg" }
+    end,
+    draw = function() end,
+  }
+  check(Pres.attach(sprite) == true, "attach resolve wrap")
+  local img = sprite:resolveImage()
+  eq(called, false, "engine resolveImage not invoked")
+  eq(img.tag, "rgba", "returns sprite.image")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

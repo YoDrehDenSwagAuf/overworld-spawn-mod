@@ -2285,6 +2285,29 @@ function SpawnRender:applyProviderSprite(entity, game, options)
     if self.spriteResolver then
       self.spriteResolver:applyEntityMeta(entity, result)
     end
+    -- Re-assert presentation wraps even on fingerprint hit (resolveImage /
+    -- draw adapters must stay attached after sprite reuse).
+    if entity.sprite then
+      local okP, SpritePresentation = pcall(function() return V.require("sprite_presentation") end)
+      if okP and SpritePresentation and SpritePresentation.attach then
+        pcall(SpritePresentation.attach, entity.sprite, entity)
+      end
+      if result.providerId == "pmdcollab" then
+        entity._pmdWalkMeta = {
+          walkFrameCount = result.def.walkFrameCount or (result.meta and result.meta.walkFrameCount),
+          walkDurations = result.def.walkDurations or (result.meta and result.meta.walkDurations),
+          walkCycleBase = result.def.walkCycleBase or (result.meta and result.meta.walkCycleBase),
+        }
+        entity._pmdIdleMeta = {
+          idleFrameCount = result.def.idleFrameCount or (result.meta and result.meta.idleFrameCount),
+          idleDurations = result.def.idleDurations or (result.meta and result.meta.idleDurations),
+        }
+        local okIdle, PmdIdle = pcall(function() return V.require("pmd_idle") end)
+        if okIdle and PmdIdle then
+          PmdIdle.attachDrawWrap(entity.sprite, entity)
+        end
+      end
+    end
     return true
   end
 
@@ -2449,6 +2472,11 @@ function SpawnRender:applyProviderSprite(entity, game, options)
       idleFrameCount = def.idleFrameCount or (result.meta and result.meta.idleFrameCount),
       idleDurations = def.idleDurations or (result.meta and result.meta.idleDurations),
     }
+    entity._pmdWalkMeta = {
+      walkFrameCount = def.walkFrameCount or (result.meta and result.meta.walkFrameCount),
+      walkDurations = def.walkDurations or (result.meta and result.meta.walkDurations),
+      walkCycleBase = def.walkCycleBase or (result.meta and result.meta.walkCycleBase),
+    }
     local okIdle, PmdIdle = pcall(function() return V.require("pmd_idle") end)
     if okIdle and PmdIdle then
       PmdIdle.attachDrawWrap(sprite, entity)
@@ -2457,6 +2485,8 @@ function SpawnRender:applyProviderSprite(entity, game, options)
   else
     entity._pmdIdleMeta = nil
     entity._pmdIdle = nil
+    entity._pmdWalkMeta = nil
+    entity._pmdWalk = nil
   end
   -- Native walker sheets are driven solely by SpriteRenderer + Movement.walkPhase.
   -- Never mark them as the deprecated enhanced-atlas body path.
@@ -2752,11 +2782,19 @@ function SpawnRender:syncEntityAnimation(entity, dt)
     end
   end
 
-  -- PMDCollab occasional Idle (presentation only).
-  if entity.spriteProviderId == "pmdcollab" and entity._pmdIdleMeta then
-    local okIdle, PmdIdle = pcall(function() return V.require("pmd_idle") end)
-    if okIdle and PmdIdle and PmdIdle.update then
-      pcall(PmdIdle.update, entity, dt or 0)
+  -- PMDCollab Idle + Walk cycles (presentation only).
+  if entity.spriteProviderId == "pmdcollab" then
+    if entity._pmdWalkMeta then
+      local okWalk, PmdWalk = pcall(function() return V.require("pmd_walk") end)
+      if okWalk and PmdWalk and PmdWalk.update then
+        pcall(PmdWalk.update, entity, dt or 0)
+      end
+    end
+    if entity._pmdIdleMeta then
+      local okIdle, PmdIdle = pcall(function() return V.require("pmd_idle") end)
+      if okIdle and PmdIdle and PmdIdle.update then
+        pcall(PmdIdle.update, entity, dt or 0)
+      end
     end
   end
 

@@ -326,6 +326,9 @@ function AmbientPokemon:_resolveSprite(species, game)
         anchorY = result.def.anchorY,
         idleFrameCount = result.def.idleFrameCount,
         idleDurations = result.def.idleDurations,
+        walkFrameCount = result.def.walkFrameCount,
+        walkDurations = result.def.walkDurations,
+        walkCycleBase = result.def.walkCycleBase,
         disableVerticalStepFlip = result.def.disableVerticalStepFlip,
         forceRawTrueColor = result.def.forceRawTrueColor,
         providerId = result.providerId,
@@ -407,6 +410,9 @@ function AmbientPokemon:_bindSprite(npc, species, game)
     anchorY = def.anchorY,
     idleFrameCount = def.idleFrameCount,
     idleDurations = def.idleDurations,
+    walkFrameCount = def.walkFrameCount,
+    walkDurations = def.walkDurations,
+    walkCycleBase = def.walkCycleBase,
     disableVerticalStepFlip = def.disableVerticalStepFlip,
     forceRawTrueColor = def.forceRawTrueColor,
   }, npc.id)
@@ -419,6 +425,11 @@ function AmbientPokemon:_bindSprite(npc, species, game)
       npc._pmdIdleMeta = {
         idleFrameCount = def.idleFrameCount,
         idleDurations = def.idleDurations,
+      }
+      npc._pmdWalkMeta = {
+        walkFrameCount = def.walkFrameCount,
+        walkDurations = def.walkDurations,
+        walkCycleBase = def.walkCycleBase,
       }
       local okP, SpritePresentation = pcall(function() return V.require("sprite_presentation") end)
       if okP and SpritePresentation and SpritePresentation.attach then
@@ -433,6 +444,8 @@ function AmbientPokemon:_bindSprite(npc, species, game)
       npc.spriteProviderId = def.providerId
       npc._pmdIdleMeta = nil
       npc._pmdIdle = nil
+      npc._pmdWalkMeta = nil
+      npc._pmdWalk = nil
       local okP, SpritePresentation = pcall(function() return V.require("sprite_presentation") end)
       if okP and SpritePresentation and SpritePresentation.attach then
         pcall(SpritePresentation.attach, sprite, npc)
@@ -443,14 +456,20 @@ function AmbientPokemon:_bindSprite(npc, species, game)
   return false
 end
 
---- Presentation-only PMDCollab idle tick for town Pokémon.
+--- Presentation-only PMDCollab idle/walk tick for town Pokémon.
 function AmbientPokemon:tickPresentation(dt)
   dt = tonumber(dt) or (1 / 60)
+  local okWalk, PmdWalk = pcall(function() return V.require("pmd_walk") end)
   local ok, PmdIdle = pcall(function() return V.require("pmd_idle") end)
-  if not (ok and PmdIdle and PmdIdle.update) then return end
+  if not ((okWalk and PmdWalk) or (ok and PmdIdle)) then return end
   for npc in pairs(self.active) do
-    if npc and npc._pmdIdleMeta then
-      pcall(PmdIdle.update, npc, dt)
+    if npc and npc.spriteProviderId == "pmdcollab" then
+      if okWalk and PmdWalk and PmdWalk.update and npc._pmdWalkMeta then
+        pcall(PmdWalk.update, npc, dt)
+      end
+      if ok and PmdIdle and PmdIdle.update and npc._pmdIdleMeta then
+        pcall(PmdIdle.update, npc, dt)
+      end
     end
   end
 end

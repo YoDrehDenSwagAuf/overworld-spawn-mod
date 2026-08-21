@@ -3,13 +3,14 @@
 -- 1) disableVerticalStepFlip — Gen1Recomp mirrors the entire up/down walk
 --    frame when walkPhase==1 and stepFlip. That approximates a second gait
 --    pose for symmetrical humans but makes asymmetric Pokémon (Squirtle)
---    jump left/right. RIGHT facing still uses horizontal mirror.
+--    jump left/right. RIGHT facing still uses horizontal mirror when no
+--    dedicated right frames are selected via frameOverride.
 --
 -- 2) forceRawTrueColor — Gen1 PaletteFX.honorsTrueColor() is only true in
 --    ADVANCED (redpp). PMDCollab PNGs are already authored RGBA; feeding them
---    through dmgObj / SGB shade remap destroys their colors. This wrap draws
---    the raw image + markTrueColor for the frame rect without changing global
---    PaletteFX behavior for vanilla sprites.
+--    through dmgObj / SGB shade remap destroys their colors.
+--    Flat: draw raw image + markTrueColor (and clear active palette shader).
+--    Voxel/DS: wrap resolveImage so billboards never getObpImage the sheet.
 local V = ...
 
 local SpritePresentation = {}
@@ -68,7 +69,6 @@ local function blitRaw(sprite, px, py, camX, camY, facing, walkPhase, stepFlip, 
   local x, y = sprite:getScreenOrigin(px, py, camX, camY)
   local drawH = fh
   if topHalf and (tonumber(sprite.frameCount) or 1) > 1 then
-    -- Match SpriteRenderer topHalf: clip bottom ~8px of the frame.
     local topHeight = math.max(1, fh - math.min(8, fh))
     sprite.halfFrames = sprite.halfFrames or {}
     if not sprite.halfFrames[frame] then
@@ -80,6 +80,14 @@ local function blitRaw(sprite, px, py, camX, camY, facing, walkPhase, stepFlip, 
     drawH = topHeight
   end
 
+  local prevShader = nil
+  if love.graphics.getShader then
+    prevShader = love.graphics.getShader()
+  end
+  if love.graphics.setShader then
+    love.graphics.setShader()
+  end
+
   love.graphics.setColor(1, 1, 1, 1)
   if flip then
     love.graphics.draw(image, quad, x + fw, y, 0, -1, 1)
@@ -87,9 +95,34 @@ local function blitRaw(sprite, px, py, camX, camY, facing, walkPhase, stepFlip, 
     love.graphics.draw(image, quad, x, y, 0, 1, 1)
   end
 
+  if love.graphics.setShader and prevShader then
+    love.graphics.setShader(prevShader)
+  end
+
   local PaletteFX = tryRequire("src.render.PaletteFX")
   if PaletteFX and type(PaletteFX.markTrueColor) == "function" then
     pcall(PaletteFX.markTrueColor, x, y, fw, drawH)
+  end
+  return true
+end
+
+local function wrapResolveImage(sprite)
+  if type(sprite.resolveImage) ~= "function" then
+    return false
+  end
+  if sprite._wildsPresResolveWrapped then
+    return true
+  end
+  local orig = sprite.resolveImage
+  sprite._wildsPresResolveOrig = orig
+  sprite._wildsPresResolveWrapped = true
+  function sprite:resolveImage(...)
+    if wantsRawTrueColor(self) and self.image then
+      -- Voxel / Dramatic Shape textures come from resolveImage. Never bake
+      -- authored RGBA through getObpImage / dmgObj for PMDCollab.
+      return self.image
+    end
+    return orig(self, ...)
   end
   return true
 end
@@ -107,6 +140,9 @@ function SpritePresentation.attach(sprite, entity)
   if not needFlip and not needRaw then
     return false
   end
+  if needRaw then
+    wrapResolveImage(sprite)
+  end
   if sprite._wildsPresWrapped then
     return true
   end
@@ -118,7 +154,6 @@ function SpritePresentation.attach(sprite, entity)
     if wantsNoVerticalFlip(self) then
       sf = false
     end
-    -- Idle may already have set frameOverride via an inner wrap; honor it.
     if wantsRawTrueColor(self) then
       if blitRaw(self, px, py, camX, camY, facing, walkPhase, sf, topHalf, forceFlip, frameOverride) then
         return
